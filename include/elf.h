@@ -75,7 +75,8 @@ typedef int64_t  Elf64_Sxword;
 #define EM_486   6   /* Perhaps disused */
 #define EM_860   7
 
-#define EM_MIPS		8	/* MIPS R3000 (officially, big-endian only) */
+/* TODO: fix this when creating actual riscv directory */
+#define EM_MIPS		243	/* MIPS R3000 (officially, big-endian only) */
 
 #define EM_MIPS_RS4_BE 10	/* MIPS R4000 big-endian */
 

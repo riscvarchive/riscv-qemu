@@ -397,7 +397,7 @@ QEMU_CFLAGS="-Wstrict-prototypes -Wredundant-decls $QEMU_CFLAGS"
 QEMU_CFLAGS="-D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE $QEMU_CFLAGS"
 QEMU_INCLUDES="-I. -I\$(SRC_PATH) -I\$(SRC_PATH)/include"
 if test "$debug_info" = "yes"; then
-    CFLAGS="-g $CFLAGS"
+    CFLAGS="-g3 $CFLAGS"
     LDFLAGS="-g $LDFLAGS"
 fi
 
@@ -4797,8 +4797,9 @@ config_target_mak=$target_dir/config-target.mak
 target_name=`echo $target | cut -d '-' -f 1`
 target_bigendian="no"
 
+# treat our mips (really riscv) as little endian by removing from this list
 case "$target_name" in
-  armeb|lm32|m68k|microblaze|mips|mipsn32|mips64|moxie|or32|ppc|ppcemb|ppc64|ppc64abi32|s390x|sh4eb|sparc|sparc64|sparc32plus|xtensaeb)
+  armeb|lm32|m68k|microblaze|moxie|or32|ppc|ppcemb|ppc64|ppc64abi32|s390x|sh4eb|sparc|sparc64|sparc32plus|xtensaeb)
   target_bigendian=yes
   ;;
 esac

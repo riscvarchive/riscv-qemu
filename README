@@ -1,3 +1,15 @@
 Read the documentation in qemu-doc.html or on http://wiki.qemu-project.org
 
 - QEMU team
+
+--------------------------------------------------------------------------
+
+riscv is being implemented under target-mips
+
+do:
+./configure --target-list=mips64-linux-user --enable-debug
+make
+
+output in:
+mips64-linux-user/qemu-mips64
+
