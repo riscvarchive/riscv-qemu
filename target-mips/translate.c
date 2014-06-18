@@ -33,10 +33,15 @@
 //#define MIPS_DEBUG_SIGN_EXTENSIONS
 
 /* MIPS major opcodes */
-#define MASK_OP_MAJOR(op)  (op & (0x3F << 26))
+#define MASK_OP_MAJOR(op)  (op & 0x7F)
 
 enum {
     /* indirect opcode tables */
+    OPC_RISC_SYSTEM = (0x73),
+    OPC_RISC_ADDI   = (0x13),
+    OPC_RISC_BNEZ   = (0x63),
+    OPC_RISC_ADD   = (0x33),
+
     OPC_SPECIAL  = (0x00 << 26),
     OPC_REGIMM   = (0x01 << 26),
     OPC_CP0      = (0x10 << 26),
@@ -14430,6 +14435,19 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
     sa = (ctx->opcode >> 6) & 0x1f;
     imm = (int16_t)ctx->opcode;
     switch (op) {
+    case OPC_RISC_SYSTEM:
+        printf("SYSTEM\n");
+        break;
+    case OPC_RISC_BNEZ:
+        printf("BRANCH\n");
+        break;
+    case OPC_RISC_ADDI:
+        printf("ADDI\n");
+        break;
+    case OPC_RISC_ADD:
+        printf("ADD\n");
+        break;
+
     case OPC_SPECIAL:
         op1 = MASK_SPECIAL(ctx->opcode);
         switch (op1) {
