@@ -1950,7 +1950,7 @@ static void gen_arith_imm(DisasContext *ctx, uint32_t opc,
         return;
     }
     switch (opc) {
-    case OPC_ADDI:
+    case OPC_RISC_ADDI:
         {
             TCGv t0 = tcg_temp_local_new();
             TCGv t1 = tcg_temp_new();
@@ -2209,7 +2209,7 @@ static void gen_arith(DisasContext *ctx, uint32_t opc,
     }
 
     switch (opc) {
-    case OPC_ADD:
+    case OPC_RISC_ADD:
         {
             TCGv t0 = tcg_temp_local_new();
             TCGv t1 = tcg_temp_new();
@@ -14429,11 +14429,11 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
     }
 
     op = MASK_OP_MAJOR(ctx->opcode);
-    rs = (ctx->opcode >> 21) & 0x1f;
-    rt = (ctx->opcode >> 16) & 0x1f;
-    rd = (ctx->opcode >> 11) & 0x1f;
+    rs = (ctx->opcode >> 15) & 0x1f;
+    rt = (ctx->opcode >> 20) & 0x1f;
+    rd = (ctx->opcode >> 7) & 0x1f;
     sa = (ctx->opcode >> 6) & 0x1f;
-    imm = (int16_t)ctx->opcode;
+    imm = (int16_t)((ctx->opcode >> 20) & 0xFFF);
     switch (op) {
     case OPC_RISC_SYSTEM:
         printf("SYSTEM\n");
@@ -14446,6 +14446,7 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
         break;
     case OPC_RISC_ADD:
         printf("ADD\n");
+        gen_arith(ctx, op, rd, rs, rt);
         break;
 
     case OPC_SPECIAL:
