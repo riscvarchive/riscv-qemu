@@ -661,81 +661,13 @@ static inline void gen_movcf_ps(DisasContext *ctx, int fs, int fd,
 
 
 
-static void handle_delay_slot(DisasContext *ctx, int insn_bytes)
-{
-    if (ctx->hflags & MIPS_HFLAG_BMASK) {
-        int proc_hflags = ctx->hflags & MIPS_HFLAG_BMASK;
-        /* Branches completion */
-        ctx->hflags &= ~MIPS_HFLAG_BMASK;
-        ctx->bstate = BS_BRANCH;
-        save_cpu_state(ctx, 0);
-        /* FIXME: Need to clear can_do_io.  */
-        switch (proc_hflags & MIPS_HFLAG_BMASK_BASE) {
-        case MIPS_HFLAG_B:
-            /* unconditional branch */
-            MIPS_DEBUG("unconditional branch");
-            if (proc_hflags & MIPS_HFLAG_BX) {
-                tcg_gen_xori_i32(hflags, hflags, MIPS_HFLAG_M16);
-            }
-            gen_goto_tb(ctx, 0, ctx->btarget);
-            break;
-        case MIPS_HFLAG_BL:
-            /* blikely taken case */
-            MIPS_DEBUG("blikely branch taken");
-            gen_goto_tb(ctx, 0, ctx->btarget);
-            break;
-        case MIPS_HFLAG_BC:
-            /* Conditional branch */
-            MIPS_DEBUG("conditional branch");
-            {
-                int l1 = gen_new_label();
-
-                tcg_gen_brcondi_tl(TCG_COND_NE, bcond, 0, l1);
-                gen_goto_tb(ctx, 1, ctx->pc + insn_bytes);
-                gen_set_label(l1);
-                gen_goto_tb(ctx, 0, ctx->btarget);
-            }
-            break;
-        case MIPS_HFLAG_BR:
-            /* unconditional branch to register */
-            MIPS_DEBUG("branch to register");
-            if (ctx->insn_flags & (ASE_MIPS16 | ASE_MICROMIPS)) {
-                TCGv t0 = tcg_temp_new();
-                TCGv_i32 t1 = tcg_temp_new_i32();
-
-                tcg_gen_andi_tl(t0, btarget, 0x1);
-                tcg_gen_trunc_tl_i32(t1, t0);
-                tcg_temp_free(t0);
-                tcg_gen_andi_i32(hflags, hflags, ~(uint32_t)MIPS_HFLAG_M16);
-                tcg_gen_shli_i32(t1, t1, MIPS_HFLAG_M16_SHIFT);
-                tcg_gen_or_i32(hflags, hflags, t1);
-                tcg_temp_free_i32(t1);
-
-                tcg_gen_andi_tl(cpu_PC, btarget, ~(target_ulong)0x1);
-            } else {
-                tcg_gen_mov_tl(cpu_PC, btarget);
-            }
-            if (ctx->singlestep_enabled) {
-                save_cpu_state(ctx, 0);
-                gen_helper_0e0i(raise_exception, EXCP_DEBUG);
-            }
-            tcg_gen_exit_tb(0);
-            break;
-        default:
-            MIPS_DEBUG("unknown branch");
-            break;
-        }
-    }
-}
-
-
 // SAGARSAYS: this is the fn called to decode each inst
 
 static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
 {
     //int32_t offset;
-    int rs;
-    int rt;
+    //int rs;
+    //int rt;
     int rd;
     uint32_t op;// op1, op2;
     //int16_t imm;
@@ -763,8 +695,8 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
     }
 
     op = MASK_OP_MAJOR(ctx->opcode);
-    rs = (ctx->opcode >> 15) & 0x1f;
-    rt = (ctx->opcode >> 20) & 0x1f;
+    //rs = (ctx->opcode >> 15) & 0x1f;
+    //rt = (ctx->opcode >> 20) & 0x1f;
     rd = (ctx->opcode >> 7) & 0x1f;
     //sa = (ctx->opcode >> 6) & 0x1f;
     //imm = (int16_t)((ctx->opcode >> 20) & 0xFFF);
@@ -781,7 +713,7 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
         // handle AUIPC
         tcg_gen_movi_tl(cpu_gpr[rd], (ctx->opcode & 0xFFFFF000));
         tcg_gen_ext32s_tl(cpu_gpr[rd], cpu_gpr[rd]);
-        tcg_gen_add_tl(cpu_gpr[rd], cpu_gpr[rd], ctx->pc); // TODO: CHECK THIS
+        tcg_gen_add_tl(cpu_gpr[rd], cpu_gpr[rd], tcg_const_tl(ctx->pc)); // TODO: CHECK THIS
         break;
 
     case OPC_RISC_JAL:
@@ -846,7 +778,6 @@ gen_intermediate_code_internal(MIPSCPU *cpu, TranslationBlock *tb,
     int num_insns;
     int max_insns;
     int insn_bytes;
-    int is_delay;
 
     if (search_pc)
         qemu_log("search pc %d\n", search_pc);
@@ -904,7 +835,6 @@ gen_intermediate_code_internal(MIPSCPU *cpu, TranslationBlock *tb,
         if (num_insns + 1 == max_insns && (tb->cflags & CF_LAST_IO))
             gen_io_start();
 
-        is_delay = ctx.hflags & MIPS_HFLAG_BMASK;
         if (!(ctx.hflags & MIPS_HFLAG_M16)) {
             ctx.opcode = cpu_ldl_code(env, ctx.pc);
             insn_bytes = 4;
@@ -913,9 +843,6 @@ gen_intermediate_code_internal(MIPSCPU *cpu, TranslationBlock *tb,
             generate_exception(&ctx, EXCP_RI);
             ctx.bstate = BS_STOP;
             break;
-        }
-        if (is_delay) {
-            handle_delay_slot(&ctx, insn_bytes);
         }
         ctx.pc += insn_bytes;
 
@@ -997,46 +924,6 @@ void gen_intermediate_code_pc (CPUMIPSState *env, struct TranslationBlock *tb)
     gen_intermediate_code_internal(mips_env_get_cpu(env), tb, true);
 }
 
-static void fpu_dump_state(CPUMIPSState *env, FILE *f, fprintf_function fpu_fprintf,
-                           int flags)
-{
-    int i;
-    int is_fpu64 = !!(env->hflags & MIPS_HFLAG_F64);
-
-#define printfpr(fp)                                                    \
-    do {                                                                \
-        if (is_fpu64)                                                   \
-            fpu_fprintf(f, "w:%08x d:%016" PRIx64                       \
-                        " fd:%13g fs:%13g psu: %13g\n",                 \
-                        (fp)->w[FP_ENDIAN_IDX], (fp)->d,                \
-                        (double)(fp)->fd,                               \
-                        (double)(fp)->fs[FP_ENDIAN_IDX],                \
-                        (double)(fp)->fs[!FP_ENDIAN_IDX]);              \
-        else {                                                          \
-            fpr_t tmp;                                                  \
-            tmp.w[FP_ENDIAN_IDX] = (fp)->w[FP_ENDIAN_IDX];              \
-            tmp.w[!FP_ENDIAN_IDX] = ((fp) + 1)->w[FP_ENDIAN_IDX];       \
-            fpu_fprintf(f, "w:%08x d:%016" PRIx64                       \
-                        " fd:%13g fs:%13g psu:%13g\n",                  \
-                        tmp.w[FP_ENDIAN_IDX], tmp.d,                    \
-                        (double)tmp.fd,                                 \
-                        (double)tmp.fs[FP_ENDIAN_IDX],                  \
-                        (double)tmp.fs[!FP_ENDIAN_IDX]);                \
-        }                                                               \
-    } while(0)
-
-
-    fpu_fprintf(f, "CP1 FCR0 0x%08x  FCR31 0x%08x  SR.FR %d  fp_status 0x%02x\n",
-                env->active_fpu.fcr0, env->active_fpu.fcr31, is_fpu64,
-                get_float_exception_flags(&env->active_fpu.fp_status));
-    for (i = 0; i < 32; (is_fpu64) ? i++ : (i += 2)) {
-        fpu_fprintf(f, "%3s: ", fregnames[i]);
-        printfpr(&env->active_fpu.fpr[i]);
-    }
-
-#undef printfpr
-}
-
 #if defined(TARGET_MIPS64) && defined(MIPS_DEBUG_SIGN_EXTENSIONS)
 /* Debug help: The architecture requires 32bit code to maintain proper
    sign-extended values on 64bit machines.  */
@@ -1095,8 +982,9 @@ void mips_cpu_dump_state(CPUState *cs, FILE *f, fprintf_function cpu_fprintf,
                 env->CP0_Status, env->CP0_Cause, env->CP0_EPC);
     cpu_fprintf(f, "    Config0 0x%08x Config1 0x%08x LLAddr 0x" TARGET_FMT_lx "\n",
                 env->CP0_Config0, env->CP0_Config1, env->lladdr);
-    if (env->hflags & MIPS_HFLAG_FPU)
-        fpu_dump_state(env, f, cpu_fprintf, flags);
+    if (env->hflags & MIPS_HFLAG_FPU) {
+        ;
+    }
 #if defined(TARGET_MIPS64) && defined(MIPS_DEBUG_SIGN_EXTENSIONS)
     cpu_mips_check_sign_extensions(env, f, cpu_fprintf, flags);
 #endif
