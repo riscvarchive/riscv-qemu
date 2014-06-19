@@ -9,7 +9,7 @@
 #define MIPS_TLB_MAX 128
 
 #if defined(TARGET_MIPS64)
-#define TARGET_LONG_BITS 64
+#define TARGET_LONG_BITS 64 // this defs TCGv as TCGv_i64 in tcg/tcg-op.h
 #define TARGET_PHYS_ADDR_SPACE_BITS 36
 #define TARGET_VIRT_ADDR_SPACE_BITS 42
 #else
