@@ -32,7 +32,7 @@
 #define MIPS_DEBUG_DISAS 0
 //#define MIPS_DEBUG_SIGN_EXTENSIONS
 
-/* MIPS major opcodes */
+/* RISC-V major opcodes */
 #define MASK_OP_MAJOR(op)  (op & 0x7F)
 
 enum {
@@ -1159,54 +1159,6 @@ static inline void gen_store_ACX (TCGv t, int reg)
     tcg_gen_mov_tl(cpu_ACX[reg], t);
 }
 
-/* Moves to/from shadow registers. */
-static inline void gen_load_srsgpr (int from, int to)
-{
-    TCGv t0 = tcg_temp_new();
-
-    if (from == 0)
-        tcg_gen_movi_tl(t0, 0);
-    else {
-        TCGv_i32 t2 = tcg_temp_new_i32();
-        TCGv_ptr addr = tcg_temp_new_ptr();
-
-        tcg_gen_ld_i32(t2, cpu_env, offsetof(CPUMIPSState, CP0_SRSCtl));
-        tcg_gen_shri_i32(t2, t2, CP0SRSCtl_PSS);
-        tcg_gen_andi_i32(t2, t2, 0xf);
-        tcg_gen_muli_i32(t2, t2, sizeof(target_ulong) * 32);
-        tcg_gen_ext_i32_ptr(addr, t2);
-        tcg_gen_add_ptr(addr, cpu_env, addr);
-
-        tcg_gen_ld_tl(t0, addr, sizeof(target_ulong) * from);
-        tcg_temp_free_ptr(addr);
-        tcg_temp_free_i32(t2);
-    }
-    gen_store_gpr(t0, to);
-    tcg_temp_free(t0);
-}
-
-static inline void gen_store_srsgpr (int from, int to)
-{
-    if (to != 0) {
-        TCGv t0 = tcg_temp_new();
-        TCGv_i32 t2 = tcg_temp_new_i32();
-        TCGv_ptr addr = tcg_temp_new_ptr();
-
-        gen_load_gpr(t0, from);
-        tcg_gen_ld_i32(t2, cpu_env, offsetof(CPUMIPSState, CP0_SRSCtl));
-        tcg_gen_shri_i32(t2, t2, CP0SRSCtl_PSS);
-        tcg_gen_andi_i32(t2, t2, 0xf);
-        tcg_gen_muli_i32(t2, t2, sizeof(target_ulong) * 32);
-        tcg_gen_ext_i32_ptr(addr, t2);
-        tcg_gen_add_ptr(addr, cpu_env, addr);
-
-        tcg_gen_st_tl(t0, addr, sizeof(target_ulong) * to);
-        tcg_temp_free_ptr(addr);
-        tcg_temp_free_i32(t2);
-        tcg_temp_free(t0);
-    }
-}
-
 /* Floating point register moves. */
 static void gen_load_fpr32(TCGv_i32 t, int reg)
 {
@@ -1959,6 +1911,8 @@ static void gen_arith_imm(DisasContext *ctx, uint32_t opc,
 
             gen_load_gpr(t1, rs);
             tcg_gen_addi_tl(t0, t1, uimm);
+
+            /* OVERFLOW EXCEPTION HANDLING */
             tcg_gen_ext32s_tl(t0, t0);
 
             tcg_gen_xori_tl(t1, t1, ~uimm);
@@ -11208,12 +11162,10 @@ static void gen_pool32axf (CPUMIPSState *env, DisasContext *ctx, int rt, int rs)
         case RDPGPR:
             check_cp0_enabled(ctx);
             check_insn(ctx, ISA_MIPS32R2);
-            gen_load_srsgpr(rt, rs);
             break;
         case WRPGPR:
             check_cp0_enabled(ctx);
             check_insn(ctx, ISA_MIPS32R2);
-            gen_store_srsgpr(rt, rs);
             break;
         default:
             goto pool32axf_invalid;
@@ -15390,11 +15342,9 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
             break;
         case OPC_RDPGPR:
             check_insn(ctx, ISA_MIPS32R2);
-            gen_load_srsgpr(rt, rd);
             break;
         case OPC_WRPGPR:
             check_insn(ctx, ISA_MIPS32R2);
-            gen_store_srsgpr(rt, rd);
             break;
         default:
             MIPS_INVAL("cp0");
