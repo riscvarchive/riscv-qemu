@@ -43,26 +43,31 @@ enum {
     OPC_RISC_BRANCH = (0x63),
     OPC_RISC_LOAD   = (0x03),
     OPC_RISC_STORE  = (0x23),
-    OPC_RISC_ARITH_IMM   = (0x13),
-    OPC_RISC_ARITH_NOIMM = (0x33),
-    OPC_RISC_FENCE       = (0x0F),
-    OPC_RISC_SYSTEM      = (0x73),
+    OPC_RISC_ARITH_IMM  = (0x13),
+    OPC_RISC_ARITH      = (0x33),
+    OPC_RISC_FENCE      = (0x0F),
+    OPC_RISC_SYSTEM     = (0x73),
 
     /* rv64i, rv64m */
     OPC_RISC_ARITH_IMM_W = (0x1B),
-    OPC_RISC_ARITH_NOIMM_W = (0x3B),
+    OPC_RISC_ARITH_W = (0x3B),
 
-    /* currently covers up to but not including atomics */
-
-    // TODO: REMOVE
-    OPC_RISC_ADDI   = (0x13),
-    OPC_RISC_BNEZ   = (0x63),
-    OPC_RISC_ADD   = (0x33),
+    /* currently covers up to, but not including atomics */
 };
 
-
-
-
+#define MASK_OP_ARITH(op)   (MASK_OP_MAJOR(op) | (op & ((0x7 << 12) | (0x7F << 25))))
+enum {
+    OPC_RISC_ADD   = OPC_RISC_ARITH | (0x0 << 12) | (0x00 << 25),
+    OPC_RISC_SUB   = OPC_RISC_ARITH | (0x0 << 12) | (0x20 << 25),
+    OPC_RISC_SLL   = OPC_RISC_ARITH | (0x1 << 12) | (0x00 << 25),
+    OPC_RISC_SLT   = OPC_RISC_ARITH | (0x2 << 12) | (0x00 << 25),
+    OPC_RISC_SLTU  = OPC_RISC_ARITH | (0x3 << 12) | (0x00 << 25),
+    OPC_RISC_XOR   = OPC_RISC_ARITH | (0x4 << 12) | (0x00 << 25),
+    OPC_RISC_SRL   = OPC_RISC_ARITH | (0x5 << 12) | (0x00 << 25),
+    OPC_RISC_SRA   = OPC_RISC_ARITH | (0x5 << 12) | (0x20 << 25),
+    OPC_RISC_OR    = OPC_RISC_ARITH | (0x6 << 12) | (0x00 << 25),
+    OPC_RISC_AND   = OPC_RISC_ARITH | (0x7 << 12) | (0x00 << 25)
+};
 
 
 /* global register indices */
@@ -212,67 +217,6 @@ static inline void gen_load_ACX (TCGv t, int reg)
 static inline void gen_store_ACX (TCGv t, int reg)
 {
     tcg_gen_mov_tl(cpu_ACX[reg], t);
-}
-
-/* Floating point register moves. */
-static void gen_load_fpr32(TCGv_i32 t, int reg)
-{
-    tcg_gen_trunc_i64_i32(t, fpu_f64[reg]);
-}
-
-static void gen_store_fpr32(TCGv_i32 t, int reg)
-{
-    TCGv_i64 t64 = tcg_temp_new_i64();
-    tcg_gen_extu_i32_i64(t64, t);
-    tcg_gen_deposit_i64(fpu_f64[reg], fpu_f64[reg], t64, 0, 32);
-    tcg_temp_free_i64(t64);
-}
-
-static void gen_load_fpr32h(DisasContext *ctx, TCGv_i32 t, int reg)
-{
-    if (ctx->hflags & MIPS_HFLAG_F64) {
-        TCGv_i64 t64 = tcg_temp_new_i64();
-        tcg_gen_shri_i64(t64, fpu_f64[reg], 32);
-        tcg_gen_trunc_i64_i32(t, t64);
-        tcg_temp_free_i64(t64);
-    } else {
-        gen_load_fpr32(t, reg | 1);
-    }
-}
-
-static void gen_store_fpr32h(DisasContext *ctx, TCGv_i32 t, int reg)
-{
-    if (ctx->hflags & MIPS_HFLAG_F64) {
-        TCGv_i64 t64 = tcg_temp_new_i64();
-        tcg_gen_extu_i32_i64(t64, t);
-        tcg_gen_deposit_i64(fpu_f64[reg], fpu_f64[reg], t64, 32, 32);
-        tcg_temp_free_i64(t64);
-    } else {
-        gen_store_fpr32(t, reg | 1);
-    }
-}
-
-static void gen_load_fpr64(DisasContext *ctx, TCGv_i64 t, int reg)
-{
-    if (ctx->hflags & MIPS_HFLAG_F64) {
-        tcg_gen_mov_i64(t, fpu_f64[reg]);
-    } else {
-        tcg_gen_concat32_i64(t, fpu_f64[reg & ~1], fpu_f64[reg | 1]);
-    }
-}
-
-static void gen_store_fpr64(DisasContext *ctx, TCGv_i64 t, int reg)
-{
-    if (ctx->hflags & MIPS_HFLAG_F64) {
-        tcg_gen_mov_i64(fpu_f64[reg], t);
-    } else {
-        TCGv_i64 t0;
-        tcg_gen_deposit_i64(fpu_f64[reg & ~1], fpu_f64[reg & ~1], t, 0, 32);
-        t0 = tcg_temp_new_i64();
-        tcg_gen_shri_i64(t0, t, 32);
-        tcg_gen_deposit_i64(fpu_f64[reg | 1], fpu_f64[reg | 1], t0, 0, 32);
-        tcg_temp_free_i64(t0);
-    }
 }
 
 static inline int get_fp_bit (int cc)
@@ -591,74 +535,58 @@ static inline void gen_goto_tb(DisasContext *ctx, int n, target_ulong dest)
     }
 }
 
-static inline void gen_movcf_s (int fs, int fd, int cc, int tf)
+static void gen_arith(DisasContext *ctx, uint32_t opc, 
+                      int rd, int rs1, int rs2)
 {
-    int cond;
-    TCGv_i32 t0 = tcg_temp_new_i32();
-    int l1 = gen_new_label();
+    switch (opc) {
 
-    if (tf)
-        cond = TCG_COND_EQ;
-    else
-        cond = TCG_COND_NE;
-
-    tcg_gen_andi_i32(t0, fpu_fcr31, 1 << get_fp_bit(cc));
-    tcg_gen_brcondi_i32(cond, t0, 0, l1);
-    gen_load_fpr32(t0, fs);
-    gen_store_fpr32(t0, fd);
-    gen_set_label(l1);
-    tcg_temp_free_i32(t0);
+    case OPC_RISC_ADD:
+        tcg_gen_add_tl(cpu_gpr[rd], cpu_gpr[rs1], cpu_gpr[rs2]);
+        break;
+    case OPC_RISC_SUB:
+        tcg_gen_sub_tl(cpu_gpr[rd], cpu_gpr[rs1], cpu_gpr[rs2]);
+        break;
+    case OPC_RISC_SLL:
+        tcg_gen_shl_tl(cpu_gpr[rd], cpu_gpr[rs1], cpu_gpr[rs2]);
+        break;
+    case OPC_RISC_SLT:
+        tcg_gen_setcond_tl(TCG_COND_LT, cpu_gpr[rd], cpu_gpr[rs1], cpu_gpr[rs2]);
+        break;
+    case OPC_RISC_SLTU:
+        tcg_gen_setcond_tl(TCG_COND_LTU, cpu_gpr[rd], cpu_gpr[rs1], cpu_gpr[rs2]);
+        break;
+    case OPC_RISC_XOR:
+        tcg_gen_xor_tl(cpu_gpr[rd], cpu_gpr[rs1], cpu_gpr[rs2]);
+        break;
+    case OPC_RISC_SRL:
+        tcg_gen_shr_tl(cpu_gpr[rd], cpu_gpr[rs1], cpu_gpr[rs2]);
+        break;
+    case OPC_RISC_SRA:
+        tcg_gen_sar_tl(cpu_gpr[rd], cpu_gpr[rs1], cpu_gpr[rs2]);
+        break;
+    case OPC_RISC_OR:
+        tcg_gen_or_tl(cpu_gpr[rd], cpu_gpr[rs1], cpu_gpr[rs2]);
+        break;
+    case OPC_RISC_AND:
+        tcg_gen_and_tl(cpu_gpr[rd], cpu_gpr[rs1], cpu_gpr[rs2]);
+        break;
+    }
 }
 
-static inline void gen_movcf_d (DisasContext *ctx, int fs, int fd, int cc, int tf)
+/*
+static void gen_arith_imm(DisasContext *ctx, uint32_t opc, 
+                      int rd, int rs, int rt)
 {
-    int cond;
-    TCGv_i32 t0 = tcg_temp_new_i32();
-    TCGv_i64 fp0;
-    int l1 = gen_new_label();
 
-    if (tf)
-        cond = TCG_COND_EQ;
-    else
-        cond = TCG_COND_NE;
 
-    tcg_gen_andi_i32(t0, fpu_fcr31, 1 << get_fp_bit(cc));
-    tcg_gen_brcondi_i32(cond, t0, 0, l1);
-    tcg_temp_free_i32(t0);
-    fp0 = tcg_temp_new_i64();
-    gen_load_fpr64(ctx, fp0, fs);
-    gen_store_fpr64(ctx, fp0, fd);
-    tcg_temp_free_i64(fp0);
-    gen_set_label(l1);
+
+
+
+
+
 }
 
-static inline void gen_movcf_ps(DisasContext *ctx, int fs, int fd,
-                                int cc, int tf)
-{
-    int cond;
-    TCGv_i32 t0 = tcg_temp_new_i32();
-    int l1 = gen_new_label();
-    int l2 = gen_new_label();
-
-    if (tf)
-        cond = TCG_COND_EQ;
-    else
-        cond = TCG_COND_NE;
-
-    tcg_gen_andi_i32(t0, fpu_fcr31, 1 << get_fp_bit(cc));
-    tcg_gen_brcondi_i32(cond, t0, 0, l1);
-    gen_load_fpr32(t0, fs);
-    gen_store_fpr32(t0, fd);
-    gen_set_label(l1);
-
-    tcg_gen_andi_i32(t0, fpu_fcr31, 1 << get_fp_bit(cc+1));
-    tcg_gen_brcondi_i32(cond, t0, 0, l2);
-    gen_load_fpr32h(ctx, t0, fs);
-    gen_store_fpr32h(ctx, t0, fd);
-    tcg_temp_free_i32(t0);
-    gen_set_label(l2);
-}
-
+*/
 
 
 // SAGARSAYS: this is the fn called to decode each inst
@@ -666,8 +594,8 @@ static inline void gen_movcf_ps(DisasContext *ctx, int fs, int fd,
 static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
 {
     //int32_t offset;
-    //int rs;
-    //int rt;
+    int rs1;
+    int rs2;
     int rd;
     uint32_t op;// op1, op2;
     //int16_t imm;
@@ -695,8 +623,8 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
     }
 
     op = MASK_OP_MAJOR(ctx->opcode);
-    //rs = (ctx->opcode >> 15) & 0x1f;
-    //rt = (ctx->opcode >> 20) & 0x1f;
+    rs1 = (ctx->opcode >> 15) & 0x1f;
+    rs2 = (ctx->opcode >> 20) & 0x1f;
     rd = (ctx->opcode >> 7) & 0x1f;
     //sa = (ctx->opcode >> 6) & 0x1f;
     //imm = (int16_t)((ctx->opcode >> 20) & 0xFFF);
@@ -748,8 +676,8 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
         break;
 
 
-    case OPC_RISC_ARITH_NOIMM:
-
+    case OPC_RISC_ARITH:
+        gen_arith(ctx, MASK_OP_ARITH(ctx->opcode) , rd, rs1, rs2);
         break;
 
 
@@ -758,11 +686,15 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
 
 
     default:            /* Invalid */
-        MIPS_INVAL("major opcode");
-        generate_exception(ctx, EXCP_RI);
+        // TODO REMOVED FOR TESTING, REPLACE
+/*        MIPS_INVAL("major opcode");
+        generate_exception(ctx, EXCP_RI); */
         break;
     }
 }
+
+
+
 
 static inline void
 gen_intermediate_code_internal(MIPSCPU *cpu, TranslationBlock *tb,
