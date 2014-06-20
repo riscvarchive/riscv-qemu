@@ -702,28 +702,32 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
 
     case OPC_RISC_JAL:
         // TODO
-
+        tcg_gen_movi_tl(cpu_gpr[0], (ctx->opcode & 0x0)); // NOP
         break;
 
 
     case OPC_RISC_JALR:
         // TODO
+        tcg_gen_movi_tl(cpu_gpr[0], (ctx->opcode & 0x0)); // NOP
 
         break;
 
 
 
     case OPC_RISC_BRANCH:
+        tcg_gen_movi_tl(cpu_gpr[0], (ctx->opcode & 0x0)); // NOP
 
 
         break;
 
     case OPC_RISC_LOAD:
+        tcg_gen_movi_tl(cpu_gpr[0], (ctx->opcode & 0x0)); // NOP
 
 
         break;
 
     case OPC_RISC_STORE:
+        tcg_gen_movi_tl(cpu_gpr[0], (ctx->opcode & 0x0)); // NOP
 
         break;
 
@@ -737,6 +741,8 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
 
 
     default:            /* Invalid */
+        tcg_gen_movi_tl(cpu_gpr[0], (ctx->opcode & 0x0)); // NOP
+
         // TODO REMOVED FOR TESTING, REPLACE
 /*        MIPS_INVAL("major opcode");
         generate_exception(ctx, EXCP_RI); */
