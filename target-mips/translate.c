@@ -63,11 +63,29 @@ enum {
     OPC_RISC_SLT   = OPC_RISC_ARITH | (0x2 << 12) | (0x00 << 25),
     OPC_RISC_SLTU  = OPC_RISC_ARITH | (0x3 << 12) | (0x00 << 25),
     OPC_RISC_XOR   = OPC_RISC_ARITH | (0x4 << 12) | (0x00 << 25),
-    OPC_RISC_SRL   = OPC_RISC_ARITH | (0x5 << 12) | (0x00 << 25),
+    OPC_RISC_SRL   = OPC_RISC_ARITH | (0x5 << 12) | (0x00 << 25), 
     OPC_RISC_SRA   = OPC_RISC_ARITH | (0x5 << 12) | (0x20 << 25),
     OPC_RISC_OR    = OPC_RISC_ARITH | (0x6 << 12) | (0x00 << 25),
     OPC_RISC_AND   = OPC_RISC_ARITH | (0x7 << 12) | (0x00 << 25)
 };
+
+
+#define MASK_OP_ARITH_IMM(op)   (MASK_OP_MAJOR(op) | (op & (0x7 << 12)))
+enum {
+    OPC_RISC_ADDI   = OPC_RISC_ARITH_IMM | (0x0 << 12),
+    OPC_RISC_SLTI   = OPC_RISC_ARITH_IMM | (0x2 << 12),
+    OPC_RISC_SLTIU  = OPC_RISC_ARITH_IMM | (0x3 << 12),
+    OPC_RISC_XORI   = OPC_RISC_ARITH_IMM | (0x4 << 12),
+    OPC_RISC_ORI    = OPC_RISC_ARITH_IMM | (0x6 << 12),
+    OPC_RISC_ANDI   = OPC_RISC_ARITH_IMM | (0x7 << 12),
+    OPC_RISC_SLLI   = OPC_RISC_ARITH_IMM | (0x1 << 12), // additional part of IMM
+    OPC_RISC_SHIFT_RIGHT_I = OPC_RISC_ARITH_IMM | (0x5 << 12) // SRAI, SRLI
+};
+
+
+
+
+
 
 
 /* global register indices */
@@ -546,7 +564,7 @@ static void gen_arith(DisasContext *ctx, uint32_t opc,
     case OPC_RISC_SUB:
         tcg_gen_sub_tl(cpu_gpr[rd], cpu_gpr[rs1], cpu_gpr[rs2]);
         break;
-    case OPC_RISC_SLL:
+    case OPC_RISC_SLL: // TODO rs2 out of range check?
         tcg_gen_shl_tl(cpu_gpr[rd], cpu_gpr[rs1], cpu_gpr[rs2]);
         break;
     case OPC_RISC_SLT:
@@ -558,10 +576,10 @@ static void gen_arith(DisasContext *ctx, uint32_t opc,
     case OPC_RISC_XOR:
         tcg_gen_xor_tl(cpu_gpr[rd], cpu_gpr[rs1], cpu_gpr[rs2]);
         break;
-    case OPC_RISC_SRL:
+    case OPC_RISC_SRL: // TODO rs2 out of range check?
         tcg_gen_shr_tl(cpu_gpr[rd], cpu_gpr[rs1], cpu_gpr[rs2]);
         break;
-    case OPC_RISC_SRA:
+    case OPC_RISC_SRA: // TODO rs2 out of range check?
         tcg_gen_sar_tl(cpu_gpr[rd], cpu_gpr[rs1], cpu_gpr[rs2]);
         break;
     case OPC_RISC_OR:
@@ -570,26 +588,64 @@ static void gen_arith(DisasContext *ctx, uint32_t opc,
     case OPC_RISC_AND:
         tcg_gen_and_tl(cpu_gpr[rd], cpu_gpr[rs1], cpu_gpr[rs2]);
         break;
+    default:
+        // TODO EXCEPTION
+        break;
+
     }
 }
 
-/*
+/* lower 12 bits of imm are valid */
 static void gen_arith_imm(DisasContext *ctx, uint32_t opc, 
-                      int rd, int rs, int rt)
+                      int rd, int rs1, int16_t imm)
 {
 
+    target_ulong uimm = (target_long)imm; /* sign ext 16->64 bits */
 
+    switch (opc) {
 
+    case OPC_RISC_ADDI:
+        tcg_gen_addi_tl(cpu_gpr[rd], cpu_gpr[rs1], uimm);
+        break;
+    case OPC_RISC_SLTI:
+        tcg_gen_setcondi_tl(TCG_COND_LT, cpu_gpr[rd], cpu_gpr[rs1], uimm);
+        break;
+    case OPC_RISC_SLTIU:
+        tcg_gen_setcondi_tl(TCG_COND_LTU, cpu_gpr[rd], cpu_gpr[rs1], uimm);
+        break;
+    case OPC_RISC_XORI:
+        tcg_gen_xori_tl(cpu_gpr[rd], cpu_gpr[rs1], uimm);
+        break;
+    case OPC_RISC_ORI:
+        tcg_gen_ori_tl(cpu_gpr[rd], cpu_gpr[rs1], uimm);
+        break;
+    case OPC_RISC_ANDI:
+        tcg_gen_andi_tl(cpu_gpr[rd], cpu_gpr[rs1], uimm);
+        break;
+    case OPC_RISC_SLLI: // TODO: add immediate upper bits check?
+        tcg_gen_shli_tl(cpu_gpr[rd], cpu_gpr[rs1], uimm);
+        break;
+    case OPC_RISC_SHIFT_RIGHT_I: // SRLI, SRAI, TODO: upper bits check
+        // differentiate on IMM
+        if (uimm & 0x20) {
+            // SRAI
+            tcg_gen_sari_tl(cpu_gpr[rd], cpu_gpr[rs1], uimm ^ 0x20);
+        } else {
+            tcg_gen_shri_tl(cpu_gpr[rd], cpu_gpr[rs1], uimm);
+        }
+        break;
+    default:
+        // TODO EXCEPTION
+        break;
 
-
-
+    }
 
 }
 
-*/
-
 
 // SAGARSAYS: this is the fn called to decode each inst
+
+#define SIGN_EXT_IMM_12_TO_16(imm)   ((int16_t)((imm << 4) >> 4))
 
 static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
 {
@@ -598,7 +654,7 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
     int rs2;
     int rd;
     uint32_t op;// op1, op2;
-    //int16_t imm;
+    int16_t imm;
 
     /* make sure instructions are on a word boundary */
     if (ctx->pc & 0x3) {
@@ -627,7 +683,7 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
     rs2 = (ctx->opcode >> 20) & 0x1f;
     rd = (ctx->opcode >> 7) & 0x1f;
     //sa = (ctx->opcode >> 6) & 0x1f;
-    //imm = (int16_t)((ctx->opcode >> 20) & 0xFFF);
+    imm = (int16_t)((ctx->opcode >> 20) & 0xFFF);
     switch (op) {
 
 
@@ -672,17 +728,12 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
         break;
 
     case OPC_RISC_ARITH_IMM:
-
+        gen_arith_imm(ctx, MASK_OP_ARITH_IMM(ctx->opcode), rd, rs1, SIGN_EXT_IMM_12_TO_16(imm));
         break;
-
 
     case OPC_RISC_ARITH:
-        gen_arith(ctx, MASK_OP_ARITH(ctx->opcode) , rd, rs1, rs2);
+        gen_arith(ctx, MASK_OP_ARITH(ctx->opcode), rd, rs1, rs2);
         break;
-
-
-
-
 
 
     default:            /* Invalid */
