@@ -92,6 +92,18 @@ enum {
     OPC_RISC_BGEU = OPC_RISC_BRANCH  | (0x7  << 12)
 };
 
+#define MASK_OP_ARITH_IMM_W(op)   (MASK_OP_MAJOR(op) | (op & (0x7 << 12)))
+enum {
+    OPC_RISC_ADDIW   = OPC_RISC_ARITH_IMM_W | (0x0 << 12),
+    OPC_RISC_SLLIW   = OPC_RISC_ARITH_IMM_W | (0x1 << 12), // additional part of IMM
+    OPC_RISC_SHIFT_RIGHT_IW = OPC_RISC_ARITH_IMM_W | (0x5 << 12) // SRAI, SRLI
+};
+
+
+
+
+
+
 
 /* global register indices */
 static TCGv_ptr cpu_env;
@@ -647,6 +659,51 @@ static void gen_arith_imm(DisasContext *ctx, uint32_t opc,
 
 }
 
+
+
+/* lower 12 bits of imm are valid */
+static void gen_arith_imm_w(DisasContext *ctx, uint32_t opc, 
+                      int rd, int rs1, int16_t imm)
+{
+
+    target_ulong uimm = (target_long)imm; /* sign ext 16->64 bits */
+
+    switch (opc) {
+
+    case OPC_RISC_ADDIW:
+        tcg_gen_addi_tl(cpu_gpr[rd], cpu_gpr[rs1], uimm); // TODO: check this
+        tcg_gen_ext32s_tl(cpu_gpr[rd], cpu_gpr[rd]);
+        break;
+    case OPC_RISC_SLLIW: // TODO: add immediate upper bits check?
+        tcg_gen_shli_tl(cpu_gpr[rd], cpu_gpr[rs1], uimm);
+        tcg_gen_ext32s_tl(cpu_gpr[rd], cpu_gpr[rd]);
+        break;
+    case OPC_RISC_SHIFT_RIGHT_IW: // SRLIW, SRAIW, TODO: upper bits check
+        // differentiate on IMM
+        if (uimm & 0x20) {
+            // SRAI
+            // first, trick to get it to act like working on 32 bits:
+            tcg_gen_shli_tl(cpu_gpr[rd], cpu_gpr[rs1], 32);
+            // now shift back to the right by shamt + 32 to get proper upper bits filling
+            tcg_gen_sari_tl(cpu_gpr[rd], cpu_gpr[rd], (uimm ^ 0x20) + 32);
+            tcg_gen_ext32s_tl(cpu_gpr[rd], cpu_gpr[rd]);
+        } else {
+            // first, trick to get it to act like working on 32 bits (get rid of upper 32):
+            tcg_gen_shli_tl(cpu_gpr[rd], cpu_gpr[rs1], 32);
+            // now shift back to the right by shamt + 32 to get proper upper bits filling
+            tcg_gen_shri_tl(cpu_gpr[rd], cpu_gpr[rd], (uimm ^ 0x20) + 32);
+            tcg_gen_ext32s_tl(cpu_gpr[rd], cpu_gpr[rd]);
+        }
+        break;
+    default:
+        // TODO EXCEPTION
+        break;
+
+    }
+
+}
+
+
 static void gen_branch(DisasContext *ctx, uint32_t opc, 
                        int rs1, int rs2, int16_t bimm) {
 
@@ -698,18 +755,17 @@ static void gen_branch(DisasContext *ctx, uint32_t opc,
 
 // SAGARSAYS: this is the fn called to decode each inst
 
-#define SIGN_EXT_IMM_12_TO_16(imm)   ((int16_t)((imm << 4) >> 4))
-#define SIGN_EXT_IMM_13_TO_16(imm)   ((int16_t)((imm << 3) >> 3))
+//#define SIGN_EXT_IMM_12_TO_16(imm)   ((int16_t)((imm << 4) >> 4))
+//#define SIGN_EXT_IMM_13_TO_16(imm)   ((int16_t)((imm << 3) >> 3))
 
-#define GET_B_IMM(inst)              ((int16_t)((((inst >> 25) & 0x3F) << 5) | (((inst >> 31) & 0x1) << 12) | (((inst >> 8) & 0xF) << 1) | (((inst >> 7) & 0x1) << 11)))  /* THIS BUILDS 13 bit imm (implicit zero is tacked on here) */
+#define GET_B_IMM(inst)              ((int16_t)((((inst >> 25) & 0x3F) << 5) | ((((int32_t)inst) >> 31) << 12) | (((inst >> 8) & 0xF) << 1) | (((inst >> 7) & 0x1) << 11)))  /* THIS BUILDS 13 bit imm (implicit zero is tacked on here), also note that bit #12 is obtained in a special way to get sign extension */
 
 static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
 {
-    //int32_t offset;
     int rs1;
     int rs2;
     int rd;
-    uint32_t op;// op1, op2;
+    uint32_t op;
     int16_t imm;
 
     /* make sure instructions are on a word boundary */
@@ -738,19 +794,21 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
     rs1 = (ctx->opcode >> 15) & 0x1f;
     rs2 = (ctx->opcode >> 20) & 0x1f;
     rd = (ctx->opcode >> 7) & 0x1f;
-    //sa = (ctx->opcode >> 6) & 0x1f;
-    imm = (int16_t)((ctx->opcode >> 20) & 0xFFF);
+    imm = (int16_t)(((int32_t)ctx->opcode) >> 20); /* sign extends */
     switch (op) {
 
-
     case OPC_RISC_LUI:
-        // handle LUI
+        if (rd == 0) {
+            break; // NOP
+        }
         tcg_gen_movi_tl(cpu_gpr[rd], (ctx->opcode & 0xFFFFF000));
         tcg_gen_ext32s_tl(cpu_gpr[rd], cpu_gpr[rd]);
         break;
 
     case OPC_RISC_AUIPC:
-        // handle AUIPC
+        if (rd == 0) {
+            break; // NOP
+        }
         tcg_gen_movi_tl(cpu_gpr[rd], (ctx->opcode & 0xFFFFF000));
         tcg_gen_ext32s_tl(cpu_gpr[rd], cpu_gpr[rd]);
         tcg_gen_add_tl(cpu_gpr[rd], cpu_gpr[rd], tcg_const_tl(ctx->pc)); // TODO: CHECK THIS
@@ -761,36 +819,53 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
         tcg_gen_movi_tl(cpu_gpr[0], (ctx->opcode & 0x0)); // NOP
         break;
 
-
     case OPC_RISC_JALR:
         // TODO
         tcg_gen_movi_tl(cpu_gpr[0], (ctx->opcode & 0x0)); // NOP
-
         break;
-
-
 
     case OPC_RISC_BRANCH:
-        gen_branch(ctx, MASK_OP_BRANCH(ctx->opcode), rs1, rs2, SIGN_EXT_IMM_13_TO_16(GET_B_IMM(ctx->opcode)));
+        gen_branch(ctx, MASK_OP_BRANCH(ctx->opcode), rs1, rs2, /*SIGN_EXT_IMM_13_TO_16(*/GET_B_IMM(ctx->opcode));
         break;
 
-    case OPC_RISC_LOAD:
+    case OPC_RISC_LOAD: // should rd == 0 be a nop here?
         tcg_gen_movi_tl(cpu_gpr[0], (ctx->opcode & 0x0)); // NOP
-
-
         break;
 
-    case OPC_RISC_STORE:
+    case OPC_RISC_STORE: // should rd == 0 be a nop here?
         tcg_gen_movi_tl(cpu_gpr[0], (ctx->opcode & 0x0)); // NOP
-
         break;
 
     case OPC_RISC_ARITH_IMM:
-        gen_arith_imm(ctx, MASK_OP_ARITH_IMM(ctx->opcode), rd, rs1, SIGN_EXT_IMM_12_TO_16(imm));
+        if (rd == 0) {
+            break; // NOP
+        }
+        gen_arith_imm(ctx, MASK_OP_ARITH_IMM(ctx->opcode), rd, rs1, /*SIGN_EXT_IMM_12_TO_16(*/imm);
         break;
 
     case OPC_RISC_ARITH:
+        if (rd == 0) {
+            break; // NOP
+        }
         gen_arith(ctx, MASK_OP_ARITH(ctx->opcode), rd, rs1, rs2);
+        break;
+
+    // TODO: NON-IMM W instructions
+
+    case OPC_RISC_ARITH_IMM_W:
+        if (rd == 0) {
+            break; // NOP
+        }
+        gen_arith_imm_w(ctx, MASK_OP_ARITH_IMM_W(ctx->opcode), rd, rs1, /*SIGN_EXT_IMM_12_TO_16(*/imm);
+        break;
+   
+    case OPC_RISC_FENCE:
+        /* fences are nops for us? */
+        break;
+
+    case OPC_RISC_SYSTEM:
+        /* TODO: */
+        tcg_gen_movi_tl(cpu_gpr[0], 0x0); // NOP
         break;
 
 
