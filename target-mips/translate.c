@@ -82,10 +82,15 @@ enum {
     OPC_RISC_SHIFT_RIGHT_I = OPC_RISC_ARITH_IMM | (0x5 << 12) // SRAI, SRLI
 };
 
-
-
-
-
+#define MASK_OP_BRANCH(op)     (MASK_OP_MAJOR(op) | (op & (0x7 << 12)))
+enum {
+    OPC_RISC_BEQ  = OPC_RISC_BRANCH  | (0x0  << 12),
+    OPC_RISC_BNE  = OPC_RISC_BRANCH  | (0x1  << 12),
+    OPC_RISC_BLT  = OPC_RISC_BRANCH  | (0x4  << 12),
+    OPC_RISC_BGE  = OPC_RISC_BRANCH  | (0x5  << 12),
+    OPC_RISC_BLTU = OPC_RISC_BRANCH  | (0x6  << 12),
+    OPC_RISC_BGEU = OPC_RISC_BRANCH  | (0x7  << 12)
+};
 
 
 /* global register indices */
@@ -642,10 +647,61 @@ static void gen_arith_imm(DisasContext *ctx, uint32_t opc,
 
 }
 
+static void gen_branch(DisasContext *ctx, uint32_t opc, 
+                       int rs1, int rs2, int16_t bimm) {
+
+    int l = gen_new_label();
+
+    target_ulong ubimm = (target_long)bimm; /* sign ext 16->64 bits */
+
+    switch (opc) {
+
+    case OPC_RISC_BEQ:
+        tcg_gen_brcond_tl(TCG_COND_EQ, cpu_gpr[rs1], cpu_gpr[rs2], l);
+        break;
+    case OPC_RISC_BNE:
+        tcg_gen_brcond_tl(TCG_COND_NE, cpu_gpr[rs1], cpu_gpr[rs2], l);
+        break;
+    case OPC_RISC_BLT:
+        tcg_gen_brcond_tl(TCG_COND_LT, cpu_gpr[rs1], cpu_gpr[rs2], l);
+        break;
+    case OPC_RISC_BGE:
+        tcg_gen_brcond_tl(TCG_COND_GE, cpu_gpr[rs1], cpu_gpr[rs2], l);
+        break;
+    case OPC_RISC_BLTU:
+        tcg_gen_brcond_tl(TCG_COND_LTU, cpu_gpr[rs1], cpu_gpr[rs2], l);
+        break;
+    case OPC_RISC_BGEU:
+        tcg_gen_brcond_tl(TCG_COND_GEU, cpu_gpr[rs1], cpu_gpr[rs2], l);
+        break;
+    default:
+        /* TODO: exception here */
+        break;
+
+    }
+
+
+    tcg_gen_goto_tb(1); // 1 is not taken, try chaining
+    tcg_gen_movi_tl(cpu_PC, ctx->pc + 4);
+    // TODO insn_bytes should be passed in here instead of hardcoded 4?
+    tcg_gen_exit_tb((uintptr_t)ctx->tb | 0x1);
+
+    gen_set_label(l); // branch taken
+    tcg_gen_goto_tb(0); // 0 is taken, try chaining
+    tcg_gen_movi_tl(cpu_PC, ctx->pc + ubimm);
+    tcg_gen_exit_tb((uintptr_t)ctx->tb | 0x0);
+
+    // TODO: set some kind of flag to indicate end of translation block to upper level?
+    ctx->bstate = BS_BRANCH;
+}
+
 
 // SAGARSAYS: this is the fn called to decode each inst
 
 #define SIGN_EXT_IMM_12_TO_16(imm)   ((int16_t)((imm << 4) >> 4))
+#define SIGN_EXT_IMM_13_TO_16(imm)   ((int16_t)((imm << 3) >> 3))
+
+#define GET_B_IMM(inst)              ((int16_t)((((inst >> 25) & 0x3F) << 5) | (((inst >> 31) & 0x1) << 12) | (((inst >> 8) & 0xF) << 1) | (((inst >> 7) & 0x1) << 11)))  /* THIS BUILDS 13 bit imm (implicit zero is tacked on here) */
 
 static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
 {
@@ -715,9 +771,7 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
 
 
     case OPC_RISC_BRANCH:
-        tcg_gen_movi_tl(cpu_gpr[0], (ctx->opcode & 0x0)); // NOP
-
-
+        gen_branch(ctx, MASK_OP_BRANCH(ctx->opcode), rs1, rs2, SIGN_EXT_IMM_13_TO_16(GET_B_IMM(ctx->opcode)));
         break;
 
     case OPC_RISC_LOAD:
@@ -741,7 +795,7 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
 
 
     default:            /* Invalid */
-        tcg_gen_movi_tl(cpu_gpr[0], (ctx->opcode & 0x0)); // NOP
+        tcg_gen_movi_tl(cpu_gpr[0], 0x0); // NOP
 
         // TODO REMOVED FOR TESTING, REPLACE
 /*        MIPS_INVAL("major opcode");
@@ -833,6 +887,11 @@ gen_intermediate_code_internal(MIPSCPU *cpu, TranslationBlock *tb,
             ctx.bstate = BS_STOP;
             break;
         }
+
+        // HANDLE DELAY SLOT USED TO GET CALLED HERE
+
+
+
         ctx.pc += insn_bytes;
 
         num_insns++;
@@ -893,6 +952,7 @@ done_generating:
         tb->size = ctx.pc - pc_start;
         tb->icount = num_insns;
     }
+    /*
 #ifdef DEBUG_DISAS
     LOG_DISAS("\n");
     if (qemu_loglevel_mask(CPU_LOG_TB_IN_ASM)) {
@@ -900,7 +960,7 @@ done_generating:
         log_target_disas(env, pc_start, ctx.pc - pc_start, 0);
         qemu_log("\n");
     }
-#endif
+#endif*/
 }
 
 void gen_intermediate_code (CPUMIPSState *env, struct TranslationBlock *tb)
