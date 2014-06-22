@@ -108,6 +108,26 @@ enum {
     OPC_RISC_SRAW   = OPC_RISC_ARITH_W | (0x5 << 12) | (0x20 << 25),
 };
 
+#define MASK_OP_LOAD(op)   (MASK_OP_MAJOR(op) | (op & (0x7 << 12)))
+enum {
+    OPC_RISC_LB   = OPC_RISC_LOAD | (0x0 << 12),
+    OPC_RISC_LH   = OPC_RISC_LOAD | (0x1 << 12),
+    OPC_RISC_LW   = OPC_RISC_LOAD | (0x2 << 12),
+    OPC_RISC_LD   = OPC_RISC_LOAD | (0x3 << 12),
+    OPC_RISC_LBU  = OPC_RISC_LOAD | (0x4 << 12),
+    OPC_RISC_LHU  = OPC_RISC_LOAD | (0x5 << 12),
+    OPC_RISC_LWU  = OPC_RISC_LOAD | (0x6 << 12),
+};
+
+#define MASK_OP_STORE(op)   (MASK_OP_MAJOR(op) | (op & (0x7 << 12)))
+enum {
+    OPC_RISC_SB   = OPC_RISC_STORE | (0x0 << 12),
+    OPC_RISC_SH   = OPC_RISC_STORE | (0x1 << 12),
+    OPC_RISC_SW   = OPC_RISC_STORE | (0x2 << 12),
+    OPC_RISC_SD   = OPC_RISC_STORE | (0x3 << 12),
+};
+
+
 
 /* global register indices */
 static TCGv_ptr cpu_env;
@@ -793,13 +813,86 @@ static void gen_branch(DisasContext *ctx, uint32_t opc,
     ctx->bstate = BS_BRANCH;
 }
 
+static void gen_load(DisasContext *ctx, uint32_t opc, 
+                      int rd, int rs1, int16_t imm)
+{
 
-// SAGARSAYS: this is the fn called to decode each inst
+    target_ulong uimm = (target_long)imm; /* sign ext 16->64 bits */
 
-//#define SIGN_EXT_IMM_12_TO_16(imm)   ((int16_t)((imm << 4) >> 4))
-//#define SIGN_EXT_IMM_13_TO_16(imm)   ((int16_t)((imm << 3) >> 3))
+
+    TCGv t0 = tcg_temp_new();
+    tcg_gen_addi_tl(t0, cpu_gpr[rs1], uimm); // 
+    
+    switch (opc) {
+
+    case OPC_RISC_LB:
+        tcg_gen_qemu_ld8s(t0, t0, ctx->mem_idx); // TODO: is ctx->mem_idx right?
+        break;
+    case OPC_RISC_LH:
+        tcg_gen_qemu_ld16s(t0, t0, ctx->mem_idx); // TODO: is ctx->mem_idx right?
+        break;
+    case OPC_RISC_LW:
+        tcg_gen_qemu_ld32s(t0, t0, ctx->mem_idx); // TODO: is ctx->mem_idx right?
+        break;
+    case OPC_RISC_LD:
+        tcg_gen_qemu_ld64(t0, t0, ctx->mem_idx); // TODO: is ctx->mem_idx right?
+        break;
+    case OPC_RISC_LBU:
+        tcg_gen_qemu_ld8u(t0, t0, ctx->mem_idx); // TODO: is ctx->mem_idx right?
+        break;
+    case OPC_RISC_LHU:
+        tcg_gen_qemu_ld16u(t0, t0, ctx->mem_idx); // TODO: is ctx->mem_idx right?
+        break;
+    case OPC_RISC_LWU:
+        tcg_gen_qemu_ld32u(t0, t0, ctx->mem_idx); // TODO: is ctx->mem_idx right?
+        break;
+    default:
+        // TODO Exception
+        break;
+
+    }
+
+    if (rd == 0) {
+        // don't generate the store into reg
+        return;
+    }
+    tcg_gen_mov_tl(cpu_gpr[rd], t0);
+}
+
+
+static void gen_store(DisasContext *ctx, uint32_t opc, 
+                      int rs1, int rs2, int16_t imm)
+{
+    target_ulong uimm = (target_long)imm; /* sign ext 16->64 bits */
+
+    TCGv t0 = tcg_temp_new();
+    tcg_gen_addi_tl(t0, cpu_gpr[rs1], uimm); // 
+ 
+    switch (opc) {
+
+    case OPC_RISC_SB:
+        tcg_gen_qemu_st8(cpu_gpr[rs2], t0, ctx->mem_idx); // TODO: is ctx->mem_idx right?
+        break;
+    case OPC_RISC_SH:
+        tcg_gen_qemu_st16(cpu_gpr[rs2], t0, ctx->mem_idx); // TODO: is ctx->mem_idx right?
+        break;
+    case OPC_RISC_SW:
+        tcg_gen_qemu_st32(cpu_gpr[rs2], t0, ctx->mem_idx); // TODO: is ctx->mem_idx right?
+        break;
+    case OPC_RISC_SD:
+        tcg_gen_qemu_st64(cpu_gpr[rs2], t0, ctx->mem_idx); // TODO: is ctx->mem_idx right?
+        break;
+
+    default:
+        // TODO: exception
+        break;
+    }
+}
+
+
 
 #define GET_B_IMM(inst)              ((int16_t)((((inst >> 25) & 0x3F) << 5) | ((((int32_t)inst) >> 31) << 12) | (((inst >> 8) & 0xF) << 1) | (((inst >> 7) & 0x1) << 11)))  /* THIS BUILDS 13 bit imm (implicit zero is tacked on here), also note that bit #12 is obtained in a special way to get sign extension */
+#define GET_STORE_IMM(inst)           ((int16_t)((((int32_t)inst) >> 20) | ((inst >> 7) & 0x1F)))
 
 static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
 {
@@ -869,12 +962,12 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
         gen_branch(ctx, MASK_OP_BRANCH(ctx->opcode), rs1, rs2, /*SIGN_EXT_IMM_13_TO_16(*/GET_B_IMM(ctx->opcode));
         break;
 
-    case OPC_RISC_LOAD: // should rd == 0 be a nop here?
-        tcg_gen_movi_tl(cpu_gpr[0], (ctx->opcode & 0x0)); // NOP
+    case OPC_RISC_LOAD:
+        gen_load(ctx, MASK_OP_LOAD(ctx->opcode), rd, rs1, /*SIGN_EXT_IMM_12_TO_16(*/imm);
         break;
 
-    case OPC_RISC_STORE: // should rd == 0 be a nop here?
-        tcg_gen_movi_tl(cpu_gpr[0], (ctx->opcode & 0x0)); // NOP
+    case OPC_RISC_STORE:
+        gen_store(ctx, MASK_OP_STORE(ctx->opcode), rs1, rs2, /*SIGN_EXT_IMM_12_TO_16(*/GET_STORE_IMM(ctx->opcode));
         break;
 
     case OPC_RISC_ARITH_IMM:
@@ -1050,7 +1143,7 @@ gen_intermediate_code_internal(MIPSCPU *cpu, TranslationBlock *tb,
         case BS_STOP:
             gen_goto_tb(&ctx, 0, ctx.pc);
             break;
-        case BS_NONE:
+        case BS_NONE: // TODO THIS CASE HAS NOT YET BEEN HANDLED FOR RISC-V
             save_cpu_state(&ctx, 0);
             gen_goto_tb(&ctx, 0, ctx.pc);
             break;
