@@ -38,19 +38,19 @@ enum {
     /* rv32i, rv64i, rv32m */
     OPC_RISC_LUI    = (0x37),
     OPC_RISC_AUIPC  = (0x17),
-    OPC_RISC_JAL    = (0x6F),
-    OPC_RISC_JALR   = (0x67),
+    OPC_RISC_JAL    = (0x6F), // TODO
+    OPC_RISC_JALR   = (0x67), // TODO
     OPC_RISC_BRANCH = (0x63),
-    OPC_RISC_LOAD   = (0x03),
-    OPC_RISC_STORE  = (0x23),
+    OPC_RISC_LOAD   = (0x03), // TODO
+    OPC_RISC_STORE  = (0x23), // TODO
     OPC_RISC_ARITH_IMM  = (0x13),
     OPC_RISC_ARITH      = (0x33),
     OPC_RISC_FENCE      = (0x0F),
-    OPC_RISC_SYSTEM     = (0x73),
+    OPC_RISC_SYSTEM     = (0x73), // TODO
 
     /* rv64i, rv64m */
     OPC_RISC_ARITH_IMM_W = (0x1B),
-    OPC_RISC_ARITH_W = (0x3B),
+    OPC_RISC_ARITH_W = (0x3B), // TODO
 
     /* currently covers up to, but not including atomics */
 };
@@ -99,10 +99,14 @@ enum {
     OPC_RISC_SHIFT_RIGHT_IW = OPC_RISC_ARITH_IMM_W | (0x5 << 12) // SRAI, SRLI
 };
 
-
-
-
-
+#define MASK_OP_ARITH_W(op)   (MASK_OP_MAJOR(op) | (op & ((0x7 << 12) | (0x7F << 25))))
+enum {
+    OPC_RISC_ADDW   = OPC_RISC_ARITH_W | (0x0 << 12) | (0x00 << 25),
+    OPC_RISC_SUBW   = OPC_RISC_ARITH_W | (0x0 << 12) | (0x20 << 25),
+    OPC_RISC_SLLW   = OPC_RISC_ARITH_W | (0x1 << 12) | (0x00 << 25),
+    OPC_RISC_SRLW   = OPC_RISC_ARITH_W | (0x5 << 12) | (0x00 << 25), 
+    OPC_RISC_SRAW   = OPC_RISC_ARITH_W | (0x5 << 12) | (0x20 << 25),
+};
 
 
 /* global register indices */
@@ -703,6 +707,43 @@ static void gen_arith_imm_w(DisasContext *ctx, uint32_t opc,
 
 }
 
+static void gen_arith_w(DisasContext *ctx, uint32_t opc, 
+                      int rd, int rs1, int rs2)
+{
+    switch (opc) {
+
+    case OPC_RISC_ADDW:
+        tcg_gen_add_tl(cpu_gpr[rd], cpu_gpr[rs1], cpu_gpr[rs2]);
+        tcg_gen_ext32s_tl(cpu_gpr[rd], cpu_gpr[rd]);
+        break;
+    case OPC_RISC_SUBW:
+        tcg_gen_sub_tl(cpu_gpr[rd], cpu_gpr[rs1], cpu_gpr[rs2]);
+        tcg_gen_ext32s_tl(cpu_gpr[rd], cpu_gpr[rd]);
+        break;
+    case OPC_RISC_SLLW: // TODO rs2 out of range check?
+        tcg_gen_shl_tl(cpu_gpr[rd], cpu_gpr[rs1], cpu_gpr[rs2]);
+        tcg_gen_ext32s_tl(cpu_gpr[rd], cpu_gpr[rd]);
+        break;
+    case OPC_RISC_SRLW: // TODO rs2 out of range check?
+        //tcg_gen_shli_tl(cpu_gpr[rd], cpu_gpr[rs1], 32); // clear upper 32
+        //tcg_gen_shri_tl(cpu_gpr[rd], cpu_gpr[rd], 32); // smear zeroes into upper 32 
+        tcg_gen_andi_tl(cpu_gpr[rd], cpu_gpr[rd], 0x00000000FFFFFFFFLL); // clear upper 32
+        tcg_gen_shr_tl(cpu_gpr[rd], cpu_gpr[rs1], cpu_gpr[rs2]); // do actual right shift
+        tcg_gen_ext32s_tl(cpu_gpr[rd], cpu_gpr[rd]); // sign ext
+        break;
+    case OPC_RISC_SRAW: // TODO rs2 out of range check?
+        // first, trick to get it to act like working on 32 bits (get rid of upper 32)
+        tcg_gen_shli_tl(cpu_gpr[rd], cpu_gpr[rs1], 32); // clear upper 32
+        tcg_gen_sari_tl(cpu_gpr[rd], cpu_gpr[rd], 32); // smear the sign bit into upper 32
+        tcg_gen_sar_tl(cpu_gpr[rd], cpu_gpr[rs1], cpu_gpr[rs2]); // do the actual right shift
+        tcg_gen_ext32s_tl(cpu_gpr[rd], cpu_gpr[rd]); // sign ext
+        break;
+    default:
+        // TODO EXCEPTION
+        break;
+
+    }
+}
 
 static void gen_branch(DisasContext *ctx, uint32_t opc, 
                        int rs1, int rs2, int16_t bimm) {
@@ -850,21 +891,27 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
         gen_arith(ctx, MASK_OP_ARITH(ctx->opcode), rd, rs1, rs2);
         break;
 
-    // TODO: NON-IMM W instructions
-
     case OPC_RISC_ARITH_IMM_W:
         if (rd == 0) {
             break; // NOP
         }
         gen_arith_imm_w(ctx, MASK_OP_ARITH_IMM_W(ctx->opcode), rd, rs1, /*SIGN_EXT_IMM_12_TO_16(*/imm);
         break;
-   
+
+    case OPC_RISC_ARITH_W:
+        if (rd == 0) {
+            break; // NOP
+        }
+        gen_arith_w(ctx, MASK_OP_ARITH_W(ctx->opcode), rd, rs1, rs2);
+        break;
+
     case OPC_RISC_FENCE:
         /* fences are nops for us? */
         break;
 
     case OPC_RISC_SYSTEM:
         /* TODO: */
+//        tcg_gen_op0(INDEX_op_nop);
         tcg_gen_movi_tl(cpu_gpr[0], 0x0); // NOP
         break;
 
