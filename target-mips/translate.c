@@ -38,11 +38,11 @@ enum {
     /* rv32i, rv64i, rv32m */
     OPC_RISC_LUI    = (0x37),
     OPC_RISC_AUIPC  = (0x17),
-    OPC_RISC_JAL    = (0x6F), // TODO
+    OPC_RISC_JAL    = (0x6F),
     OPC_RISC_JALR   = (0x67), // TODO
     OPC_RISC_BRANCH = (0x63),
-    OPC_RISC_LOAD   = (0x03), // TODO
-    OPC_RISC_STORE  = (0x23), // TODO
+    OPC_RISC_LOAD   = (0x03),
+    OPC_RISC_STORE  = (0x23),
     OPC_RISC_ARITH_IMM  = (0x13),
     OPC_RISC_ARITH      = (0x33),
     OPC_RISC_FENCE      = (0x0F),
@@ -50,7 +50,7 @@ enum {
 
     /* rv64i, rv64m */
     OPC_RISC_ARITH_IMM_W = (0x1B),
-    OPC_RISC_ARITH_W = (0x3B), // TODO
+    OPC_RISC_ARITH_W = (0x3B),
 
     /* currently covers up to, but not including atomics */
 };
@@ -127,7 +127,8 @@ enum {
     OPC_RISC_SD   = OPC_RISC_STORE | (0x3 << 12),
 };
 
-
+#define MASK_OP_JALR(op)   (MASK_OP_MAJOR(op) | (op & (0x7 << 12)))
+// no enum since OPC_RISC_JALR is the actual value
 
 /* global register indices */
 static TCGv_ptr cpu_env;
@@ -783,6 +784,9 @@ static void gen_arith_w(DisasContext *ctx, uint32_t opc,
 static void gen_branch(DisasContext *ctx, uint32_t opc, 
                        int rs1, int rs2, int16_t bimm) {
 
+
+    //tcg_gen_movi_tl(cpu_gpr[31], 0);
+
     int l = gen_new_label();
 
     target_ulong ubimm = (target_long)bimm; /* sign ext 16->64 bits */
@@ -904,10 +908,39 @@ static void gen_store(DisasContext *ctx, uint32_t opc,
     }
 }
 
+static void gen_jalr(DisasContext *ctx, uint32_t opc, 
+                      int rd, int rs1, int16_t imm)
+{
+    target_ulong uimm = (target_long)imm; /* sign ext 16->64 bits */
+    TCGv t0;
+
+    switch (opc) {
+    
+    case OPC_RISC_JALR:
+        t0 = tcg_temp_new();
+        tcg_gen_addi_tl(t0, cpu_gpr[rs1], uimm);
+        tcg_gen_andi_tl(t0, t0, 0xFFFFFFFFFFFFFFFEll);
+        if (rd != 0) {
+            tcg_gen_movi_tl(cpu_gpr[rd], 4);
+            tcg_gen_addi_tl(cpu_gpr[rd], cpu_gpr[rd], ctx->pc);
+        }
+        tcg_gen_mov_tl(cpu_PC, t0);
+        tcg_gen_goto_tb(0);
+        tcg_gen_exit_tb((uintptr_t)ctx->tb | 0x0);
+        ctx->bstate = BS_BRANCH;
+        break;
+    default:
+        // TODO: exception
+        break;
+
+    }
+
+}
 
 
 #define GET_B_IMM(inst)              ((int16_t)((((inst >> 25) & 0x3F) << 5) | ((((int32_t)inst) >> 31) << 12) | (((inst >> 8) & 0xF) << 1) | (((inst >> 7) & 0x1) << 11)))  /* THIS BUILDS 13 bit imm (implicit zero is tacked on here), also note that bit #12 is obtained in a special way to get sign extension */
 #define GET_STORE_IMM(inst)           ((int16_t)(((((int32_t)inst) >> 25) << 5) | ((inst >> 7) & 0x1F)))
+#define GET_JAL_IMM(inst)             ((int16_t)((inst & 0xFF000) | (((inst >> 20) & 0x1) << 11) | (((inst >> 21) & 0x3FF) << 1) | ((((int32_t)inst) >> 31) << 20)))
 
 static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
 {
@@ -916,6 +949,7 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
     int rd;
     uint32_t op;
     int16_t imm;
+    target_ulong ubimm;
 
     /* make sure instructions are on a word boundary */
     if (ctx->pc & 0x3) {
@@ -946,9 +980,6 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
         exit(0);
     }
 
-
-
-
     op = MASK_OP_MAJOR(ctx->opcode);
     rs1 = (ctx->opcode >> 15) & 0x1f;
     rs2 = (ctx->opcode >> 20) & 0x1f;
@@ -974,13 +1005,19 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
         break;
 
     case OPC_RISC_JAL:
-        // TODO
-        tcg_gen_movi_tl(cpu_gpr[0], (ctx->opcode & 0x0)); // NOP
+        ubimm = (target_long) (GET_JAL_IMM(ctx->opcode));
+        if (rd != 0) {
+            tcg_gen_movi_tl(cpu_gpr[rd], 4);
+            tcg_gen_addi_tl(cpu_gpr[rd], cpu_gpr[rd], ctx->pc);
+        }
+        tcg_gen_movi_tl(cpu_PC, ctx->pc + ubimm);
+        tcg_gen_goto_tb(0);
+        tcg_gen_exit_tb((uintptr_t)ctx->tb | 0x0);
+        ctx->bstate = BS_BRANCH;
         break;
 
     case OPC_RISC_JALR:
-        // TODO
-        tcg_gen_movi_tl(cpu_gpr[0], (ctx->opcode & 0x0)); // NOP
+        gen_jalr(ctx, MASK_OP_JALR(ctx->opcode), rd, rs1, imm);
         break;
 
     case OPC_RISC_BRANCH:
