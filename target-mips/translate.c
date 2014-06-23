@@ -668,9 +668,9 @@ static void gen_arith_imm(DisasContext *ctx, uint32_t opc,
         break;
     case OPC_RISC_SHIFT_RIGHT_I: // SRLI, SRAI, TODO: upper bits check
         // differentiate on IMM
-        if (uimm & 0x20) {
+        if (uimm & 0x400) {
             // SRAI
-            tcg_gen_sari_tl(cpu_gpr[rd], cpu_gpr[rs1], uimm ^ 0x20);
+            tcg_gen_sari_tl(cpu_gpr[rd], cpu_gpr[rs1], uimm ^ 0x400);
         } else {
             tcg_gen_shri_tl(cpu_gpr[rd], cpu_gpr[rs1], uimm);
         }
@@ -704,18 +704,18 @@ static void gen_arith_imm_w(DisasContext *ctx, uint32_t opc,
         break;
     case OPC_RISC_SHIFT_RIGHT_IW: // SRLIW, SRAIW, TODO: upper bits check
         // differentiate on IMM
-        if (uimm & 0x20) {
+        if (uimm & 0x400) {
             // SRAI
             // first, trick to get it to act like working on 32 bits:
             tcg_gen_shli_tl(cpu_gpr[rd], cpu_gpr[rs1], 32);
             // now shift back to the right by shamt + 32 to get proper upper bits filling
-            tcg_gen_sari_tl(cpu_gpr[rd], cpu_gpr[rd], (uimm ^ 0x20) + 32);
+            tcg_gen_sari_tl(cpu_gpr[rd], cpu_gpr[rd], (uimm ^ 0x400) + 32);
             tcg_gen_ext32s_tl(cpu_gpr[rd], cpu_gpr[rd]);
         } else {
             // first, trick to get it to act like working on 32 bits (get rid of upper 32):
             tcg_gen_shli_tl(cpu_gpr[rd], cpu_gpr[rs1], 32);
             // now shift back to the right by shamt + 32 to get proper upper bits filling
-            tcg_gen_shri_tl(cpu_gpr[rd], cpu_gpr[rd], (uimm ^ 0x20) + 32);
+            tcg_gen_shri_tl(cpu_gpr[rd], cpu_gpr[rd], uimm + 32);
             tcg_gen_ext32s_tl(cpu_gpr[rd], cpu_gpr[rd]);
         }
         break;
