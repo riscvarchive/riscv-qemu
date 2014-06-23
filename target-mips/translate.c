@@ -597,6 +597,9 @@ static inline void gen_goto_tb(DisasContext *ctx, int n, target_ulong dest)
 static void gen_arith(DisasContext *ctx, uint32_t opc, 
                       int rd, int rs1, int rs2)
 {
+
+    TCGv t0;
+
     switch (opc) {
 
     case OPC_RISC_ADD:
@@ -605,8 +608,10 @@ static void gen_arith(DisasContext *ctx, uint32_t opc,
     case OPC_RISC_SUB:
         tcg_gen_sub_tl(cpu_gpr[rd], cpu_gpr[rs1], cpu_gpr[rs2]);
         break;
-    case OPC_RISC_SLL: // TODO rs2 out of range check?
-        tcg_gen_shl_tl(cpu_gpr[rd], cpu_gpr[rs1], cpu_gpr[rs2]);
+    case OPC_RISC_SLL:
+        t0 = tcg_temp_new();
+        tcg_gen_andi_tl(t0, cpu_gpr[rs2], 0x3F);
+        tcg_gen_shl_tl(cpu_gpr[rd], cpu_gpr[rs1], t0);
         break;
     case OPC_RISC_SLT:
         tcg_gen_setcond_tl(TCG_COND_LT, cpu_gpr[rd], cpu_gpr[rs1], cpu_gpr[rs2]);
@@ -617,11 +622,15 @@ static void gen_arith(DisasContext *ctx, uint32_t opc,
     case OPC_RISC_XOR:
         tcg_gen_xor_tl(cpu_gpr[rd], cpu_gpr[rs1], cpu_gpr[rs2]);
         break;
-    case OPC_RISC_SRL: // TODO rs2 out of range check?
-        tcg_gen_shr_tl(cpu_gpr[rd], cpu_gpr[rs1], cpu_gpr[rs2]);
+    case OPC_RISC_SRL:
+        t0 = tcg_temp_new();
+        tcg_gen_andi_tl(t0, cpu_gpr[rs2], 0x3F);
+        tcg_gen_shr_tl(cpu_gpr[rd], cpu_gpr[rs1], t0);
         break;
-    case OPC_RISC_SRA: // TODO rs2 out of range check?
-        tcg_gen_sar_tl(cpu_gpr[rd], cpu_gpr[rs1], cpu_gpr[rs2]);
+    case OPC_RISC_SRA:
+        t0 = tcg_temp_new();
+        tcg_gen_andi_tl(t0, cpu_gpr[rs2], 0x3F);
+        tcg_gen_sar_tl(cpu_gpr[rd], cpu_gpr[rs1], t0);
         break;
     case OPC_RISC_OR:
         tcg_gen_or_tl(cpu_gpr[rd], cpu_gpr[rs1], cpu_gpr[rs2]);
@@ -742,22 +751,20 @@ static void gen_arith_w(DisasContext *ctx, uint32_t opc,
         tcg_gen_sub_tl(cpu_gpr[rd], cpu_gpr[rs1], cpu_gpr[rs2]);
         tcg_gen_ext32s_tl(cpu_gpr[rd], cpu_gpr[rd]);
         break;
-    case OPC_RISC_SLLW: // TODO rs2 out of range check?
+    case OPC_RISC_SLLW:
         t0 = tcg_temp_new();
         tcg_gen_andi_tl(t0, cpu_gpr[rs2], 0x1F);
         tcg_gen_shl_tl(cpu_gpr[rd], cpu_gpr[rs1], t0);
         tcg_gen_ext32s_tl(cpu_gpr[rd], cpu_gpr[rd]);
         break;
-    case OPC_RISC_SRLW: // TODO rs2 out of range check?
-        //tcg_gen_shli_tl(cpu_gpr[rd], cpu_gpr[rs1], 32); // clear upper 32
-        //tcg_gen_shri_tl(cpu_gpr[rd], cpu_gpr[rd], 32); // smear zeroes into upper 32 
+    case OPC_RISC_SRLW:
         t0 = tcg_temp_new();
         tcg_gen_andi_tl(t0, cpu_gpr[rs1], 0x00000000FFFFFFFFLL); // clear upper 32
         tcg_gen_andi_tl(cpu_gpr[rd], cpu_gpr[rs2], 0x1F);
         tcg_gen_shr_tl(cpu_gpr[rd], t0, cpu_gpr[rd]); // do actual right shift
         tcg_gen_ext32s_tl(cpu_gpr[rd], cpu_gpr[rd]); // sign ext
         break;
-    case OPC_RISC_SRAW: // TODO rs2 out of range check?
+    case OPC_RISC_SRAW:
         // first, trick to get it to act like working on 32 bits (get rid of upper 32)
         t0 = tcg_temp_new();
         tcg_gen_shli_tl(t0, cpu_gpr[rs1], 32); // clear upper 32
@@ -1022,23 +1029,18 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
 
     case OPC_RISC_SYSTEM:
         /* TODO: */
-//        tcg_gen_op0(INDEX_op_nop);
         tcg_gen_movi_tl(cpu_gpr[0], 0x0); // NOP
         break;
 
 
     default:            /* Invalid */
         tcg_gen_movi_tl(cpu_gpr[0], 0x0); // NOP
-
         // TODO REMOVED FOR TESTING, REPLACE
 /*        MIPS_INVAL("major opcode");
         generate_exception(ctx, EXCP_RI); */
         break;
     }
 }
-
-
-
 
 static inline void
 gen_intermediate_code_internal(MIPSCPU *cpu, TranslationBlock *tb,
