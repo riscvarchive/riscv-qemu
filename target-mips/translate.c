@@ -924,6 +924,16 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
         tcg_gen_debug_insn_start(ctx->pc);
     }
 
+    /* TODO: TEMP HACK TO SEE IF TESTS PASS */
+
+    if (ctx->opcode == 0x51e0d073) {
+        printf("SUCCESS\n");
+        exit(0);
+    }
+
+
+
+
     op = MASK_OP_MAJOR(ctx->opcode);
     rs1 = (ctx->opcode >> 15) & 0x1f;
     rs2 = (ctx->opcode >> 20) & 0x1f;

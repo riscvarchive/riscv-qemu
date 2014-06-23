@@ -1,0 +1,109 @@
+
+rv64ui-p-rem:     file format elf64-littleriscv
+
+
+Disassembly of section .text:
+
+0000000000002000 <_start>:
+    2000:	50b02973          	csrr	a0,hartid
+    2004:	00091063          	bnez	a0,2004 <_start+0x4>
+
+0000000000002008 <test_2>:
+    2008:	01400093          	li	ra,20
+    200c:	00600113          	li	s0,6
+    2010:	0220e1b3          	rem	s1,ra,s0
+    2014:	00200e93          	li	t3,2
+    2018:	00200e13          	li	t2,2
+    201c:	0fd19c63          	bne	s1,t3,2114 <fail>
+
+0000000000002020 <test_3>:
+    2020:	fec00093          	li	ra,-20
+    2024:	00600113          	li	s0,6
+    2028:	0220e1b3          	rem	s1,ra,s0
+    202c:	ffe00e93          	li	t3,-2
+    2030:	00300e13          	li	t2,3
+    2034:	0fd19063          	bne	s1,t3,2114 <fail>
+
+0000000000002038 <test_4>:
+    2038:	01400093          	li	ra,20
+    203c:	ffa00113          	li	s0,-6
+    2040:	0220e1b3          	rem	s1,ra,s0
+    2044:	00200e93          	li	t3,2
+    2048:	00400e13          	li	t2,4
+    204c:	0dd19463          	bne	s1,t3,2114 <fail>
+
+0000000000002050 <test_5>:
+    2050:	fec00093          	li	ra,-20
+    2054:	ffa00113          	li	s0,-6
+    2058:	0220e1b3          	rem	s1,ra,s0
+    205c:	ffe00e93          	li	t3,-2
+    2060:	00500e13          	li	t2,5
+    2064:	0bd19863          	bne	s1,t3,2114 <fail>
+
+0000000000002068 <test_6>:
+    2068:	c00000b7          	lui	ra,0xc0000
+    206c:	00b09093          	slli	ra,ra,0xb
+    2070:	00b09093          	slli	ra,ra,0xb
+    2074:	00b09093          	slli	ra,ra,0xb
+    2078:	00100113          	li	s0,1
+    207c:	0220e1b3          	rem	s1,ra,s0
+    2080:	00000e93          	li	t3,0
+    2084:	00600e13          	li	t2,6
+    2088:	09d19663          	bne	s1,t3,2114 <fail>
+
+000000000000208c <test_7>:
+    208c:	c00000b7          	lui	ra,0xc0000
+    2090:	00b09093          	slli	ra,ra,0xb
+    2094:	00b09093          	slli	ra,ra,0xb
+    2098:	00b09093          	slli	ra,ra,0xb
+    209c:	fff00113          	li	s0,-1
+    20a0:	0220e1b3          	rem	s1,ra,s0
+    20a4:	00000e93          	li	t3,0
+    20a8:	00700e13          	li	t2,7
+    20ac:	07d19463          	bne	s1,t3,2114 <fail>
+
+00000000000020b0 <test_8>:
+    20b0:	c00000b7          	lui	ra,0xc0000
+    20b4:	00b09093          	slli	ra,ra,0xb
+    20b8:	00b09093          	slli	ra,ra,0xb
+    20bc:	00b09093          	slli	ra,ra,0xb
+    20c0:	00000113          	li	s0,0
+    20c4:	0220e1b3          	rem	s1,ra,s0
+    20c8:	c0000eb7          	lui	t3,0xc0000
+    20cc:	00be9e93          	slli	t3,t3,0xb
+    20d0:	00be9e93          	slli	t3,t3,0xb
+    20d4:	00be9e93          	slli	t3,t3,0xb
+    20d8:	00800e13          	li	t2,8
+    20dc:	03d19c63          	bne	s1,t3,2114 <fail>
+
+00000000000020e0 <test_9>:
+    20e0:	00100093          	li	ra,1
+    20e4:	00000113          	li	s0,0
+    20e8:	0220e1b3          	rem	s1,ra,s0
+    20ec:	00100e93          	li	t3,1
+    20f0:	00900e13          	li	t2,9
+    20f4:	03d19063          	bne	s1,t3,2114 <fail>
+
+00000000000020f8 <test_10>:
+    20f8:	00000093          	li	ra,0
+    20fc:	00000113          	li	s0,0
+    2100:	0220e1b3          	rem	s1,ra,s0
+    2104:	00000e93          	li	t3,0
+    2108:	00a00e13          	li	t2,10
+    210c:	01d19463          	bne	s1,t3,2114 <fail>
+    2110:	01c01e63          	bne	zero,t2,212c <pass>
+
+0000000000002114 <fail>:
+    2114:	0ff0000f          	fence
+    2118:	000e0863          	beqz	t2,2128 <fail+0x14>
+    211c:	001e1e13          	slli	t2,t2,0x1
+    2120:	001e6e13          	ori	t2,t2,1
+    2124:	51ee1073          	csrw	tohost,t2
+    2128:	00000063          	b	2128 <fail+0x14>
+
+000000000000212c <pass>:
+    212c:	0ff0000f          	fence
+    2130:	51e0d073          	csrwi	tohost,1
+    2134:	00000063          	b	2134 <pass+0x8>
+    2138:	00000013          	nop
+    213c:	00000013          	nop

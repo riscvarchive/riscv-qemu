@@ -1,0 +1,96 @@
+
+rv64ui-p-amoand_w:     file format elf64-littleriscv
+
+
+Disassembly of section .text:
+
+0000000000002000 <_start>:
+    2000:	50b02973          	csrr	a0,hartid
+    2004:	00091063          	bnez	a0,2004 <_start+0x4>
+
+0000000000002008 <test_2>:
+    2008:	80000937          	lui	a0,0x80000
+    200c:	80000993          	li	a1,-2048
+    2010:	00000a97          	auipc	a3,0x0
+    2014:	110a8a93          	addi	a3,a3,272 # 2120 <begin_signature>
+    2018:	012ab023          	sd	a0,0(a3)
+    201c:	00000013          	nop
+    2020:	00000013          	nop
+    2024:	00000013          	nop
+    2028:	00000013          	nop
+    202c:	00000013          	nop
+    2030:	00000013          	nop
+    2034:	00000013          	nop
+    2038:	00000013          	nop
+    203c:	00000013          	nop
+    2040:	00000013          	nop
+    2044:	00000013          	nop
+    2048:	00000013          	nop
+    204c:	00000013          	nop
+    2050:	00000013          	nop
+    2054:	00000013          	nop
+    2058:	00000013          	nop
+    205c:	00000013          	nop
+    2060:	00000013          	nop
+    2064:	00000013          	nop
+    2068:	00000013          	nop
+    206c:	00000013          	nop
+    2070:	00000013          	nop
+    2074:	00000013          	nop
+    2078:	00000013          	nop
+    207c:	00000013          	nop
+    2080:	00000013          	nop
+    2084:	00000013          	nop
+    2088:	00000013          	nop
+    208c:	613aab2f          	amoand.w	a4,a1,(a3)
+    2090:	80000eb7          	lui	t3,0x80000
+    2094:	00200e13          	li	t2,2
+    2098:	07db1263          	bne	a4,t3,20fc <fail>
+
+000000000000209c <test_3>:
+    209c:	000aab83          	lw	a5,0(a3)
+    20a0:	80000eb7          	lui	t3,0x80000
+    20a4:	00300e13          	li	t2,3
+    20a8:	05db9a63          	bne	a5,t3,20fc <fail>
+
+00000000000020ac <test_4>:
+    20ac:	001009b7          	lui	a1,0x100
+    20b0:	00b99993          	slli	a1,a1,0xb
+    20b4:	00004b37          	lui	a4,0x4
+    20b8:	016a8bb3          	add	a5,a3,a4
+    20bc:	000ba003          	lw	zero,0(a5)
+    20c0:	016b8bb3          	add	a5,a5,a4
+    20c4:	000ba003          	lw	zero,0(a5)
+    20c8:	016b8bb3          	add	a5,a5,a4
+    20cc:	000ba003          	lw	zero,0(a5)
+    20d0:	016b8bb3          	add	a5,a5,a4
+    20d4:	000ba003          	lw	zero,0(a5)
+    20d8:	613aab2f          	amoand.w	a4,a1,(a3)
+    20dc:	80000eb7          	lui	t3,0x80000
+    20e0:	00400e13          	li	t2,4
+    20e4:	01db1c63          	bne	a4,t3,20fc <fail>
+
+00000000000020e8 <test_5>:
+    20e8:	000aab83          	lw	a5,0(a3)
+    20ec:	80000eb7          	lui	t3,0x80000
+    20f0:	00500e13          	li	t2,5
+    20f4:	01db9463          	bne	a5,t3,20fc <fail>
+    20f8:	01c01e63          	bne	zero,t2,2114 <pass>
+
+00000000000020fc <fail>:
+    20fc:	0ff0000f          	fence
+    2100:	000e0863          	beqz	t2,2110 <fail+0x14>
+    2104:	001e1e13          	slli	t2,t2,0x1
+    2108:	001e6e13          	ori	t2,t2,1
+    210c:	51ee1073          	csrw	tohost,t2
+    2110:	00000063          	b	2110 <fail+0x14>
+
+0000000000002114 <pass>:
+    2114:	0ff0000f          	fence
+    2118:	51e0d073          	csrwi	tohost,1
+    211c:	00000063          	b	211c <pass+0x8>
+
+Disassembly of section .bss:
+
+0000000000002120 <amo_operand>:
+	...

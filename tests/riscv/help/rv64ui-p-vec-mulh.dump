@@ -1,0 +1,990 @@
+
+rv64ui-p-vec-mulh:     file format elf64-littleriscv
+
+
+Disassembly of section .text:
+
+0000000000002000 <_start>:
+    2000:	50b02973          	csrr	a0,hartid
+    2004:	00091063          	bnez	a0,2004 <_start+0x4>
+    2008:	10000913          	li	a0,256
+    200c:	50a92073          	csrs	status,a0
+    2010:	50a029f3          	csrr	a1,status
+    2014:	01397933          	and	a0,a0,a1
+    2018:	00091863          	bnez	a0,2028 <test_2>
+    201c:	0ff0000f          	fence
+    2020:	51e0d073          	csrwi	tohost,1
+    2024:	00000063          	b	2024 <_start+0x24>
+
+0000000000002028 <test_2>:
+    2028:	0040200b          	vsetcfg	4,0
+    202c:	00001ab7          	lui	a3,0x1
+    2030:	800a8a9b          	addiw	a3,a3,-2048
+    2034:	000aea8b          	vsetvl	a3,a3
+    2038:	00002937          	lui	a0,0x2
+    203c:	06192c2b          	vf	120(a0) # 2078 <vtcode2>
+    2040:	00001b17          	auipc	a4,0x1
+    2044:	b70b0b13          	addi	a4,a4,-1168 # 2bb0 <begin_signature>
+    2048:	060b21fb          	vsd	vx3,a4
+    204c:	0ff0000f          	fence
+    2050:	00000993          	li	a1,0
+    2054:	00000a13          	li	a2,0
+    2058:	00200e13          	li	t2,2
+
+000000000000205c <test_loop2>:
+    205c:	000b3903          	ld	a0,0(a4)
+    2060:	01390463          	beq	a0,a1,2068 <skip2>
+    2064:	3290006f          	j	2b8c <fail>
+
+0000000000002068 <skip2>:
+    2068:	008b0b13          	addi	a4,a4,8
+    206c:	001a0a13          	addi	a2,a2,1
+    2070:	ff5a16e3          	bne	a2,a3,205c <test_loop2>
+    2074:	0140006f          	j	2088 <next2>
+
+0000000000002078 <vtcode2>:
+    2078:	00000093          	li	ra,0
+    207c:	00000113          	li	s0,0
+    2080:	022091b3          	mulh	s1,ra,s0
+    2084:	00005077          	stop
+
+0000000000002088 <next2>:
+    2088:	0040200b          	vsetcfg	4,0
+    208c:	00001ab7          	lui	a3,0x1
+    2090:	800a8a9b          	addiw	a3,a3,-2048
+    2094:	000aea8b          	vsetvl	a3,a3
+    2098:	00002937          	lui	a0,0x2
+    209c:	0c192c2b          	vf	216(a0) # 20d8 <vtcode3>
+    20a0:	00001b17          	auipc	a4,0x1
+    20a4:	b10b0b13          	addi	a4,a4,-1264 # 2bb0 <begin_signature>
+    20a8:	060b21fb          	vsd	vx3,a4
+    20ac:	0ff0000f          	fence
+    20b0:	00000993          	li	a1,0
+    20b4:	00000a13          	li	a2,0
+    20b8:	00300e13          	li	t2,3
+
+00000000000020bc <test_loop3>:
+    20bc:	000b3903          	ld	a0,0(a4)
+    20c0:	01390463          	beq	a0,a1,20c8 <skip3>
+    20c4:	2c90006f          	j	2b8c <fail>
+
+00000000000020c8 <skip3>:
+    20c8:	008b0b13          	addi	a4,a4,8
+    20cc:	001a0a13          	addi	a2,a2,1
+    20d0:	ff5a16e3          	bne	a2,a3,20bc <test_loop3>
+    20d4:	0140006f          	j	20e8 <next3>
+
+00000000000020d8 <vtcode3>:
+    20d8:	00100093          	li	ra,1
+    20dc:	00100113          	li	s0,1
+    20e0:	022091b3          	mulh	s1,ra,s0
+    20e4:	00005077          	stop
+
+00000000000020e8 <next3>:
+    20e8:	0040200b          	vsetcfg	4,0
+    20ec:	00001ab7          	lui	a3,0x1
+    20f0:	800a8a9b          	addiw	a3,a3,-2048
+    20f4:	000aea8b          	vsetvl	a3,a3
+    20f8:	00002937          	lui	a0,0x2
+    20fc:	12192c2b          	vf	312(a0) # 2138 <vtcode4>
+    2100:	00001b17          	auipc	a4,0x1
+    2104:	ab0b0b13          	addi	a4,a4,-1360 # 2bb0 <begin_signature>
+    2108:	060b21fb          	vsd	vx3,a4
+    210c:	0ff0000f          	fence
+    2110:	00000993          	li	a1,0
+    2114:	00000a13          	li	a2,0
+    2118:	00400e13          	li	t2,4
+
+000000000000211c <test_loop4>:
+    211c:	000b3903          	ld	a0,0(a4)
+    2120:	01390463          	beq	a0,a1,2128 <skip4>
+    2124:	2690006f          	j	2b8c <fail>
+
+0000000000002128 <skip4>:
+    2128:	008b0b13          	addi	a4,a4,8
+    212c:	001a0a13          	addi	a2,a2,1
+    2130:	ff5a16e3          	bne	a2,a3,211c <test_loop4>
+    2134:	0140006f          	j	2148 <next4>
+
+0000000000002138 <vtcode4>:
+    2138:	00300093          	li	ra,3
+    213c:	00700113          	li	s0,7
+    2140:	022091b3          	mulh	s1,ra,s0
+    2144:	00005077          	stop
+
+0000000000002148 <next4>:
+    2148:	0040200b          	vsetcfg	4,0
+    214c:	00001ab7          	lui	a3,0x1
+    2150:	800a8a9b          	addiw	a3,a3,-2048
+    2154:	000aea8b          	vsetvl	a3,a3
+    2158:	00002937          	lui	a0,0x2
+    215c:	18192c2b          	vf	408(a0) # 2198 <vtcode5>
+    2160:	00001b17          	auipc	a4,0x1
+    2164:	a50b0b13          	addi	a4,a4,-1456 # 2bb0 <begin_signature>
+    2168:	060b21fb          	vsd	vx3,a4
+    216c:	0ff0000f          	fence
+    2170:	00000993          	li	a1,0
+    2174:	00000a13          	li	a2,0
+    2178:	00500e13          	li	t2,5
+
+000000000000217c <test_loop5>:
+    217c:	000b3903          	ld	a0,0(a4)
+    2180:	01390463          	beq	a0,a1,2188 <skip5>
+    2184:	2090006f          	j	2b8c <fail>
+
+0000000000002188 <skip5>:
+    2188:	008b0b13          	addi	a4,a4,8
+    218c:	001a0a13          	addi	a2,a2,1
+    2190:	ff5a16e3          	bne	a2,a3,217c <test_loop5>
+    2194:	0140006f          	j	21a8 <next5>
+
+0000000000002198 <vtcode5>:
+    2198:	00000093          	li	ra,0
+    219c:	ffff8137          	lui	s0,0xffff8
+    21a0:	022091b3          	mulh	s1,ra,s0
+    21a4:	00005077          	stop
+
+00000000000021a8 <next5>:
+    21a8:	0040200b          	vsetcfg	4,0
+    21ac:	00001ab7          	lui	a3,0x1
+    21b0:	800a8a9b          	addiw	a3,a3,-2048
+    21b4:	000aea8b          	vsetvl	a3,a3
+    21b8:	00002937          	lui	a0,0x2
+    21bc:	1e192c2b          	vf	504(a0) # 21f8 <vtcode6>
+    21c0:	00001b17          	auipc	a4,0x1
+    21c4:	9f0b0b13          	addi	a4,a4,-1552 # 2bb0 <begin_signature>
+    21c8:	060b21fb          	vsd	vx3,a4
+    21cc:	0ff0000f          	fence
+    21d0:	00000993          	li	a1,0
+    21d4:	00000a13          	li	a2,0
+    21d8:	00600e13          	li	t2,6
+
+00000000000021dc <test_loop6>:
+    21dc:	000b3903          	ld	a0,0(a4)
+    21e0:	01390463          	beq	a0,a1,21e8 <skip6>
+    21e4:	1a90006f          	j	2b8c <fail>
+
+00000000000021e8 <skip6>:
+    21e8:	008b0b13          	addi	a4,a4,8
+    21ec:	001a0a13          	addi	a2,a2,1
+    21f0:	ff5a16e3          	bne	a2,a3,21dc <test_loop6>
+    21f4:	0140006f          	j	2208 <next6>
+
+00000000000021f8 <vtcode6>:
+    21f8:	800000b7          	lui	ra,0x80000
+    21fc:	00000113          	li	s0,0
+    2200:	022091b3          	mulh	s1,ra,s0
+    2204:	00005077          	stop
+
+0000000000002208 <next6>:
+    2208:	0040200b          	vsetcfg	4,0
+    220c:	00001ab7          	lui	a3,0x1
+    2210:	800a8a9b          	addiw	a3,a3,-2048
+    2214:	000aea8b          	vsetvl	a3,a3
+    2218:	00002937          	lui	a0,0x2
+    221c:	24192c2b          	vf	600(a0) # 2258 <vtcode7>
+    2220:	00001b17          	auipc	a4,0x1
+    2224:	990b0b13          	addi	a4,a4,-1648 # 2bb0 <begin_signature>
+    2228:	060b21fb          	vsd	vx3,a4
+    222c:	0ff0000f          	fence
+    2230:	00000993          	li	a1,0
+    2234:	00000a13          	li	a2,0
+    2238:	00700e13          	li	t2,7
+
+000000000000223c <test_loop7>:
+    223c:	000b3903          	ld	a0,0(a4)
+    2240:	01390463          	beq	a0,a1,2248 <skip7>
+    2244:	1490006f          	j	2b8c <fail>
+
+0000000000002248 <skip7>:
+    2248:	008b0b13          	addi	a4,a4,8
+    224c:	001a0a13          	addi	a2,a2,1
+    2250:	ff5a16e3          	bne	a2,a3,223c <test_loop7>
+    2254:	0140006f          	j	2268 <next7>
+
+0000000000002258 <vtcode7>:
+    2258:	800000b7          	lui	ra,0x80000
+    225c:	ffff8137          	lui	s0,0xffff8
+    2260:	022091b3          	mulh	s1,ra,s0
+    2264:	00005077          	stop
+
+0000000000002268 <next7>:
+    2268:	0030200b          	vsetcfg	3,0
+    226c:	00001ab7          	lui	a3,0x1
+    2270:	800a8a9b          	addiw	a3,a3,-2048
+    2274:	000aea8b          	vsetvl	a3,a3
+    2278:	00002937          	lui	a0,0x2
+    227c:	2a192c2b          	vf	696(a0) # 22b8 <vtcode8>
+    2280:	00001b17          	auipc	a4,0x1
+    2284:	930b0b13          	addi	a4,a4,-1744 # 2bb0 <begin_signature>
+    2288:	060b20fb          	vsd	vx1,a4
+    228c:	0ff0000f          	fence
+    2290:	08f00993          	li	a1,143
+    2294:	00000a13          	li	a2,0
+    2298:	00800e13          	li	t2,8
+
+000000000000229c <test_loop8>:
+    229c:	000b3903          	ld	a0,0(a4)
+    22a0:	01390463          	beq	a0,a1,22a8 <skip8>
+    22a4:	0e90006f          	j	2b8c <fail>
+
+00000000000022a8 <skip8>:
+    22a8:	008b0b13          	addi	a4,a4,8
+    22ac:	001a0a13          	addi	a2,a2,1
+    22b0:	ff5a16e3          	bne	a2,a3,229c <test_loop8>
+    22b4:	01c0006f          	j	22d0 <next8>
+
+00000000000022b8 <vtcode8>:
+    22b8:	01a000b7          	lui	ra,0x1a00
+    22bc:	00b09093          	slli	ra,ra,0xb
+    22c0:	01600137          	lui	s0,0x1600
+    22c4:	00b11113          	slli	s0,s0,0xb
+    22c8:	022090b3          	mulh	ra,ra,s0
+    22cc:	00005077          	stop
+
+00000000000022d0 <next8>:
+    22d0:	0030200b          	vsetcfg	3,0
+    22d4:	00001ab7          	lui	a3,0x1
+    22d8:	800a8a9b          	addiw	a3,a3,-2048
+    22dc:	000aea8b          	vsetvl	a3,a3
+    22e0:	00002937          	lui	a0,0x2
+    22e4:	3219202b          	vf	800(a0) # 2320 <vtcode9>
+    22e8:	00001b17          	auipc	a4,0x1
+    22ec:	8c8b0b13          	addi	a4,a4,-1848 # 2bb0 <begin_signature>
+    22f0:	060b217b          	vsd	vx2,a4
+    22f4:	0ff0000f          	fence
+    22f8:	09a00993          	li	a1,154
+    22fc:	00000a13          	li	a2,0
+    2300:	00900e13          	li	t2,9
+
+0000000000002304 <test_loop9>:
+    2304:	000b3903          	ld	a0,0(a4)
+    2308:	01390463          	beq	a0,a1,2310 <skip9>
+    230c:	0810006f          	j	2b8c <fail>
+
+0000000000002310 <skip9>:
+    2310:	008b0b13          	addi	a4,a4,8
+    2314:	001a0a13          	addi	a2,a2,1
+    2318:	ff5a16e3          	bne	a2,a3,2304 <test_loop9>
+    231c:	01c0006f          	j	2338 <next9>
+
+0000000000002320 <vtcode9>:
+    2320:	01c000b7          	lui	ra,0x1c00
+    2324:	00b09093          	slli	ra,ra,0xb
+    2328:	01600137          	lui	s0,0x1600
+    232c:	00b11113          	slli	s0,s0,0xb
+    2330:	02209133          	mulh	s0,ra,s0
+    2334:	00005077          	stop
+
+0000000000002338 <next9>:
+    2338:	0020200b          	vsetcfg	2,0
+    233c:	00001ab7          	lui	a3,0x1
+    2340:	800a8a9b          	addiw	a3,a3,-2048
+    2344:	000aea8b          	vsetvl	a3,a3
+    2348:	00002937          	lui	a0,0x2
+    234c:	3819242b          	vf	904(a0) # 2388 <vtcode10>
+    2350:	00001b17          	auipc	a4,0x1
+    2354:	860b0b13          	addi	a4,a4,-1952 # 2bb0 <begin_signature>
+    2358:	060b20fb          	vsd	vx1,a4
+    235c:	0ff0000f          	fence
+    2360:	0a900993          	li	a1,169
+    2364:	00000a13          	li	a2,0
+    2368:	00a00e13          	li	t2,10
+
+000000000000236c <test_loop10>:
+    236c:	000b3903          	ld	a0,0(a4)
+    2370:	01390463          	beq	a0,a1,2378 <skip10>
+    2374:	0190006f          	j	2b8c <fail>
+
+0000000000002378 <skip10>:
+    2378:	008b0b13          	addi	a4,a4,8
+    237c:	001a0a13          	addi	a2,a2,1
+    2380:	ff5a16e3          	bne	a2,a3,236c <test_loop10>
+    2384:	0140006f          	j	2398 <next10>
+
+0000000000002388 <vtcode10>:
+    2388:	01a000b7          	lui	ra,0x1a00
+    238c:	00b09093          	slli	ra,ra,0xb
+    2390:	021090b3          	mulh	ra,ra,ra
+    2394:	00005077          	stop
+
+0000000000002398 <next10>:
+    2398:	0050200b          	vsetcfg	5,0
+    239c:	00001ab7          	lui	a3,0x1
+    23a0:	800a8a9b          	addiw	a3,a3,-2048
+    23a4:	000aea8b          	vsetvl	a3,a3
+    23a8:	00002937          	lui	a0,0x2
+    23ac:	3e19242b          	vf	1000(a0) # 23e8 <vtcode11>
+    23b0:	00001b17          	auipc	a4,0x1
+    23b4:	800b0b13          	addi	a4,a4,-2048 # 2bb0 <begin_signature>
+    23b8:	060b227b          	vsd	vx4,a4
+    23bc:	0ff0000f          	fence
+    23c0:	08f00993          	li	a1,143
+    23c4:	00000a13          	li	a2,0
+    23c8:	00b00e13          	li	t2,11
+
+00000000000023cc <test_loop11>:
+    23cc:	000b3903          	ld	a0,0(a4)
+    23d0:	01390463          	beq	a0,a1,23d8 <skip11>
+    23d4:	7b80006f          	j	2b8c <fail>
+
+00000000000023d8 <skip11>:
+    23d8:	008b0b13          	addi	a4,a4,8
+    23dc:	001a0a13          	addi	a2,a2,1
+    23e0:	ff5a16e3          	bne	a2,a3,23cc <test_loop11>
+    23e4:	0200006f          	j	2404 <next11>
+
+00000000000023e8 <vtcode11>:
+    23e8:	01a000b7          	lui	ra,0x1a00
+    23ec:	00b09093          	slli	ra,ra,0xb
+    23f0:	01600137          	lui	s0,0x1600
+    23f4:	00b11113          	slli	s0,s0,0xb
+    23f8:	022091b3          	mulh	s1,ra,s0
+    23fc:	00018213          	mv	s2,s1
+    2400:	00005077          	stop
+
+0000000000002404 <next11>:
+    2404:	0050200b          	vsetcfg	5,0
+    2408:	00001ab7          	lui	a3,0x1
+    240c:	800a8a9b          	addiw	a3,a3,-2048
+    2410:	000aea8b          	vsetvl	a3,a3
+    2414:	00002937          	lui	a0,0x2
+    2418:	44192a2b          	vf	1108(a0) # 2454 <vtcode12>
+    241c:	00000b17          	auipc	a4,0x0
+    2420:	794b0b13          	addi	a4,a4,1940 # 2bb0 <begin_signature>
+    2424:	060b227b          	vsd	vx4,a4
+    2428:	0ff0000f          	fence
+    242c:	09a00993          	li	a1,154
+    2430:	00000a13          	li	a2,0
+    2434:	00c00e13          	li	t2,12
+
+0000000000002438 <test_loop12>:
+    2438:	000b3903          	ld	a0,0(a4)
+    243c:	01390463          	beq	a0,a1,2444 <skip12>
+    2440:	74c0006f          	j	2b8c <fail>
+
+0000000000002444 <skip12>:
+    2444:	008b0b13          	addi	a4,a4,8
+    2448:	001a0a13          	addi	a2,a2,1
+    244c:	ff5a16e3          	bne	a2,a3,2438 <test_loop12>
+    2450:	0240006f          	j	2474 <next12>
+
+0000000000002454 <vtcode12>:
+    2454:	01c000b7          	lui	ra,0x1c00
+    2458:	00b09093          	slli	ra,ra,0xb
+    245c:	01600137          	lui	s0,0x1600
+    2460:	00b11113          	slli	s0,s0,0xb
+    2464:	022091b3          	mulh	s1,ra,s0
+    2468:	00000013          	nop
+    246c:	00018213          	mv	s2,s1
+    2470:	00005077          	stop
+
+0000000000002474 <next12>:
+    2474:	0050200b          	vsetcfg	5,0
+    2478:	00001ab7          	lui	a3,0x1
+    247c:	800a8a9b          	addiw	a3,a3,-2048
+    2480:	000aea8b          	vsetvl	a3,a3
+    2484:	00002937          	lui	a0,0x2
+    2488:	4c19222b          	vf	1220(a0) # 24c4 <vtcode13>
+    248c:	00000b17          	auipc	a4,0x0
+    2490:	724b0b13          	addi	a4,a4,1828 # 2bb0 <begin_signature>
+    2494:	060b227b          	vsd	vx4,a4
+    2498:	0ff0000f          	fence
+    249c:	0a500993          	li	a1,165
+    24a0:	00000a13          	li	a2,0
+    24a4:	00d00e13          	li	t2,13
+
+00000000000024a8 <test_loop13>:
+    24a8:	000b3903          	ld	a0,0(a4)
+    24ac:	01390463          	beq	a0,a1,24b4 <skip13>
+    24b0:	6dc0006f          	j	2b8c <fail>
+
+00000000000024b4 <skip13>:
+    24b4:	008b0b13          	addi	a4,a4,8
+    24b8:	001a0a13          	addi	a2,a2,1
+    24bc:	ff5a16e3          	bne	a2,a3,24a8 <test_loop13>
+    24c0:	0280006f          	j	24e8 <next13>
+
+00000000000024c4 <vtcode13>:
+    24c4:	01e000b7          	lui	ra,0x1e00
+    24c8:	00b09093          	slli	ra,ra,0xb
+    24cc:	01600137          	lui	s0,0x1600
+    24d0:	00b11113          	slli	s0,s0,0xb
+    24d4:	022091b3          	mulh	s1,ra,s0
+    24d8:	00000013          	nop
+    24dc:	00000013          	nop
+    24e0:	00018213          	mv	s2,s1
+    24e4:	00005077          	stop
+
+00000000000024e8 <next13>:
+    24e8:	0040200b          	vsetcfg	4,0
+    24ec:	00001ab7          	lui	a3,0x1
+    24f0:	800a8a9b          	addiw	a3,a3,-2048
+    24f4:	000aea8b          	vsetvl	a3,a3
+    24f8:	00002937          	lui	a0,0x2
+    24fc:	52192c2b          	vf	1336(a0) # 2538 <vtcode14>
+    2500:	00000b17          	auipc	a4,0x0
+    2504:	6b0b0b13          	addi	a4,a4,1712 # 2bb0 <begin_signature>
+    2508:	060b21fb          	vsd	vx3,a4
+    250c:	0ff0000f          	fence
+    2510:	08f00993          	li	a1,143
+    2514:	00000a13          	li	a2,0
+    2518:	00e00e13          	li	t2,14
+
+000000000000251c <test_loop14>:
+    251c:	000b3903          	ld	a0,0(a4)
+    2520:	01390463          	beq	a0,a1,2528 <skip14>
+    2524:	6680006f          	j	2b8c <fail>
+
+0000000000002528 <skip14>:
+    2528:	008b0b13          	addi	a4,a4,8
+    252c:	001a0a13          	addi	a2,a2,1
+    2530:	ff5a16e3          	bne	a2,a3,251c <test_loop14>
+    2534:	01c0006f          	j	2550 <next14>
+
+0000000000002538 <vtcode14>:
+    2538:	01a000b7          	lui	ra,0x1a00
+    253c:	00b09093          	slli	ra,ra,0xb
+    2540:	01600137          	lui	s0,0x1600
+    2544:	00b11113          	slli	s0,s0,0xb
+    2548:	022091b3          	mulh	s1,ra,s0
+    254c:	00005077          	stop
+
+0000000000002550 <next14>:
+    2550:	0040200b          	vsetcfg	4,0
+    2554:	00001ab7          	lui	a3,0x1
+    2558:	800a8a9b          	addiw	a3,a3,-2048
+    255c:	000aea8b          	vsetvl	a3,a3
+    2560:	00002937          	lui	a0,0x2
+    2564:	5a19202b          	vf	1440(a0) # 25a0 <vtcode15>
+    2568:	00000b17          	auipc	a4,0x0
+    256c:	648b0b13          	addi	a4,a4,1608 # 2bb0 <begin_signature>
+    2570:	060b21fb          	vsd	vx3,a4
+    2574:	0ff0000f          	fence
+    2578:	09a00993          	li	a1,154
+    257c:	00000a13          	li	a2,0
+    2580:	00f00e13          	li	t2,15
+
+0000000000002584 <test_loop15>:
+    2584:	000b3903          	ld	a0,0(a4)
+    2588:	01390463          	beq	a0,a1,2590 <skip15>
+    258c:	6000006f          	j	2b8c <fail>
+
+0000000000002590 <skip15>:
+    2590:	008b0b13          	addi	a4,a4,8
+    2594:	001a0a13          	addi	a2,a2,1
+    2598:	ff5a16e3          	bne	a2,a3,2584 <test_loop15>
+    259c:	0200006f          	j	25bc <next15>
+
+00000000000025a0 <vtcode15>:
+    25a0:	01c000b7          	lui	ra,0x1c00
+    25a4:	00b09093          	slli	ra,ra,0xb
+    25a8:	01600137          	lui	s0,0x1600
+    25ac:	00b11113          	slli	s0,s0,0xb
+    25b0:	00000013          	nop
+    25b4:	022091b3          	mulh	s1,ra,s0
+    25b8:	00005077          	stop
+
+00000000000025bc <next15>:
+    25bc:	0040200b          	vsetcfg	4,0
+    25c0:	00001ab7          	lui	a3,0x1
+    25c4:	800a8a9b          	addiw	a3,a3,-2048
+    25c8:	000aea8b          	vsetvl	a3,a3
+    25cc:	00002937          	lui	a0,0x2
+    25d0:	6019262b          	vf	1548(a0) # 260c <vtcode16>
+    25d4:	00000b17          	auipc	a4,0x0
+    25d8:	5dcb0b13          	addi	a4,a4,1500 # 2bb0 <begin_signature>
+    25dc:	060b21fb          	vsd	vx3,a4
+    25e0:	0ff0000f          	fence
+    25e4:	0a500993          	li	a1,165
+    25e8:	00000a13          	li	a2,0
+    25ec:	01000e13          	li	t2,16
+
+00000000000025f0 <test_loop16>:
+    25f0:	000b3903          	ld	a0,0(a4)
+    25f4:	01390463          	beq	a0,a1,25fc <skip16>
+    25f8:	5940006f          	j	2b8c <fail>
+
+00000000000025fc <skip16>:
+    25fc:	008b0b13          	addi	a4,a4,8
+    2600:	001a0a13          	addi	a2,a2,1
+    2604:	ff5a16e3          	bne	a2,a3,25f0 <test_loop16>
+    2608:	0240006f          	j	262c <next16>
+
+000000000000260c <vtcode16>:
+    260c:	01e000b7          	lui	ra,0x1e00
+    2610:	00b09093          	slli	ra,ra,0xb
+    2614:	01600137          	lui	s0,0x1600
+    2618:	00b11113          	slli	s0,s0,0xb
+    261c:	00000013          	nop
+    2620:	00000013          	nop
+    2624:	022091b3          	mulh	s1,ra,s0
+    2628:	00005077          	stop
+
+000000000000262c <next16>:
+    262c:	0040200b          	vsetcfg	4,0
+    2630:	00001ab7          	lui	a3,0x1
+    2634:	800a8a9b          	addiw	a3,a3,-2048
+    2638:	000aea8b          	vsetvl	a3,a3
+    263c:	00002937          	lui	a0,0x2
+    2640:	66192e2b          	vf	1660(a0) # 267c <vtcode17>
+    2644:	00000b17          	auipc	a4,0x0
+    2648:	56cb0b13          	addi	a4,a4,1388 # 2bb0 <begin_signature>
+    264c:	060b21fb          	vsd	vx3,a4
+    2650:	0ff0000f          	fence
+    2654:	08f00993          	li	a1,143
+    2658:	00000a13          	li	a2,0
+    265c:	01100e13          	li	t2,17
+
+0000000000002660 <test_loop17>:
+    2660:	000b3903          	ld	a0,0(a4)
+    2664:	01390463          	beq	a0,a1,266c <skip17>
+    2668:	5240006f          	j	2b8c <fail>
+
+000000000000266c <skip17>:
+    266c:	008b0b13          	addi	a4,a4,8
+    2670:	001a0a13          	addi	a2,a2,1
+    2674:	ff5a16e3          	bne	a2,a3,2660 <test_loop17>
+    2678:	0200006f          	j	2698 <next17>
+
+000000000000267c <vtcode17>:
+    267c:	01a000b7          	lui	ra,0x1a00
+    2680:	00b09093          	slli	ra,ra,0xb
+    2684:	00000013          	nop
+    2688:	01600137          	lui	s0,0x1600
+    268c:	00b11113          	slli	s0,s0,0xb
+    2690:	022091b3          	mulh	s1,ra,s0
+    2694:	00005077          	stop
+
+0000000000002698 <next17>:
+    2698:	0040200b          	vsetcfg	4,0
+    269c:	00001ab7          	lui	a3,0x1
+    26a0:	800a8a9b          	addiw	a3,a3,-2048
+    26a4:	000aea8b          	vsetvl	a3,a3
+    26a8:	00002937          	lui	a0,0x2
+    26ac:	6e19242b          	vf	1768(a0) # 26e8 <vtcode18>
+    26b0:	00000b17          	auipc	a4,0x0
+    26b4:	500b0b13          	addi	a4,a4,1280 # 2bb0 <begin_signature>
+    26b8:	060b21fb          	vsd	vx3,a4
+    26bc:	0ff0000f          	fence
+    26c0:	09a00993          	li	a1,154
+    26c4:	00000a13          	li	a2,0
+    26c8:	01200e13          	li	t2,18
+
+00000000000026cc <test_loop18>:
+    26cc:	000b3903          	ld	a0,0(a4)
+    26d0:	01390463          	beq	a0,a1,26d8 <skip18>
+    26d4:	4b80006f          	j	2b8c <fail>
+
+00000000000026d8 <skip18>:
+    26d8:	008b0b13          	addi	a4,a4,8
+    26dc:	001a0a13          	addi	a2,a2,1
+    26e0:	ff5a16e3          	bne	a2,a3,26cc <test_loop18>
+    26e4:	0240006f          	j	2708 <next18>
+
+00000000000026e8 <vtcode18>:
+    26e8:	01c000b7          	lui	ra,0x1c00
+    26ec:	00b09093          	slli	ra,ra,0xb
+    26f0:	00000013          	nop
+    26f4:	01600137          	lui	s0,0x1600
+    26f8:	00b11113          	slli	s0,s0,0xb
+    26fc:	00000013          	nop
+    2700:	022091b3          	mulh	s1,ra,s0
+    2704:	00005077          	stop
+
+0000000000002708 <next18>:
+    2708:	0040200b          	vsetcfg	4,0
+    270c:	00001ab7          	lui	a3,0x1
+    2710:	800a8a9b          	addiw	a3,a3,-2048
+    2714:	000aea8b          	vsetvl	a3,a3
+    2718:	00002937          	lui	a0,0x2
+    271c:	74192c2b          	vf	1880(a0) # 2758 <vtcode19>
+    2720:	00000b17          	auipc	a4,0x0
+    2724:	490b0b13          	addi	a4,a4,1168 # 2bb0 <begin_signature>
+    2728:	060b21fb          	vsd	vx3,a4
+    272c:	0ff0000f          	fence
+    2730:	0a500993          	li	a1,165
+    2734:	00000a13          	li	a2,0
+    2738:	01300e13          	li	t2,19
+
+000000000000273c <test_loop19>:
+    273c:	000b3903          	ld	a0,0(a4)
+    2740:	01390463          	beq	a0,a1,2748 <skip19>
+    2744:	4480006f          	j	2b8c <fail>
+
+0000000000002748 <skip19>:
+    2748:	008b0b13          	addi	a4,a4,8
+    274c:	001a0a13          	addi	a2,a2,1
+    2750:	ff5a16e3          	bne	a2,a3,273c <test_loop19>
+    2754:	0240006f          	j	2778 <next19>
+
+0000000000002758 <vtcode19>:
+    2758:	01e000b7          	lui	ra,0x1e00
+    275c:	00b09093          	slli	ra,ra,0xb
+    2760:	00000013          	nop
+    2764:	00000013          	nop
+    2768:	01600137          	lui	s0,0x1600
+    276c:	00b11113          	slli	s0,s0,0xb
+    2770:	022091b3          	mulh	s1,ra,s0
+    2774:	00005077          	stop
+
+0000000000002778 <next19>:
+    2778:	0040200b          	vsetcfg	4,0
+    277c:	00001ab7          	lui	a3,0x1
+    2780:	800a8a9b          	addiw	a3,a3,-2048
+    2784:	000aea8b          	vsetvl	a3,a3
+    2788:	00002937          	lui	a0,0x2
+    278c:	7c19242b          	vf	1992(a0) # 27c8 <vtcode20>
+    2790:	00000b17          	auipc	a4,0x0
+    2794:	420b0b13          	addi	a4,a4,1056 # 2bb0 <begin_signature>
+    2798:	060b21fb          	vsd	vx3,a4
+    279c:	0ff0000f          	fence
+    27a0:	08f00993          	li	a1,143
+    27a4:	00000a13          	li	a2,0
+    27a8:	01400e13          	li	t2,20
+
+00000000000027ac <test_loop20>:
+    27ac:	000b3903          	ld	a0,0(a4)
+    27b0:	01390463          	beq	a0,a1,27b8 <skip20>
+    27b4:	3d80006f          	j	2b8c <fail>
+
+00000000000027b8 <skip20>:
+    27b8:	008b0b13          	addi	a4,a4,8
+    27bc:	001a0a13          	addi	a2,a2,1
+    27c0:	ff5a16e3          	bne	a2,a3,27ac <test_loop20>
+    27c4:	01c0006f          	j	27e0 <next20>
+
+00000000000027c8 <vtcode20>:
+    27c8:	01600137          	lui	s0,0x1600
+    27cc:	00b11113          	slli	s0,s0,0xb
+    27d0:	01a000b7          	lui	ra,0x1a00
+    27d4:	00b09093          	slli	ra,ra,0xb
+    27d8:	022091b3          	mulh	s1,ra,s0
+    27dc:	00005077          	stop
+
+00000000000027e0 <next20>:
+    27e0:	0040200b          	vsetcfg	4,0
+    27e4:	00001ab7          	lui	a3,0x1
+    27e8:	800a8a9b          	addiw	a3,a3,-2048
+    27ec:	000aea8b          	vsetvl	a3,a3
+    27f0:	00003937          	lui	a0,0x3
+    27f4:	8219282b          	vf	-2000(a0) # 2830 <vtcode21>
+    27f8:	00000b17          	auipc	a4,0x0
+    27fc:	3b8b0b13          	addi	a4,a4,952 # 2bb0 <begin_signature>
+    2800:	060b21fb          	vsd	vx3,a4
+    2804:	0ff0000f          	fence
+    2808:	09a00993          	li	a1,154
+    280c:	00000a13          	li	a2,0
+    2810:	01500e13          	li	t2,21
+
+0000000000002814 <test_loop21>:
+    2814:	000b3903          	ld	a0,0(a4)
+    2818:	01390463          	beq	a0,a1,2820 <skip21>
+    281c:	3700006f          	j	2b8c <fail>
+
+0000000000002820 <skip21>:
+    2820:	008b0b13          	addi	a4,a4,8
+    2824:	001a0a13          	addi	a2,a2,1
+    2828:	ff5a16e3          	bne	a2,a3,2814 <test_loop21>
+    282c:	0200006f          	j	284c <next21>
+
+0000000000002830 <vtcode21>:
+    2830:	01600137          	lui	s0,0x1600
+    2834:	00b11113          	slli	s0,s0,0xb
+    2838:	01c000b7          	lui	ra,0x1c00
+    283c:	00b09093          	slli	ra,ra,0xb
+    2840:	00000013          	nop
+    2844:	022091b3          	mulh	s1,ra,s0
+    2848:	00005077          	stop
+
+000000000000284c <next21>:
+    284c:	0040200b          	vsetcfg	4,0
+    2850:	00001ab7          	lui	a3,0x1
+    2854:	800a8a9b          	addiw	a3,a3,-2048
+    2858:	000aea8b          	vsetvl	a3,a3
+    285c:	00003937          	lui	a0,0x3
+    2860:	88192e2b          	vf	-1892(a0) # 289c <vtcode22>
+    2864:	00000b17          	auipc	a4,0x0
+    2868:	34cb0b13          	addi	a4,a4,844 # 2bb0 <begin_signature>
+    286c:	060b21fb          	vsd	vx3,a4
+    2870:	0ff0000f          	fence
+    2874:	0a500993          	li	a1,165
+    2878:	00000a13          	li	a2,0
+    287c:	01600e13          	li	t2,22
+
+0000000000002880 <test_loop22>:
+    2880:	000b3903          	ld	a0,0(a4)
+    2884:	01390463          	beq	a0,a1,288c <skip22>
+    2888:	3040006f          	j	2b8c <fail>
+
+000000000000288c <skip22>:
+    288c:	008b0b13          	addi	a4,a4,8
+    2890:	001a0a13          	addi	a2,a2,1
+    2894:	ff5a16e3          	bne	a2,a3,2880 <test_loop22>
+    2898:	0240006f          	j	28bc <next22>
+
+000000000000289c <vtcode22>:
+    289c:	01600137          	lui	s0,0x1600
+    28a0:	00b11113          	slli	s0,s0,0xb
+    28a4:	01e000b7          	lui	ra,0x1e00
+    28a8:	00b09093          	slli	ra,ra,0xb
+    28ac:	00000013          	nop
+    28b0:	00000013          	nop
+    28b4:	022091b3          	mulh	s1,ra,s0
+    28b8:	00005077          	stop
+
+00000000000028bc <next22>:
+    28bc:	0040200b          	vsetcfg	4,0
+    28c0:	00001ab7          	lui	a3,0x1
+    28c4:	800a8a9b          	addiw	a3,a3,-2048
+    28c8:	000aea8b          	vsetvl	a3,a3
+    28cc:	00003937          	lui	a0,0x3
+    28d0:	9019262b          	vf	-1780(a0) # 290c <vtcode23>
+    28d4:	00000b17          	auipc	a4,0x0
+    28d8:	2dcb0b13          	addi	a4,a4,732 # 2bb0 <begin_signature>
+    28dc:	060b21fb          	vsd	vx3,a4
+    28e0:	0ff0000f          	fence
+    28e4:	08f00993          	li	a1,143
+    28e8:	00000a13          	li	a2,0
+    28ec:	01700e13          	li	t2,23
+
+00000000000028f0 <test_loop23>:
+    28f0:	000b3903          	ld	a0,0(a4)
+    28f4:	01390463          	beq	a0,a1,28fc <skip23>
+    28f8:	2940006f          	j	2b8c <fail>
+
+00000000000028fc <skip23>:
+    28fc:	008b0b13          	addi	a4,a4,8
+    2900:	001a0a13          	addi	a2,a2,1
+    2904:	ff5a16e3          	bne	a2,a3,28f0 <test_loop23>
+    2908:	0200006f          	j	2928 <next23>
+
+000000000000290c <vtcode23>:
+    290c:	01600137          	lui	s0,0x1600
+    2910:	00b11113          	slli	s0,s0,0xb
+    2914:	00000013          	nop
+    2918:	01a000b7          	lui	ra,0x1a00
+    291c:	00b09093          	slli	ra,ra,0xb
+    2920:	022091b3          	mulh	s1,ra,s0
+    2924:	00005077          	stop
+
+0000000000002928 <next23>:
+    2928:	0040200b          	vsetcfg	4,0
+    292c:	00001ab7          	lui	a3,0x1
+    2930:	800a8a9b          	addiw	a3,a3,-2048
+    2934:	000aea8b          	vsetvl	a3,a3
+    2938:	00003937          	lui	a0,0x3
+    293c:	96192c2b          	vf	-1672(a0) # 2978 <vtcode24>
+    2940:	00000b17          	auipc	a4,0x0
+    2944:	270b0b13          	addi	a4,a4,624 # 2bb0 <begin_signature>
+    2948:	060b21fb          	vsd	vx3,a4
+    294c:	0ff0000f          	fence
+    2950:	09a00993          	li	a1,154
+    2954:	00000a13          	li	a2,0
+    2958:	01800e13          	li	t2,24
+
+000000000000295c <test_loop24>:
+    295c:	000b3903          	ld	a0,0(a4)
+    2960:	01390463          	beq	a0,a1,2968 <skip24>
+    2964:	2280006f          	j	2b8c <fail>
+
+0000000000002968 <skip24>:
+    2968:	008b0b13          	addi	a4,a4,8
+    296c:	001a0a13          	addi	a2,a2,1
+    2970:	ff5a16e3          	bne	a2,a3,295c <test_loop24>
+    2974:	0240006f          	j	2998 <next24>
+
+0000000000002978 <vtcode24>:
+    2978:	01600137          	lui	s0,0x1600
+    297c:	00b11113          	slli	s0,s0,0xb
+    2980:	00000013          	nop
+    2984:	01c000b7          	lui	ra,0x1c00
+    2988:	00b09093          	slli	ra,ra,0xb
+    298c:	00000013          	nop
+    2990:	022091b3          	mulh	s1,ra,s0
+    2994:	00005077          	stop
+
+0000000000002998 <next24>:
+    2998:	0040200b          	vsetcfg	4,0
+    299c:	00001ab7          	lui	a3,0x1
+    29a0:	800a8a9b          	addiw	a3,a3,-2048
+    29a4:	000aea8b          	vsetvl	a3,a3
+    29a8:	00003937          	lui	a0,0x3
+    29ac:	9e19242b          	vf	-1560(a0) # 29e8 <vtcode25>
+    29b0:	00000b17          	auipc	a4,0x0
+    29b4:	200b0b13          	addi	a4,a4,512 # 2bb0 <begin_signature>
+    29b8:	060b21fb          	vsd	vx3,a4
+    29bc:	0ff0000f          	fence
+    29c0:	0a500993          	li	a1,165
+    29c4:	00000a13          	li	a2,0
+    29c8:	01900e13          	li	t2,25
+
+00000000000029cc <test_loop25>:
+    29cc:	000b3903          	ld	a0,0(a4)
+    29d0:	01390463          	beq	a0,a1,29d8 <skip25>
+    29d4:	1b80006f          	j	2b8c <fail>
+
+00000000000029d8 <skip25>:
+    29d8:	008b0b13          	addi	a4,a4,8
+    29dc:	001a0a13          	addi	a2,a2,1
+    29e0:	ff5a16e3          	bne	a2,a3,29cc <test_loop25>
+    29e4:	0240006f          	j	2a08 <next25>
+
+00000000000029e8 <vtcode25>:
+    29e8:	01600137          	lui	s0,0x1600
+    29ec:	00b11113          	slli	s0,s0,0xb
+    29f0:	00000013          	nop
+    29f4:	00000013          	nop
+    29f8:	01e000b7          	lui	ra,0x1e00
+    29fc:	00b09093          	slli	ra,ra,0xb
+    2a00:	022091b3          	mulh	s1,ra,s0
+    2a04:	00005077          	stop
+
+0000000000002a08 <next25>:
+    2a08:	0030200b          	vsetcfg	3,0
+    2a0c:	00001ab7          	lui	a3,0x1
+    2a10:	800a8a9b          	addiw	a3,a3,-2048
+    2a14:	000aea8b          	vsetvl	a3,a3
+    2a18:	00003937          	lui	a0,0x3
+    2a1c:	a4192c2b          	vf	-1448(a0) # 2a58 <vtcode26>
+    2a20:	00000b17          	auipc	a4,0x0
+    2a24:	190b0b13          	addi	a4,a4,400 # 2bb0 <begin_signature>
+    2a28:	060b217b          	vsd	vx2,a4
+    2a2c:	0ff0000f          	fence
+    2a30:	00000993          	li	a1,0
+    2a34:	00000a13          	li	a2,0
+    2a38:	01a00e13          	li	t2,26
+
+0000000000002a3c <test_loop26>:
+    2a3c:	000b3903          	ld	a0,0(a4)
+    2a40:	01390463          	beq	a0,a1,2a48 <skip26>
+    2a44:	1480006f          	j	2b8c <fail>
+
+0000000000002a48 <skip26>:
+    2a48:	008b0b13          	addi	a4,a4,8
+    2a4c:	001a0a13          	addi	a2,a2,1
+    2a50:	ff5a16e3          	bne	a2,a3,2a3c <test_loop26>
+    2a54:	0140006f          	j	2a68 <next26>
+
+0000000000002a58 <vtcode26>:
+    2a58:	03e000b7          	lui	ra,0x3e00
+    2a5c:	00b09093          	slli	ra,ra,0xb
+    2a60:	02101133          	mulh	s0,zero,ra
+    2a64:	00005077          	stop
+
+0000000000002a68 <next26>:
+    2a68:	0030200b          	vsetcfg	3,0
+    2a6c:	00001ab7          	lui	a3,0x1
+    2a70:	800a8a9b          	addiw	a3,a3,-2048
+    2a74:	000aea8b          	vsetvl	a3,a3
+    2a78:	00003937          	lui	a0,0x3
+    2a7c:	aa192c2b          	vf	-1352(a0) # 2ab8 <vtcode27>
+    2a80:	00000b17          	auipc	a4,0x0
+    2a84:	130b0b13          	addi	a4,a4,304 # 2bb0 <begin_signature>
+    2a88:	060b217b          	vsd	vx2,a4
+    2a8c:	0ff0000f          	fence
+    2a90:	00000993          	li	a1,0
+    2a94:	00000a13          	li	a2,0
+    2a98:	01b00e13          	li	t2,27
+
+0000000000002a9c <test_loop27>:
+    2a9c:	000b3903          	ld	a0,0(a4)
+    2aa0:	01390463          	beq	a0,a1,2aa8 <skip27>
+    2aa4:	0e80006f          	j	2b8c <fail>
+
+0000000000002aa8 <skip27>:
+    2aa8:	008b0b13          	addi	a4,a4,8
+    2aac:	001a0a13          	addi	a2,a2,1
+    2ab0:	ff5a16e3          	bne	a2,a3,2a9c <test_loop27>
+    2ab4:	0140006f          	j	2ac8 <next27>
+
+0000000000002ab8 <vtcode27>:
+    2ab8:	040000b7          	lui	ra,0x4000
+    2abc:	00b09093          	slli	ra,ra,0xb
+    2ac0:	02009133          	mulh	s0,ra,zero
+    2ac4:	00005077          	stop
+
+0000000000002ac8 <next27>:
+    2ac8:	0020200b          	vsetcfg	2,0
+    2acc:	00001ab7          	lui	a3,0x1
+    2ad0:	800a8a9b          	addiw	a3,a3,-2048
+    2ad4:	000aea8b          	vsetvl	a3,a3
+    2ad8:	00003937          	lui	a0,0x3
+    2adc:	b0192c2b          	vf	-1256(a0) # 2b18 <vtcode28>
+    2ae0:	00000b17          	auipc	a4,0x0
+    2ae4:	0d0b0b13          	addi	a4,a4,208 # 2bb0 <begin_signature>
+    2ae8:	060b20fb          	vsd	vx1,a4
+    2aec:	0ff0000f          	fence
+    2af0:	00000993          	li	a1,0
+    2af4:	00000a13          	li	a2,0
+    2af8:	01c00e13          	li	t2,28
+
+0000000000002afc <test_loop28>:
+    2afc:	000b3903          	ld	a0,0(a4)
+    2b00:	01390463          	beq	a0,a1,2b08 <skip28>
+    2b04:	0880006f          	j	2b8c <fail>
+
+0000000000002b08 <skip28>:
+    2b08:	008b0b13          	addi	a4,a4,8
+    2b0c:	001a0a13          	addi	a2,a2,1
+    2b10:	ff5a16e3          	bne	a2,a3,2afc <test_loop28>
+    2b14:	00c0006f          	j	2b20 <next28>
+
+0000000000002b18 <vtcode28>:
+    2b18:	020010b3          	mulh	ra,zero,zero
+    2b1c:	00005077          	stop
+
+0000000000002b20 <next28>:
+    2b20:	0030200b          	vsetcfg	3,0
+    2b24:	00001ab7          	lui	a3,0x1
+    2b28:	800a8a9b          	addiw	a3,a3,-2048
+    2b2c:	000aea8b          	vsetvl	a3,a3
+    2b30:	00003937          	lui	a0,0x3
+    2b34:	b619282b          	vf	-1168(a0) # 2b70 <vtcode29>
+    2b38:	00000b17          	auipc	a4,0x0
+    2b3c:	078b0b13          	addi	a4,a4,120 # 2bb0 <begin_signature>
+    2b40:	060b207b          	vsd	vx0,a4
+    2b44:	0ff0000f          	fence
+    2b48:	00000993          	li	a1,0
+    2b4c:	00000a13          	li	a2,0
+    2b50:	01d00e13          	li	t2,29
+
+0000000000002b54 <test_loop29>:
+    2b54:	000b3903          	ld	a0,0(a4)
+    2b58:	01390463          	beq	a0,a1,2b60 <skip29>
+    2b5c:	0300006f          	j	2b8c <fail>
+
+0000000000002b60 <skip29>:
+    2b60:	008b0b13          	addi	a4,a4,8
+    2b64:	001a0a13          	addi	a2,a2,1
+    2b68:	ff5a16e3          	bne	a2,a3,2b54 <test_loop29>
+    2b6c:	01c0006f          	j	2b88 <next29>
+
+0000000000002b70 <vtcode29>:
+    2b70:	042000b7          	lui	ra,0x4200
+    2b74:	00b09093          	slli	ra,ra,0xb
+    2b78:	04400137          	lui	s0,0x4400
+    2b7c:	00b11113          	slli	s0,s0,0xb
+    2b80:	02209033          	mulh	zero,ra,s0
+    2b84:	00005077          	stop
+
+0000000000002b88 <next29>:
+    2b88:	01c01e63          	bne	zero,t2,2ba4 <pass>
+
+0000000000002b8c <fail>:
+    2b8c:	0ff0000f          	fence
+    2b90:	000e0863          	beqz	t2,2ba0 <fail+0x14>
+    2b94:	001e1e13          	slli	t2,t2,0x1
+    2b98:	001e6e13          	ori	t2,t2,1
+    2b9c:	51ee1073          	csrw	tohost,t2
+    2ba0:	00000063          	b	2ba0 <fail+0x14>
+
+0000000000002ba4 <pass>:
+    2ba4:	0ff0000f          	fence
+    2ba8:	51e0d073          	csrwi	tohost,1
+    2bac:	00000063          	b	2bac <pass+0x8>
+
+Disassembly of section .data:
+
+0000000000002bb0 <begin_signature>:
+	...

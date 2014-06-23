@@ -1,0 +1,117 @@
+
+rv64ui-p-divu:     file format elf64-littleriscv
+
+
+Disassembly of section .text:
+
+0000000000002000 <_start>:
+    2000:	50b02973          	csrr	a0,hartid
+    2004:	00091063          	bnez	a0,2004 <_start+0x4>
+
+0000000000002008 <test_2>:
+    2008:	01400093          	li	ra,20
+    200c:	00600113          	li	s0,6
+    2010:	0220d1b3          	divu	s1,ra,s0
+    2014:	00300e93          	li	t3,3
+    2018:	00200e13          	li	t2,2
+    201c:	11d19a63          	bne	s1,t3,2130 <fail>
+
+0000000000002020 <test_3>:
+    2020:	fec00093          	li	ra,-20
+    2024:	00600113          	li	s0,6
+    2028:	0220d1b3          	divu	s1,ra,s0
+    202c:	15555eb7          	lui	t3,0x15555
+    2030:	555e8e9b          	addiw	t3,t3,1365
+    2034:	00be9e93          	slli	t3,t3,0xb
+    2038:	2aae8e93          	addi	t3,t3,682 # 155552aa <begin_signature+0x1555314a>
+    203c:	00be9e93          	slli	t3,t3,0xb
+    2040:	555e8e93          	addi	t3,t3,1365
+    2044:	00be9e93          	slli	t3,t3,0xb
+    2048:	2a7e8e93          	addi	t3,t3,679
+    204c:	00300e13          	li	t2,3
+    2050:	0fd19063          	bne	s1,t3,2130 <fail>
+
+0000000000002054 <test_4>:
+    2054:	01400093          	li	ra,20
+    2058:	ffa00113          	li	s0,-6
+    205c:	0220d1b3          	divu	s1,ra,s0
+    2060:	00000e93          	li	t3,0
+    2064:	00400e13          	li	t2,4
+    2068:	0dd19463          	bne	s1,t3,2130 <fail>
+
+000000000000206c <test_5>:
+    206c:	fec00093          	li	ra,-20
+    2070:	ffa00113          	li	s0,-6
+    2074:	0220d1b3          	divu	s1,ra,s0
+    2078:	00000e93          	li	t3,0
+    207c:	00500e13          	li	t2,5
+    2080:	0bd19863          	bne	s1,t3,2130 <fail>
+
+0000000000002084 <test_6>:
+    2084:	c00000b7          	lui	ra,0xc0000
+    2088:	00b09093          	slli	ra,ra,0xb
+    208c:	00b09093          	slli	ra,ra,0xb
+    2090:	00b09093          	slli	ra,ra,0xb
+    2094:	00100113          	li	s0,1
+    2098:	0220d1b3          	divu	s1,ra,s0
+    209c:	c0000eb7          	lui	t3,0xc0000
+    20a0:	00be9e93          	slli	t3,t3,0xb
+    20a4:	00be9e93          	slli	t3,t3,0xb
+    20a8:	00be9e93          	slli	t3,t3,0xb
+    20ac:	00600e13          	li	t2,6
+    20b0:	09d19063          	bne	s1,t3,2130 <fail>
+
+00000000000020b4 <test_7>:
+    20b4:	c00000b7          	lui	ra,0xc0000
+    20b8:	00b09093          	slli	ra,ra,0xb
+    20bc:	00b09093          	slli	ra,ra,0xb
+    20c0:	00b09093          	slli	ra,ra,0xb
+    20c4:	fff00113          	li	s0,-1
+    20c8:	0220d1b3          	divu	s1,ra,s0
+    20cc:	00000e93          	li	t3,0
+    20d0:	00700e13          	li	t2,7
+    20d4:	05d19e63          	bne	s1,t3,2130 <fail>
+
+00000000000020d8 <test_8>:
+    20d8:	c00000b7          	lui	ra,0xc0000
+    20dc:	00b09093          	slli	ra,ra,0xb
+    20e0:	00b09093          	slli	ra,ra,0xb
+    20e4:	00b09093          	slli	ra,ra,0xb
+    20e8:	00000113          	li	s0,0
+    20ec:	0220d1b3          	divu	s1,ra,s0
+    20f0:	fff00e93          	li	t3,-1
+    20f4:	00800e13          	li	t2,8
+    20f8:	03d19c63          	bne	s1,t3,2130 <fail>
+
+00000000000020fc <test_9>:
+    20fc:	00100093          	li	ra,1
+    2100:	00000113          	li	s0,0
+    2104:	0220d1b3          	divu	s1,ra,s0
+    2108:	fff00e93          	li	t3,-1
+    210c:	00900e13          	li	t2,9
+    2110:	03d19063          	bne	s1,t3,2130 <fail>
+
+0000000000002114 <test_10>:
+    2114:	00000093          	li	ra,0
+    2118:	00000113          	li	s0,0
+    211c:	0220d1b3          	divu	s1,ra,s0
+    2120:	fff00e93          	li	t3,-1
+    2124:	00a00e13          	li	t2,10
+    2128:	01d19463          	bne	s1,t3,2130 <fail>
+    212c:	01c01e63          	bne	zero,t2,2148 <pass>
+
+0000000000002130 <fail>:
+    2130:	0ff0000f          	fence
+    2134:	000e0863          	beqz	t2,2144 <fail+0x14>
+    2138:	001e1e13          	slli	t2,t2,0x1
+    213c:	001e6e13          	ori	t2,t2,1
+    2140:	51ee1073          	csrw	tohost,t2
+    2144:	00000063          	b	2144 <fail+0x14>
+
+0000000000002148 <pass>:
+    2148:	0ff0000f          	fence
+    214c:	51e0d073          	csrwi	tohost,1
+    2150:	00000063          	b	2150 <pass+0x8>
+    2154:	00000013          	nop
+    2158:	00000013          	nop
+    215c:	00000013          	nop
