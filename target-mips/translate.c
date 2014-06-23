@@ -730,6 +730,8 @@ static void gen_arith_imm_w(DisasContext *ctx, uint32_t opc,
 static void gen_arith_w(DisasContext *ctx, uint32_t opc, 
                       int rd, int rs1, int rs2)
 {
+    TCGv t0;
+
     switch (opc) {
 
     case OPC_RISC_ADDW:
@@ -741,21 +743,27 @@ static void gen_arith_w(DisasContext *ctx, uint32_t opc,
         tcg_gen_ext32s_tl(cpu_gpr[rd], cpu_gpr[rd]);
         break;
     case OPC_RISC_SLLW: // TODO rs2 out of range check?
-        tcg_gen_shl_tl(cpu_gpr[rd], cpu_gpr[rs1], cpu_gpr[rs2]);
+        t0 = tcg_temp_new();
+        tcg_gen_andi_tl(t0, cpu_gpr[rs2], 0x1F);
+        tcg_gen_shl_tl(cpu_gpr[rd], cpu_gpr[rs1], t0);
         tcg_gen_ext32s_tl(cpu_gpr[rd], cpu_gpr[rd]);
         break;
     case OPC_RISC_SRLW: // TODO rs2 out of range check?
         //tcg_gen_shli_tl(cpu_gpr[rd], cpu_gpr[rs1], 32); // clear upper 32
         //tcg_gen_shri_tl(cpu_gpr[rd], cpu_gpr[rd], 32); // smear zeroes into upper 32 
-        tcg_gen_andi_tl(cpu_gpr[rd], cpu_gpr[rd], 0x00000000FFFFFFFFLL); // clear upper 32
-        tcg_gen_shr_tl(cpu_gpr[rd], cpu_gpr[rs1], cpu_gpr[rs2]); // do actual right shift
+        t0 = tcg_temp_new();
+        tcg_gen_andi_tl(t0, cpu_gpr[rs1], 0x00000000FFFFFFFFLL); // clear upper 32
+        tcg_gen_andi_tl(cpu_gpr[rd], cpu_gpr[rs2], 0x1F);
+        tcg_gen_shr_tl(cpu_gpr[rd], t0, cpu_gpr[rd]); // do actual right shift
         tcg_gen_ext32s_tl(cpu_gpr[rd], cpu_gpr[rd]); // sign ext
         break;
     case OPC_RISC_SRAW: // TODO rs2 out of range check?
         // first, trick to get it to act like working on 32 bits (get rid of upper 32)
-        tcg_gen_shli_tl(cpu_gpr[rd], cpu_gpr[rs1], 32); // clear upper 32
-        tcg_gen_sari_tl(cpu_gpr[rd], cpu_gpr[rd], 32); // smear the sign bit into upper 32
-        tcg_gen_sar_tl(cpu_gpr[rd], cpu_gpr[rs1], cpu_gpr[rs2]); // do the actual right shift
+        t0 = tcg_temp_new();
+        tcg_gen_shli_tl(t0, cpu_gpr[rs1], 32); // clear upper 32
+        tcg_gen_sari_tl(t0, t0, 32); // smear the sign bit into upper 32
+        tcg_gen_andi_tl(cpu_gpr[rd], cpu_gpr[rs2], 0x1F);
+        tcg_gen_sar_tl(cpu_gpr[rd], t0, cpu_gpr[rd]); // do the actual right shift
         tcg_gen_ext32s_tl(cpu_gpr[rd], cpu_gpr[rd]); // sign ext
         break;
     default:
