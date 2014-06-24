@@ -66,7 +66,18 @@ enum {
     OPC_RISC_SRL   = OPC_RISC_ARITH | (0x5 << 12) | (0x00 << 25), 
     OPC_RISC_SRA   = OPC_RISC_ARITH | (0x5 << 12) | (0x20 << 25),
     OPC_RISC_OR    = OPC_RISC_ARITH | (0x6 << 12) | (0x00 << 25),
-    OPC_RISC_AND   = OPC_RISC_ARITH | (0x7 << 12) | (0x00 << 25)
+    OPC_RISC_AND   = OPC_RISC_ARITH | (0x7 << 12) | (0x00 << 25),
+
+    /* RV64M */
+    OPC_RISC_MUL    = OPC_RISC_ARITH | (0x0 << 12) | (0x01 << 25),
+    OPC_RISC_MULH   = OPC_RISC_ARITH | (0x1 << 12) | (0x01 << 25),
+    OPC_RISC_MULHSU = OPC_RISC_ARITH | (0x2 << 12) | (0x01 << 25),
+    OPC_RISC_MULHU  = OPC_RISC_ARITH | (0x3 << 12) | (0x01 << 25),
+
+    OPC_RISC_DIV    = OPC_RISC_ARITH | (0x4 << 12) | (0x01 << 25),
+    OPC_RISC_DIVU   = OPC_RISC_ARITH | (0x5 << 12) | (0x01 << 25),
+    OPC_RISC_REM    = OPC_RISC_ARITH | (0x6 << 12) | (0x01 << 25),
+    OPC_RISC_REMU   = OPC_RISC_ARITH | (0x7 << 12) | (0x01 << 25),
 };
 
 
@@ -601,6 +612,7 @@ static void gen_arith(DisasContext *ctx, uint32_t opc,
 
     TCGv t0;
 
+
     switch (opc) {
 
     case OPC_RISC_ADD:
@@ -639,6 +651,29 @@ static void gen_arith(DisasContext *ctx, uint32_t opc,
     case OPC_RISC_AND:
         tcg_gen_and_tl(cpu_gpr[rd], cpu_gpr[rs1], cpu_gpr[rs2]);
         break;
+
+    case OPC_RISC_MUL:
+        t0 = tcg_temp_new();
+        tcg_gen_muls2_tl(cpu_gpr[rd], t0, cpu_gpr[rs1], cpu_gpr[rs2]);
+        break;
+    case OPC_RISC_MULH:
+        t0 = tcg_temp_new();
+        tcg_gen_muls2_tl(t0, cpu_gpr[rd], cpu_gpr[rs1], cpu_gpr[rs2]);
+        break;
+    case OPC_RISC_MULHSU:
+    case OPC_RISC_MULHU:
+
+    case OPC_RISC_DIV:
+    case OPC_RISC_DIVU:
+    case OPC_RISC_REM:
+    case OPC_RISC_REMU:
+
+
+
+
+
+
+
     default:
         // TODO EXCEPTION
         break;
@@ -1066,12 +1101,16 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
 
     case OPC_RISC_SYSTEM:
         /* TODO: */
-        tcg_gen_movi_tl(cpu_gpr[0], 0x0); // NOP
+//        tcg_gen_addi_tl(cpu_gpr[30], cpu_gpr[30], 0x1); // NOP
+//        tcg_gen_addi_tl(cpu_gpr[30], cpu_gpr[30], -1);
+          tcg_gen_movi_tl(cpu_gpr[0], 0);
         break;
 
 
     default:            /* Invalid */
-        tcg_gen_movi_tl(cpu_gpr[0], 0x0); // NOP
+//        tcg_gen_addi_tl(cpu_gpr[30], cpu_gpr[30], 0x1); // NOP
+//        tcg_gen_addi_tl(cpu_gpr[30], cpu_gpr[30], -1);
+          tcg_gen_movi_tl(cpu_gpr[0], 0);
         // TODO REMOVED FOR TESTING, REPLACE
 /*        MIPS_INVAL("major opcode");
         generate_exception(ctx, EXCP_RI); */

@@ -11,7 +11,7 @@ successes = []
 fails = []
 
 for x in t:
-    if "rv64ui" in x:
+    if "rv64ui" in x and "mul" not in x and "div" not in x and "rem" not in x and "amo" not in x:
         newT.append(x)
 
 for x in newT:
