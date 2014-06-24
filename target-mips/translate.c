@@ -660,12 +660,60 @@ static void gen_arith(DisasContext *ctx, uint32_t opc,
         tcg_gen_muls2_tl(source2, source1, source1, source2);
         break;
     case OPC_RISC_MULHSU:
+        // TODO mulhsu
+        break;
     case OPC_RISC_MULHU:
         tcg_gen_mulu2_tl(source2, source1, source1, source2);
+        break;
     case OPC_RISC_DIV:
+        tcg_gen_div_tl(source1, source1, source2);
+        break;
     case OPC_RISC_DIVU:
+        tcg_gen_divu_tl(source1, source1, source2);
+        break;
     case OPC_RISC_REM:
+        // check for divide by zero
+        {
+            TCGv spec_source1, spec_source2;
+            TCGv cond1, cond2;
+            int handle_zero = gen_new_label();
+            int handle_overflow = gen_new_label();
+            int done = gen_new_label();
+            spec_source1 = tcg_temp_local_new();
+            spec_source2 = tcg_temp_local_new();
+            cond1 = tcg_temp_local_new();
+            cond2 = tcg_temp_local_new();
+
+            gen_get_gpr(spec_source1, rs1);
+            gen_get_gpr(spec_source2, rs2);
+            tcg_gen_brcondi_tl(TCG_COND_EQ, spec_source2, 0x0, handle_zero);
+
+            // now, use temp reg to check if both overflow conditions satisfied
+            tcg_gen_setcondi_tl(TCG_COND_EQ, cond2, spec_source2, 0xFFFFFFFFFFFFFFFF); // divisor = -1
+            tcg_gen_setcondi_tl(TCG_COND_EQ, cond1, spec_source1, 0x8000000000000000);
+            tcg_gen_and_tl(cond1, cond1, cond2);
+
+            tcg_gen_brcondi_tl(TCG_COND_EQ, cond1, 1, handle_overflow);
+            // normal case
+            tcg_gen_rem_tl(spec_source1, spec_source1, spec_source2);
+            tcg_gen_br(done);
+            // special zero case
+            gen_set_label(handle_zero);
+            tcg_gen_mov_tl(spec_source1, spec_source1); // even though it's a nop, just for clarity
+            tcg_gen_br(done);
+            // special overflow case
+            gen_set_label(handle_overflow);
+            tcg_gen_movi_tl(spec_source1, 0); 
+            // done
+            gen_set_label(done);
+            tcg_gen_mov_tl(source1, spec_source1);
+            tcg_temp_free(spec_source1);
+            tcg_temp_free(spec_source2);
+        }                
+        break;
     case OPC_RISC_REMU:
+        tcg_gen_remu_tl(source1, source1, source2);
+        break;
 
     default:
         // TODO EXCEPTION
