@@ -117,6 +117,13 @@ enum {
     OPC_RISC_SLLW   = OPC_RISC_ARITH_W | (0x1 << 12) | (0x00 << 25),
     OPC_RISC_SRLW   = OPC_RISC_ARITH_W | (0x5 << 12) | (0x00 << 25), 
     OPC_RISC_SRAW   = OPC_RISC_ARITH_W | (0x5 << 12) | (0x20 << 25),
+
+    /* RV64M */
+    OPC_RISC_MULW   = OPC_RISC_ARITH_W | (0x0 << 12) | (0x01 << 25),
+    OPC_RISC_DIVW   = OPC_RISC_ARITH_W | (0x4 << 12) | (0x01 << 25),
+    OPC_RISC_DIVUW  = OPC_RISC_ARITH_W | (0x5 << 12) | (0x01 << 25),
+    OPC_RISC_REMW   = OPC_RISC_ARITH_W | (0x6 << 12) | (0x01 << 25),
+    OPC_RISC_REMUW  = OPC_RISC_ARITH_W | (0x7 << 12) | (0x01 << 25),
 };
 
 #define MASK_OP_LOAD(op)   (MASK_OP_MAJOR(op) | (op & (0x7 << 12)))
@@ -955,6 +962,156 @@ static void gen_arith_w(DisasContext *ctx, uint32_t opc,
         tcg_gen_andi_tl(source2, source2, 0x1F);
         tcg_gen_sar_tl(source1, source1, source2); // do the actual right shift
         tcg_gen_ext32s_tl(source1, source1); // sign ext
+        break;
+    case OPC_RISC_MULW:
+        tcg_gen_muls2_tl(source1, source2, source1, source2);
+        tcg_gen_ext32s_tl(source1, source1);
+        break;
+    case OPC_RISC_DIVW:
+        {
+            TCGv spec_source1, spec_source2;
+            TCGv cond1, cond2;
+            int handle_zero = gen_new_label();
+            int handle_overflow = gen_new_label();
+            int done = gen_new_label();
+            spec_source1 = tcg_temp_local_new();
+            spec_source2 = tcg_temp_local_new();
+            cond1 = tcg_temp_local_new();
+            cond2 = tcg_temp_local_new();
+
+            gen_get_gpr(spec_source1, rs1);
+            gen_get_gpr(spec_source2, rs2);
+            tcg_gen_ext32s_tl(spec_source1, spec_source1);
+            tcg_gen_ext32s_tl(spec_source2, spec_source2);
+
+            tcg_gen_brcondi_tl(TCG_COND_EQ, spec_source2, 0x0, handle_zero);
+
+            // now, use temp reg to check if both overflow conditions satisfied
+            tcg_gen_setcondi_tl(TCG_COND_EQ, cond2, spec_source2, 0xFFFFFFFFFFFFFFFF); // divisor = -1
+            tcg_gen_setcondi_tl(TCG_COND_EQ, cond1, spec_source1, 0x8000000000000000);
+            tcg_gen_and_tl(cond1, cond1, cond2);
+
+            tcg_gen_brcondi_tl(TCG_COND_EQ, cond1, 1, handle_overflow);
+            // normal case
+            tcg_gen_div_tl(spec_source1, spec_source1, spec_source2);
+            tcg_gen_br(done);
+            // special zero case
+            gen_set_label(handle_zero);
+            tcg_gen_movi_tl(spec_source1, -1);
+            tcg_gen_br(done);
+            // special overflow case
+            gen_set_label(handle_overflow);
+            tcg_gen_movi_tl(spec_source1, 0x8000000000000000); 
+            // done
+            gen_set_label(done);
+            tcg_gen_mov_tl(source1, spec_source1);
+            tcg_temp_free(spec_source1);
+            tcg_temp_free(spec_source2);
+            tcg_gen_ext32s_tl(source1, source1);
+        }                
+        break;
+    case OPC_RISC_DIVUW:
+        {
+            TCGv spec_source1, spec_source2;
+            int handle_zero = gen_new_label();
+            int done = gen_new_label();
+            spec_source1 = tcg_temp_local_new();
+            spec_source2 = tcg_temp_local_new();
+
+            gen_get_gpr(spec_source1, rs1);
+            gen_get_gpr(spec_source2, rs2);
+            tcg_gen_ext32u_tl(spec_source1, spec_source1);
+            tcg_gen_ext32u_tl(spec_source2, spec_source2);
+
+            tcg_gen_brcondi_tl(TCG_COND_EQ, spec_source2, 0x0, handle_zero);
+
+            // normal case
+            tcg_gen_divu_tl(spec_source1, spec_source1, spec_source2);
+            tcg_gen_br(done);
+            // special zero case
+            gen_set_label(handle_zero);
+            tcg_gen_movi_tl(spec_source1, -1);
+            tcg_gen_br(done);
+            // done
+            gen_set_label(done);
+            tcg_gen_mov_tl(source1, spec_source1);
+            tcg_temp_free(spec_source1);
+            tcg_temp_free(spec_source2);
+            tcg_gen_ext32s_tl(source1, source1);
+        }                
+        break;
+    case OPC_RISC_REMW:
+        {
+            TCGv spec_source1, spec_source2;
+            TCGv cond1, cond2;
+            int handle_zero = gen_new_label();
+            int handle_overflow = gen_new_label();
+            int done = gen_new_label();
+            spec_source1 = tcg_temp_local_new();
+            spec_source2 = tcg_temp_local_new();
+            cond1 = tcg_temp_local_new();
+            cond2 = tcg_temp_local_new();
+
+            gen_get_gpr(spec_source1, rs1);
+            gen_get_gpr(spec_source2, rs2);
+            tcg_gen_ext32s_tl(spec_source1, spec_source1);
+            tcg_gen_ext32s_tl(spec_source2, spec_source2);
+
+            tcg_gen_brcondi_tl(TCG_COND_EQ, spec_source2, 0x0, handle_zero);
+
+            // now, use temp reg to check if both overflow conditions satisfied
+            tcg_gen_setcondi_tl(TCG_COND_EQ, cond2, spec_source2, 0xFFFFFFFFFFFFFFFF); // divisor = -1
+            tcg_gen_setcondi_tl(TCG_COND_EQ, cond1, spec_source1, 0x8000000000000000);
+            tcg_gen_and_tl(cond1, cond1, cond2);
+
+            tcg_gen_brcondi_tl(TCG_COND_EQ, cond1, 1, handle_overflow);
+            // normal case
+            tcg_gen_rem_tl(spec_source1, spec_source1, spec_source2);
+            tcg_gen_br(done);
+            // special zero case
+            gen_set_label(handle_zero);
+            tcg_gen_mov_tl(spec_source1, spec_source1); // even though it's a nop, just for clarity
+            tcg_gen_br(done);
+            // special overflow case
+            gen_set_label(handle_overflow);
+            tcg_gen_movi_tl(spec_source1, 0); 
+            // done
+            gen_set_label(done);
+            tcg_gen_mov_tl(source1, spec_source1);
+            tcg_temp_free(spec_source1);
+            tcg_temp_free(spec_source2);
+            tcg_gen_ext32s_tl(source1, source1);
+        }                
+        break;
+    case OPC_RISC_REMUW:
+        {
+            TCGv spec_source1, spec_source2;
+            int handle_zero = gen_new_label();
+            int done = gen_new_label();
+            spec_source1 = tcg_temp_local_new();
+            spec_source2 = tcg_temp_local_new();
+
+            gen_get_gpr(spec_source1, rs1);
+            gen_get_gpr(spec_source2, rs2);
+            tcg_gen_ext32u_tl(spec_source1, spec_source1);
+            tcg_gen_ext32u_tl(spec_source2, spec_source2);
+
+            tcg_gen_brcondi_tl(TCG_COND_EQ, spec_source2, 0x0, handle_zero);
+
+            // normal case
+            tcg_gen_remu_tl(spec_source1, spec_source1, spec_source2);
+            tcg_gen_br(done);
+            // special zero case
+            gen_set_label(handle_zero);
+            tcg_gen_mov_tl(spec_source1, spec_source1); // even though it's a nop, just for clarity
+            tcg_gen_br(done);
+            // done
+            gen_set_label(done);
+            tcg_gen_mov_tl(source1, spec_source1);
+            tcg_temp_free(spec_source1);
+            tcg_temp_free(spec_source2);
+            tcg_gen_ext32s_tl(source1, source1);
+        }                
         break;
     default:
         // TODO EXCEPTION
