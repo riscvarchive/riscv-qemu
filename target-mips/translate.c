@@ -144,8 +144,7 @@ enum {
 /* global register indices */
 static TCGv_ptr cpu_env;
 static TCGv cpu_gpr[32], cpu_PC;
-static TCGv cpu_HI[MIPS_DSP_ACC], cpu_LO[MIPS_DSP_ACC], cpu_ACX[MIPS_DSP_ACC];
-static TCGv cpu_dspctrl, btarget, bcond;
+static TCGv btarget, bcond;
 static TCGv_i32 hflags;
 static TCGv_i32 fpu_fcr0, fpu_fcr31;
 static TCGv_i64 fpu_f64[32];
@@ -277,17 +276,6 @@ static inline void gen_store_gpr (TCGv t, int reg)
 {
     if (reg != 0)
         tcg_gen_mov_tl(cpu_gpr[reg], t);
-}
-
-/* Moves to/from ACX register.  */
-static inline void gen_load_ACX (TCGv t, int reg)
-{
-    tcg_gen_mov_tl(t, cpu_ACX[reg]);
-}
-
-static inline void gen_store_ACX (TCGv t, int reg)
-{
-    tcg_gen_mov_tl(cpu_ACX[reg], t);
 }
 
 static inline int get_fp_bit (int cc)
@@ -988,26 +976,15 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
 
     /* make sure instructions are on a word boundary */
     if (ctx->pc & 0x3) {
-        env->CP0_BadVAddr = ctx->pc;
-        generate_exception(ctx, EXCP_AdEL);
-        return;
+        // TODO for RISCV
+        printf("misaligned PC");
+        exit(1);
     }
 
-    /* Handle blikely not taken case */
-    if ((ctx->hflags & MIPS_HFLAG_BMASK_BASE) == MIPS_HFLAG_BL) {
-        int l1 = gen_new_label();
-
-        MIPS_DEBUG("blikely condition (" TARGET_FMT_lx ")", ctx->pc + 4);
-        tcg_gen_brcondi_tl(TCG_COND_NE, bcond, 0, l1);
-        tcg_gen_movi_i32(hflags, ctx->hflags & ~MIPS_HFLAG_BMASK);
-        gen_goto_tb(ctx, 1, ctx->pc + 4);
-        gen_set_label(l1);
-    }
-
-    if (unlikely(qemu_loglevel_mask(CPU_LOG_TB_OP | CPU_LOG_TB_OP_OPT))) {
+/*    if (unlikely(qemu_loglevel_mask(CPU_LOG_TB_OP | CPU_LOG_TB_OP_OPT))) {
         tcg_gen_debug_insn_start(ctx->pc);
     }
-
+*/
     /* TODO: TEMP HACK TO SEE IF TESTS PASS */
 
     if (ctx->opcode == 0x51e0d073) {
@@ -1284,40 +1261,6 @@ void gen_intermediate_code_pc (CPUMIPSState *env, struct TranslationBlock *tb)
     gen_intermediate_code_internal(mips_env_get_cpu(env), tb, true);
 }
 
-#if defined(TARGET_MIPS64) && defined(MIPS_DEBUG_SIGN_EXTENSIONS)
-/* Debug help: The architecture requires 32bit code to maintain proper
-   sign-extended values on 64bit machines.  */
-
-#define SIGN_EXT_P(val) ((((val) & ~0x7fffffff) == 0) || (((val) & ~0x7fffffff) == ~0x7fffffff))
-
-static void
-cpu_mips_check_sign_extensions (CPUMIPSState *env, FILE *f,
-                                fprintf_function cpu_fprintf,
-                                int flags)
-{
-    int i;
-
-    if (!SIGN_EXT_P(env->active_tc.PC))
-        cpu_fprintf(f, "BROKEN: pc=0x" TARGET_FMT_lx "\n", env->active_tc.PC);
-    if (!SIGN_EXT_P(env->active_tc.HI[0]))
-        cpu_fprintf(f, "BROKEN: HI=0x" TARGET_FMT_lx "\n", env->active_tc.HI[0]);
-    if (!SIGN_EXT_P(env->active_tc.LO[0]))
-        cpu_fprintf(f, "BROKEN: LO=0x" TARGET_FMT_lx "\n", env->active_tc.LO[0]);
-    if (!SIGN_EXT_P(env->btarget))
-        cpu_fprintf(f, "BROKEN: btarget=0x" TARGET_FMT_lx "\n", env->btarget);
-
-    for (i = 0; i < 32; i++) {
-        if (!SIGN_EXT_P(env->active_tc.gpr[i]))
-            cpu_fprintf(f, "BROKEN: %s=0x" TARGET_FMT_lx "\n", regnames[i], env->active_tc.gpr[i]);
-    }
-
-    if (!SIGN_EXT_P(env->CP0_EPC))
-        cpu_fprintf(f, "BROKEN: EPC=0x" TARGET_FMT_lx "\n", env->CP0_EPC);
-    if (!SIGN_EXT_P(env->lladdr))
-        cpu_fprintf(f, "BROKEN: LLAddr=0x" TARGET_FMT_lx "\n", env->lladdr);
-}
-#endif
-
 void mips_cpu_dump_state(CPUState *cs, FILE *f, fprintf_function cpu_fprintf,
                          int flags)
 {
@@ -1345,9 +1288,6 @@ void mips_cpu_dump_state(CPUState *cs, FILE *f, fprintf_function cpu_fprintf,
     if (env->hflags & MIPS_HFLAG_FPU) {
         ;
     }
-#if defined(TARGET_MIPS64) && defined(MIPS_DEBUG_SIGN_EXTENSIONS)
-    cpu_mips_check_sign_extensions(env, f, cpu_fprintf, flags);
-#endif
 }
 
 void mips_tcg_init(void)
@@ -1373,20 +1313,6 @@ void mips_tcg_init(void)
 
     cpu_PC = tcg_global_mem_new(TCG_AREG0,
                                 offsetof(CPUMIPSState, active_tc.PC), "PC");
-    for (i = 0; i < MIPS_DSP_ACC; i++) {
-        cpu_HI[i] = tcg_global_mem_new(TCG_AREG0,
-                                       offsetof(CPUMIPSState, active_tc.HI[i]),
-                                       regnames_HI[i]);
-        cpu_LO[i] = tcg_global_mem_new(TCG_AREG0,
-                                       offsetof(CPUMIPSState, active_tc.LO[i]),
-                                       regnames_LO[i]);
-        cpu_ACX[i] = tcg_global_mem_new(TCG_AREG0,
-                                        offsetof(CPUMIPSState, active_tc.ACX[i]),
-                                        regnames_ACX[i]);
-    }
-    cpu_dspctrl = tcg_global_mem_new(TCG_AREG0,
-                                     offsetof(CPUMIPSState, active_tc.DSPControl),
-                                     "DSPControl");
     bcond = tcg_global_mem_new(TCG_AREG0,
                                offsetof(CPUMIPSState, bcond), "bcond");
     btarget = tcg_global_mem_new(TCG_AREG0,
