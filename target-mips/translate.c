@@ -654,16 +654,14 @@ static void gen_arith(DisasContext *ctx, uint32_t opc,
         break;
 
     case OPC_RISC_MUL:
-        //t0 = tcg_temp_new();
-        //tcg_gen_muls2_tl(cpu_gpr[rd], t0, cpu_gpr[rs1], cpu_gpr[rs2]);
+        tcg_gen_muls2_tl(source1, source2, source1, source2);
         break;
     case OPC_RISC_MULH:
-        //t0 = tcg_temp_new();
-        //tcg_gen_muls2_tl(t0, cpu_gpr[rd], cpu_gpr[rs1], cpu_gpr[rs2]);
+        tcg_gen_muls2_tl(source2, source1, source1, source2);
         break;
     case OPC_RISC_MULHSU:
     case OPC_RISC_MULHU:
-
+        tcg_gen_mulu2_tl(source2, source1, source1, source2);
     case OPC_RISC_DIV:
     case OPC_RISC_DIVU:
     case OPC_RISC_REM:
@@ -1046,10 +1044,13 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
         tcg_gen_debug_insn_start(ctx->pc);
     }
 
-    /* TODO: TEMP HACK TO SEE IF TESTS PASS */
+    /* TODO: TEMP HACK TO SEE IF TESTS PASS/FAIL */
 
     if (ctx->opcode == 0x51e0d073) {
         printf("SUCCESS\n");
+        exit(0);
+    } else if (ctx->opcode == 0x51ee1073) {
+        printf("FAIL\n");
         exit(0);
     }
 

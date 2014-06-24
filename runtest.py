@@ -11,7 +11,7 @@ successes = []
 fails = []
 
 for x in t:
-    if "rv64ui" in x and "mul" not in x and "div" not in x and "rem" not in x and "amo" not in x:
+    if "rv64ui" in x and "div" not in x and "rem" not in x and "amo" not in x:
         newT.append(x)
 
 for x in newT:
@@ -22,8 +22,11 @@ for x in newT:
         successes.append(x)
     else:
         fails.append(x)
-    
+  
+# special test notes
+note = "rv64ui-p-fence_i test will currently fail since there are issues with self-modifying code."
+
 print("Passing (" + str(len(successes)) + "):")
 print(successes)
-print("Failing (" + str(len(fails)) +"):")
+print("Failing (" + str(len(fails)) +"):" + " " + note)
 print(fails)
