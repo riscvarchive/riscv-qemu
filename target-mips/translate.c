@@ -1426,6 +1426,12 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
 
     case OPC_RISC_FENCE:
         /* fences are nops for us? */
+
+        tcg_gen_movi_tl(cpu_PC, ctx->pc + 4);
+        tcg_gen_goto_tb(0);
+        tcg_gen_exit_tb((uintptr_t)ctx->tb | 0x0);
+        ctx->bstate = BS_BRANCH;
+
         break;
 
     case OPC_RISC_SYSTEM:

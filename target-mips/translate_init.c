@@ -459,7 +459,7 @@ static const mips_def_t mips_defs[] =
         .insn_flags = CPU_MIPS64,
         .mmu_type = MMU_TYPE_R4000,
     },
-    {
+    {   ///////////////////// TODO: THIS ONE
         .name = "20Kc",
         /* We emulate a later version of the 20Kc, earlier ones had a broken
            WAIT instruction. */

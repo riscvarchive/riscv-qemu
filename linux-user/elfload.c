@@ -730,12 +730,14 @@ static void elf_core_copy_regs(target_elf_gregset_t *regs, const CPUPPCState *en
 #endif
 #define ELF_ARCH    EM_MIPS
 
+
+// TODO: this is sp init
 static inline void init_thread(struct target_pt_regs *regs,
                                struct image_info *infop)
 {
     regs->cp0_status = 2 << CP0St_KSU;
     regs->cp0_epc = infop->entry;
-    regs->regs[29] = infop->start_stack;
+    regs->regs[14] = infop->start_stack; // this should really not be hardcoded...
 }
 
 /* See linux kernel: arch/mips/include/asm/elf.h.  */
