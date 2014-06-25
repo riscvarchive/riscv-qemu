@@ -179,11 +179,13 @@ target_ulong helper_muls(CPUMIPSState *env, target_ulong arg1,
                                  (int64_t)(int32_t)arg2));
 }
 
+/* MODIFIED FOR RISCV*/
 target_ulong helper_mulsu(CPUMIPSState *env, target_ulong arg1,
                           target_ulong arg2)
 {
-    return set_HI_LOT0(env, 0 - (uint64_t)(uint32_t)arg1 *
-                       (uint64_t)(uint32_t)arg2);
+    int64_t a = arg1;
+    uint64_t b = arg2;
+    return (int64_t)((__int128_t)a*b >> 64);
 }
 
 target_ulong helper_macc(CPUMIPSState *env, target_ulong arg1,

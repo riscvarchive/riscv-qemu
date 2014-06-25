@@ -667,7 +667,8 @@ static void gen_arith(DisasContext *ctx, uint32_t opc,
         tcg_gen_muls2_tl(source2, source1, source1, source2);
         break;
     case OPC_RISC_MULHSU:
-        // TODO mulhsu
+        // TODO: better way to do this? currently implemented as a C helper
+        gen_helper_mulsu(source1, cpu_env, source1, source2);
         break;
     case OPC_RISC_MULHU:
         tcg_gen_mulu2_tl(source2, source1, source1, source2);
