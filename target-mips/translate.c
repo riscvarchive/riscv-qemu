@@ -52,7 +52,8 @@ enum {
     OPC_RISC_ARITH_IMM_W = (0x1B),
     OPC_RISC_ARITH_W = (0x3B),
 
-    /* currently covers up to, but not including atomics */
+    /* rv32a, rv64a */
+    OPC_RISC_ATOMIC = (0x2F),
 };
 
 #define MASK_OP_ARITH(op)   (MASK_OP_MAJOR(op) | (op & ((0x7 << 12) | (0x7F << 25))))
@@ -147,6 +148,34 @@ enum {
 
 #define MASK_OP_JALR(op)   (MASK_OP_MAJOR(op) | (op & (0x7 << 12)))
 // no enum since OPC_RISC_JALR is the actual value
+
+#define MASK_OP_ATOMIC(op)   (MASK_OP_MAJOR(op) | (op & ((0x7 << 12) | (0x7F << 25))))
+#define MASK_OP_ATOMIC_NO_AQ_RL(op)   (MASK_OP_MAJOR(op) | (op & ((0x7 << 12) | (0x1F << 27))))
+enum {
+    OPC_RISC_LR_W        = OPC_RISC_ATOMIC | (0x2 << 12) | (0x02 << 27),
+    OPC_RISC_SC_W        = OPC_RISC_ATOMIC | (0x2 << 12) | (0x03 << 27),
+    OPC_RISC_AMOSWAP_W   = OPC_RISC_ATOMIC | (0x2 << 12) | (0x01 << 27),
+    OPC_RISC_AMOADD_W    = OPC_RISC_ATOMIC | (0x2 << 12) | (0x00 << 27),
+    OPC_RISC_AMOXOR_W    = OPC_RISC_ATOMIC | (0x2 << 12) | (0x04 << 27),
+    OPC_RISC_AMOAND_W    = OPC_RISC_ATOMIC | (0x2 << 12) | (0x0C << 27),
+    OPC_RISC_AMOOR_W     = OPC_RISC_ATOMIC | (0x2 << 12) | (0x08 << 27),
+    OPC_RISC_AMOMIN_W    = OPC_RISC_ATOMIC | (0x2 << 12) | (0x10 << 27),
+    OPC_RISC_AMOMAX_W    = OPC_RISC_ATOMIC | (0x2 << 12) | (0x14 << 27),
+    OPC_RISC_AMOMINU_W   = OPC_RISC_ATOMIC | (0x2 << 12) | (0x18 << 27),
+    OPC_RISC_AMOMAXU_W   = OPC_RISC_ATOMIC | (0x2 << 12) | (0x1C << 27),
+
+    OPC_RISC_LR_D        = OPC_RISC_ATOMIC | (0x3 << 12) | (0x02 << 27),
+    OPC_RISC_SC_D        = OPC_RISC_ATOMIC | (0x3 << 12) | (0x03 << 27),
+    OPC_RISC_AMOSWAP_D   = OPC_RISC_ATOMIC | (0x3 << 12) | (0x01 << 27),
+    OPC_RISC_AMOADD_D    = OPC_RISC_ATOMIC | (0x3 << 12) | (0x00 << 27),
+    OPC_RISC_AMOXOR_D    = OPC_RISC_ATOMIC | (0x3 << 12) | (0x04 << 27),
+    OPC_RISC_AMOAND_D    = OPC_RISC_ATOMIC | (0x3 << 12) | (0x0C << 27),
+    OPC_RISC_AMOOR_D     = OPC_RISC_ATOMIC | (0x3 << 12) | (0x08 << 27),
+    OPC_RISC_AMOMIN_D    = OPC_RISC_ATOMIC | (0x3 << 12) | (0x10 << 27),
+    OPC_RISC_AMOMAX_D    = OPC_RISC_ATOMIC | (0x3 << 12) | (0x14 << 27),
+    OPC_RISC_AMOMINU_D   = OPC_RISC_ATOMIC | (0x3 << 12) | (0x18 << 27),
+    OPC_RISC_AMOMAXU_D   = OPC_RISC_ATOMIC | (0x3 << 12) | (0x1C << 27),
+};
 
 /* global register indices */
 static TCGv_ptr cpu_env;
@@ -1296,9 +1325,92 @@ static void gen_jalr(DisasContext *ctx, uint32_t opc,
     tcg_temp_free(t1);
 }
 
+static void gen_atomic(DisasContext *ctx, uint32_t opc, 
+                      int rd, int rs1, int rs2)
+{
+    // TODO: handle aq, rl bits? - for now just get rid of them:
+    opc = MASK_OP_ATOMIC_NO_AQ_RL(opc);
+
+    TCGv source1, source2, dat;
+
+    source1 = tcg_temp_new();
+    source2 = tcg_temp_new();
+    dat = tcg_temp_new();
+
+    gen_get_gpr(source1, rs1);
+    gen_get_gpr(source2, rs2);
+
+
+
+    switch (opc) {
+        // all currently implemented as non-atomics
+    case OPC_RISC_LR_W:
+        tcg_gen_qemu_ld32s(source1, source1, ctx->mem_idx);
+        break;
+    case OPC_RISC_SC_W:
+        tcg_gen_qemu_st32(source2, source1, ctx->mem_idx);
+        tcg_gen_movi_tl(source1, 0); // assume always success
+        break;
+    case OPC_RISC_AMOSWAP_W:
+        tcg_gen_qemu_ld32s(dat, source1, ctx->mem_idx);
+        tcg_gen_mov_tl(source2, source2); // replace with other op using dat
+        tcg_gen_qemu_st32(source2, source1, ctx->mem_idx);
+        tcg_gen_mov_tl(source1, dat);
+        break;
+    case OPC_RISC_AMOADD_W:   
+        tcg_gen_qemu_ld32s(dat, source1, ctx->mem_idx);
+        tcg_gen_add_tl(source2, dat, source2); // replace with other op using dat
+        tcg_gen_qemu_st32(source2, source1, ctx->mem_idx);
+        tcg_gen_mov_tl(source1, dat);
+        break;
+
+    case OPC_RISC_AMOXOR_W:
+    case OPC_RISC_AMOAND_W:
+    case OPC_RISC_AMOOR_W:
+    case OPC_RISC_AMOMIN_W:
+    case OPC_RISC_AMOMAX_W:
+    case OPC_RISC_AMOMINU_W:
+    case OPC_RISC_AMOMAXU_W:
+
+
+    case OPC_RISC_LR_D:
+        tcg_gen_qemu_ld64(source1, source1, ctx->mem_idx);
+        break;
+    case OPC_RISC_SC_D:       
+        tcg_gen_qemu_st64(source2, source1, ctx->mem_idx);
+        tcg_gen_movi_tl(source1, 0); // assume always success
+        break;
+    case OPC_RISC_AMOSWAP_D:
+    case OPC_RISC_AMOADD_D:
+    case OPC_RISC_AMOXOR_D: 
+    case OPC_RISC_AMOAND_D:
+    case OPC_RISC_AMOOR_D:
+    case OPC_RISC_AMOMIN_D:
+    case OPC_RISC_AMOMAX_D:
+    case OPC_RISC_AMOMINU_D:
+    case OPC_RISC_AMOMAXU_D:
+
+
+        break;
+
+
+    default:
+        // TODO EXCEPTION
+        break;
+
+    }
+
+    // set and free
+    gen_set_gpr(rd, source1);
+    tcg_temp_free(source1);
+    tcg_temp_free(source2);
+    tcg_temp_free(dat);
+}
+
+
 #define GET_B_IMM(inst)              ((int16_t)((((inst >> 25) & 0x3F) << 5) | ((((int32_t)inst) >> 31) << 12) | (((inst >> 8) & 0xF) << 1) | (((inst >> 7) & 0x1) << 11)))  /* THIS BUILDS 13 bit imm (implicit zero is tacked on here), also note that bit #12 is obtained in a special way to get sign extension */
 #define GET_STORE_IMM(inst)           ((int16_t)(((((int32_t)inst) >> 25) << 5) | ((inst >> 7) & 0x1F)))
-#define GET_JAL_IMM(inst)             ((int16_t)((inst & 0xFF000) | (((inst >> 20) & 0x1) << 11) | (((inst >> 21) & 0x3FF) << 1) | ((((int32_t)inst) >> 31) << 20)))
+#define GET_JAL_IMM(inst)             ((inst & 0xFF000) | (((inst >> 20) & 0x1) << 11) | (((inst >> 21) & 0x3FF) << 1) | ((((int32_t)inst) >> 31) << 20))
 
 static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
 {
@@ -1437,6 +1549,12 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
     case OPC_RISC_SYSTEM:
         /* TODO: */
         break;
+
+    case OPC_RISC_ATOMIC:
+        gen_atomic(ctx, MASK_OP_ATOMIC(ctx->opcode), rd, rs1, rs2);
+
+        break;        
+
 
     default:            /* Invalid */
         // TODO REMOVED FOR TESTING, REPLACE
