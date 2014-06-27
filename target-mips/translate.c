@@ -1363,10 +1363,24 @@ static void gen_atomic(DisasContext *ctx, uint32_t opc,
         tcg_gen_qemu_st32(source2, source1, ctx->mem_idx);
         tcg_gen_mov_tl(source1, dat);
         break;
-
     case OPC_RISC_AMOXOR_W:
+        tcg_gen_qemu_ld32s(dat, source1, ctx->mem_idx);
+        tcg_gen_xor_tl(source2, dat, source2); // replace with other op using dat
+        tcg_gen_qemu_st32(source2, source1, ctx->mem_idx);
+        tcg_gen_mov_tl(source1, dat);
+        break;
     case OPC_RISC_AMOAND_W:
+        tcg_gen_qemu_ld32s(dat, source1, ctx->mem_idx);
+        tcg_gen_and_tl(source2, dat, source2); // replace with other op using dat
+        tcg_gen_qemu_st32(source2, source1, ctx->mem_idx);
+        tcg_gen_mov_tl(source1, dat);
+        break;
     case OPC_RISC_AMOOR_W:
+        tcg_gen_qemu_ld32s(dat, source1, ctx->mem_idx);
+        tcg_gen_or_tl(source2, dat, source2); // replace with other op using dat
+        tcg_gen_qemu_st32(source2, source1, ctx->mem_idx);
+        tcg_gen_mov_tl(source1, dat);
+        break;
     case OPC_RISC_AMOMIN_W:
     case OPC_RISC_AMOMAX_W:
     case OPC_RISC_AMOMINU_W:
@@ -1381,10 +1395,35 @@ static void gen_atomic(DisasContext *ctx, uint32_t opc,
         tcg_gen_movi_tl(source1, 0); // assume always success
         break;
     case OPC_RISC_AMOSWAP_D:
+        tcg_gen_qemu_ld64(dat, source1, ctx->mem_idx);
+        tcg_gen_mov_tl(source2, source2); // replace with other op using dat
+        tcg_gen_qemu_st64(source2, source1, ctx->mem_idx);
+        tcg_gen_mov_tl(source1, dat);
+        break;
     case OPC_RISC_AMOADD_D:
+        tcg_gen_qemu_ld64(dat, source1, ctx->mem_idx);
+        tcg_gen_add_tl(source2, dat, source2); // replace with other op using dat
+        tcg_gen_qemu_st64(source2, source1, ctx->mem_idx);
+        tcg_gen_mov_tl(source1, dat);
+        break;
     case OPC_RISC_AMOXOR_D: 
+        tcg_gen_qemu_ld64(dat, source1, ctx->mem_idx);
+        tcg_gen_xor_tl(source2, dat, source2); // replace with other op using dat
+        tcg_gen_qemu_st64(source2, source1, ctx->mem_idx);
+        tcg_gen_mov_tl(source1, dat);
+        break;
     case OPC_RISC_AMOAND_D:
+        tcg_gen_qemu_ld64(dat, source1, ctx->mem_idx);
+        tcg_gen_and_tl(source2, dat, source2); // replace with other op using dat
+        tcg_gen_qemu_st64(source2, source1, ctx->mem_idx);
+        tcg_gen_mov_tl(source1, dat);
+        break;
     case OPC_RISC_AMOOR_D:
+        tcg_gen_qemu_ld64(dat, source1, ctx->mem_idx);
+        tcg_gen_or_tl(source2, dat, source2); // replace with other op using dat
+        tcg_gen_qemu_st64(source2, source1, ctx->mem_idx);
+        tcg_gen_mov_tl(source1, dat);
+        break;
     case OPC_RISC_AMOMIN_D:
     case OPC_RISC_AMOMAX_D:
     case OPC_RISC_AMOMINU_D:
