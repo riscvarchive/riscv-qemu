@@ -12,7 +12,7 @@ Disassembly of section .text:
     2008:	80000937          	lui	a0,0x80000
     200c:	80000993          	li	a1,-2048
     2010:	00000a97          	auipc	a3,0x0
-    2014:	120a8a93          	addi	a3,a3,288 # 2130 <begin_signature>
+    2014:	110a8a93          	addi	a3,a3,272 # 2120 <begin_signature>
     2018:	012ab023          	sd	a0,0(a3)
     201c:	00000013          	nop
     2020:	00000013          	nop
@@ -45,56 +45,52 @@ Disassembly of section .text:
     208c:	093abb2f          	amoswap.d	a4,a1,(a3)
     2090:	80000eb7          	lui	t3,0x80000
     2094:	00200e13          	li	t2,2
-    2098:	07db1463          	bne	a4,t3,2100 <fail>
+    2098:	05db1c63          	bne	a4,t3,20f0 <fail>
 
 000000000000209c <test_3>:
     209c:	000abb83          	ld	a5,0(a3)
     20a0:	80000e93          	li	t3,-2048
     20a4:	00300e13          	li	t2,3
-    20a8:	05db9c63          	bne	a5,t3,2100 <fail>
+    20a8:	05db9463          	bne	a5,t3,20f0 <fail>
 
 00000000000020ac <test_4>:
     20ac:	001009b7          	lui	a1,0x100
     20b0:	00b99993          	slli	a1,a1,0xb
     20b4:	00004b37          	lui	a4,0x4
     20b8:	016a8bb3          	add	a5,a3,a4
-    20bc:	000bb003          	ld	zero,0(a5)
+    20bc:	016b8bb3          	add	a5,a5,a4
     20c0:	016b8bb3          	add	a5,a5,a4
-    20c4:	000bb003          	ld	zero,0(a5)
-    20c8:	016b8bb3          	add	a5,a5,a4
-    20cc:	000bb003          	ld	zero,0(a5)
-    20d0:	016b8bb3          	add	a5,a5,a4
-    20d4:	000bb003          	ld	zero,0(a5)
-    20d8:	093abb2f          	amoswap.d	a4,a1,(a3)
-    20dc:	80000e93          	li	t3,-2048
-    20e0:	00400e13          	li	t2,4
-    20e4:	01db1e63          	bne	a4,t3,2100 <fail>
+    20c4:	016b8bb3          	add	a5,a5,a4
+    20c8:	093abb2f          	amoswap.d	a4,a1,(a3)
+    20cc:	80000e93          	li	t3,-2048
+    20d0:	00400e13          	li	t2,4
+    20d4:	01db1e63          	bne	a4,t3,20f0 <fail>
 
-00000000000020e8 <test_5>:
-    20e8:	000abb83          	ld	a5,0(a3)
-    20ec:	00100eb7          	lui	t3,0x100
-    20f0:	00be9e93          	slli	t3,t3,0xb
-    20f4:	00500e13          	li	t2,5
-    20f8:	01db9463          	bne	a5,t3,2100 <fail>
-    20fc:	01c01e63          	bne	zero,t2,2118 <pass>
+00000000000020d8 <test_5>:
+    20d8:	000abb83          	ld	a5,0(a3)
+    20dc:	00100eb7          	lui	t3,0x100
+    20e0:	00be9e93          	slli	t3,t3,0xb
+    20e4:	00500e13          	li	t2,5
+    20e8:	01db9463          	bne	a5,t3,20f0 <fail>
+    20ec:	01c01e63          	bne	zero,t2,2108 <pass>
 
-0000000000002100 <fail>:
-    2100:	0ff0000f          	fence
-    2104:	000e0863          	beqz	t2,2114 <fail+0x14>
-    2108:	001e1e13          	slli	t2,t2,0x1
-    210c:	001e6e13          	ori	t2,t2,1
-    2110:	51ee1073          	csrw	tohost,t2
-    2114:	00000063          	b	2114 <fail+0x14>
+00000000000020f0 <fail>:
+    20f0:	0ff0000f          	fence
+    20f4:	000e0863          	beqz	t2,2104 <fail+0x14>
+    20f8:	001e1e13          	slli	t2,t2,0x1
+    20fc:	001e6e13          	ori	t2,t2,1
+    2100:	51ee1073          	csrw	tohost,t2
+    2104:	00000063          	b	2104 <fail+0x14>
 
-0000000000002118 <pass>:
-    2118:	0ff0000f          	fence
-    211c:	51e0d073          	csrwi	tohost,1
-    2120:	00000063          	b	2120 <pass+0x8>
-    2124:	00000013          	nop
-    2128:	00000013          	nop
-    212c:	00000013          	nop
+0000000000002108 <pass>:
+    2108:	0ff0000f          	fence
+    210c:	51e0d073          	csrwi	tohost,1
+    2110:	00000063          	b	2110 <pass+0x8>
+    2114:	00000013          	nop
+    2118:	00000013          	nop
+    211c:	00000013          	nop
 
 Disassembly of section .bss:
 
-0000000000002130 <amo_operand>:
+0000000000002120 <amo_operand>:
 	...

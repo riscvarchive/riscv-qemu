@@ -12,7 +12,7 @@ Disassembly of section .text:
     2008:	80000937          	lui	a0,0x80000
     200c:	80000993          	li	a1,-2048
     2010:	00000a97          	auipc	a3,0x0
-    2014:	130a8a93          	addi	a3,a3,304 # 2140 <begin_signature>
+    2014:	120a8a93          	addi	a3,a3,288 # 2130 <begin_signature>
     2018:	012ab023          	sd	a0,0(a3)
     201c:	00000013          	nop
     2020:	00000013          	nop
@@ -45,7 +45,7 @@ Disassembly of section .text:
     208c:	213aab2f          	amoxor.w	a4,a1,(a3)
     2090:	80000eb7          	lui	t3,0x80000
     2094:	00200e13          	li	t2,2
-    2098:	07db1c63          	bne	a4,t3,2110 <fail>
+    2098:	07db1463          	bne	a4,t3,2100 <fail>
 
 000000000000209c <test_3>:
     209c:	000abb83          	ld	a5,0(a3)
@@ -53,52 +53,48 @@ Disassembly of section .text:
     20a4:	fffe8e9b          	addiw	t3,t3,-1
     20a8:	00be9e93          	slli	t3,t3,0xb
     20ac:	00300e13          	li	t2,3
-    20b0:	07db9063          	bne	a5,t3,2110 <fail>
+    20b0:	05db9863          	bne	a5,t3,2100 <fail>
 
 00000000000020b4 <test_4>:
     20b4:	001809b7          	lui	a1,0x180
     20b8:	00b99993          	slli	a1,a1,0xb
-    20bc:	00198993          	addi	a1,a1,1 # 180001 <begin_signature+0x17dec1>
+    20bc:	00198993          	addi	a1,a1,1 # 180001 <begin_signature+0x17ded1>
     20c0:	00004b37          	lui	a4,0x4
     20c4:	016a8bb3          	add	a5,a3,a4
-    20c8:	000bb003          	ld	zero,0(a5)
+    20c8:	016b8bb3          	add	a5,a5,a4
     20cc:	016b8bb3          	add	a5,a5,a4
-    20d0:	000bb003          	ld	zero,0(a5)
-    20d4:	016b8bb3          	add	a5,a5,a4
-    20d8:	000bb003          	ld	zero,0(a5)
-    20dc:	016b8bb3          	add	a5,a5,a4
-    20e0:	000bb003          	ld	zero,0(a5)
-    20e4:	213aab2f          	amoxor.w	a4,a1,(a3)
-    20e8:	80000eb7          	lui	t3,0x80000
-    20ec:	800e8e9b          	addiw	t3,t3,-2048
-    20f0:	00400e13          	li	t2,4
-    20f4:	01db1e63          	bne	a4,t3,2110 <fail>
+    20d0:	016b8bb3          	add	a5,a5,a4
+    20d4:	213aab2f          	amoxor.w	a4,a1,(a3)
+    20d8:	80000eb7          	lui	t3,0x80000
+    20dc:	800e8e9b          	addiw	t3,t3,-2048
+    20e0:	00400e13          	li	t2,4
+    20e4:	01db1e63          	bne	a4,t3,2100 <fail>
 
-00000000000020f8 <test_5>:
-    20f8:	000abb83          	ld	a5,0(a3)
-    20fc:	c0000eb7          	lui	t3,0xc0000
-    2100:	801e8e9b          	addiw	t3,t3,-2047
-    2104:	00500e13          	li	t2,5
-    2108:	01db9463          	bne	a5,t3,2110 <fail>
-    210c:	01c01e63          	bne	zero,t2,2128 <pass>
+00000000000020e8 <test_5>:
+    20e8:	000abb83          	ld	a5,0(a3)
+    20ec:	c0000eb7          	lui	t3,0xc0000
+    20f0:	801e8e9b          	addiw	t3,t3,-2047
+    20f4:	00500e13          	li	t2,5
+    20f8:	01db9463          	bne	a5,t3,2100 <fail>
+    20fc:	01c01e63          	bne	zero,t2,2118 <pass>
 
-0000000000002110 <fail>:
-    2110:	0ff0000f          	fence
-    2114:	000e0863          	beqz	t2,2124 <fail+0x14>
-    2118:	001e1e13          	slli	t2,t2,0x1
-    211c:	001e6e13          	ori	t2,t2,1
-    2120:	51ee1073          	csrw	tohost,t2
-    2124:	00000063          	b	2124 <fail+0x14>
+0000000000002100 <fail>:
+    2100:	0ff0000f          	fence
+    2104:	000e0863          	beqz	t2,2114 <fail+0x14>
+    2108:	001e1e13          	slli	t2,t2,0x1
+    210c:	001e6e13          	ori	t2,t2,1
+    2110:	51ee1073          	csrw	tohost,t2
+    2114:	00000063          	b	2114 <fail+0x14>
 
-0000000000002128 <pass>:
-    2128:	0ff0000f          	fence
-    212c:	51e0d073          	csrwi	tohost,1
-    2130:	00000063          	b	2130 <pass+0x8>
-    2134:	00000013          	nop
-    2138:	00000013          	nop
-    213c:	00000013          	nop
+0000000000002118 <pass>:
+    2118:	0ff0000f          	fence
+    211c:	51e0d073          	csrwi	tohost,1
+    2120:	00000063          	b	2120 <pass+0x8>
+    2124:	00000013          	nop
+    2128:	00000013          	nop
+    212c:	00000013          	nop
 
 Disassembly of section .bss:
 
-0000000000002140 <amo_operand>:
+0000000000002130 <amo_operand>:
 	...

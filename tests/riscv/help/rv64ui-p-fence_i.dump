@@ -14,15 +14,15 @@ Disassembly of section .text:
     2018:	03498993          	addi	a1,a1,52 # 2048 <_start+0x48>
     201c:	00000a17          	auipc	a2,0x0
     2020:	064a0a13          	addi	a2,a2,100 # 2080 <test_2+0x34>
-    2024:	00092903          	lw	a0,0(a0)
+    2024:	00092903          	lw	a0,0(a0)   # load instruction addi a3, a3, 333 from addr 0x2094
     2028:	00000013          	nop
     202c:	00000013          	nop
     2030:	00000013          	nop
     2034:	00000013          	nop
     2038:	00000013          	nop
     203c:	00000013          	nop
-    2040:	0129a023          	sw	a0,0(a1)
-    2044:	0000100f          	fence.i
+    2040:	0129a023          	sw	a0,0(a1)   # store it at 0x2048
+    2044:	0000100f          	fence.i // modded to act like a branch to pc + 4
     2048:	0dea8a93          	addi	a3,a3,222
 
 000000000000204c <test_2>:
