@@ -180,13 +180,10 @@ enum {
 /* global register indices */
 static TCGv_ptr cpu_env;
 static TCGv cpu_gpr[32], cpu_PC;
-static TCGv btarget, bcond;
 static TCGv_i32 hflags;
-static TCGv_i32 fpu_fcr0, fpu_fcr31;
-static TCGv_i64 fpu_f64[32];
+static TCGv_i32 fpu_fcr31;
 
 static uint32_t gen_opc_hflags[OPC_BUF_SIZE];
-static target_ulong gen_opc_btarget[OPC_BUF_SIZE];
 
 #include "exec/gen-icount.h"
 
@@ -242,7 +239,6 @@ typedef struct DisasContext {
     int mem_idx;
     uint32_t hflags, saved_hflags;
     int bstate;
-    target_ulong btarget;
 } DisasContext;
 
 enum {
@@ -284,35 +280,6 @@ static const char * const fregnames[] = {
         }                                                                     \
     } while (0)
 
-#define MIPS_INVAL(op)                                                        \
-    MIPS_DEBUG("Invalid %s %03x %03x %03x", op, ctx->opcode >> 26,            \
-               ctx->opcode & 0x3F, ((ctx->opcode >> 16) & 0x1F))
-
-/* General purpose registers moves. */
-static inline void gen_load_gpr (TCGv t, int reg)
-{
-    if (reg == 0)
-        tcg_gen_movi_tl(t, 0);
-    else
-        tcg_gen_mov_tl(t, cpu_gpr[reg]);
-}
-
-static inline void gen_store_gpr (TCGv t, int reg)
-{
-    if (reg != 0)
-        tcg_gen_mov_tl(cpu_gpr[reg], t);
-}
-
-/* Moves to/from ACX register.  */
-static inline int get_fp_bit (int cc)
-{
-    if (cc)
-        return 24 + cc;
-    else
-        return 23;
-}
-
-/* Tests */
 static inline void gen_save_pc(target_ulong pc)
 {
     tcg_gen_movi_tl(cpu_PC, pc);
@@ -325,33 +292,10 @@ static inline void save_cpu_state (DisasContext *ctx, int do_save_pc)
         gen_save_pc(ctx->pc);
         ctx->saved_pc = ctx->pc;
     }
-    if (ctx->hflags != ctx->saved_hflags) {
-        tcg_gen_movi_i32(hflags, ctx->hflags);
-        ctx->saved_hflags = ctx->hflags;
-        switch (ctx->hflags & MIPS_HFLAG_BMASK_BASE) {
-        case MIPS_HFLAG_BR:
-            break;
-        case MIPS_HFLAG_BC:
-        case MIPS_HFLAG_BL:
-        case MIPS_HFLAG_B:
-            tcg_gen_movi_tl(btarget, ctx->btarget);
-            break;
-        }
-    }
 }
 
 static inline void restore_cpu_state (CPUMIPSState *env, DisasContext *ctx)
 {
-    ctx->saved_hflags = ctx->hflags;
-    switch (ctx->hflags & MIPS_HFLAG_BMASK_BASE) {
-    case MIPS_HFLAG_BR:
-        break;
-    case MIPS_HFLAG_BC:
-    case MIPS_HFLAG_BL:
-    case MIPS_HFLAG_B:
-        ctx->btarget = env->btarget;
-        break;
-    }
 }
 
 static inline void
@@ -372,235 +316,6 @@ generate_exception (DisasContext *ctx, int excp)
     gen_helper_0e0i(raise_exception, excp);
 }
 
-/* Addresses computation */
-static inline void gen_op_addr_add (DisasContext *ctx, TCGv ret, TCGv arg0, TCGv arg1)
-{
-    tcg_gen_add_tl(ret, arg0, arg1);
-
-#if defined(TARGET_MIPS64)
-    /* For compatibility with 32-bit code, data reference in user mode
-       with Status_UX = 0 should be casted to 32-bit and sign extended.
-       See the MIPS64 PRA manual, section 4.10. */
-    if (((ctx->hflags & MIPS_HFLAG_KSU) == MIPS_HFLAG_UM) &&
-        !(ctx->hflags & MIPS_HFLAG_UX)) {
-        tcg_gen_ext32s_i64(ret, ret);
-    }
-#endif
-}
-
-static inline void check_cp0_enabled(DisasContext *ctx)
-{
-    if (unlikely(!(ctx->hflags & MIPS_HFLAG_CP0)))
-        generate_exception_err(ctx, EXCP_CpU, 0);
-}
-
-static inline void check_cp1_enabled(DisasContext *ctx)
-{
-    if (unlikely(!(ctx->hflags & MIPS_HFLAG_FPU)))
-        generate_exception_err(ctx, EXCP_CpU, 1);
-}
-
-/* Verify that the processor is running with COP1X instructions enabled.
-   This is associated with the nabla symbol in the MIPS32 and MIPS64
-   opcode tables.  */
-
-static inline void check_cop1x(DisasContext *ctx)
-{
-    if (unlikely(!(ctx->hflags & MIPS_HFLAG_COP1X)))
-        generate_exception(ctx, EXCP_RI);
-}
-
-/* Verify that the processor is running with 64-bit floating-point
-   operations enabled.  */
-
-static inline void check_cp1_64bitmode(DisasContext *ctx)
-{
-    if (unlikely(~ctx->hflags & (MIPS_HFLAG_F64 | MIPS_HFLAG_COP1X)))
-        generate_exception(ctx, EXCP_RI);
-}
-
-/*
- * Verify if floating point register is valid; an operation is not defined
- * if bit 0 of any register specification is set and the FR bit in the
- * Status register equals zero, since the register numbers specify an
- * even-odd pair of adjacent coprocessor general registers. When the FR bit
- * in the Status register equals one, both even and odd register numbers
- * are valid. This limitation exists only for 64 bit wide (d,l,ps) registers.
- *
- * Multiple 64 bit wide registers can be checked by calling
- * gen_op_cp1_registers(freg1 | freg2 | ... | fregN);
- */
-static inline void check_cp1_registers(DisasContext *ctx, int regs)
-{
-    if (unlikely(!(ctx->hflags & MIPS_HFLAG_F64) && (regs & 1)))
-        generate_exception(ctx, EXCP_RI);
-}
-
-/* Verify that the processor is running with DSP instructions enabled.
-   This is enabled by CP0 Status register MX(24) bit.
- */
-
-static inline void check_dsp(DisasContext *ctx)
-{
-    if (unlikely(!(ctx->hflags & MIPS_HFLAG_DSP))) {
-        if (ctx->insn_flags & ASE_DSP) {
-            generate_exception(ctx, EXCP_DSPDIS);
-        } else {
-            generate_exception(ctx, EXCP_RI);
-        }
-    }
-}
-
-static inline void check_dspr2(DisasContext *ctx)
-{
-    if (unlikely(!(ctx->hflags & MIPS_HFLAG_DSPR2))) {
-        if (ctx->insn_flags & ASE_DSP) {
-            generate_exception(ctx, EXCP_DSPDIS);
-        } else {
-            generate_exception(ctx, EXCP_RI);
-        }
-    }
-}
-
-/* This code generates a "reserved instruction" exception if the
-   CPU does not support the instruction set corresponding to flags. */
-static inline void check_insn(DisasContext *ctx, int flags)
-{
-    if (unlikely(!(ctx->insn_flags & flags))) {
-        generate_exception(ctx, EXCP_RI);
-    }
-}
-
-/* This code generates a "reserved instruction" exception if 64-bit
-   instructions are not enabled. */
-static inline void check_mips_64(DisasContext *ctx)
-{
-    if (unlikely(!(ctx->hflags & MIPS_HFLAG_64)))
-        generate_exception(ctx, EXCP_RI);
-}
-
-/* Define small wrappers for gen_load_fpr* so that we have a uniform
-   calling interface for 32 and 64-bit FPRs.  No sense in changing
-   all callers for gen_load_fpr32 when we need the CTX parameter for
-   this one use.  */
-#define gen_ldcmp_fpr32(ctx, x, y) gen_load_fpr32(x, y)
-#define gen_ldcmp_fpr64(ctx, x, y) gen_load_fpr64(ctx, x, y)
-#define FOP_CONDS(type, abs, fmt, ifmt, bits)                                 \
-static inline void gen_cmp ## type ## _ ## fmt(DisasContext *ctx, int n,      \
-                                               int ft, int fs, int cc)        \
-{                                                                             \
-    TCGv_i##bits fp0 = tcg_temp_new_i##bits ();                               \
-    TCGv_i##bits fp1 = tcg_temp_new_i##bits ();                               \
-    switch (ifmt) {                                                           \
-    case FMT_PS:                                                              \
-        check_cp1_64bitmode(ctx);                                             \
-        break;                                                                \
-    case FMT_D:                                                               \
-        if (abs) {                                                            \
-            check_cop1x(ctx);                                                 \
-        }                                                                     \
-        check_cp1_registers(ctx, fs | ft);                                    \
-        break;                                                                \
-    case FMT_S:                                                               \
-        if (abs) {                                                            \
-            check_cop1x(ctx);                                                 \
-        }                                                                     \
-        break;                                                                \
-    }                                                                         \
-    gen_ldcmp_fpr##bits (ctx, fp0, fs);                                       \
-    gen_ldcmp_fpr##bits (ctx, fp1, ft);                                       \
-    switch (n) {                                                              \
-    case  0: gen_helper_0e2i(cmp ## type ## _ ## fmt ## _f, fp0, fp1, cc);    break;\
-    case  1: gen_helper_0e2i(cmp ## type ## _ ## fmt ## _un, fp0, fp1, cc);   break;\
-    case  2: gen_helper_0e2i(cmp ## type ## _ ## fmt ## _eq, fp0, fp1, cc);   break;\
-    case  3: gen_helper_0e2i(cmp ## type ## _ ## fmt ## _ueq, fp0, fp1, cc);  break;\
-    case  4: gen_helper_0e2i(cmp ## type ## _ ## fmt ## _olt, fp0, fp1, cc);  break;\
-    case  5: gen_helper_0e2i(cmp ## type ## _ ## fmt ## _ult, fp0, fp1, cc);  break;\
-    case  6: gen_helper_0e2i(cmp ## type ## _ ## fmt ## _ole, fp0, fp1, cc);  break;\
-    case  7: gen_helper_0e2i(cmp ## type ## _ ## fmt ## _ule, fp0, fp1, cc);  break;\
-    case  8: gen_helper_0e2i(cmp ## type ## _ ## fmt ## _sf, fp0, fp1, cc);   break;\
-    case  9: gen_helper_0e2i(cmp ## type ## _ ## fmt ## _ngle, fp0, fp1, cc); break;\
-    case 10: gen_helper_0e2i(cmp ## type ## _ ## fmt ## _seq, fp0, fp1, cc);  break;\
-    case 11: gen_helper_0e2i(cmp ## type ## _ ## fmt ## _ngl, fp0, fp1, cc);  break;\
-    case 12: gen_helper_0e2i(cmp ## type ## _ ## fmt ## _lt, fp0, fp1, cc);   break;\
-    case 13: gen_helper_0e2i(cmp ## type ## _ ## fmt ## _nge, fp0, fp1, cc);  break;\
-    case 14: gen_helper_0e2i(cmp ## type ## _ ## fmt ## _le, fp0, fp1, cc);   break;\
-    case 15: gen_helper_0e2i(cmp ## type ## _ ## fmt ## _ngt, fp0, fp1, cc);  break;\
-    default: abort();                                                         \
-    }                                                                         \
-    tcg_temp_free_i##bits (fp0);                                              \
-    tcg_temp_free_i##bits (fp1);                                              \
-}
-
-#undef FOP_CONDS
-#undef gen_ldcmp_fpr32
-#undef gen_ldcmp_fpr64
-
-/* load/store instructions. */
-#ifdef CONFIG_USER_ONLY
-#define OP_LD_ATOMIC(insn,fname)                                           \
-static inline void op_ld_##insn(TCGv ret, TCGv arg1, DisasContext *ctx)    \
-{                                                                          \
-    TCGv t0 = tcg_temp_new();                                              \
-    tcg_gen_mov_tl(t0, arg1);                                              \
-    tcg_gen_qemu_##fname(ret, arg1, ctx->mem_idx);                         \
-    tcg_gen_st_tl(t0, cpu_env, offsetof(CPUMIPSState, lladdr));                \
-    tcg_gen_st_tl(ret, cpu_env, offsetof(CPUMIPSState, llval));                \
-    tcg_temp_free(t0);                                                     \
-}
-#else
-#define OP_LD_ATOMIC(insn,fname)                                           \
-static inline void op_ld_##insn(TCGv ret, TCGv arg1, DisasContext *ctx)    \
-{                                                                          \
-    gen_helper_1e1i(insn, ret, arg1, ctx->mem_idx);                        \
-}
-#endif
-OP_LD_ATOMIC(ll,ld32s);
-#if defined(TARGET_MIPS64)
-OP_LD_ATOMIC(lld,ld64);
-#endif
-#undef OP_LD_ATOMIC
-
-#ifdef CONFIG_USER_ONLY
-#define OP_ST_ATOMIC(insn,fname,ldname,almask)                               \
-static inline void op_st_##insn(TCGv arg1, TCGv arg2, int rt, DisasContext *ctx) \
-{                                                                            \
-    TCGv t0 = tcg_temp_new();                                                \
-    int l1 = gen_new_label();                                                \
-    int l2 = gen_new_label();                                                \
-                                                                             \
-    tcg_gen_andi_tl(t0, arg2, almask);                                       \
-    tcg_gen_brcondi_tl(TCG_COND_EQ, t0, 0, l1);                              \
-    tcg_gen_st_tl(arg2, cpu_env, offsetof(CPUMIPSState, CP0_BadVAddr));          \
-    generate_exception(ctx, EXCP_AdES);                                      \
-    gen_set_label(l1);                                                       \
-    tcg_gen_ld_tl(t0, cpu_env, offsetof(CPUMIPSState, lladdr));                  \
-    tcg_gen_brcond_tl(TCG_COND_NE, arg2, t0, l2);                            \
-    tcg_gen_movi_tl(t0, rt | ((almask << 3) & 0x20));                        \
-    tcg_gen_st_tl(t0, cpu_env, offsetof(CPUMIPSState, llreg));                   \
-    tcg_gen_st_tl(arg1, cpu_env, offsetof(CPUMIPSState, llnewval));              \
-    gen_helper_0e0i(raise_exception, EXCP_SC);                               \
-    gen_set_label(l2);                                                       \
-    tcg_gen_movi_tl(t0, 0);                                                  \
-    gen_store_gpr(t0, rt);                                                   \
-    tcg_temp_free(t0);                                                       \
-}
-#else
-#define OP_ST_ATOMIC(insn,fname,ldname,almask)                               \
-static inline void op_st_##insn(TCGv arg1, TCGv arg2, int rt, DisasContext *ctx) \
-{                                                                            \
-    TCGv t0 = tcg_temp_new();                                                \
-    gen_helper_1e2i(insn, t0, arg1, arg2, ctx->mem_idx);                     \
-    gen_store_gpr(t0, rt);                                                   \
-    tcg_temp_free(t0);                                                       \
-}
-#endif
-OP_ST_ATOMIC(sc,st32,ld32s,0x3);
-#if defined(TARGET_MIPS64)
-OP_ST_ATOMIC(scd,st64,ld64,0x7);
-#endif
-#undef OP_ST_ATOMIC
-
 static inline void gen_goto_tb(DisasContext *ctx, int n, target_ulong dest)
 {
     TranslationBlock *tb;
@@ -620,8 +335,9 @@ static inline void gen_goto_tb(DisasContext *ctx, int n, target_ulong dest)
     }
 }
 
-// wrapper for getting reg values - need to check of reg is zero since 
-// cpu_gpr[0] is not actually allocated
+/* Wrapper for getting reg values - need to check of reg is zero since 
+ * cpu_gpr[0] is not actually allocated 
+ */
 static inline void gen_get_gpr (TCGv t, int reg_num)
 {
     if (reg_num == 0) {
@@ -631,10 +347,11 @@ static inline void gen_get_gpr (TCGv t, int reg_num)
     }
 }
 
-// wrapper for setting reg values - need to check of reg is zero since 
-// cpu_gpr[0] is not actually allocated. this is more for safety purposes,
-// since we usually avoid calling the OP_TYPE_gen function if we see a write to 
-// $zero
+/* Wrapper for setting reg values - need to check of reg is zero since 
+ * cpu_gpr[0] is not actually allocated. this is more for safety purposes,
+ * since we usually avoid calling the OP_TYPE_gen function if we see a write to 
+ * $zero
+ */
 static inline void gen_set_gpr (int reg_num_dst, TCGv t)
 {
     if (reg_num_dst != 0) {
@@ -688,7 +405,6 @@ static void gen_arith(DisasContext *ctx, uint32_t opc,
     case OPC_RISC_AND:
         tcg_gen_and_tl(source1, source1, source2);
         break;
-
     case OPC_RISC_MUL:
         tcg_gen_muls2_tl(source1, source2, source1, source2);
         break;
@@ -832,7 +548,6 @@ static void gen_arith(DisasContext *ctx, uint32_t opc,
             tcg_temp_free(spec_source2);
         }                
         break;
-
     default:
         // TODO EXCEPTION
         break;
@@ -1644,21 +1359,10 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
     target_ulong ubimm;
 
     /* make sure instructions are on a word boundary */
-    if (ctx->pc & 0x3) {
+    if (ctx->pc & 0x3) { // NOT tested for RISCV
         env->CP0_BadVAddr = ctx->pc;
         generate_exception(ctx, EXCP_AdEL);
         return;
-    }
-
-    /* Handle blikely not taken case */
-    if ((ctx->hflags & MIPS_HFLAG_BMASK_BASE) == MIPS_HFLAG_BL) {
-        int l1 = gen_new_label();
-
-        MIPS_DEBUG("blikely condition (" TARGET_FMT_lx ")", ctx->pc + 4);
-        tcg_gen_brcondi_tl(TCG_COND_NE, bcond, 0, l1);
-        tcg_gen_movi_i32(hflags, ctx->hflags & ~MIPS_HFLAG_BMASK);
-        gen_goto_tb(ctx, 1, ctx->pc + 4);
-        gen_set_label(l1);
     }
 
     if (unlikely(qemu_loglevel_mask(CPU_LOG_TB_OP | CPU_LOG_TB_OP_OPT))) {
@@ -1780,7 +1484,7 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
 
     default:            /* Invalid */
         // TODO REMOVED FOR TESTING, REPLACE
-/*        MIPS_INVAL("major opcode");
+/*       
         generate_exception(ctx, EXCP_RI); */
         break;
     }
@@ -1850,26 +1554,17 @@ gen_intermediate_code_internal(MIPSCPU *cpu, TranslationBlock *tb,
             }
             tcg_ctx.gen_opc_pc[lj] = ctx.pc;
             gen_opc_hflags[lj] = ctx.hflags & MIPS_HFLAG_BMASK;
-            gen_opc_btarget[lj] = ctx.btarget;
             tcg_ctx.gen_opc_instr_start[lj] = 1;
             tcg_ctx.gen_opc_icount[lj] = num_insns;
         }
-        if (num_insns + 1 == max_insns && (tb->cflags & CF_LAST_IO))
+        if (num_insns + 1 == max_insns && (tb->cflags & CF_LAST_IO)) {
             gen_io_start();
-
-        if (!(ctx.hflags & MIPS_HFLAG_M16)) {
-            ctx.opcode = cpu_ldl_code(env, ctx.pc);
-            insn_bytes = 4;
-            decode_opc(env, &ctx);
-        } else {
-            generate_exception(&ctx, EXCP_RI);
-            ctx.bstate = BS_STOP;
-            break;
         }
 
-        // HANDLE DELAY SLOT USED TO GET CALLED HERE
-
-
+        // fetch and decode instruction
+        ctx.opcode = cpu_ldl_code(env, ctx.pc);
+        insn_bytes = 4;
+        decode_opc(env, &ctx);
 
         ctx.pc += insn_bytes;
 
@@ -1883,7 +1578,7 @@ gen_intermediate_code_internal(MIPSCPU *cpu, TranslationBlock *tb,
             break;
         }
 
-        if ((ctx.pc & (TARGET_PAGE_SIZE - 1)) == 0)
+        if ((ctx.pc & (TARGET_PAGE_SIZE - 1)) == 0) // handle tb at the end of a page
             break;
 
         if (tcg_ctx.gen_opc_ptr >= gen_opc_end) {
@@ -1907,25 +1602,22 @@ gen_intermediate_code_internal(MIPSCPU *cpu, TranslationBlock *tb,
         case BS_STOP:
             gen_goto_tb(&ctx, 0, ctx.pc);
             break;
-        case BS_NONE: // TODO THIS CASE HAS NOT YET BEEN HANDLED FOR RISC-V
-                      // THIS IS FOR THE end of page case
-                      // we can even chain these, I think
-//            save_cpu_state(&ctx, 0); // does nothing for us
-//            gen_goto_tb(&ctx, 0, ctx.pc);
+        case BS_NONE:
+            /* handle end of page case, we can even chain these, I think */
 
-            /* this may be unsafe, but is an optimization */
-//            tcg_gen_goto_tb(1); // try chaining
-//            tcg_gen_movi_tl(cpu_PC, ctx.pc); // NOT PC+4, that was already done
-//            tcg_gen_exit_tb((uintptr_t)ctx.tb | 0x1);
+            /* method 1: this may be unsafe, but is an optimization */
+            /*tcg_gen_goto_tb(1); // try chaining
+            tcg_gen_movi_tl(cpu_PC, ctx.pc); // NOT PC+4, that was already done
+            tcg_gen_exit_tb((uintptr_t)ctx.tb | 0x1);*/
             /* end unsafe */
 
-            /* this is safe */
+            /* method 2: this is safe */
             tcg_gen_movi_tl(cpu_PC, ctx.pc); // NOT PC+4, that was already done
             tcg_gen_exit_tb(0);
             /* end safe */
 
             break;
-        case BS_EXCP:
+        case BS_EXCP: // TODO: not yet handled for riscv
             tcg_gen_exit_tb(0);
             break;
         case BS_BRANCH:
@@ -1945,7 +1637,6 @@ done_generating:
         tb->size = ctx.pc - pc_start;
         tb->icount = num_insns;
     }
-    /*
 #ifdef DEBUG_DISAS
     LOG_DISAS("\n");
     if (qemu_loglevel_mask(CPU_LOG_TB_IN_ASM)) {
@@ -1953,7 +1644,7 @@ done_generating:
         log_target_disas(env, pc_start, ctx.pc - pc_start, 0);
         qemu_log("\n");
     }
-#endif*/
+#endif
 }
 
 void gen_intermediate_code (CPUMIPSState *env, struct TranslationBlock *tb)
@@ -1966,40 +1657,6 @@ void gen_intermediate_code_pc (CPUMIPSState *env, struct TranslationBlock *tb)
     gen_intermediate_code_internal(mips_env_get_cpu(env), tb, true);
 }
 
-#if defined(TARGET_MIPS64) && defined(MIPS_DEBUG_SIGN_EXTENSIONS)
-/* Debug help: The architecture requires 32bit code to maintain proper
-   sign-extended values on 64bit machines.  */
-
-#define SIGN_EXT_P(val) ((((val) & ~0x7fffffff) == 0) || (((val) & ~0x7fffffff) == ~0x7fffffff))
-
-static void
-cpu_mips_check_sign_extensions (CPUMIPSState *env, FILE *f,
-                                fprintf_function cpu_fprintf,
-                                int flags)
-{
-    int i;
-
-    if (!SIGN_EXT_P(env->active_tc.PC))
-        cpu_fprintf(f, "BROKEN: pc=0x" TARGET_FMT_lx "\n", env->active_tc.PC);
-    if (!SIGN_EXT_P(env->active_tc.HI[0]))
-        cpu_fprintf(f, "BROKEN: HI=0x" TARGET_FMT_lx "\n", env->active_tc.HI[0]);
-    if (!SIGN_EXT_P(env->active_tc.LO[0]))
-        cpu_fprintf(f, "BROKEN: LO=0x" TARGET_FMT_lx "\n", env->active_tc.LO[0]);
-    if (!SIGN_EXT_P(env->btarget))
-        cpu_fprintf(f, "BROKEN: btarget=0x" TARGET_FMT_lx "\n", env->btarget);
-
-    for (i = 0; i < 32; i++) {
-        if (!SIGN_EXT_P(env->active_tc.gpr[i]))
-            cpu_fprintf(f, "BROKEN: %s=0x" TARGET_FMT_lx "\n", regnames[i], env->active_tc.gpr[i]);
-    }
-
-    if (!SIGN_EXT_P(env->CP0_EPC))
-        cpu_fprintf(f, "BROKEN: EPC=0x" TARGET_FMT_lx "\n", env->CP0_EPC);
-    if (!SIGN_EXT_P(env->lladdr))
-        cpu_fprintf(f, "BROKEN: LLAddr=0x" TARGET_FMT_lx "\n", env->lladdr);
-}
-#endif
-
 void mips_cpu_dump_state(CPUState *cs, FILE *f, fprintf_function cpu_fprintf,
                          int flags)
 {
@@ -2009,9 +1666,9 @@ void mips_cpu_dump_state(CPUState *cs, FILE *f, fprintf_function cpu_fprintf,
 
     cpu_fprintf(f, "pc=0x" TARGET_FMT_lx " HI=0x" TARGET_FMT_lx
                 " LO=0x" TARGET_FMT_lx " ds %04x "
-                TARGET_FMT_lx " " TARGET_FMT_ld "\n",
+                "\n",
                 env->active_tc.PC, env->active_tc.HI[0], env->active_tc.LO[0],
-                env->hflags, env->btarget, env->bcond);
+                env->hflags);
     for (i = 0; i < 32; i++) {
         if ((i & 3) == 0)
             cpu_fprintf(f, "GPR%02d:", i);
@@ -2027,9 +1684,6 @@ void mips_cpu_dump_state(CPUState *cs, FILE *f, fprintf_function cpu_fprintf,
     if (env->hflags & MIPS_HFLAG_FPU) {
         ;
     }
-#if defined(TARGET_MIPS64) && defined(MIPS_DEBUG_SIGN_EXTENSIONS)
-    cpu_mips_check_sign_extensions(env, f, cpu_fprintf, flags);
-#endif
 }
 
 void mips_tcg_init(void)
@@ -2052,23 +1706,10 @@ void mips_tcg_init(void)
                                         offsetof(CPUMIPSState, active_tc.gpr[i]),
                                         regnames[i]);
 
-    for (i = 0; i < 32; i++) {
-        int off = offsetof(CPUMIPSState, active_fpu.fpr[i]);
-        fpu_f64[i] = tcg_global_mem_new_i64(TCG_AREG0, off, fregnames[i]);
-    }
-
     cpu_PC = tcg_global_mem_new(TCG_AREG0,
                                 offsetof(CPUMIPSState, active_tc.PC), "PC");
-    bcond = tcg_global_mem_new(TCG_AREG0,
-                               offsetof(CPUMIPSState, bcond), "bcond");
-    btarget = tcg_global_mem_new(TCG_AREG0,
-                                 offsetof(CPUMIPSState, btarget), "btarget");
     hflags = tcg_global_mem_new_i32(TCG_AREG0,
                                     offsetof(CPUMIPSState, hflags), "hflags");
-
-    fpu_fcr0 = tcg_global_mem_new_i32(TCG_AREG0,
-                                      offsetof(CPUMIPSState, active_fpu.fcr0),
-                                      "fcr0");
     fpu_fcr31 = tcg_global_mem_new_i32(TCG_AREG0,
                                        offsetof(CPUMIPSState, active_fpu.fcr31),
                                        "fcr31");
@@ -2242,15 +1883,4 @@ void cpu_state_reset(CPUMIPSState *env)
 void restore_state_to_opc(CPUMIPSState *env, TranslationBlock *tb, int pc_pos)
 {
     env->active_tc.PC = tcg_ctx.gen_opc_pc[pc_pos];
-    env->hflags &= ~MIPS_HFLAG_BMASK;
-    env->hflags |= gen_opc_hflags[pc_pos];
-    switch (env->hflags & MIPS_HFLAG_BMASK_BASE) {
-    case MIPS_HFLAG_BR:
-        break;
-    case MIPS_HFLAG_BC:
-    case MIPS_HFLAG_BL:
-    case MIPS_HFLAG_B:
-        env->btarget = gen_opc_btarget[pc_pos];
-        break;
-    }
 }
