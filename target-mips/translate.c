@@ -1686,8 +1686,22 @@ gen_intermediate_code_internal(MIPSCPU *cpu, TranslationBlock *tb,
             gen_goto_tb(&ctx, 0, ctx.pc);
             break;
         case BS_NONE: // TODO THIS CASE HAS NOT YET BEEN HANDLED FOR RISC-V
-            save_cpu_state(&ctx, 0);
-            gen_goto_tb(&ctx, 0, ctx.pc);
+                      // THIS IS FOR THE end of page case
+                      // we can even chain these, I think
+//            save_cpu_state(&ctx, 0); // does nothing for us
+//            gen_goto_tb(&ctx, 0, ctx.pc);
+
+            /* this may be unsafe, but is an optimization */
+//            tcg_gen_goto_tb(1); // try chaining
+//            tcg_gen_movi_tl(cpu_PC, ctx.pc); // NOT PC+4, that was already done
+//            tcg_gen_exit_tb((uintptr_t)ctx.tb | 0x1);
+            /* end unsafe */
+
+            /* this is safe */
+            tcg_gen_movi_tl(cpu_PC, ctx.pc); // NOT PC+4, that was already done
+            tcg_gen_exit_tb(0);
+            /* end safe */
+
             break;
         case BS_EXCP:
             tcg_gen_exit_tb(0);
