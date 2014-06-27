@@ -30,9 +30,7 @@
 #include "helper.h"
 
 #define MIPS_DEBUG_DISAS 0
-//#define MIPS_DEBUG_SIGN_EXTENSIONS
 
-/* RISC-V major opcodes */
 #define MASK_OP_MAJOR(op)  (op & 0x7F)
 enum {
     /* rv32i, rv64i, rv32m */
@@ -181,7 +179,6 @@ enum {
 static TCGv_ptr cpu_env;
 static TCGv cpu_gpr[32], cpu_PC;
 static TCGv_i32 hflags;
-static TCGv_i32 fpu_fcr31;
 
 static uint32_t gen_opc_hflags[OPC_BUF_SIZE];
 
@@ -190,42 +187,6 @@ static uint32_t gen_opc_hflags[OPC_BUF_SIZE];
 #define gen_helper_0e0i(name, arg) do {                           \
     TCGv_i32 helper_tmp = tcg_const_i32(arg);                     \
     gen_helper_##name(cpu_env, helper_tmp);                       \
-    tcg_temp_free_i32(helper_tmp);                                \
-    } while(0)
-
-#define gen_helper_0e1i(name, arg1, arg2) do {                    \
-    TCGv_i32 helper_tmp = tcg_const_i32(arg2);                    \
-    gen_helper_##name(cpu_env, arg1, helper_tmp);                 \
-    tcg_temp_free_i32(helper_tmp);                                \
-    } while(0)
-
-#define gen_helper_1e0i(name, ret, arg1) do {                     \
-    TCGv_i32 helper_tmp = tcg_const_i32(arg1);                    \
-    gen_helper_##name(ret, cpu_env, helper_tmp);                  \
-    tcg_temp_free_i32(helper_tmp);                                \
-    } while(0)
-
-#define gen_helper_1e1i(name, ret, arg1, arg2) do {               \
-    TCGv_i32 helper_tmp = tcg_const_i32(arg2);                    \
-    gen_helper_##name(ret, cpu_env, arg1, helper_tmp);            \
-    tcg_temp_free_i32(helper_tmp);                                \
-    } while(0)
-
-#define gen_helper_0e2i(name, arg1, arg2, arg3) do {              \
-    TCGv_i32 helper_tmp = tcg_const_i32(arg3);                    \
-    gen_helper_##name(cpu_env, arg1, arg2, helper_tmp);           \
-    tcg_temp_free_i32(helper_tmp);                                \
-    } while(0)
-
-#define gen_helper_1e2i(name, ret, arg1, arg2, arg3) do {         \
-    TCGv_i32 helper_tmp = tcg_const_i32(arg3);                    \
-    gen_helper_##name(ret, cpu_env, arg1, arg2, helper_tmp);      \
-    tcg_temp_free_i32(helper_tmp);                                \
-    } while(0)
-
-#define gen_helper_0e3i(name, arg1, arg2, arg3, arg4) do {        \
-    TCGv_i32 helper_tmp = tcg_const_i32(arg4);                    \
-    gen_helper_##name(cpu_env, arg1, arg2, arg3, helper_tmp);     \
     tcg_temp_free_i32(helper_tmp);                                \
     } while(0)
 
@@ -254,14 +215,6 @@ static const char * const regnames[] = {
     "s6",   "s7", "s8", "s9", "s10", "s11",  "sp",  "tp",
     "v0",   "v1", "a0", "a1",  "a2",  "a3",  "a4",  "a5",
     "a6",   "a7", "t0", "t1",  "t2",  "t3",  "t4",  "gp"
-};
-
-
-static const char * const fregnames[] = {
-    "f0",  "f1",  "f2",  "f3",  "f4",  "f5",  "f6",  "f7",
-    "f8",  "f9",  "f10", "f11", "f12", "f13", "f14", "f15",
-    "f16", "f17", "f18", "f19", "f20", "f21", "f22", "f23",
-    "f24", "f25", "f26", "f27", "f28", "f29", "f30", "f31",
 };
 
 #define MIPS_DEBUG(fmt, ...)                                                  \
@@ -1423,22 +1376,22 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
         break;
 
     case OPC_RISC_BRANCH:
-        gen_branch(ctx, MASK_OP_BRANCH(ctx->opcode), rs1, rs2, /*SIGN_EXT_IMM_13_TO_16(*/GET_B_IMM(ctx->opcode));
+        gen_branch(ctx, MASK_OP_BRANCH(ctx->opcode), rs1, rs2, GET_B_IMM(ctx->opcode));
         break;
 
     case OPC_RISC_LOAD:
-        gen_load(ctx, MASK_OP_LOAD(ctx->opcode), rd, rs1, /*SIGN_EXT_IMM_12_TO_16(*/imm);
+        gen_load(ctx, MASK_OP_LOAD(ctx->opcode), rd, rs1, imm);
         break;
 
     case OPC_RISC_STORE:
-        gen_store(ctx, MASK_OP_STORE(ctx->opcode), rs1, rs2, /*SIGN_EXT_IMM_12_TO_16(*/GET_STORE_IMM(ctx->opcode));
+        gen_store(ctx, MASK_OP_STORE(ctx->opcode), rs1, rs2, GET_STORE_IMM(ctx->opcode));
         break;
 
     case OPC_RISC_ARITH_IMM:
         if (rd == 0) {
             break; // NOP
         }
-        gen_arith_imm(ctx, MASK_OP_ARITH_IMM(ctx->opcode), rd, rs1, /*SIGN_EXT_IMM_12_TO_16(*/imm);
+        gen_arith_imm(ctx, MASK_OP_ARITH_IMM(ctx->opcode), rd, rs1, imm);
         break;
 
     case OPC_RISC_ARITH:
@@ -1452,7 +1405,7 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
         if (rd == 0) {
             break; // NOP
         }
-        gen_arith_imm_w(ctx, MASK_OP_ARITH_IMM_W(ctx->opcode), rd, rs1, /*SIGN_EXT_IMM_12_TO_16(*/imm);
+        gen_arith_imm_w(ctx, MASK_OP_ARITH_IMM_W(ctx->opcode), rd, rs1, imm);
         break;
 
     case OPC_RISC_ARITH_W:
@@ -1710,10 +1663,6 @@ void mips_tcg_init(void)
                                 offsetof(CPUMIPSState, active_tc.PC), "PC");
     hflags = tcg_global_mem_new_i32(TCG_AREG0,
                                     offsetof(CPUMIPSState, hflags), "hflags");
-    fpu_fcr31 = tcg_global_mem_new_i32(TCG_AREG0,
-                                       offsetof(CPUMIPSState, active_fpu.fcr31),
-                                       "fcr31");
-
     inited = 1;
 }
 
