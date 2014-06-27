@@ -24,7 +24,7 @@ for x in newT:
         fails.append(x)
   
 # special test notes
-note = "rv64ui-p-fence_i test will currently fail since there are issues with self-modifying code."
+note = "" #+ "rv64ui-p-fence_i test will currently fail since there are issues with self-modifying code."
 
 print("Passing (" + str(len(successes)) + "):")
 print(successes)

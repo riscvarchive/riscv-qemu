@@ -13,6 +13,11 @@ make
 output in:
 mips64-linux-user/qemu-mips64
 
+-------------------------------------------------------------------------
+
+running riscv-tests (requires python3):
+./runtest.py
+
 --- eventually, will switch to this for full system emulation:
 ./configure --target-list=mips64-softmmu --enable-debug 
 make

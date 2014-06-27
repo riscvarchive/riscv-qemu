@@ -1803,6 +1803,7 @@ int page_unprotect(target_ulong address, uintptr_t pc, void *puc)
 
     /* if the page was really writable, then we change its
        protection back to writable */
+    p->flags |= PAGE_WRITE_ORG; /// TODO: VERY BAD HACK
     if ((p->flags & PAGE_WRITE_ORG) && !(p->flags & PAGE_WRITE)) {
         host_start = address & qemu_host_page_mask;
         host_end = host_start + qemu_host_page_size;
