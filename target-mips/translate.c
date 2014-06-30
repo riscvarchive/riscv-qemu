@@ -31,8 +31,47 @@
 
 #define MIPS_DEBUG_DISAS 0
 
-void kill_unknown(target_ulong pc, uint32_t op, int is_full_op);
+int csr_regno(int regno);
 
+/* Get regno in our csr reg array from actual csr regno
+ * Mapping:
+ * [
+ *  pos_in_array: regname (real reg number, input as int regno)
+ *    0: sup0 (0x500),
+ *    1: sup1 (0x501),
+ *    2: epc (0x502),
+ *    3: badvaddr (0x503),
+ *    4: ptbr (0x504),
+ *    5: asid (0x505),
+ *    6: count (0x506),
+ *    7: compare (0x507),
+ *    8: evec (0x508),
+ *    9: cause (0x509),
+ *    A: status (0x50A),
+ *    B: hartid (0x50B),
+ *    C: impl (0x50C),
+ *    D: fatc (0x50D),
+ *    E: send_ipi (0x50E),
+ *    F: clear_ipi (0x50F),
+ *   10: cycle (0xC00),
+ *   11: time (0xC01),
+ *   12: instret (0xC02),
+ *   ...
+ *   1E: tohost (0x51E),
+ *   1F: fromhost (0x51F)
+ * ]
+ */
+int csr_regno(int regno)
+{
+    if (regno < 0xC00) {
+        // 0x5xx registers
+        return 0xFF & regno;
+    }
+    // 0xC0x registers
+    return (0xF & regno) + 0x10;
+}
+
+void kill_unknown(target_ulong pc, uint32_t op, int is_full_op);
 
 // filling in for unknown instruction exception for now
 void kill_unknown(target_ulong pc, uint32_t op, int is_full_op) {
@@ -190,7 +229,7 @@ enum {
 
 /* global register indices */
 static TCGv_ptr cpu_env;
-static TCGv cpu_gpr[32], cpu_PC;
+static TCGv cpu_gpr[32], cpu_PC, cpu_csr[32];
 static TCGv_i32 hflags;
 
 static uint32_t gen_opc_hflags[OPC_BUF_SIZE];
@@ -228,6 +267,13 @@ static const char * const regnames[] = {
     "s6",   "s7", "s8", "s9", "s10", "s11",  "sp",  "tp",
     "v0",   "v1", "a0", "a1",  "a2",  "a3",  "a4",  "a5",
     "a6",   "a7", "t0", "t1",  "t2",  "t3",  "t4",  "gp"
+};
+
+static const char * const cs_regnames[] = {
+    "sup0", "sup1", "epc", "badvaddr", "ptbr", "asid", "count", "compare",
+    "evec", "cause", "status", "hartid", "impl", "fatc", "send_ipi", "clear_ipi",
+    "cycle", "time", "instret", "junk", "junk", "junk", "junk", "junk",
+    "junk", "junk", "junk", "junk", "junk", "junk", "tohost", "fromhost"
 };
 
 #define MIPS_DEBUG(fmt, ...)                                                  \
@@ -1645,20 +1691,30 @@ void mips_cpu_dump_state(CPUState *cs, FILE *f, fprintf_function cpu_fprintf,
                 env->active_tc.PC, env->active_tc.HI[0], env->active_tc.LO[0],
                 env->hflags);
     for (i = 0; i < 32; i++) {
-        if ((i & 3) == 0)
+        if ((i & 3) == 0) {
             cpu_fprintf(f, "GPR%02d:", i);
+        }
         cpu_fprintf(f, " %s " TARGET_FMT_lx, regnames[i], env->active_tc.gpr[i]);
-        if ((i & 3) == 3)
+        if ((i & 3) == 3) {
             cpu_fprintf(f, "\n");
+        }
     }
-
-    cpu_fprintf(f, "CP0 Status  0x%08x Cause   0x%08x EPC    0x" TARGET_FMT_lx "\n",
-                env->CP0_Status, env->CP0_Cause, env->CP0_EPC);
-    cpu_fprintf(f, "    Config0 0x%08x Config1 0x%08x LLAddr 0x" TARGET_FMT_lx "\n",
-                env->CP0_Config0, env->CP0_Config1, env->lladdr);
-    if (env->hflags & MIPS_HFLAG_FPU) {
-        ;
+    for (i = 0; i < 32; i++) {
+        if ((i & 3) == 0) {
+            cpu_fprintf(f, "CSR%02d:", i);
+        }
+        cpu_fprintf(f, " %s " TARGET_FMT_lx, cs_regnames[i], env->active_tc.csr[i]);
+        if ((i & 3) == 3) {
+            cpu_fprintf(f, "\n");
+        }
     }
+//    cpu_fprintf(f, "CP0 Status  0x%08x Cause   0x%08x EPC    0x" TARGET_FMT_lx "\n",
+//                env->CP0_Status, env->CP0_Cause, env->CP0_EPC);
+//    cpu_fprintf(f, "    Config0 0x%08x Config1 0x%08x LLAddr 0x" TARGET_FMT_lx "\n",
+//                env->CP0_Config0, env->CP0_Config1, env->lladdr);
+//    if (env->hflags & MIPS_HFLAG_FPU) {
+//        ;
+//    }
 }
 
 void mips_tcg_init(void)
@@ -1667,8 +1723,9 @@ void mips_tcg_init(void)
     static int inited;
 
     /* Initialize various static tables. */
-    if (inited)
+    if (inited) {
         return;
+    }
 
     cpu_env = tcg_global_reg_new_ptr(TCG_AREG0, "env");
 
@@ -1676,10 +1733,17 @@ void mips_tcg_init(void)
     // Use the gen_set_gpr and gen_get_gpr helper functions when accessing
     // registers, unless you specifically block reads/writes to reg 0
     TCGV_UNUSED(cpu_gpr[0]);
-    for (i = 1; i < 32; i++)
+    for (i = 1; i < 32; i++) {
         cpu_gpr[i] = tcg_global_mem_new(TCG_AREG0,
                                         offsetof(CPUMIPSState, active_tc.gpr[i]),
                                         regnames[i]);
+    }
+
+    for (i = 0; i < 32; i++) {
+        cpu_csr[i] = tcg_global_mem_new(TCG_AREG0,
+                                        offsetof(CPUMIPSState, active_tc.csr[i]),
+                                        cs_regnames[i]);
+    }
 
     cpu_PC = tcg_global_mem_new(TCG_AREG0,
                                 offsetof(CPUMIPSState, active_tc.PC), "PC");
