@@ -1403,21 +1403,25 @@ static void gen_system(DisasContext *ctx, uint32_t opc,
         break;
     case OPC_RISC_CSRRS:
         gen_set_gpr(rd, cpu_csr[csr]);     // R[rd] <- CSR[csr]
-        tcg_gen_or_tl(cpu_csr[csr], source1, cpu_csr[csr]); // CSR[csr] <- source1 (original rs1)
+        tcg_gen_or_tl(cpu_csr[csr], source1, cpu_csr[csr]); // CSR[csr] <- CSR[csr] | source1 (original rs1)
         break;
     case OPC_RISC_CSRRC:
-
+        gen_set_gpr(rd, cpu_csr[csr]);     // R[rd] <- CSR[csr]
+        tcg_gen_not_tl(source1, source1);  
+        tcg_gen_and_tl(cpu_csr[csr], source1, cpu_csr[csr]); // CSR[csr] <- CSR[csr] & ~source1 (original rs1)
         break;
     case OPC_RISC_CSRRWI:
-
+        gen_set_gpr(rd, cpu_csr[csr]);     // R[rd] <- CSR[csr]
+        tcg_gen_movi_tl(cpu_csr[csr], rs1); // CSR[csr] <- rs1 (treat as imm)
         break;
     case OPC_RISC_CSRRSI:
-
+        gen_set_gpr(rd, cpu_csr[csr]);     // R[rd] <- CSR[csr]
+        tcg_gen_ori_tl(cpu_csr[csr], cpu_csr[csr], rs1); // CSR[csr] <- CSR[csr] | rs1 (as imm)
         break;
     case OPC_RISC_CSRRCI:
-
+        gen_set_gpr(rd, cpu_csr[csr]);     // R[rd] <- CSR[csr]
+        tcg_gen_andi_tl(cpu_csr[csr], cpu_csr[csr], ~((uint64_t)rs1)); // CSR[csr] <- CSR[csr] & ~rs1 (as imm)
         break;
-
     default:
         // TODO: exception
         kill_unknown(ctx->pc, 0, 0);
