@@ -611,16 +611,11 @@ static void write_bootloader (CPUMIPSState *env, uint8_t *base,
     p = (uint32_t *)base;
 
     // risc bootloader here
-//    stl_raw(p++, 0x0001006F);   /* j 0x10000 */  
-
-    stl_raw(p++, 0xbfc000b7); /* lui ra, 0x1fc00 */
+    stl_raw(p++, 0xbfc000b7); /* lui ra, 0xbfc00 #TODO: probably want to tweak this to be pc relative */
     stl_raw(p++, 0x5800809b); /* addiw ra,ra,1408 */
     stl_raw(p++, 0x00008067); /* jr ra */
 
     // end risc bootloader
-
-//    stl_raw(p++, 0x0bf00160);                                      /* j 0x1fc00580 */
-//    stl_raw(p++, 0x00000000);                                      /* nop */
 
     /* YAMON service vector */
     stl_raw(base + 0x500, 0xbfc00580);      /* start: */
