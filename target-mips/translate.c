@@ -227,6 +227,19 @@ enum {
     OPC_RISC_AMOMAXU_D   = OPC_RISC_ATOMIC | (0x3 << 12) | (0x1C << 27),
 };
 
+#define MASK_OP_SYSTEM(op)   (MASK_OP_MAJOR(op) | (op & (0x7 << 12)))
+enum {
+    OPC_RISC_SCALL       = OPC_RISC_SYSTEM | (0x0 << 12),
+    OPC_RISC_SBREAK      = OPC_RISC_SYSTEM | (0x0 << 12),
+    OPC_RISC_SRET        = OPC_RISC_SYSTEM | (0x0 << 12),
+    OPC_RISC_CSRRW       = OPC_RISC_SYSTEM | (0x1 << 12),
+    OPC_RISC_CSRRS       = OPC_RISC_SYSTEM | (0x2 << 12),
+    OPC_RISC_CSRRC       = OPC_RISC_SYSTEM | (0x3 << 12),
+    OPC_RISC_CSRRWI      = OPC_RISC_SYSTEM | (0x5 << 12),
+    OPC_RISC_CSRRSI      = OPC_RISC_SYSTEM | (0x6 << 12),
+    OPC_RISC_CSRRCI      = OPC_RISC_SYSTEM | (0x7 << 12),
+};
+
 /* global register indices */
 static TCGv_ptr cpu_env;
 static TCGv cpu_gpr[32], cpu_PC, cpu_csr[32];
@@ -1366,6 +1379,55 @@ static void gen_atomic(DisasContext *ctx, uint32_t opc,
 }
 
 
+
+static void gen_system(DisasContext *ctx, uint32_t opc, 
+                      int rd, int rs1, int csr)
+{
+    // get index into csr array
+    csr = csr_regno(csr);
+
+    TCGv source1;
+    source1 = tcg_temp_new();
+
+    gen_get_gpr(source1, rs1);
+
+    switch (opc) {
+
+    case OPC_RISC_SCALL: // really SCALL, SBREAK, SRET
+                        // just here for clarity
+        kill_unknown(ctx->pc, 0, 0); // NOT YET IMPLEMENTED
+        break;
+    case OPC_RISC_CSRRW:
+        gen_set_gpr(rd, cpu_csr[csr]);     // R[rd] <- CSR[csr]
+        tcg_gen_mov_tl(cpu_csr[csr], source1); // CSR[csr] <- source1 (original rs1)
+        break;
+    case OPC_RISC_CSRRS:
+        gen_set_gpr(rd, cpu_csr[csr]);     // R[rd] <- CSR[csr]
+        tcg_gen_or_tl(cpu_csr[csr], source1, cpu_csr[csr]); // CSR[csr] <- source1 (original rs1)
+        break;
+    case OPC_RISC_CSRRC:
+
+        break;
+    case OPC_RISC_CSRRWI:
+
+        break;
+    case OPC_RISC_CSRRSI:
+
+        break;
+    case OPC_RISC_CSRRCI:
+
+        break;
+
+    default:
+        // TODO: exception
+        kill_unknown(ctx->pc, 0, 0);
+        break;
+
+    }
+
+    tcg_temp_free(source1);
+}
+
 #define GET_B_IMM(inst)              ((int16_t)((((inst >> 25) & 0x3F) << 5) | ((((int32_t)inst) >> 31) << 12) | (((inst >> 8) & 0xF) << 1) | (((inst >> 7) & 0x1) << 11)))  /* THIS BUILDS 13 bit imm (implicit zero is tacked on here), also note that bit #12 is obtained in a special way to get sign extension */
 #define GET_STORE_IMM(inst)           ((int16_t)(((((int32_t)inst) >> 25) << 5) | ((inst >> 7) & 0x1F)))
 #define GET_JAL_IMM(inst)             ((int32_t)((inst & 0xFF000) | (((inst >> 20) & 0x1) << 11) | (((inst >> 21) & 0x3FF) << 1) | ((((int32_t)inst) >> 31) << 20)))
@@ -1485,28 +1547,24 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
 
     case OPC_RISC_FENCE:
         /* fences are nops for us? */
-
         tcg_gen_movi_tl(cpu_PC, ctx->pc + 4);
         tcg_gen_goto_tb(0);
         tcg_gen_exit_tb((uintptr_t)ctx->tb | 0x0);
         ctx->bstate = BS_BRANCH;
-
         break;
-/*
+
     case OPC_RISC_SYSTEM:
-        break; // TODO
-*/
+        gen_system(ctx, MASK_OP_SYSTEM(ctx->opcode), rd, rs1, (ctx->opcode & 0xFFF00000) >> 20);
+        break;
+
     case OPC_RISC_ATOMIC:
         gen_atomic(ctx, MASK_OP_ATOMIC(ctx->opcode), rd, rs1, rs2);
-
         break;        
 
-
-    default:            /* Invalid */
-        // TODO REMOVED FOR TESTING, REPLACE
+    default:
         kill_unknown(ctx->pc, ctx->opcode, 1);
-/*       
-        generate_exception(ctx, EXCP_RI); */
+        // TODO REMOVED FOR TESTING, REPLACE
+        // generate_exception(ctx, EXCP_RI);
         break;
     }
 }
