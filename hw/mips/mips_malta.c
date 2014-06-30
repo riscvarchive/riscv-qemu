@@ -635,6 +635,12 @@ static void write_bootloader (CPUMIPSState *env, uint8_t *base,
 
     /* Second part of the bootloader */
     p = (uint32_t *) (base + 0x580);
+    stl_raw(p++, 0x800000b7 | (kernel_entry & 0xFFFFF000));    /* lui ra, hi20(kernel_entry) */
+    stl_raw(p++, 0x0000809b | ((kernel_entry & 0xFFF) << 20)); /* addiw ra,ra,low12(kernel_entry) */
+    stl_raw(p++, 0x00008067);                                  /* jr ra */
+
+
+
     stl_raw(p++, 0x24040002);                                      /* addiu a0, zero, 2 */
     stl_raw(p++, 0x3c1d0000 | (((ENVP_ADDR - 64) >> 16) & 0xffff)); /* lui sp, high(ENVP_ADDR) */
     stl_raw(p++, 0x37bd0000 | ((ENVP_ADDR - 64) & 0xffff));        /* ori sp, sp, low(ENVP_ADDR) */

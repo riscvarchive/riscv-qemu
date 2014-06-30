@@ -31,6 +31,19 @@
 
 #define MIPS_DEBUG_DISAS 0
 
+void kill_unknown(target_ulong pc, uint32_t op, int is_full_op);
+
+
+// filling in for unknown instruction exception for now
+void kill_unknown(target_ulong pc, uint32_t op, int is_full_op) {
+    if (is_full_op) {
+        printf("UNKNOWN INSTRUCTION at addr 0x" TARGET_FMT_lx ", opcode 0x%x\n", pc, op);
+    } else {
+        printf("UNKNOWN INSTRUCTION at addr 0x" TARGET_FMT_lx "\n", pc);
+    }
+    exit(0);
+}
+
 #define MASK_OP_MAJOR(op)  (op & 0x7F)
 enum {
     /* rv32i, rv64i, rv32m */
@@ -503,6 +516,7 @@ static void gen_arith(DisasContext *ctx, uint32_t opc,
         break;
     default:
         // TODO EXCEPTION
+        kill_unknown(ctx->pc, 0, 0);
         break;
 
     }
@@ -559,6 +573,7 @@ static void gen_arith_imm(DisasContext *ctx, uint32_t opc,
         break;
     default:
         // TODO EXCEPTION
+        kill_unknown(ctx->pc, 0, 0);
         break;
 
     }
@@ -611,6 +626,7 @@ static void gen_arith_imm_w(DisasContext *ctx, uint32_t opc,
         break;
     default:
         // TODO EXCEPTION
+        kill_unknown(ctx->pc, 0, 0);
         break;
 
     }
@@ -813,6 +829,7 @@ static void gen_arith_w(DisasContext *ctx, uint32_t opc,
         break;
     default:
         // TODO EXCEPTION
+        kill_unknown(ctx->pc, 0, 0);
         break;
 
     }
@@ -859,6 +876,7 @@ static void gen_branch(DisasContext *ctx, uint32_t opc,
         break;
     default:
         /* TODO: exception here */
+        kill_unknown(ctx->pc, 0, 0);
         break;
 
     }
@@ -915,6 +933,7 @@ static void gen_load(DisasContext *ctx, uint32_t opc,
         break;
     default:
         // TODO Exception
+        kill_unknown(ctx->pc, 0, 0);
         break;
 
     }
@@ -952,6 +971,7 @@ static void gen_store(DisasContext *ctx, uint32_t opc,
 
     default:
         // TODO: exception
+        kill_unknown(ctx->pc, 0, 0);
         break;
     }
 
@@ -986,6 +1006,7 @@ static void gen_jalr(DisasContext *ctx, uint32_t opc,
         break;
     default:
         // TODO: exception
+        kill_unknown(ctx->pc, 0, 0);
         break;
 
     }
@@ -1286,6 +1307,7 @@ static void gen_atomic(DisasContext *ctx, uint32_t opc,
         break;
     default:
         // TODO EXCEPTION
+        kill_unknown(ctx->pc, 0, 0);
         break;
 
     }
@@ -1424,11 +1446,10 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
         ctx->bstate = BS_BRANCH;
 
         break;
-
+/*
     case OPC_RISC_SYSTEM:
-        /* TODO: */
-        break;
-
+        break; // TODO
+*/
     case OPC_RISC_ATOMIC:
         gen_atomic(ctx, MASK_OP_ATOMIC(ctx->opcode), rd, rs1, rs2);
 
@@ -1437,6 +1458,7 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
 
     default:            /* Invalid */
         // TODO REMOVED FOR TESTING, REPLACE
+        kill_unknown(ctx->pc, ctx->opcode, 1);
 /*       
         generate_exception(ctx, EXCP_RI); */
         break;
