@@ -99,6 +99,21 @@ int r4k_map_address (CPUMIPSState *env, hwaddr *physical, int *prot,
     return TLBRET_NOMATCH;
 }
 
+/*static uint64_t load_double_phys_le(CPUState *cs, int64_t physaddr)
+{
+    uint32_t loadval = ldl_phys(cs->as, physaddr);
+    uint32_t shuff = ((loadval >> 24) & 0xFF) | ((loadval >> 8) & 0xFF00) | ((loadval << 8) & 0xFF0000) | ((loadval << 24) & 0xFF000000);
+    loadval = ldl_phys(cs->as, physaddr+4);
+    uint64_t res = (((uint64_t)(((loadval >> 24) & 0xFF) | ((loadval >> 8) & 0xFF00) | ((loadval << 8) & 0xFF0000) | ((loadval << 24) & 0xFF000000))) << 32) | shuff;
+    return res;
+}*/
+
+static uint64_t load_double_phys_le_f(CPUState *cs, int64_t physaddr)
+{
+    uint64_t loadval = (uint64_t)ldl_phys(cs->as, physaddr) | (((uint64_t)ldl_phys(cs->as, physaddr+4)) << 32);
+    return loadval;
+}
+
 static int get_physical_address (CPUMIPSState *env, hwaddr *physical,
                                 int *prot, target_ulong address,
                                 int rw, int access_type)
@@ -106,6 +121,9 @@ static int get_physical_address (CPUMIPSState *env, hwaddr *physical,
 
     // first, check if VM is on:
     // TODO: modify to call csr_regno instead of hardcoding 0x50a as 0xa
+    //
+    //
+    // TODO: update the TLB to match our page size. but i don't think it matters for now
     int vm_on = env->active_tc.csr[0xa] & 0x80; // status
     printf("%d\n", vm_on);
     int ret = TLBRET_MATCH;
@@ -144,11 +162,51 @@ static int get_physical_address (CPUMIPSState *env, hwaddr *physical,
         } */
     } else {
         // handle translation
-        int64_t ptbr = env->active_tc.csr[0x4];
         CPUState *cs = CPU(mips_env_get_cpu(env));
-        int32_t loadval = ldl_phys(cs->as, ptbr);
-        printf("%d\n", loadval);
+/*        int64_t ptbr = env->active_tc.csr[0x4];
+        printf("input vaddress: %016lX\n", address);
+        uint64_t idx = ((address >> 33) & 0x3FF) << 3;
+        printf("idx: %016lX\n", idx);
+        uint64_t initial_pageval = load_double_phys_le(cs, ptbr + idx);
+        uint64_t initial_pageval2 = load_double_phys_le_f(cs, ptbr + idx);
+        printf("pte: %016lX\n", initial_pageval);
+        printf("pte2: %016lX\n", initial_pageval2);
+        uint64_t vpn = initial_pageval & 0x7FE000;
+        printf("vpn: %016lX\n", vpn);
+*/      
+        uint64_t pte = 0; 
+        uint64_t base = env->active_tc.csr[0x4];
+        uint64_t ptd;
+        int ptshift = 20;
+        int64_t i = 0;
 
+        for (i = 0; i < 3; i++, ptshift -= 10) {
+            printf("%d\n", (int)i);
+            uint64_t idx = (address >> (13+ptshift)) & ((1 << 10)-1);
+            uint64_t pte_addr = base + idx*8;
+
+            ptd = load_double_phys_le_f(cs, pte_addr);
+           
+            if (!(ptd & 0x1)) {
+                printf("INVALID MAPPING\n");
+                exit(0);
+            } else if (ptd & 0x2) { 
+                base = (ptd >> 13) << 13;
+            } else {
+                uint64_t vpn = address >> 13;
+                ptd |= (vpn & ((1 <<(ptshift))-1)) << 13;
+       
+                // TODO: fault if physical addr is out of range
+                pte = ptd;
+                break;
+            }
+        }
+        printf("pte: %016lX\n", pte);
+        printf("addr: %016lX\n", ((pte >> 13) << 13) | (address & 0x1FFF));
+        *physical = ((pte >> 13) << 13) | (address & 0x1FFF);
+        *prot = PAGE_EXEC;
+
+//        asm("int3"); // trigger breakpoint in GDB
     }
 /*
 #if 0
