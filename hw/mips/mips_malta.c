@@ -148,7 +148,7 @@ static void write_bootloader (CPUMIPSState *env, uint8_t *base,
     p = (uint32_t *)base;
 
     // risc bootloader here
-    stl_raw(p++, 0xbfc000b7); /* lui ra, 0xbfc00 #TODO: probably want to tweak this to be pc relative */
+    stl_raw(p++, 0x000100b7); /* lui ra, 0xbfc00 #TODO: probably want to tweak this to be pc relative */
     stl_raw(p++, 0x5800809b); /* addiw ra,ra,1408 */
     stl_raw(p++, 0x00008067); /* jr ra */
 
@@ -178,10 +178,13 @@ static void write_bootloader (CPUMIPSState *env, uint8_t *base,
     stl_raw(p++, 0x06100d13); // li t0, 0x97
     stl_raw(p++, 0x50ad1073); // csrw status,t0 
 
+    // store memamt to 0 as a 32 bit quantity in MiB
+    stl_raw(p++, 0x000000b7 | (loaderparams.ram_size & 0xFFFFF000));    /* lui ra, hi20(ram_size) */
+    stl_raw(p++, 0x0000809b | ((loaderparams.ram_size & 0xFFF) << 20)); /* addiw ra,ra,low12(ram_size) */
+    stl_raw(p++, 0x00102023);    /* sw rs2, 0(zero) */
 
-//    stl_raw(p++, 0x
 
-    stl_raw(p++, 0x800000b7 | (kernel_entry & 0xFFFFF000));    /* lui ra, hi20(kernel_entry) */
+    stl_raw(p++, 0x000000b7 | (kernel_entry & 0xFFFFF000));    /* lui ra, hi20(kernel_entry) */
     stl_raw(p++, 0x0000809b | ((kernel_entry & 0xFFF) << 20)); /* addiw ra,ra,low12(kernel_entry) */
     stl_raw(p++, 0x00008067);                                  /* jr ra */
 
@@ -549,7 +552,11 @@ void mips_malta_init(QEMUMachineInitArgs *args)
         memcpy(memory_region_get_ram_ptr(bios_copy),
                memory_region_get_ram_ptr(bios), BIOS_SIZE);
     }
-    memory_region_set_readonly(bios_copy, true);
+
+    // TODO: want to actually make this read only, but we mess with the linux
+    // gp this way. eventually reduce bios size to prevent this overlap/accidental
+    // write-protection of the gp
+//    memory_region_set_readonly(bios_copy, true);
     memory_region_add_subregion(system_memory, RESET_ADDRESS, bios_copy);
 
     /* Board ID = 0x420 (Malta Board with CoreLV) */
