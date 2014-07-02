@@ -1925,7 +1925,7 @@ void cpu_state_reset(CPUMIPSState *env)
     } else {
         env->CP0_ErrorEPC = env->active_tc.PC;
     }
-    env->active_tc.PC = (int32_t)0xBFC00000;
+    env->active_tc.PC = (int32_t)0x10000; // STARTING PC VALUE
     env->CP0_Random = env->tlb->nb_tlb - 1;
     env->tlb->tlb_in_use = env->tlb->nb_tlb;
     env->CP0_Wired = 0;
