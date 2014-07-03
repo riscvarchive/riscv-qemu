@@ -99,15 +99,6 @@ int r4k_map_address (CPUMIPSState *env, hwaddr *physical, int *prot,
     return TLBRET_NOMATCH;
 }
 
-/*static uint64_t load_double_phys_le(CPUState *cs, int64_t physaddr)
-{
-    uint32_t loadval = ldl_phys(cs->as, physaddr);
-    uint32_t shuff = ((loadval >> 24) & 0xFF) | ((loadval >> 8) & 0xFF00) | ((loadval << 8) & 0xFF0000) | ((loadval << 24) & 0xFF000000);
-    loadval = ldl_phys(cs->as, physaddr+4);
-    uint64_t res = (((uint64_t)(((loadval >> 24) & 0xFF) | ((loadval >> 8) & 0xFF00) | ((loadval << 8) & 0xFF0000) | ((loadval << 24) & 0xFF000000))) << 32) | shuff;
-    return res;
-}*/
-
 static uint64_t load_double_phys_le_f(CPUState *cs, int64_t physaddr)
 {
     uint64_t loadval = (uint64_t)ldl_phys(cs->as, physaddr) | (((uint64_t)ldl_phys(cs->as, physaddr+4)) << 32);
@@ -121,59 +112,16 @@ static int get_physical_address (CPUMIPSState *env, hwaddr *physical,
 
     // first, check if VM is on:
     // TODO: modify to call csr_regno instead of hardcoding 0x50a as 0xa
-    //
-    //
     // TODO: update the TLB to match our page size. but i don't think it matters for now
+    // TODO: implement permissions checking
     int vm_on = env->active_tc.csr[0xa] & 0x80; // status
-    printf("%d\n", vm_on);
-    int ret = TLBRET_MATCH;
-   
+    int ret = TLBRET_MATCH; // need to change this later probably
     if(!vm_on) { // TODO add unlikely
-        /* User mode can only access useg/xuseg */
-        // TODO: fix entry, etc so that this part can just return the "vaddr" given
-//        int user_mode = (env->hflags & MIPS_HFLAG_MODE) == MIPS_HFLAG_UM;
-//        int supervisor_mode = (env->hflags & MIPS_HFLAG_MODE) == MIPS_HFLAG_SM;
-//        int kernel_mode = !user_mode && !supervisor_mode;
-#if defined(TARGET_MIPS64)
-    //    int UX = (env->CP0_Status & (1 << CP0St_UX)) != 0;
-    //    int SX = (env->CP0_Status & (1 << CP0St_SX)) != 0;
-    //    int KX = (env->CP0_Status & (1 << CP0St_KX)) != 0;
-#endif
-
-
         *physical = address;
         *prot = PAGE_READ | PAGE_WRITE | PAGE_EXEC;
-
-        /*
-        if ((address & 0xfffffffffff00000) == 0xffffffff00100000) {
-            *physical = address & 0xffffffff;
-            *prot = PAGE_READ | PAGE_WRITE;
-        } else if (address < (int32_t)0xA0000000UL) {
-            // kseg0 
-            if (kernel_mode) {
-                *physical = address - (int32_t)0x80000000UL;
-                *prot = PAGE_READ | PAGE_WRITE;
-            } else {
-                ret = TLBRET_BADADDR;
-            }
-        } else {
-            *physical = address - (int32_t)0xA0000000UL;
-            *prot = PAGE_READ | PAGE_WRITE;
-        } */
     } else {
         // handle translation
         CPUState *cs = CPU(mips_env_get_cpu(env));
-/*        int64_t ptbr = env->active_tc.csr[0x4];
-        printf("input vaddress: %016lX\n", address);
-        uint64_t idx = ((address >> 33) & 0x3FF) << 3;
-        printf("idx: %016lX\n", idx);
-        uint64_t initial_pageval = load_double_phys_le(cs, ptbr + idx);
-        uint64_t initial_pageval2 = load_double_phys_le_f(cs, ptbr + idx);
-        printf("pte: %016lX\n", initial_pageval);
-        printf("pte2: %016lX\n", initial_pageval2);
-        uint64_t vpn = initial_pageval & 0x7FE000;
-        printf("vpn: %016lX\n", vpn);
-*/      
         uint64_t pte = 0; 
         uint64_t base = env->active_tc.csr[0x4];
         uint64_t ptd;
@@ -183,7 +131,7 @@ static int get_physical_address (CPUMIPSState *env, hwaddr *physical,
         printf("currentPC %016lX\n", env->active_tc.PC);
 
         for (i = 0; i < 3; i++, ptshift -= 10) {
-            printf("%d\n", (int)i);
+            printf("walk iter: %d\n", (int)i);
             uint64_t idx = (address >> (13+ptshift)) & ((1 << 10)-1);
             uint64_t pte_addr = base + idx*8;
 
@@ -210,90 +158,6 @@ static int get_physical_address (CPUMIPSState *env, hwaddr *physical,
 
 //        asm("int3"); // trigger breakpoint in GDB
     }
-/*
-#if 0
-    qemu_log("user mode %d h %08x\n", user_mode, env->hflags);
-#endif
-
-    if (address <= (int32_t)0x7FFFFFFFUL) {
-        // useg 
-        if (env->CP0_Status & (1 << CP0St_ERL)) {
-            *physical = address & 0xFFFFFFFF;
-            *prot = PAGE_READ | PAGE_WRITE;
-        } else {
-            ret = env->tlb->map_address(env, physical, prot, address, rw, access_type);
-        }
-#if defined(TARGET_MIPS64)
-    } else if (address < 0x4000000000000000ULL) {
-        // xuseg
-        if (UX && address <= (0x3FFFFFFFFFFFFFFFULL & env->SEGMask)) {
-            ret = env->tlb->map_address(env, physical, prot, address, rw, access_type);
-        } else {
-            ret = TLBRET_BADADDR;
-        }
-    } else if (address < 0x8000000000000000ULL) {
-        // xsseg
-        if ((supervisor_mode || kernel_mode) &&
-            SX && address <= (0x7FFFFFFFFFFFFFFFULL & env->SEGMask)) {
-            ret = env->tlb->map_address(env, physical, prot, address, rw, access_type);
-        } else {
-            ret = TLBRET_BADADDR;
-        }
-    } else if (address < 0xC000000000000000ULL) {
-        // xkphys
-        if (kernel_mode && KX &&
-            (address & 0x07FFFFFFFFFFFFFFULL) <= env->PAMask) {
-            *physical = address & env->PAMask;
-            *prot = PAGE_READ | PAGE_WRITE;
-        } else {
-            ret = TLBRET_BADADDR;
-        }
-    } else if (address < 0xFFFFFFFF80000000ULL) {
-        // xkseg 
-        if (kernel_mode && KX &&
-            address <= (0xFFFFFFFF7FFFFFFFULL & env->SEGMask)) {
-            ret = env->tlb->map_address(env, physical, prot, address, rw, access_type);
-        } else {
-            ret = TLBRET_BADADDR;
-        }
-#endif
-    } else if (address < (int32_t)0xA0000000UL) {
-        // kseg0 
-        if (kernel_mode) {
-            *physical = address - (int32_t)0x80000000UL;
-            *prot = PAGE_READ | PAGE_WRITE;
-        } else {
-            ret = TLBRET_BADADDR;
-        }
-    } else if (address < (int32_t)0xC0000000UL) {
-        // kseg1 
-        if (kernel_mode) {
-            *physical = address - (int32_t)0xA0000000UL;
-            *prot = PAGE_READ | PAGE_WRITE;
-        } else {
-            ret = TLBRET_BADADDR;
-        }
-    } else if (address < (int32_t)0xE0000000UL) {
-        // sseg (kseg2) 
-        if (supervisor_mode || kernel_mode) {
-            ret = env->tlb->map_address(env, physical, prot, address, rw, access_type);
-        } else {
-            ret = TLBRET_BADADDR;
-        }
-    } else {
-        // kseg3 
-        // XXX: debug segment is not emulated 
-        if (kernel_mode) {
-            ret = env->tlb->map_address(env, physical, prot, address, rw, access_type);
-        } else {
-            ret = TLBRET_BADADDR;
-        }
-    }
-#if 0
-    qemu_log(TARGET_FMT_lx " %d %d => %" HWADDR_PRIx " %d (%d)\n",
-            address, rw, access_type, *physical, *prot, ret);
-#endif
-*/
     return ret;
 }
 #endif

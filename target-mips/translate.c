@@ -30,7 +30,6 @@
 #include "helper.h"
 
 //#define DISABLE_CHAINING_BRANCH
-#define DISABLE_CHAINING_JALR
 //#define DISABLE_CHAINING_JAL
 
 #define MIPS_DEBUG_DISAS 0
@@ -1067,13 +1066,7 @@ static void gen_jalr(DisasContext *ctx, uint32_t opc,
         gen_set_gpr(rd, t1);
 
         tcg_gen_mov_tl(cpu_PC, t0);
-
-#ifdef DISABLE_CHAINING_JALR
-        tcg_gen_exit_tb(0);
-#else
-        tcg_gen_goto_tb(0);
-        tcg_gen_exit_tb((uintptr_t)ctx->tb | 0x0);
-#endif
+        tcg_gen_exit_tb(0); // NO CHAINING FOR JALR
         ctx->bstate = BS_BRANCH;
         break;
     default:
