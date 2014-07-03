@@ -179,6 +179,8 @@ static int get_physical_address (CPUMIPSState *env, hwaddr *physical,
         uint64_t ptd;
         int ptshift = 20;
         int64_t i = 0;
+        printf("input vaddress: %016lX\n", address);
+        printf("currentPC %016lX\n", env->active_tc.PC);
 
         for (i = 0; i < 3; i++, ptshift -= 10) {
             printf("%d\n", (int)i);
@@ -204,7 +206,7 @@ static int get_physical_address (CPUMIPSState *env, hwaddr *physical,
         printf("pte: %016lX\n", pte);
         printf("addr: %016lX\n", ((pte >> 13) << 13) | (address & 0x1FFF));
         *physical = ((pte >> 13) << 13) | (address & 0x1FFF);
-        *prot = PAGE_EXEC;
+        *prot = PAGE_EXEC | PAGE_READ | PAGE_WRITE;
 
 //        asm("int3"); // trigger breakpoint in GDB
     }
