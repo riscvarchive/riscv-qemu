@@ -179,8 +179,8 @@ static void write_bootloader (CPUMIPSState *env, uint8_t *base,
     stl_raw(p++, 0x50ad1073); // csrw status,t0 
 
     // store memamt to 0 as a 32 bit quantity in MiB
-    stl_raw(p++, 0x000000b7 | (loaderparams.ram_size & 0xFFFFF000));    /* lui ra, hi20(ram_size) */
-    stl_raw(p++, 0x0000809b | ((loaderparams.ram_size & 0xFFF) << 20)); /* addiw ra,ra,low12(ram_size) */
+    stl_raw(p++, 0x000000b7 | ((loaderparams.ram_size >> 20) & 0xFFFFF000));    /* lui ra, hi20(ram_size) */
+    stl_raw(p++, 0x0000809b | (((loaderparams.ram_size >> 20) & 0xFFF) << 20)); /* addiw ra,ra,low12(ram_size) */
     stl_raw(p++, 0x00102023);    /* sw rs2, 0(zero) */
 
 
