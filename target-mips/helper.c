@@ -142,7 +142,7 @@ static int get_physical_address (CPUMIPSState *env, hwaddr *physical,
 
 
         *physical = address;
-        *prot = PAGE_READ | PAGE_WRITE;
+        *prot = PAGE_READ | PAGE_WRITE | PAGE_EXEC;
 
         /*
         if ((address & 0xfffffffffff00000) == 0xffffffff00100000) {

@@ -29,6 +29,10 @@
 #define GEN_HELPER 1
 #include "helper.h"
 
+//#define DISABLE_CHAINING_BRANCH
+#define DISABLE_CHAINING_JALR
+//#define DISABLE_CHAINING_JAL
+
 #define MIPS_DEBUG_DISAS 0
 
 int csr_regno(int regno);
@@ -870,8 +874,7 @@ static void gen_arith_w(DisasContext *ctx, uint32_t opc,
             tcg_gen_ext32u_tl(spec_source2, spec_source2);
 
             tcg_gen_brcondi_tl(TCG_COND_EQ, spec_source2, 0x0, handle_zero);
-
-            // normal case
+// normal case
             tcg_gen_remu_tl(spec_source1, spec_source1, spec_source2);
             tcg_gen_br(done);
             // special zero case
@@ -942,17 +945,22 @@ static void gen_branch(DisasContext *ctx, uint32_t opc,
 
     // TODO: where do the frees go?
 
-    tcg_gen_goto_tb(1); // 1 is not taken, try chaining
     tcg_gen_movi_tl(cpu_PC, ctx->pc + 4);
+#ifdef DISABLE_CHAINING_BRANCH
+    tcg_gen_exit_tb(0);
+#else
+    tcg_gen_goto_tb(1); // 1 is not taken, try chaining
     // TODO insn_bytes should be passed in here instead of hardcoded 4?
     tcg_gen_exit_tb((uintptr_t)ctx->tb | 0x1);
-
+#endif
     gen_set_label(l); // branch taken
-    tcg_gen_goto_tb(0); // 0 is taken, try chaining
     tcg_gen_movi_tl(cpu_PC, ctx->pc + ubimm);
+#ifdef DISABLE_CHAINING_BRANCH
+    tcg_gen_exit_tb(0);
+#else
+    tcg_gen_goto_tb(0); // 0 is taken, try chaining
     tcg_gen_exit_tb((uintptr_t)ctx->tb | 0x0);
-
-    // TODO: set some kind of flag to indicate end of translation block to upper level?
+#endif
     ctx->bstate = BS_BRANCH;
 }
 
@@ -1046,7 +1054,7 @@ static void gen_jalr(DisasContext *ctx, uint32_t opc,
 
     switch (opc) {
     
-    case OPC_RISC_JALR:
+    case OPC_RISC_JALR: // CANNOT HAVE CHAINING WITH JALR
         t0 = tcg_temp_new();
         t1 = tcg_temp_new();
         gen_get_gpr(t0, rs1);
@@ -1059,8 +1067,13 @@ static void gen_jalr(DisasContext *ctx, uint32_t opc,
         gen_set_gpr(rd, t1);
 
         tcg_gen_mov_tl(cpu_PC, t0);
+
+#ifdef DISABLE_CHAINING_JALR
+        tcg_gen_exit_tb(0);
+#else
         tcg_gen_goto_tb(0);
         tcg_gen_exit_tb((uintptr_t)ctx->tb | 0x0);
+#endif
         ctx->bstate = BS_BRANCH;
         break;
     default:
@@ -1500,8 +1513,12 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
             tcg_gen_addi_tl(cpu_gpr[rd], cpu_gpr[rd], ctx->pc);
         }
         tcg_gen_movi_tl(cpu_PC, ctx->pc + ubimm);
+#ifdef DISABLE_CHAINING_JAL
+        tcg_gen_exit_tb(0);
+#else
         tcg_gen_goto_tb(0);
         tcg_gen_exit_tb((uintptr_t)ctx->tb | 0x0);
+#endif
         ctx->bstate = BS_BRANCH;
         break;
 
@@ -1551,10 +1568,6 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
 
     case OPC_RISC_FENCE:
         /* fences are nops for us? */
-        tcg_gen_movi_tl(cpu_PC, ctx->pc + 4);
-        tcg_gen_goto_tb(0);
-        tcg_gen_exit_tb((uintptr_t)ctx->tb | 0x0);
-        ctx->bstate = BS_BRANCH;
         break;
 
     case OPC_RISC_SYSTEM:
