@@ -1,11 +1,8 @@
 #if !defined (__QEMU_MIPS_DEFS_H__)
 #define __QEMU_MIPS_DEFS_H__
 
-/* If we want to use host float regs... */
-//#define USE_HOST_FLOAT_REGS
-
 /* Real pages are variable size... */
-#define TARGET_PAGE_BITS 12
+#define TARGET_PAGE_BITS 13 // MODIFIED FOR RISCV RV64 8 KiB Pages
 #define MIPS_TLB_MAX 128
 
 #if defined(TARGET_MIPS64)
