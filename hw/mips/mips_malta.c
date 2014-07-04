@@ -540,6 +540,11 @@ void mips_malta_init(QEMUMachineInitArgs *args)
         write_bootloader(env, memory_region_get_ram_ptr(bios), kernel_entry);
     } 
 
+
+    serial_mm_init(system_memory, 0x3f8, 0, NULL, 1843200/16, serial_hds[0], 
+            DEVICE_NATIVE_ENDIAN);
+
+
     /*
      * Map the BIOS at a 2nd physical location, as on the real board.
      * Copy it so that we can patch in the MIPS revision, which cannot be

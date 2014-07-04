@@ -121,24 +121,29 @@ static int get_physical_address (CPUMIPSState *env, hwaddr *physical,
         *prot = PAGE_READ | PAGE_WRITE | PAGE_EXEC;
     } else {
         // handle translation
+        if (address == 0x3f9) {
+            *physical = address;
+            *physical = PAGE_READ | PAGE_WRITE;
+            return ret;
+        }
         CPUState *cs = CPU(mips_env_get_cpu(env));
         uint64_t pte = 0; 
         uint64_t base = env->active_tc.csr[0x4];
         uint64_t ptd;
         int ptshift = 20;
         int64_t i = 0;
-        printf("input vaddress: %016lX\n", address);
-        printf("currentPC %016lX\n", env->active_tc.PC);
+//        printf("input vaddress: %016lX\n", address);
+//        printf("currentPC %016lX\n", env->active_tc.PC);
 
         for (i = 0; i < 3; i++, ptshift -= 10) {
-            printf("walk iter: %d\n", (int)i);
+//            printf("walk iter: %d\n", (int)i);
             uint64_t idx = (address >> (13+ptshift)) & ((1 << 10)-1);
             uint64_t pte_addr = base + idx*8;
 
             ptd = load_double_phys_le_f(cs, pte_addr);
            
             if (!(ptd & 0x1)) {
-                printf("INVALID MAPPING\n");
+                printf("INVALID MAPPING (should really page fault)\n");
                 exit(0);
             } else if (ptd & 0x2) { 
                 base = (ptd >> 13) << 13;
@@ -151,8 +156,8 @@ static int get_physical_address (CPUMIPSState *env, hwaddr *physical,
                 break;
             }
         }
-        printf("pte: %016lX\n", pte);
-        printf("addr: %016lX\n", ((pte >> 13) << 13) | (address & 0x1FFF));
+//        printf("pte: %016lX\n", pte);
+//        printf("addr: %016lX\n", ((pte >> 13) << 13) | (address & 0x1FFF));
         *physical = ((pte >> 13) << 13) | (address & 0x1FFF);
         *prot = PAGE_EXEC | PAGE_READ | PAGE_WRITE;
 

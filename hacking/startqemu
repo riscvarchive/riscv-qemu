@@ -5,4 +5,4 @@ print/x ctx->opcode
 end
 handle SIGUSR1 noprint nostop
 break main
-run -M malta -kernel ../hacking/vmlinux/vmlinux -append "console=ttyS0" -nographic
+run -M malta -kernel ../hacking/vmlinux/vmlinux -nographic
