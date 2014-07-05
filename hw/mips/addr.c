@@ -25,14 +25,14 @@
 
 uint64_t cpu_mips_kseg0_to_phys(void *opaque, uint64_t addr)
 {
-    printf("THIS WAS CALLED\n");
-    printf("with addr: " TARGET_FMT_lx "\n", addr);
+//    printf("THIS WAS CALLED\n");
+//    printf("with addr: " TARGET_FMT_lx "\n", addr);
     return addr & 0x7fffffffll;
 }
 
 uint64_t cpu_mips_phys_to_kseg0(void *opaque, uint64_t addr)
 {
-    printf("THIS WAS CALLED2\n");
-    printf("with addr: " TARGET_FMT_lx "\n", addr);
+//    printf("THIS WAS CALLED2\n");
+//    printf("with addr: " TARGET_FMT_lx "\n", addr);
     return addr | ~0x7fffffffll;
 }

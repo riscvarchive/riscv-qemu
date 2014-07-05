@@ -121,7 +121,7 @@ static int get_physical_address (CPUMIPSState *env, hwaddr *physical,
         *prot = PAGE_READ | PAGE_WRITE | PAGE_EXEC;
     } else {
         // handle translation
-        if (address == 0x3f9) {
+        if ((address >= 0x3f8) && (address <= 0x400)) {
             *physical = address;
             *physical = PAGE_READ | PAGE_WRITE;
             return ret;
