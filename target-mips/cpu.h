@@ -32,6 +32,62 @@ struct r4k_tlb_t {
     target_ulong PFN[2];
 };
 
+
+// RISCV CSR mappings. These are not the "real" mappings defined by the isa.
+// Instead, they are the indices into our csr array (ie the output given when
+// calling translate.c:csr_regno(REAL_CSR_REGNO)).
+#define CSR_SUP0       0x0
+#define CSR_SUP1       0x1
+#define CSR_EPC        0x2
+#define CSR_BADVADDR   0x3
+#define CSR_PTBR       0x4
+#define CSR_ASID       0x5
+#define CSR_COUNT      0x6
+#define CSR_COMPARE    0x7
+#define CSR_EVEC       0x8
+#define CSR_CAUSE      0x9
+#define CSR_STATUS     0xa
+#define CSR_HARTID     0xb
+#define CSR_IMPL       0xc
+#define CSR_FATC       0xd
+#define CSR_SEND_IPI   0xe
+#define CSR_CLEAR_IPI  0xf
+#define CSR_CYCLE     0x10
+#define CSR_TIME      0x11
+#define CSR_INSTRET   0x12
+//...
+#define CSR_TOHOST    0x1e
+#define CSR_FROMHOST  0x1f
+
+// RISCV Exception Codes
+#define RISCV_EXCP_INST_ADDR_MIS        0x0
+#define RISCV_EXCP_INST_ACCESS_FAULT    0x1
+#define RISCV_EXCP_ILLEGAL_INST         0x2
+#define RISCV_EXCP_PRIV_INST            0x3
+#define RISCV_EXCP_FP_DISABLED          0x4
+#define RISCV_EXCP_SCALL                0x6
+#define RISCV_EXCP_BREAK                0x7
+#define RISCV_EXCP_LOAD_ADDR_MIS        0x8
+#define RISCV_EXCP_STORE_ADDR_MIS       0x9
+#define RISCV_EXCP_LOAD_ACCESS_FAULT    0xa
+#define RISCV_EXCP_STORE_ACCESS_FAULT   0xb
+#define RISCV_EXCP_STORE_ACCEL_DISABLED 0xc
+#define RISCV_EXCP_TIMER_INTERRUPT      0x7 // TODO: ALSO NEEDS interruptBit
+#define RISCV_EXCP_HOST_INTERRUPT       0x6 // TODO: ALSO NEEDS interruptBit
+
+// RISCV Status Reg Bits
+#define SR_S           0x1
+#define SR_PS          0x2
+#define SR_EI          0x4
+#define SR_PEI         0x8
+#define SR_EF         0x10
+#define SR_U64        0x20
+#define SR_S64        0x40
+#define SR_VM         0x80
+#define SR_EA        0x100
+#define SR_IM     0xFF0000
+#define SR_IP   0xFF000000
+
 #if !defined(CONFIG_USER_ONLY)
 typedef struct CPUMIPSTLBContext CPUMIPSTLBContext;
 struct CPUMIPSTLBContext {

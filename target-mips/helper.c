@@ -109,12 +109,10 @@ static int get_physical_address (CPUMIPSState *env, hwaddr *physical,
                                 int *prot, target_ulong address,
                                 int rw, int access_type)
 {
+    // TODO: implement permissions checking, page faults
 
     // first, check if VM is on:
-    // TODO: modify to call csr_regno instead of hardcoding 0x50a as 0xa
-    // TODO: update the TLB to match our page size. but i don't think it matters for now
-    // TODO: implement permissions checking
-    int vm_on = env->active_tc.csr[0xa] & 0x80; // status
+    int vm_on = env->active_tc.csr[CSR_STATUS] & SR_VM; // check if vm on
     int ret = TLBRET_MATCH; // need to change this later probably
     if(!vm_on) { // TODO add unlikely
         *physical = address;
@@ -128,7 +126,7 @@ static int get_physical_address (CPUMIPSState *env, hwaddr *physical,
         }
         CPUState *cs = CPU(mips_env_get_cpu(env));
         uint64_t pte = 0; 
-        uint64_t base = env->active_tc.csr[0x4];
+        uint64_t base = env->active_tc.csr[CSR_PTBR];
         uint64_t ptd;
         int ptshift = 20;
         int64_t i = 0;
@@ -136,7 +134,6 @@ static int get_physical_address (CPUMIPSState *env, hwaddr *physical,
 //        printf("currentPC %016lX\n", env->active_tc.PC);
 
         for (i = 0; i < 3; i++, ptshift -= 10) {
-//            printf("walk iter: %d\n", (int)i);
             uint64_t idx = (address >> (13+ptshift)) & ((1 << 10)-1);
             uint64_t pte_addr = base + idx*8;
 
@@ -144,7 +141,12 @@ static int get_physical_address (CPUMIPSState *env, hwaddr *physical,
            
             if (!(ptd & 0x1)) {
                 printf("INVALID MAPPING (should really page fault)\n");
-                exit(0);
+                printf("input vaddr: %016lX\n", address);
+                printf("reached walk iter: %d\n", (int)i);
+                printf("access type: %x\n", access_type);
+                printf("currentPC %016lX\n", env->active_tc.PC);
+                return TLBRET_NOMATCH;
+//                exit(0);
             } else if (ptd & 0x2) { 
                 base = (ptd >> 13) << 13;
             } else {
@@ -156,8 +158,6 @@ static int get_physical_address (CPUMIPSState *env, hwaddr *physical,
                 break;
             }
         }
-//        printf("pte: %016lX\n", pte);
-//        printf("addr: %016lX\n", ((pte >> 13) << 13) | (address & 0x1FFF));
         *physical = ((pte >> 13) << 13) | (address & 0x1FFF);
         *prot = PAGE_EXEC | PAGE_READ | PAGE_WRITE;
 
@@ -185,10 +185,11 @@ static void raise_mmu_exception(CPUMIPSState *env, target_ulong address,
         break;
     case TLBRET_NOMATCH:
         /* No TLB match for a mapped address */
+        printf("got here %d\n", RISCV_EXCP_STORE_ACCESS_FAULT);
         if (rw)
-            exception = EXCP_TLBS;
+            exception = RISCV_EXCP_LOAD_ACCESS_FAULT;
         else
-            exception = EXCP_TLBL;
+            exception = RISCV_EXCP_LOAD_ACCESS_FAULT;
         error_code = 1;
         break;
     case TLBRET_INVALID:
@@ -259,7 +260,7 @@ int mips_cpu_handle_mmu_fault(CPUState *cs, vaddr address, int rw,
 #if !defined(CONFIG_USER_ONLY)
     /* XXX: put correct access by using cpu_restore_state()
        correctly */
-    access_type = ACCESS_INT;
+    access_type = ACCESS_INT; // TODO: huh? this was here from mips
     ret = get_physical_address(env, &physical, &prot,
                                address, rw, access_type);
     qemu_log("%s address=%" VADDR_PRIx " ret %d physical " TARGET_FMT_plx
@@ -355,265 +356,64 @@ target_ulong exception_resume_pc (CPUMIPSState *env)
     return bad_pc;
 }
 
-#if !defined(CONFIG_USER_ONLY)
-static void set_hflags_for_handler (CPUMIPSState *env)
-{
-    /* Exception handlers are entered in 32-bit mode.  */
-    env->hflags &= ~(MIPS_HFLAG_M16);
-    /* ...except that microMIPS lets you choose.  */
-    if (env->insn_flags & ASE_MICROMIPS) {
-        env->hflags |= (!!(env->CP0_Config3
-                           & (1 << CP0C3_ISA_ON_EXC))
-                        << MIPS_HFLAG_M16_SHIFT);
-    }
+inline int set_badvaddr(int excp);
+
+inline int set_badvaddr(int excp) {
+    return ((excp == RISCV_EXCP_LOAD_ACCESS_FAULT) || (excp == RISCV_EXCP_STORE_ACCESS_FAULT) || (excp == RISCV_EXCP_LOAD_ADDR_MIS) || (excp == RISCV_EXCP_STORE_ADDR_MIS));
 }
-#endif
 
 void mips_cpu_do_interrupt(CPUState *cs)
 {
-#if !defined(CONFIG_USER_ONLY)
     MIPSCPU *cpu = MIPS_CPU(cs);
     CPUMIPSState *env = &cpu->env;
-    target_ulong offset;
-    int cause = -1;
-    const char *name;
 
-    if (qemu_log_enabled() && cs->exception_index != EXCP_EXT_INTERRUPT) {
-        if (cs->exception_index < 0 || cs->exception_index > EXCP_LAST) {
-            name = "unknown";
-        } else {
-            name = excp_names[cs->exception_index];
-        }
+    printf("[[[[[[[[[[[[[[[[[[[[[[[ mips_cpu_do_interrupt\n");
+    printf("%d\n", cs->exception_index);
 
-        qemu_log("%s enter: PC " TARGET_FMT_lx " EPC " TARGET_FMT_lx " %s exception\n",
-                 __func__, env->active_tc.PC, env->CP0_EPC, name);
+    // START RISCV HERE
+
+    // FIRST, check SR_EI bit. if it's zero, exceptions are disabled and the
+    // processor goes into error mode
+    if (!(env->active_tc.csr[CSR_STATUS] & SR_EI)) {
+        printf("Exceptions disabled, but exception handler was triggered.\n");
+        exit(0);
     }
-    if (cs->exception_index == EXCP_EXT_INTERRUPT &&
-        (env->hflags & MIPS_HFLAG_DM)) {
-        cs->exception_index = EXCP_DINT;
+
+    // SECOND, store Cause in CSR_CAUSE. this comes from cs->exception_index
+    env->active_tc.csr[CSR_CAUSE] = cs->exception_index;
+
+    // THIRD, manage the PS/S Stack: CSR_STATUS[SR_PS] = CSR_STATUS[SR_S], 
+    // CSR_STATUS[SR_S] = 1 // enable supervisor
+    if (env->active_tc.csr[CSR_STATUS] & SR_S) {
+        env->active_tc.csr[CSR_STATUS] |= SR_PS;
+    } else {
+        env->active_tc.csr[CSR_STATUS] &= ~SR_PS;
     }
-    offset = 0x180;
-    switch (cs->exception_index) {
-    case EXCP_DSS:
-        env->CP0_Debug |= 1 << CP0DB_DSS;
-        /* Debug single step cannot be raised inside a delay slot and
-           resume will always occur on the next instruction
-           (but we assume the pc has always been updated during
-           code translation). */
-        env->CP0_DEPC = env->active_tc.PC | !!(env->hflags & MIPS_HFLAG_M16);
-        goto enter_debug_mode;
-    case EXCP_DINT:
-        env->CP0_Debug |= 1 << CP0DB_DINT;
-        goto set_DEPC;
-    case EXCP_DIB:
-        env->CP0_Debug |= 1 << CP0DB_DIB;
-        goto set_DEPC;
-    case EXCP_DBp:
-        env->CP0_Debug |= 1 << CP0DB_DBp;
-        goto set_DEPC;
-    case EXCP_DDBS:
-        env->CP0_Debug |= 1 << CP0DB_DDBS;
-        goto set_DEPC;
-    case EXCP_DDBL:
-        env->CP0_Debug |= 1 << CP0DB_DDBL;
-    set_DEPC:
-        env->CP0_DEPC = exception_resume_pc(env);
-        env->hflags &= ~MIPS_HFLAG_BMASK;
- enter_debug_mode:
-        env->hflags |= MIPS_HFLAG_DM | MIPS_HFLAG_64 | MIPS_HFLAG_CP0;
-        env->hflags &= ~(MIPS_HFLAG_KSU);
-        /* EJTAG probe trap enable is not implemented... */
-        if (!(env->CP0_Status & (1 << CP0St_EXL)))
-            env->CP0_Cause &= ~(1U << CP0Ca_BD);
-        env->active_tc.PC = (int32_t)0xBFC00480;
-        set_hflags_for_handler(env);
-        break;
-    case EXCP_RESET:
-        cpu_reset(CPU(cpu));
-        break;
-    case EXCP_SRESET:
-        env->CP0_Status |= (1 << CP0St_SR);
-        memset(env->CP0_WatchLo, 0, sizeof(*env->CP0_WatchLo));
-        goto set_error_EPC;
-    case EXCP_NMI:
-        env->CP0_Status |= (1 << CP0St_NMI);
- set_error_EPC:
-        env->CP0_ErrorEPC = exception_resume_pc(env);
-        env->hflags &= ~MIPS_HFLAG_BMASK;
-        env->CP0_Status |= (1 << CP0St_ERL) | (1 << CP0St_BEV);
-        env->hflags |= MIPS_HFLAG_64 | MIPS_HFLAG_CP0;
-        env->hflags &= ~(MIPS_HFLAG_KSU);
-        if (!(env->CP0_Status & (1 << CP0St_EXL)))
-            env->CP0_Cause &= ~(1U << CP0Ca_BD);
-        env->active_tc.PC = (int32_t)0xBFC00000;
-        set_hflags_for_handler(env);
-        break;
-    case EXCP_EXT_INTERRUPT:
-        cause = 0;
-        if (env->CP0_Cause & (1 << CP0Ca_IV))
-            offset = 0x200;
+    env->active_tc.csr[CSR_STATUS] |= SR_S; // turn on supervisor;
 
-        if (env->CP0_Config3 & ((1 << CP0C3_VInt) | (1 << CP0C3_VEIC))) {
-            /* Vectored Interrupts.  */
-            unsigned int spacing;
-            unsigned int vector;
-            unsigned int pending = (env->CP0_Cause & CP0Ca_IP_mask) >> 8;
-
-            pending &= env->CP0_Status >> 8;
-            /* Compute the Vector Spacing.  */
-            spacing = (env->CP0_IntCtl >> CP0IntCtl_VS) & ((1 << 6) - 1);
-            spacing <<= 5;
-
-            if (env->CP0_Config3 & (1 << CP0C3_VInt)) {
-                /* For VInt mode, the MIPS computes the vector internally.  */
-                for (vector = 7; vector > 0; vector--) {
-                    if (pending & (1 << vector)) {
-                        /* Found it.  */
-                        break;
-                    }
-                }
-            } else {
-                /* For VEIC mode, the external interrupt controller feeds the
-                   vector through the CP0Cause IP lines.  */
-                vector = pending;
-            }
-            offset = 0x200 + vector * spacing;
-        }
-        goto set_EPC;
-    case EXCP_LTLBL:
-        cause = 1;
-        goto set_EPC;
-    case EXCP_TLBL:
-        cause = 2;
-        if (env->error_code == 1 && !(env->CP0_Status & (1 << CP0St_EXL))) {
-#if defined(TARGET_MIPS64)
-            int R = env->CP0_BadVAddr >> 62;
-            int UX = (env->CP0_Status & (1 << CP0St_UX)) != 0;
-            int SX = (env->CP0_Status & (1 << CP0St_SX)) != 0;
-            int KX = (env->CP0_Status & (1 << CP0St_KX)) != 0;
-
-            if (((R == 0 && UX) || (R == 1 && SX) || (R == 3 && KX)) &&
-                (!(env->insn_flags & (INSN_LOONGSON2E | INSN_LOONGSON2F))))
-                offset = 0x080;
-            else
-#endif
-                offset = 0x000;
-        }
-        goto set_EPC;
-    case EXCP_TLBS:
-        cause = 3;
-        if (env->error_code == 1 && !(env->CP0_Status & (1 << CP0St_EXL))) {
-#if defined(TARGET_MIPS64)
-            int R = env->CP0_BadVAddr >> 62;
-            int UX = (env->CP0_Status & (1 << CP0St_UX)) != 0;
-            int SX = (env->CP0_Status & (1 << CP0St_SX)) != 0;
-            int KX = (env->CP0_Status & (1 << CP0St_KX)) != 0;
-
-            if (((R == 0 && UX) || (R == 1 && SX) || (R == 3 && KX)) &&
-                (!(env->insn_flags & (INSN_LOONGSON2E | INSN_LOONGSON2F))))
-                offset = 0x080;
-            else
-#endif
-                offset = 0x000;
-        }
-        goto set_EPC;
-    case EXCP_AdEL:
-        cause = 4;
-        goto set_EPC;
-    case EXCP_AdES:
-        cause = 5;
-        goto set_EPC;
-    case EXCP_IBE:
-        cause = 6;
-        goto set_EPC;
-    case EXCP_DBE:
-        cause = 7;
-        goto set_EPC;
-    case EXCP_SYSCALL:
-        cause = 8;
-        goto set_EPC;
-    case EXCP_BREAK:
-        cause = 9;
-        goto set_EPC;
-    case EXCP_RI:
-        cause = 10;
-        goto set_EPC;
-    case EXCP_CpU:
-        cause = 11;
-        env->CP0_Cause = (env->CP0_Cause & ~(0x3 << CP0Ca_CE)) |
-                         (env->error_code << CP0Ca_CE);
-        goto set_EPC;
-    case EXCP_OVERFLOW:
-        cause = 12;
-        goto set_EPC;
-    case EXCP_TRAP:
-        cause = 13;
-        goto set_EPC;
-    case EXCP_FPE:
-        cause = 15;
-        goto set_EPC;
-    case EXCP_C2E:
-        cause = 18;
-        goto set_EPC;
-    case EXCP_MDMX:
-        cause = 22;
-        goto set_EPC;
-    case EXCP_DWATCH:
-        cause = 23;
-        /* XXX: TODO: manage defered watch exceptions */
-        goto set_EPC;
-    case EXCP_MCHECK:
-        cause = 24;
-        goto set_EPC;
-    case EXCP_THREAD:
-        cause = 25;
-        goto set_EPC;
-    case EXCP_DSPDIS:
-        cause = 26;
-        goto set_EPC;
-    case EXCP_CACHE:
-        cause = 30;
-        if (env->CP0_Status & (1 << CP0St_BEV)) {
-            offset = 0x100;
-        } else {
-            offset = 0x20000100;
-        }
- set_EPC:
-        if (!(env->CP0_Status & (1 << CP0St_EXL))) {
-            env->CP0_EPC = exception_resume_pc(env);
-            if (env->hflags & MIPS_HFLAG_BMASK) {
-                env->CP0_Cause |= (1U << CP0Ca_BD);
-            } else {
-                env->CP0_Cause &= ~(1U << CP0Ca_BD);
-            }
-            env->CP0_Status |= (1 << CP0St_EXL);
-            env->hflags |= MIPS_HFLAG_64 | MIPS_HFLAG_CP0;
-            env->hflags &= ~(MIPS_HFLAG_KSU);
-        }
-        env->hflags &= ~MIPS_HFLAG_BMASK;
-        if (env->CP0_Status & (1 << CP0St_BEV)) {
-            env->active_tc.PC = (int32_t)0xBFC00200;
-        } else {
-            env->active_tc.PC = (int32_t)(env->CP0_EBase & ~0x3ff);
-        }
-        env->active_tc.PC += offset;
-        set_hflags_for_handler(env);
-        env->CP0_Cause = (env->CP0_Cause & ~(0x1f << CP0Ca_EC)) | (cause << CP0Ca_EC);
-        break;
-    default:
-        qemu_log("Invalid MIPS exception %d. Exiting\n", cs->exception_index);
-        printf("Invalid MIPS exception %d. Exiting\n", cs->exception_index);
-        exit(1);
+    // FOURTH, manage the EI/PEI Stack: CSR_STATUS[SR_PEI] = CSR_STATUS[SR_EI]
+    // CSR_STATUS[SR_EI] = 0 // disable interrupts
+    if (env->active_tc.csr[CSR_STATUS] & SR_EI) {
+        env->active_tc.csr[CSR_STATUS] |= SR_PEI;
+    } else {
+        env->active_tc.csr[CSR_STATUS] &= ~SR_PEI;
     }
-    if (qemu_log_enabled() && cs->exception_index != EXCP_EXT_INTERRUPT) {
-        qemu_log("%s: PC " TARGET_FMT_lx " EPC " TARGET_FMT_lx " cause %d\n"
-                "    S %08x C %08x A " TARGET_FMT_lx " D " TARGET_FMT_lx "\n",
-                __func__, env->active_tc.PC, env->CP0_EPC, cause,
-                env->CP0_Status, env->CP0_Cause, env->CP0_BadVAddr,
-                env->CP0_DEPC);
+    env->active_tc.csr[CSR_STATUS] &= ~SR_EI; // turn off interrupts
+
+    // FIFTH, IF trap is misaligned address or access fault,
+    // set badvaddr to faulting address. this will be in env->CP0_BadVAddr
+    if (set_badvaddr(cs->exception_index)) {
+        env->active_tc.csr[CSR_BADVADDR] = env->CP0_BadVAddr;
     }
-#endif
-    cs->exception_index = EXCP_NONE;
+
+    // SIXTH, store original PC to epc reg
+    env->active_tc.csr[CSR_EPC] = env->active_tc.PC;
+
+    // FINALLY, set PC to value in evec register and return
+    env->active_tc.PC = env->active_tc.csr[CSR_EVEC];
+
+    cs->exception_index = EXCP_NONE; // handled (sorta)
+    // END RISCV HERE
 }
 
 #if !defined(CONFIG_USER_ONLY)

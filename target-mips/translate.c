@@ -34,7 +34,7 @@
 
 #define MIPS_DEBUG_DISAS 0
 
-int csr_regno(int regno);
+static int csr_regno(int regno);
 
 /* Get regno in our csr reg array from actual csr regno
  * Mapping:
@@ -64,7 +64,7 @@ int csr_regno(int regno);
  *   1F: fromhost (0x51F)
  * ]
  */
-int csr_regno(int regno)
+static int csr_regno(int regno)
 {
     if (regno < 0xC00) {
         // 0x5xx registers
@@ -1390,6 +1390,7 @@ static void gen_system(DisasContext *ctx, uint32_t opc,
                       int rd, int rs1, int csr)
 {
     // get index into csr array
+    int backup_csr = csr;
     csr = csr_regno(csr);
 
     TCGv source1;
@@ -1399,9 +1400,58 @@ static void gen_system(DisasContext *ctx, uint32_t opc,
 
     switch (opc) {
 
-    case OPC_RISC_SCALL: // really SCALL, SBREAK, SRET
-                        // just here for clarity
-        kill_unknown(ctx->pc, 0, 0); // NOT YET IMPLEMENTED
+    case OPC_RISC_SCALL:
+        switch (backup_csr) {
+            case 0x0:
+                // SCALL
+                kill_unknown(ctx->pc, 0, 0); // NOT YET IMPLEMENTED
+                break;
+
+            case 0x1:
+                // SBREAK
+                kill_unknown(ctx->pc, 0, 0); // NOT YET IMPLEMENTED
+                break;
+
+            case 0x800:
+                // SRET
+                {
+                    TCGv s1;
+                    s1 = tcg_temp_local_new();
+
+                    int turn_off_s = gen_new_label();
+                    int turn_off_ei = gen_new_label();
+                    int next = gen_new_label();
+                    int done = gen_new_label();
+
+                    // first, handle S/PS stack
+                    tcg_gen_andi_tl(s1, cpu_csr[CSR_STATUS], SR_PS);
+                    tcg_gen_brcondi_tl(TCG_COND_EQ, s1, 0x0, turn_off_s);
+                    // here, set SR_S
+                    tcg_gen_ori_tl(cpu_csr[CSR_STATUS], cpu_csr[CSR_STATUS], SR_S);
+                    tcg_gen_br(next); // jump to next
+                    gen_set_label(turn_off_s);
+                    // here, turn off SR_S
+                    tcg_gen_andi_tl(cpu_csr[CSR_STATUS], cpu_csr[CSR_STATUS], ~SR_S);
+                    gen_set_label(next); // now handle EI/PEI stack
+
+                    tcg_gen_andi_tl(s1, cpu_csr[CSR_STATUS], SR_PEI);
+                    tcg_gen_brcondi_tl(TCG_COND_EQ, s1, 0x0, turn_off_ei);
+                    // here, set SR_S
+                    tcg_gen_ori_tl(cpu_csr[CSR_STATUS], cpu_csr[CSR_STATUS], SR_EI);
+                    tcg_gen_br(done); // jump to done
+                    gen_set_label(turn_off_ei);
+                    tcg_gen_andi_tl(cpu_csr[CSR_STATUS], cpu_csr[CSR_STATUS], ~SR_EI);
+
+                    gen_set_label(done); // finish up
+                    tcg_gen_mov_tl(cpu_PC, cpu_csr[CSR_EPC]);
+                    tcg_gen_exit_tb(0); // no chaining
+                }
+                break;
+
+            default:
+                kill_unknown(ctx->pc, 0, 0); // NOT YET IMPLEMENTED
+                break;
+        }
         break;
     case OPC_RISC_CSRRW:
         gen_set_gpr(rd, cpu_csr[csr]);     // R[rd] <- CSR[csr]
