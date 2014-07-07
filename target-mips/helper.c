@@ -62,16 +62,15 @@ int fixed_mmu_map_address (CPUMIPSState *env, hwaddr *physical, int *prot,
     return TLBRET_MATCH;
 }
 
-/* MIPS32/MIPS64 R4000-style MMU emulation */
 int r4k_map_address (CPUMIPSState *env, hwaddr *physical, int *prot,
                      target_ulong address, int rw, int access_type)
 {
-    uint8_t ASID = env->CP0_EntryHi & 0xFF;
+    // TODO TLB
+/*    uint8_t ASID = env->CP0_EntryHi & 0xFF;
     int i;
 
     for (i = 0; i < env->tlb->tlb_in_use; i++) {
         r4k_tlb_t *tlb = &env->tlb->mmu.r4k.tlb[i];
-        /* 1k pages are not supported. */
         target_ulong mask = tlb->PageMask | ~(TARGET_PAGE_MASK << 1);
         target_ulong tag = address & ~mask;
         target_ulong VPN = tlb->VPN & ~mask;
@@ -79,11 +78,8 @@ int r4k_map_address (CPUMIPSState *env, hwaddr *physical, int *prot,
         tag &= env->SEGMask;
 #endif
 
-        /* Check ASID, virtual page number & size */
         if ((tlb->G == 1 || tlb->ASID == ASID) && VPN == tag) {
-            /* TLB match */
             int n = !!(address & mask & ~(mask >> 1));
-            /* Check access rights */
             if (!(n ? tlb->V1 : tlb->V0))
                 return TLBRET_INVALID;
             if (rw == 0 || (n ? tlb->D1 : tlb->D0)) {
@@ -95,7 +91,7 @@ int r4k_map_address (CPUMIPSState *env, hwaddr *physical, int *prot,
             }
             return TLBRET_DIRTY;
         }
-    }
+    }*/
     return TLBRET_NOMATCH;
 }
 
@@ -121,7 +117,7 @@ static int get_physical_address (CPUMIPSState *env, hwaddr *physical,
         // handle translation
         if ((address >= 0x3f8) && (address <= 0x400)) {
             *physical = address;
-            *physical = PAGE_READ | PAGE_WRITE;
+            *prot = PAGE_READ | PAGE_WRITE;
             return ret;
         }
         CPUState *cs = CPU(mips_env_get_cpu(env));
@@ -140,11 +136,13 @@ static int get_physical_address (CPUMIPSState *env, hwaddr *physical,
             ptd = load_double_phys_le_f(cs, pte_addr);
            
             if (!(ptd & 0x1)) {
-                printf("INVALID MAPPING (should really page fault)\n");
+//                printf("INVALID MAPPING (should really page fault)\n");
                 printf("input vaddr: %016lX\n", address);
-                printf("reached walk iter: %d\n", (int)i);
+//                printf("reached walk iter: %d\n", (int)i);
                 printf("access type: %x\n", access_type);
+                printf("access rw val: %x\n", rw);
                 printf("currentPC %016lX\n", env->active_tc.PC);
+                printf("---");
                 return TLBRET_NOMATCH;
 //                exit(0);
             } else if (ptd & 0x2) { 
@@ -171,54 +169,27 @@ static void raise_mmu_exception(CPUMIPSState *env, target_ulong address,
                                 int rw, int tlb_error)
 {
     CPUState *cs = CPU(mips_env_get_cpu(env));
-    int exception = 0, error_code = 0;
+    int exception = 0;
 
     switch (tlb_error) {
-    default:
-    case TLBRET_BADADDR:
-        /* Reference to kernel address from user mode or supervisor mode */
-        /* Reference to supervisor address from user mode */
-        if (rw)
-            exception = EXCP_AdES;
-        else
-            exception = EXCP_AdEL;
-        break;
     case TLBRET_NOMATCH:
         /* No TLB match for a mapped address */
-        printf("got here %d\n", RISCV_EXCP_STORE_ACCESS_FAULT);
-        if (rw)
+        if (rw & 0x2) { // inst access
+            exception = RISCV_EXCP_INST_ACCESS_FAULT;
+        } else if (rw == 0x1) { // store access
+            exception = RISCV_EXCP_STORE_ACCESS_FAULT;
+            env->CP0_BadVAddr = address;
+        } else { // load access
             exception = RISCV_EXCP_LOAD_ACCESS_FAULT;
-        else
-            exception = RISCV_EXCP_LOAD_ACCESS_FAULT;
-        error_code = 1;
+            env->CP0_BadVAddr = address;
+        }
         break;
-    case TLBRET_INVALID:
-        /* TLB match with no valid bit */
-        if (rw)
-            exception = EXCP_TLBS;
-        else
-            exception = EXCP_TLBL;
+    default:
+        // currently unhandled for RISCV
+        exit(0);
         break;
-    case TLBRET_DIRTY:
-        /* TLB match but 'D' bit is cleared */
-        exception = EXCP_LTLBL;
-        break;
-
     }
-    /* Raise exception */
-    env->CP0_BadVAddr = address;
-    env->CP0_Context = (env->CP0_Context & ~0x007fffff) |
-                       ((address >> 9) & 0x007ffff0);
-    env->CP0_EntryHi =
-        (env->CP0_EntryHi & 0xFF) | (address & (TARGET_PAGE_MASK << 1));
-#if defined(TARGET_MIPS64)
-    env->CP0_EntryHi &= env->SEGMask;
-    env->CP0_XContext = (env->CP0_XContext & ((~0ULL) << (env->SEGBITS - 7))) |
-                        ((address & 0xC00000000000ULL) >> (55 - env->SEGBITS)) |
-                        ((address & ((1ULL << env->SEGBITS) - 1) & 0xFFFFFFFFFFFFE000ULL) >> 9);
-#endif
     cs->exception_index = exception;
-    env->error_code = error_code;
 }
 
 #if !defined(CONFIG_USER_ONLY)
@@ -236,6 +207,7 @@ hwaddr mips_cpu_get_phys_page_debug(CPUState *cs, vaddr addr)
 }
 #endif
 
+// NOTE: this gets called a lot
 int mips_cpu_handle_mmu_fault(CPUState *cs, vaddr address, int rw,
                               int mmu_idx)
 {
@@ -254,7 +226,9 @@ int mips_cpu_handle_mmu_fault(CPUState *cs, vaddr address, int rw,
     qemu_log("%s pc " TARGET_FMT_lx " ad %" VADDR_PRIx " rw %d mmu_idx %d\n",
               __func__, env->active_tc.PC, address, rw, mmu_idx);
 
-    rw &= 1;
+//    printf("rw before: %x\n", rw);
+//    rw &= 1; // WHYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY
+//    printf("rw after: %x\n", rw);
 
     /* data access */
 #if !defined(CONFIG_USER_ONLY)
@@ -289,7 +263,10 @@ hwaddr cpu_mips_translate_address(CPUMIPSState *env, target_ulong address, int r
     int access_type;
     int ret = 0;
 
+    printf("cpu_mips_translate_address\n");
+    printf("rw before: %x\n", rw);
     rw &= 1;
+    printf("rw after: %x\n", rw);
 
     /* data access */
     access_type = ACCESS_INT;
@@ -367,53 +344,42 @@ void mips_cpu_do_interrupt(CPUState *cs)
     MIPSCPU *cpu = MIPS_CPU(cs);
     CPUMIPSState *env = &cpu->env;
 
-    printf("[[[[[[[[[[[[[[[[[[[[[[[ mips_cpu_do_interrupt\n");
-    printf("%d\n", cs->exception_index);
-
-    // START RISCV HERE
-
-    // FIRST, check SR_EI bit. if it's zero, exceptions are disabled and the
-    // processor goes into error mode
-    if (!(env->active_tc.csr[CSR_STATUS] & SR_EI)) {
-        printf("Exceptions disabled, but exception handler was triggered.\n");
-        exit(0);
-    }
-
-    // SECOND, store Cause in CSR_CAUSE. this comes from cs->exception_index
+    // Store Cause in CSR_CAUSE. this comes from cs->exception_index
     env->active_tc.csr[CSR_CAUSE] = cs->exception_index;
 
-    // THIRD, manage the PS/S Stack: CSR_STATUS[SR_PS] = CSR_STATUS[SR_S], 
+    // Manage the PS/S Stack: CSR_STATUS[SR_PS] = CSR_STATUS[SR_S], 
     // CSR_STATUS[SR_S] = 1 // enable supervisor
     if (env->active_tc.csr[CSR_STATUS] & SR_S) {
         env->active_tc.csr[CSR_STATUS] |= SR_PS;
     } else {
-        env->active_tc.csr[CSR_STATUS] &= ~SR_PS;
+        env->active_tc.csr[CSR_STATUS] &= ~((uint64_t)SR_PS);
     }
     env->active_tc.csr[CSR_STATUS] |= SR_S; // turn on supervisor;
 
-    // FOURTH, manage the EI/PEI Stack: CSR_STATUS[SR_PEI] = CSR_STATUS[SR_EI]
+    // Manage the EI/PEI Stack: CSR_STATUS[SR_PEI] = CSR_STATUS[SR_EI]
     // CSR_STATUS[SR_EI] = 0 // disable interrupts
     if (env->active_tc.csr[CSR_STATUS] & SR_EI) {
         env->active_tc.csr[CSR_STATUS] |= SR_PEI;
     } else {
-        env->active_tc.csr[CSR_STATUS] &= ~SR_PEI;
+        env->active_tc.csr[CSR_STATUS] &= ~((uint64_t)SR_PEI);
     }
-    env->active_tc.csr[CSR_STATUS] &= ~SR_EI; // turn off interrupts
+    env->active_tc.csr[CSR_STATUS] &= ~((uint64_t)SR_EI); // turn off interrupts
 
-    // FIFTH, IF trap is misaligned address or access fault,
+    // If trap is misaligned address or access fault,
     // set badvaddr to faulting address. this will be in env->CP0_BadVAddr
     if (set_badvaddr(cs->exception_index)) {
         env->active_tc.csr[CSR_BADVADDR] = env->CP0_BadVAddr;
     }
 
-    // SIXTH, store original PC to epc reg
-    env->active_tc.csr[CSR_EPC] = env->active_tc.PC;
+    // Store original PC to epc reg
+    // TODO URGENT: this may not be correct... (since our pc doesn't update like that)
+    // could this potentially cause code to be "rerun" if active_tc.PC is not up to date?
+    env->active_tc.csr[CSR_EPC] = env->active_tc.PC; // TODO: IS THIS CORRECT?
 
     // FINALLY, set PC to value in evec register and return
     env->active_tc.PC = env->active_tc.csr[CSR_EVEC];
 
-    cs->exception_index = EXCP_NONE; // handled (sorta)
-    // END RISCV HERE
+    cs->exception_index = EXCP_NONE; // mark handled to qemu
 }
 
 #if !defined(CONFIG_USER_ONLY)

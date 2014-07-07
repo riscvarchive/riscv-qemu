@@ -74,17 +74,6 @@ static int csr_regno(int regno)
     return (0xF & regno) + 0x10;
 }
 
-void kill_unknown(target_ulong pc, uint32_t op, int is_full_op);
-
-// filling in for unknown instruction exception for now
-void kill_unknown(target_ulong pc, uint32_t op, int is_full_op) {
-    if (is_full_op) {
-        printf("UNKNOWN INSTRUCTION at addr 0x" TARGET_FMT_lx ", opcode 0x%x\n", pc, op);
-    } else {
-        printf("UNKNOWN INSTRUCTION at addr 0x" TARGET_FMT_lx "\n", pc);
-    }
-    exit(0);
-}
 
 #define MASK_OP_MAJOR(op)  (op & 0x7F)
 enum {
@@ -107,6 +96,19 @@ enum {
 
     /* rv32a, rv64a */
     OPC_RISC_ATOMIC = (0x2F),
+
+    /* floating point */
+    OPC_RISC_FP_LOAD = (0x7),
+    OPC_RISC_FP_STORE = (0x27),
+    
+    OPC_RISC_FMADD = (0x43),
+    OPC_RISC_FMSUB = (0x47),
+    OPC_RISC_FNMSUB = (0x4B),
+    OPC_RISC_FNMADD = (0x4F),
+
+    OPC_RISC_FP_ARITH = (0x53),
+    // FP system instructions are under the normal system opcode
+
 };
 
 #define MASK_OP_ARITH(op)   (MASK_OP_MAJOR(op) | (op & ((0x7 << 12) | (0x7F << 25))))
@@ -270,6 +272,9 @@ typedef struct DisasContext {
     int bstate;
 } DisasContext;
 
+
+void kill_unknown(DisasContext *ctx, int excp);
+
 enum {
     BS_NONE     = 0, /* We go out of the TB without reaching a branch or an
                       * exception condition */
@@ -311,6 +316,55 @@ static const char * const cs_regnames[] = {
 static inline void gen_save_pc(target_ulong pc)
 {
     tcg_gen_movi_tl(cpu_PC, pc);
+}
+
+
+// filling in for unknown instruction exception for now
+void kill_unknown(DisasContext *ctx, int excp) {
+    TCGv s1;
+    if (excp == RISCV_EXCP_FP_DISABLED) {
+        printf("FP INSTRUCTION at addr 0x" TARGET_FMT_lx ", opcode 0x%x\n", ctx->pc, ctx->opcode);
+    } else {
+        printf("ILLEGAL INSTRUCTION at addr 0x" TARGET_FMT_lx ", opcode 0x%x\n", ctx->pc, ctx->opcode);
+    }
+
+    // TODO
+    tcg_gen_movi_tl(cpu_csr[CSR_CAUSE], excp);
+
+    s1 = tcg_temp_local_new();
+
+    int turn_off_ps = gen_new_label();
+    int turn_off_pei = gen_new_label();
+    int next = gen_new_label();
+    int done = gen_new_label();
+
+    // first, handle S/PS stack
+    tcg_gen_andi_tl(s1, cpu_csr[CSR_STATUS], SR_S);
+    tcg_gen_brcondi_tl(TCG_COND_EQ, s1, 0x0, turn_off_ps);
+    // here, set SR_S
+    tcg_gen_ori_tl(cpu_csr[CSR_STATUS], cpu_csr[CSR_STATUS], SR_PS);
+    tcg_gen_br(next); // jump to next
+    gen_set_label(turn_off_ps);
+    // here, turn off SR_S
+    tcg_gen_andi_tl(cpu_csr[CSR_STATUS], cpu_csr[CSR_STATUS], ~((uint64_t)SR_PS));
+
+    // now handle EI/PEI stack
+    gen_set_label(next); 
+    tcg_gen_andi_tl(s1, cpu_csr[CSR_STATUS], SR_EI);
+    tcg_gen_brcondi_tl(TCG_COND_EQ, s1, 0x0, turn_off_pei);
+    // here, set SR_EI
+    tcg_gen_ori_tl(cpu_csr[CSR_STATUS], cpu_csr[CSR_STATUS], SR_PEI);
+    tcg_gen_br(done); // jump to done
+    gen_set_label(turn_off_pei);
+    tcg_gen_andi_tl(cpu_csr[CSR_STATUS], cpu_csr[CSR_STATUS], ~((uint64_t)SR_PEI));
+
+    // store current pc to EPC
+    tcg_gen_movi_tl(cpu_csr[CSR_EPC], ctx->pc);
+
+    // put exception handler pc in cpu_PC, exit the tb
+    tcg_gen_mov_tl(cpu_PC, cpu_csr[CSR_EVEC]);
+    tcg_gen_exit_tb(0);
+    ctx->bstate = BS_BRANCH;
 }
 
 static inline void save_cpu_state (DisasContext *ctx, int do_save_pc)
@@ -578,7 +632,7 @@ static void gen_arith(DisasContext *ctx, uint32_t opc,
         break;
     default:
         // TODO EXCEPTION
-        kill_unknown(ctx->pc, 0, 0);
+        kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         break;
 
     }
@@ -635,7 +689,7 @@ static void gen_arith_imm(DisasContext *ctx, uint32_t opc,
         break;
     default:
         // TODO EXCEPTION
-        kill_unknown(ctx->pc, 0, 0);
+        kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         break;
 
     }
@@ -688,7 +742,7 @@ static void gen_arith_imm_w(DisasContext *ctx, uint32_t opc,
         break;
     default:
         // TODO EXCEPTION
-        kill_unknown(ctx->pc, 0, 0);
+        kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         break;
 
     }
@@ -890,7 +944,7 @@ static void gen_arith_w(DisasContext *ctx, uint32_t opc,
         break;
     default:
         // TODO EXCEPTION
-        kill_unknown(ctx->pc, 0, 0);
+        kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         break;
 
     }
@@ -937,7 +991,7 @@ static void gen_branch(DisasContext *ctx, uint32_t opc,
         break;
     default:
         /* TODO: exception here */
-        kill_unknown(ctx->pc, 0, 0);
+        kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         break;
 
     }
@@ -999,7 +1053,7 @@ static void gen_load(DisasContext *ctx, uint32_t opc,
         break;
     default:
         // TODO Exception
-        kill_unknown(ctx->pc, 0, 0);
+        kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         break;
 
     }
@@ -1037,7 +1091,7 @@ static void gen_store(DisasContext *ctx, uint32_t opc,
 
     default:
         // TODO: exception
-        kill_unknown(ctx->pc, 0, 0);
+        kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         break;
     }
 
@@ -1071,7 +1125,7 @@ static void gen_jalr(DisasContext *ctx, uint32_t opc,
         break;
     default:
         // TODO: exception
-        kill_unknown(ctx->pc, 0, 0);
+        kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         break;
 
     }
@@ -1372,7 +1426,7 @@ static void gen_atomic(DisasContext *ctx, uint32_t opc,
         break;
     default:
         // TODO EXCEPTION
-        kill_unknown(ctx->pc, 0, 0);
+        kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         break;
 
     }
@@ -1391,6 +1445,11 @@ static void gen_system(DisasContext *ctx, uint32_t opc,
 {
     // get index into csr array
     int backup_csr = csr;
+    if ((csr) < 0x4 && (csr >= 0) && (opc != OPC_RISC_SCALL)) {
+        kill_unknown(ctx, RISCV_EXCP_FP_DISABLED);
+        return;
+    }
+
     csr = csr_regno(csr);
 
     TCGv source1;
@@ -1404,12 +1463,89 @@ static void gen_system(DisasContext *ctx, uint32_t opc,
         switch (backup_csr) {
             case 0x0:
                 // SCALL
-                kill_unknown(ctx->pc, 0, 0); // NOT YET IMPLEMENTED
+//                gen_helper_riscv_exception(cpu_env, RISCV_EXCP_SCALL);
+
+                // TODO: add save_cpu_state
+/*                tcg_gen_movi_tl(cpu_PC, ctx->pc);
+                ctx->saved_pc = ctx->pc;
+                gen_helper_0e0i(riscv_exception, RISCV_EXCP_SCALL);
+                ctx->bstate = BS_STOP;*/
+                // try custom implementation
+/*
+                // very hacky for now, but just a test
+                tcg_gen_movi_tl(cpu_csr[CSR_CAUSE], RISCV_EXCP_SCALL);
+                // S should be disabled, so just set PS off...
+                tcg_gen_andi_tl(cpu_csr[CSR_STATUS], cpu_csr[CSR_STATUS], ~((uint64_t)SR_PS));
+                tcg_gen_ori_tl(cpu_csr[CSR_STATUS], cpu_csr[CSR_STATUS], SR_S);
+
+                tcg_gen_andi_tl(cpu_csr[CSR_STATUS], cpu_csr[CSR_STATUS], ~((uint64_t)SR_EI));
+                tcg_gen_ori_tl(cpu_csr[CSR_STATUS], cpu_csr[CSR_STATUS], SR_PEI);
+
+                tcg_gen_movi_tl(cpu_csr[CSR_EPC], ctx->pc);
+
+                tcg_gen_mov_tl(cpu_PC, cpu_csr[CSR_EVEC]);
+                tcg_gen_exit_tb(0);
+                ctx->bstate = BS_BRANCH;
+
+                */
+                {
+                   TCGv s1;
+
+                // very hacky for now, but just a test
+                tcg_gen_movi_tl(cpu_csr[CSR_CAUSE], RISCV_EXCP_SCALL);
+                // S should be disabled, so just set PS off...
+/*                tcg_gen_andi_tl(cpu_csr[CSR_STATUS], cpu_csr[CSR_STATUS], ~((uint64_t)SR_PS));
+                tcg_gen_ori_tl(cpu_csr[CSR_STATUS], cpu_csr[CSR_STATUS], SR_S);
+
+
+
+
+
+
+                tcg_gen_andi_tl(cpu_csr[CSR_STATUS], cpu_csr[CSR_STATUS], ~((uint64_t)SR_EI));
+                tcg_gen_ori_tl(cpu_csr[CSR_STATUS], cpu_csr[CSR_STATUS], SR_PEI);
+
+*/
+
+
+                     s1 = tcg_temp_local_new();
+
+                    int turn_off_ps = gen_new_label();
+                    int turn_off_pei = gen_new_label();
+                    int next = gen_new_label();
+                    int done = gen_new_label();
+
+                    // first, handle S/PS stack
+                    tcg_gen_andi_tl(s1, cpu_csr[CSR_STATUS], SR_S);
+                    tcg_gen_brcondi_tl(TCG_COND_EQ, s1, 0x0, turn_off_ps);
+                    // here, set SR_S
+                    tcg_gen_ori_tl(cpu_csr[CSR_STATUS], cpu_csr[CSR_STATUS], SR_PS);
+                    tcg_gen_br(next); // jump to next
+                    gen_set_label(turn_off_ps);
+                    // here, turn off SR_S
+                    tcg_gen_andi_tl(cpu_csr[CSR_STATUS], cpu_csr[CSR_STATUS], ~SR_PS);
+                    gen_set_label(next); // now handle EI/PEI stack
+
+                    tcg_gen_andi_tl(s1, cpu_csr[CSR_STATUS], SR_EI);
+                    tcg_gen_brcondi_tl(TCG_COND_EQ, s1, 0x0, turn_off_pei);
+                    // here, set SR_EI
+                    tcg_gen_ori_tl(cpu_csr[CSR_STATUS], cpu_csr[CSR_STATUS], SR_PEI);
+                    tcg_gen_br(done); // jump to done
+                    gen_set_label(turn_off_pei);
+                    tcg_gen_andi_tl(cpu_csr[CSR_STATUS], cpu_csr[CSR_STATUS], ~SR_PEI);
+
+                tcg_gen_movi_tl(cpu_csr[CSR_EPC], ctx->pc);
+
+                tcg_gen_mov_tl(cpu_PC, cpu_csr[CSR_EVEC]);
+                tcg_gen_exit_tb(0);
+                ctx->bstate = BS_BRANCH;
+
+                }
                 break;
 
             case 0x1:
                 // SBREAK
-                kill_unknown(ctx->pc, 0, 0); // NOT YET IMPLEMENTED
+                kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
                 break;
 
             case 0x800:
@@ -1449,38 +1585,61 @@ static void gen_system(DisasContext *ctx, uint32_t opc,
                 break;
 
             default:
-                kill_unknown(ctx->pc, 0, 0); // NOT YET IMPLEMENTED
+                kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
                 break;
         }
         break;
     case OPC_RISC_CSRRW:
         gen_set_gpr(rd, cpu_csr[csr]);     // R[rd] <- CSR[csr]
         tcg_gen_mov_tl(cpu_csr[csr], source1); // CSR[csr] <- source1 (original rs1)
+        // force writes to be visible
+        tcg_gen_movi_tl(cpu_PC, ctx->pc + 4);
+        tcg_gen_exit_tb(0);
         break;
     case OPC_RISC_CSRRS:
         gen_set_gpr(rd, cpu_csr[csr]);     // R[rd] <- CSR[csr]
         tcg_gen_or_tl(cpu_csr[csr], source1, cpu_csr[csr]); // CSR[csr] <- CSR[csr] | source1 (original rs1)
+        // force writes to be visible
+        tcg_gen_movi_tl(cpu_PC, ctx->pc + 4);
+        tcg_gen_exit_tb(0);
+
         break;
     case OPC_RISC_CSRRC:
         gen_set_gpr(rd, cpu_csr[csr]);     // R[rd] <- CSR[csr]
         tcg_gen_not_tl(source1, source1);  
         tcg_gen_and_tl(cpu_csr[csr], source1, cpu_csr[csr]); // CSR[csr] <- CSR[csr] & ~source1 (original rs1)
+        // force writes to be visible
+        tcg_gen_movi_tl(cpu_PC, ctx->pc + 4);
+        tcg_gen_exit_tb(0);
+
         break;
     case OPC_RISC_CSRRWI:
         gen_set_gpr(rd, cpu_csr[csr]);     // R[rd] <- CSR[csr]
         tcg_gen_movi_tl(cpu_csr[csr], rs1); // CSR[csr] <- rs1 (treat as imm)
+        // force writes to be visible
+        tcg_gen_movi_tl(cpu_PC, ctx->pc + 4);
+        tcg_gen_exit_tb(0);
+
         break;
     case OPC_RISC_CSRRSI:
         gen_set_gpr(rd, cpu_csr[csr]);     // R[rd] <- CSR[csr]
         tcg_gen_ori_tl(cpu_csr[csr], cpu_csr[csr], rs1); // CSR[csr] <- CSR[csr] | rs1 (as imm)
+        // force writes to be visible
+        tcg_gen_movi_tl(cpu_PC, ctx->pc + 4);
+        tcg_gen_exit_tb(0);
+
         break;
     case OPC_RISC_CSRRCI:
         gen_set_gpr(rd, cpu_csr[csr]);     // R[rd] <- CSR[csr]
         tcg_gen_andi_tl(cpu_csr[csr], cpu_csr[csr], ~((uint64_t)rs1)); // CSR[csr] <- CSR[csr] & ~rs1 (as imm)
+        // force writes to be visible
+        tcg_gen_movi_tl(cpu_PC, ctx->pc + 4);
+        tcg_gen_exit_tb(0);
+
         break;
     default:
         // TODO: exception
-        kill_unknown(ctx->pc, 0, 0);
+        kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         break;
 
     }
@@ -1621,8 +1780,18 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
         gen_atomic(ctx, MASK_OP_ATOMIC(ctx->opcode), rd, rs1, rs2);
         break;        
 
+    case OPC_RISC_FP_LOAD: // no FP yet
+    case OPC_RISC_FP_STORE:
+    case OPC_RISC_FMADD:
+    case OPC_RISC_FMSUB:
+    case OPC_RISC_FNMSUB:
+    case OPC_RISC_FNMADD:
+    case OPC_RISC_FP_ARITH:
+        kill_unknown(ctx, RISCV_EXCP_FP_DISABLED);
+        break;
+
     default:
-        kill_unknown(ctx->pc, ctx->opcode, 1);
+        kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         // TODO REMOVED FOR TESTING, REPLACE
         // generate_exception(ctx, EXCP_RI);
         break;

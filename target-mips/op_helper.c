@@ -160,6 +160,17 @@ target_ulong helper_mulsu(CPUMIPSState *env, target_ulong arg1,
     return (int64_t)((__int128_t)a*b >> 64);
 }
 
+
+/* RISCV exception raise */
+/*void helper_riscv_exception(CPUMIPSState *env, int excp_no) {
+    CPUState *cs = CPU(mips_env_get_cpu(env));
+    cs->exception_index = excp_no;
+
+    // required?
+//    cpu_loop_exit(cs);
+
+}*/
+
 #ifndef CONFIG_USER_ONLY
 
 static inline hwaddr do_translate_address(CPUMIPSState *env,
@@ -198,6 +209,7 @@ target_ulong helper_##name(CPUMIPSState *env, target_ulong arg1,              \
                                                                               \
     if (arg2 & almask) {                                                      \
         env->CP0_BadVAddr = arg2;                                             \
+        printf("GOT HERE GOT HERE WAT WAT\n");                                \
         helper_raise_exception(env, EXCP_AdES);                               \
     }                                                                         \
     if (do_translate_address(env, arg2, 1) == env->lladdr) {                  \
@@ -571,7 +583,7 @@ void helper_wait(CPUMIPSState *env)
 
 #if !defined(CONFIG_USER_ONLY)
 
-static void QEMU_NORETURN do_unaligned_access(CPUMIPSState *env,
+static void /*QEMU_NORETURN*/ do_unaligned_access(CPUMIPSState *env,
                                               target_ulong addr, int is_write,
                                               int is_user, uintptr_t retaddr);
 
@@ -594,7 +606,10 @@ static void do_unaligned_access(CPUMIPSState *env, target_ulong addr,
                                 int is_write, int is_user, uintptr_t retaddr)
 {
     env->CP0_BadVAddr = addr;
-    do_raise_exception(env, (is_write == 1) ? EXCP_AdES : EXCP_AdEL, retaddr);
+    printf("REACHED DO UNALIGNED ACCESS\n");
+    printf("%016lX\n", (uint64_t)addr);
+    exit(0);
+//    helper_riscv_exception(env, (is_write == 1) ? RISCV_EXCP_STORE_ADDR_MIS : RISCV_EXCP_LOAD_ADDR_MIS);
 }
 
 void tlb_fill(CPUState *cs, target_ulong addr, int is_write, int mmu_idx,

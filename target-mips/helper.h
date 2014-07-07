@@ -3,6 +3,8 @@
 DEF_HELPER_3(raise_exception_err, noreturn, env, i32, int)
 DEF_HELPER_2(raise_exception, noreturn, env, i32)
 
+
+
 // TODO look at these for ll/sc
 #ifndef CONFIG_USER_ONLY
 DEF_HELPER_3(ll, tl, env, tl, int)
@@ -13,7 +15,10 @@ DEF_HELPER_4(scd, tl, env, tl, tl, int)
 #endif
 #endif
 
+
+
 DEF_HELPER_3(mulsu, tl, env, tl, tl)
+//DEF_HELPER_2(riscv_exception, void, env, int)
 
 /* Special functions */
 #ifndef CONFIG_USER_ONLY
