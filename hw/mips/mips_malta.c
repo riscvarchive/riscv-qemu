@@ -175,7 +175,7 @@ static void write_bootloader (CPUMIPSState *env, uint8_t *base,
 
     // initialize status reg. this doesn't really belong in the bootloader:
     // TODO: move somewhere else 
-    stl_raw(p++, 0x06100d13); // li t0, 0x97
+    stl_raw(p++, 0x07100d13); // li t0, 0x71 // VM=0, S64=1, U64=1, EF=1, PEI=0, EI=0, PS=0, S=1
     stl_raw(p++, 0x50ad1073); // csrw status,t0 
 
     // store memamt to 0 as a 32 bit quantity in MiB
