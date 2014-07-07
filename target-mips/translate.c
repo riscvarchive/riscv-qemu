@@ -251,6 +251,18 @@ enum {
     OPC_RISC_CSRRCI      = OPC_RISC_SYSTEM | (0x7 << 12),
 };
 
+#define MASK_OP_FP_LOAD(op)   (MASK_OP_MAJOR(op) | (op & (0x7 << 12)))
+enum {
+    OPC_RISC_FLW   = OPC_RISC_FP_LOAD | (0x2 << 12),
+    OPC_RISC_FLD   = OPC_RISC_FP_LOAD | (0x3 << 12),
+};
+
+#define MASK_OP_FP_STORE(op)   (MASK_OP_MAJOR(op) | (op & (0x7 << 12)))
+enum {
+    OPC_RISC_FSW   = OPC_RISC_FP_STORE | (0x2 << 12),
+    OPC_RISC_FSD   = OPC_RISC_FP_STORE | (0x3 << 12),
+};
+
 /* global register indices */
 static TCGv_ptr cpu_env;
 static TCGv cpu_gpr[32], cpu_PC, cpu_csr[32], cpu_fpr[32];
@@ -1663,6 +1675,68 @@ static void gen_system(DisasContext *ctx, uint32_t opc,
     tcg_temp_free(source1);
 }
 
+
+static void gen_fp_load(DisasContext *ctx, uint32_t opc, 
+                      int rd, int rs1, int16_t imm)
+{
+
+    target_ulong uimm = (target_long)imm; /* sign ext 16->64 bits */
+
+
+    TCGv t0 = tcg_temp_new();
+    gen_get_gpr(t0, rs1);
+    tcg_gen_addi_tl(t0, t0, uimm); // 
+    
+    switch (opc) {
+
+    case OPC_RISC_FLW:
+        // TODO: sign extend or zero extend?
+        tcg_gen_qemu_ld32u(t0, t0, ctx->mem_idx); // TODO: is ctx->mem_idx right?
+        break;
+    case OPC_RISC_FLD:
+        tcg_gen_qemu_ld64(t0, t0, ctx->mem_idx); // TODO: is ctx->mem_idx right?
+        break;
+    default:
+        // TODO Exception
+        kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
+        break;
+
+    }
+
+    tcg_gen_mov_tl(cpu_fpr[rd], t0); // copy into fp reg
+    tcg_temp_free(t0);
+}
+
+static void gen_fp_store(DisasContext *ctx, uint32_t opc, 
+                      int rs1, int rs2, int16_t imm)
+{
+    target_ulong uimm = (target_long)imm; /* sign ext 16->64 bits */
+
+    TCGv t0 = tcg_temp_new();
+    TCGv dat = tcg_temp_new();
+    gen_get_gpr(t0, rs1);
+    tcg_gen_addi_tl(t0, t0, uimm); // 
+    tcg_gen_mov_tl(dat, cpu_fpr[rs2]);
+
+    switch (opc) {
+
+    case OPC_RISC_FSW:
+        tcg_gen_qemu_st32(dat, t0, ctx->mem_idx); // TODO: is ctx->mem_idx right?
+        break;
+    case OPC_RISC_FSD:
+        tcg_gen_qemu_st64(dat, t0, ctx->mem_idx); // TODO: is ctx->mem_idx right?
+        break;
+
+    default:
+        // TODO: exception
+        kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
+        break;
+    }
+
+    tcg_temp_free(t0);
+    tcg_temp_free(dat);
+}
+
 #define GET_B_IMM(inst)              ((int16_t)((((inst >> 25) & 0x3F) << 5) | ((((int32_t)inst) >> 31) << 12) | (((inst >> 8) & 0xF) << 1) | (((inst >> 7) & 0x1) << 11)))  /* THIS BUILDS 13 bit imm (implicit zero is tacked on here), also note that bit #12 is obtained in a special way to get sign extension */
 #define GET_STORE_IMM(inst)           ((int16_t)(((((int32_t)inst) >> 25) << 5) | ((inst >> 7) & 0x1F)))
 #define GET_JAL_IMM(inst)             ((int32_t)((inst & 0xFF000) | (((inst >> 20) & 0x1) << 11) | (((inst >> 21) & 0x3FF) << 1) | ((((int32_t)inst) >> 31) << 20)))
@@ -1796,9 +1870,15 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
         gen_atomic(ctx, MASK_OP_ATOMIC(ctx->opcode), rd, rs1, rs2);
         break;        
 
-    case OPC_RISC_FP_LOAD: // no FP yet
+    case OPC_RISC_FP_LOAD:
+        gen_fp_load(ctx, MASK_OP_FP_LOAD(ctx->opcode), rd, rs1, imm);
+        break;
+
     case OPC_RISC_FP_STORE:
-    case OPC_RISC_FMADD:
+        gen_fp_store(ctx, MASK_OP_FP_STORE(ctx->opcode), rs1, rs2, GET_STORE_IMM(ctx->opcode));
+        break;
+
+    case OPC_RISC_FMADD:// not all fp is implemented currently
     case OPC_RISC_FMSUB:
     case OPC_RISC_FNMSUB:
     case OPC_RISC_FNMADD:
