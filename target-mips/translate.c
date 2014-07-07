@@ -253,7 +253,7 @@ enum {
 
 /* global register indices */
 static TCGv_ptr cpu_env;
-static TCGv cpu_gpr[32], cpu_PC, cpu_csr[32];
+static TCGv cpu_gpr[32], cpu_PC, cpu_csr[32], cpu_fpr[32];
 static TCGv_i32 hflags;
 
 static uint32_t gen_opc_hflags[OPC_BUF_SIZE];
@@ -302,6 +302,16 @@ static const char * const cs_regnames[] = {
     "cycle", "time", "instret", "fflags", "frm", "fcsr", "junk", "junk",
     "junk", "junk", "junk", "junk", "junk", "junk", "tohost", "fromhost"
 };
+
+static const char * const fpr_regnames[] = {
+    "fpr0", "fpr1", "fpr2", "fpr3", "fpr4", "fpr5", "fpr6", "fpr7",
+    "fpr8", "fpr9", "fpr10", "fpr11", "fpr12", "fpr13", "fpr14", "fpr15",
+    "fpr16", "fpr17", "fpr18", "fpr19", "fpr20", "fpr21", "fpr22", "fpr23",
+    "fpr24", "fpr25", "fpr26", "fpr27", "fpr28", "fpr29", "fpr30", "fpr31",
+};
+
+
+
 
 #define MIPS_DEBUG(fmt, ...)                                                  \
     do {                                                                      \
@@ -2036,6 +2046,13 @@ void mips_tcg_init(void)
         cpu_csr[i] = tcg_global_mem_new(TCG_AREG0,
                                         offsetof(CPUMIPSState, active_tc.csr[i]),
                                         cs_regnames[i]);
+    }
+
+
+    for (i = 0; i < 32; i++) {
+        cpu_fpr[i] = tcg_global_mem_new(TCG_AREG0,
+                                        offsetof(CPUMIPSState, active_tc.fpr[i]),
+                                        fpr_regnames[i]);
     }
 
     cpu_PC = tcg_global_mem_new(TCG_AREG0,
