@@ -59,6 +59,9 @@ static int csr_regno(int regno);
  *   10: cycle (0xC00),
  *   11: time (0xC01),
  *   12: instret (0xC02),
+ *   13: fflags (0x1),
+ *   14: frm (0x2),
+ *   15: fcsr (0x3),
  *   ...
  *   1E: tohost (0x51E),
  *   1F: fromhost (0x51F)
@@ -66,6 +69,9 @@ static int csr_regno(int regno);
  */
 static int csr_regno(int regno)
 {
+    if (regno < 0x4 && regno > 0x0) { //0x1, 0x2, 0x3
+        return regno + 0x12;
+    }
     if (regno < 0xC00) {
         // 0x5xx registers
         return 0xFF & regno;
@@ -293,7 +299,7 @@ static const char * const regnames[] = {
 static const char * const cs_regnames[] = {
     "sup0", "sup1", "epc", "badvaddr", "ptbr", "asid", "count", "compare",
     "evec", "cause", "status", "hartid", "impl", "fatc", "send_ipi", "clear_ipi",
-    "cycle", "time", "instret", "junk", "junk", "junk", "junk", "junk",
+    "cycle", "time", "instret", "fflags", "frm", "fcsr", "junk", "junk",
     "junk", "junk", "junk", "junk", "junk", "junk", "tohost", "fromhost"
 };
 
@@ -1445,11 +1451,11 @@ static void gen_system(DisasContext *ctx, uint32_t opc,
 {
     // get index into csr array
     int backup_csr = csr;
-    if ((csr) < 0x4 && (csr >= 0) && (opc != OPC_RISC_SCALL)) {
+/*    if ((csr) < 0x4 && (csr >= 0) && (opc != OPC_RISC_SCALL)) {
         kill_unknown(ctx, RISCV_EXCP_FP_DISABLED);
         return;
     }
-
+*/
     csr = csr_regno(csr);
 
     TCGv source1;

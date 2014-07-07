@@ -55,6 +55,9 @@ struct r4k_tlb_t {
 #define CSR_CYCLE     0x10
 #define CSR_TIME      0x11
 #define CSR_INSTRET   0x12
+#define CSR_FFLAGS    0x13
+#define CSR_FRM       0x14
+#define CSR_FCSR      0x15
 //...
 #define CSR_TOHOST    0x1e
 #define CSR_FROMHOST  0x1f
