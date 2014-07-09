@@ -106,7 +106,7 @@ static int get_physical_address (CPUMIPSState *env, hwaddr *physical,
 
             ptd = load_double_phys_le_f(cs, pte_addr);
            
-            if (!(ptd & 0x1)) {
+            if (!(ptd & 0x1)) { /*
 //                printf("INVALID MAPPING (should really page fault)\n");
                 printf("          input vaddr: %016lX\n", address);
 //                printf("reached walk iter: %d\n", (int)i);
@@ -114,6 +114,19 @@ static int get_physical_address (CPUMIPSState *env, hwaddr *physical,
                 printf("          access rw val: %x\n", rw);
                 printf("          currentPC %016lX\n", env->active_tc.PC);
                 printf("          ---\n");
+*/
+                /* NOTE: the env->active_tc.PC value visible here will not be
+                 * correct, but the value visible to the exception handler 
+                 * (mips_cpu_do_interrupt) is correct */
+/*                if (rw == 0x2) {
+                    printf("core   0: exception trap_instruction_access_fault, epc 0x%016lX\n", env->active_tc.PC);
+                } else if (rw == 0x1) {
+                    printf("core   0: exception trap_store_access_fault, epc 0x%016lX (pc will not match)\n", env->active_tc.PC);
+                } else if (rw == 0x0) {
+                    printf("load access fault %016lX (pc will not match)\n", env->active_tc.PC);
+                }
+*/
+
                 return TLBRET_NOMATCH;
 //                exit(0);
             } else if (ptd & 0x2) { 
@@ -161,6 +174,7 @@ static void raise_mmu_exception(CPUMIPSState *env, target_ulong address,
         exit(0);
         break;
     }
+//    printf("excp: %x\n", exception);
     cs->exception_index = exception;
 }
 
@@ -263,19 +277,27 @@ static const char * const excp_names[EXCP_LAST + 1] = {
     [EXCP_CACHE] = "cache error",
 };
 
+static const char * const riscv_excp_names[13] = {
+    "instruction_address_misaligned",
+    "instruction_access_fault",
+    "illegal_instruction",
+    "privileged_instruction",
+    "fp_disabled",
+    "UNUSED",
+    "syscall",
+    "breakpoint",
+    "load_address_misaligned",
+    "store_address_misaligned",
+    "load_access_fault",
+    "store_access_fault",
+    "accelerator_disabled",
+};
+
+
 target_ulong exception_resume_pc (CPUMIPSState *env)
 {
     target_ulong bad_pc;
-    target_ulong isa_mode;
-
-    isa_mode = !!(env->hflags & MIPS_HFLAG_M16);
-    bad_pc = env->active_tc.PC | isa_mode;
-    if (env->hflags & MIPS_HFLAG_BMASK) {
-        /* If the exception was raised from a delay slot, come back to
-           the jump.  */
-        bad_pc -= (env->hflags & MIPS_HFLAG_B16 ? 2 : 4);
-    }
-
+    bad_pc = env->active_tc.PC;
     return bad_pc;
 }
 
@@ -289,6 +311,11 @@ void mips_cpu_do_interrupt(CPUState *cs)
 {
     MIPSCPU *cpu = MIPS_CPU(cs);
     CPUMIPSState *env = &cpu->env;
+
+    bool deb_inter = true;
+    if (deb_inter) {
+        printf("core   0: exception trap_%s, epc 0x%016lx\n", riscv_excp_names[cs->exception_index], env->active_tc.PC);
+    }
 
     // Store Cause in CSR_CAUSE. this comes from cs->exception_index
     env->active_tc.csr[CSR_CAUSE] = cs->exception_index;
@@ -318,9 +345,10 @@ void mips_cpu_do_interrupt(CPUState *cs)
     }
 
     // Store original PC to epc reg
-    // TODO URGENT: this may not be correct... (since our pc doesn't update like that)
-    // could this potentially cause code to be "rerun" if active_tc.PC is not up to date?
-    env->active_tc.csr[CSR_EPC] = env->active_tc.PC; // TODO: IS THIS CORRECT?
+    // This is correct because the env->active_tc.PC value visible here is 
+    // actually the correct value, unlike other places where env->active_tc.PC
+    // may be used.
+    env->active_tc.csr[CSR_EPC] = env->active_tc.PC;
 
     // FINALLY, set PC to value in evec register and return
     env->active_tc.PC = env->active_tc.csr[CSR_EVEC];

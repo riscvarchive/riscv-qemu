@@ -1,19 +1,8 @@
-Unsolved issues/bugs in the mips/mipsel backend
+Notes for RISCV, adapted from the MIPS TODO
 -----------------------------------------------
 
 General
 -------
-- Unimplemented ASEs:
-  - MDMX
-  - SmartMIPS
-  - microMIPS DSP r1 & r2 encodings
-- MT ASE only partially implemented and not functional
-- Shadow register support only partially implemented,
-  lacks set switching on interrupt/exception.
-- 34K ITC not implemented.
-- A general lack of documentation, especially for technical internals.
-  Existing documentation is x86-centric.
-- Reverse endianness bit not implemented
 - The TLB emulation is very inefficient:
   QEMU's softmmu implements a x86-style MMU, with separate entries
   for read/write/execute, a TLB index which is just a modulo of the
@@ -27,22 +16,9 @@ General
   To cope with these differences, QEMU currently flushes the TLB at
   each ASID change. Using the MMU modes to implement ASIDs hinges on
   implementing the global bit efficiently.
-- save/restore of the CPU state is not implemented (see machine.c).
+- save/restore of the CPU state is not implemented (see machine.c). -- WHERE IS THIS USED?
 
-MIPS64
-------
-- Userland emulation (both n32 and n64) not functional.
-
-"Generic" 4Kc system emulation
-------------------------------
-- Doesn't correspond to any real hardware. Should be removed some day,
-  U-Boot is the last remaining user.
-
-PICA 61 system emulation
-------------------------
-- No framebuffer support yet.
-
-MALTA system emulation
+MALTA system emulation (simulated RISCV board is based off of hw/mips_malta.c)
 ----------------------
 - We fake firmware support instead of doing the real thing
 - Real firmware (YAMON) falls over when trying to init RAM, presumably
