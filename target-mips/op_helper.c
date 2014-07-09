@@ -171,63 +171,6 @@ target_ulong helper_mulsu(CPUMIPSState *env, target_ulong arg1,
 
 }*/
 
-#ifndef CONFIG_USER_ONLY
-
-static inline hwaddr do_translate_address(CPUMIPSState *env,
-                                                      target_ulong address,
-                                                      int rw)
-{
-    hwaddr lladdr;
-
-    lladdr = cpu_mips_translate_address(env, address, rw);
-
-    if (lladdr == -1LL) {
-        cpu_loop_exit(CPU(mips_env_get_cpu(env)));
-    } else {
-        return lladdr;
-    }
-}
-
-#define HELPER_LD_ATOMIC(name, insn)                                          \
-target_ulong helper_##name(CPUMIPSState *env, target_ulong arg, int mem_idx)  \
-{                                                                             \
-    env->lladdr = do_translate_address(env, arg, 0);                          \
-    env->llval = do_##insn(env, arg, mem_idx);                                \
-    return env->llval;                                                        \
-}
-HELPER_LD_ATOMIC(ll, lw)
-#ifdef TARGET_MIPS64
-HELPER_LD_ATOMIC(lld, ld)
-#endif
-#undef HELPER_LD_ATOMIC
-
-#define HELPER_ST_ATOMIC(name, ld_insn, st_insn, almask)                      \
-target_ulong helper_##name(CPUMIPSState *env, target_ulong arg1,              \
-                           target_ulong arg2, int mem_idx)                    \
-{                                                                             \
-    target_long tmp;                                                          \
-                                                                              \
-    if (arg2 & almask) {                                                      \
-        env->CP0_BadVAddr = arg2;                                             \
-        printf("GOT HERE GOT HERE WAT WAT\n");                                \
-        helper_raise_exception(env, EXCP_AdES);                               \
-    }                                                                         \
-    if (do_translate_address(env, arg2, 1) == env->lladdr) {                  \
-        tmp = do_##ld_insn(env, arg2, mem_idx);                               \
-        if (tmp == env->llval) {                                              \
-            do_##st_insn(env, arg2, arg1, mem_idx);                           \
-            return 1;                                                         \
-        }                                                                     \
-    }                                                                         \
-    return 0;                                                                 \
-}
-HELPER_ST_ATOMIC(sc, lw, sw, 0x3)
-#ifdef TARGET_MIPS64
-HELPER_ST_ATOMIC(scd, ld, sd, 0x7)
-#endif
-#undef HELPER_ST_ATOMIC
-#endif
-
 #ifdef TARGET_WORDS_BIGENDIAN
 #define GET_LMASK(v) ((v) & 3)
 #define GET_OFFSET(addr, offset) (addr + (offset))

@@ -183,6 +183,7 @@ static void raise_mmu_exception(CPUMIPSState *env, target_ulong address,
         break;
     default:
         // currently unhandled for RISCV
+        printf("encountered unknown mmu fault in helper.c:raise_mmu_exception\n");
         exit(0);
         break;
     }
@@ -251,32 +252,6 @@ int mips_cpu_handle_mmu_fault(CPUState *cs, vaddr address, int rw,
 
     return ret;
 }
-
-#if !defined(CONFIG_USER_ONLY)
-hwaddr cpu_mips_translate_address(CPUMIPSState *env, target_ulong address, int rw)
-{
-    hwaddr physical;
-    int prot;
-    int access_type;
-    int ret = 0;
-
-    printf("cpu_mips_translate_address\n");
-    printf("rw before: %x\n", rw);
-    rw &= 1;
-    printf("rw after: %x\n", rw);
-
-    /* data access */
-    access_type = ACCESS_INT;
-    ret = get_physical_address(env, &physical, &prot,
-                               address, rw, access_type);
-    if (ret != TLBRET_MATCH) {
-        raise_mmu_exception(env, address, rw, ret);
-        return -1LL;
-    } else {
-        return physical;
-    }
-}
-#endif
 
 static const char * const excp_names[EXCP_LAST + 1] = {
     [EXCP_RESET] = "reset",
