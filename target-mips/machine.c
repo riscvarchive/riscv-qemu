@@ -31,19 +31,6 @@ static void save_tc(QEMUFile *f, TCState *tc)
     qemu_put_sbe32s(f, &tc->CP0_Debug_tcstatus);
 }
 
-static void save_fpu(QEMUFile *f, CPUMIPSFPUContext *fpu)
-{
-    int i;
-
-    for(i = 0; i < 32; i++)
-        qemu_put_be64s(f, &fpu->fpr[i].d);
-    qemu_put_s8s(f, &fpu->fp_status.float_detect_tininess);
-    qemu_put_s8s(f, &fpu->fp_status.float_rounding_mode);
-    qemu_put_s8s(f, &fpu->fp_status.float_exception_flags);
-    qemu_put_be32s(f, &fpu->fcr0);
-    qemu_put_be32s(f, &fpu->fcr31);
-}
-
 void cpu_save(QEMUFile *f, void *opaque)
 {
     CPUMIPSState *env = opaque;
@@ -51,9 +38,6 @@ void cpu_save(QEMUFile *f, void *opaque)
 
     /* Save active TC */
     save_tc(f, &env->active_tc);
-
-    /* Save active FPU */
-    save_fpu(f, &env->active_fpu);
 
     /* Save MVP */
     qemu_put_sbe32s(f, &env->mvp->CP0_MVPControl);
@@ -84,7 +68,6 @@ void cpu_save(QEMUFile *f, void *opaque)
 
     /* Save CPU metastate */
     qemu_put_be32s(f, &env->current_tc);
-    qemu_put_be32s(f, &env->current_fpu);
     qemu_put_sbe32s(f, &env->error_code);
     qemu_put_be32s(f, &env->hflags);
     qemu_put_betls(f, &env->btarget);
@@ -151,8 +134,6 @@ void cpu_save(QEMUFile *f, void *opaque)
     /* Save inactive TC state */
     for (i = 0; i < MIPS_SHADOW_SET_MAX; i++)
         save_tc(f, &env->tcs[i]);
-    for (i = 0; i < MIPS_FPU_MAX; i++)
-        save_fpu(f, &env->fpus[i]);
 }
 
 static void load_tc(QEMUFile *f, TCState *tc)
@@ -183,19 +164,6 @@ static void load_tc(QEMUFile *f, TCState *tc)
     qemu_get_sbe32s(f, &tc->CP0_Debug_tcstatus);
 }
 
-static void load_fpu(QEMUFile *f, CPUMIPSFPUContext *fpu)
-{
-    int i;
-
-    for(i = 0; i < 32; i++)
-        qemu_get_be64s(f, &fpu->fpr[i].d);
-    qemu_get_s8s(f, &fpu->fp_status.float_detect_tininess);
-    qemu_get_s8s(f, &fpu->fp_status.float_rounding_mode);
-    qemu_get_s8s(f, &fpu->fp_status.float_exception_flags);
-    qemu_get_be32s(f, &fpu->fcr0);
-    qemu_get_be32s(f, &fpu->fcr31);
-}
-
 int cpu_load(QEMUFile *f, void *opaque, int version_id)
 {
     CPUMIPSState *env = opaque;
@@ -207,9 +175,6 @@ int cpu_load(QEMUFile *f, void *opaque, int version_id)
 
     /* Load active TC */
     load_tc(f, &env->active_tc);
-
-    /* Load active FPU */
-    load_fpu(f, &env->active_fpu);
 
     /* Load MVP */
     qemu_get_sbe32s(f, &env->mvp->CP0_MVPControl);
@@ -241,7 +206,6 @@ int cpu_load(QEMUFile *f, void *opaque, int version_id)
 
     /* Load CPU metastate */
     qemu_get_be32s(f, &env->current_tc);
-    qemu_get_be32s(f, &env->current_fpu);
     qemu_get_sbe32s(f, &env->error_code);
     qemu_get_be32s(f, &env->hflags);
     qemu_get_betls(f, &env->btarget);
@@ -308,9 +272,6 @@ int cpu_load(QEMUFile *f, void *opaque, int version_id)
     /* Load inactive TC state */
     for (i = 0; i < MIPS_SHADOW_SET_MAX; i++)
         load_tc(f, &env->tcs[i]);
-    for (i = 0; i < MIPS_FPU_MAX; i++)
-        load_fpu(f, &env->fpus[i]);
-
     /* XXX: ensure compatibility for halted bit ? */
     tlb_flush(CPU(cpu), 1);
     return 0;

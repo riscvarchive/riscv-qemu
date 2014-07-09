@@ -13,10 +13,10 @@
 #include "qemu-common.h"
 #include "mips-defs.h"
 #include "exec/cpu-defs.h"
-#include "fpu/softfloat.h"
 
 struct CPUMIPSState;
 
+// TODO LOOK HERE FOR TLB SETTINGS
 typedef struct r4k_tlb_t r4k_tlb_t;
 struct r4k_tlb_t {
     target_ulong VPN;
@@ -109,59 +109,6 @@ struct CPUMIPSTLBContext {
 };
 #endif
 
-typedef union fpr_t fpr_t;
-union fpr_t {
-    float64  fd;   /* ieee double precision */
-    float32  fs[2];/* ieee single precision */
-    uint64_t d;    /* binary double fixed-point */
-    uint32_t w[2]; /* binary single fixed-point */
-};
-/* define FP_ENDIAN_IDX to access the same location
- * in the fpr_t union regardless of the host endianness
- */
-#if defined(HOST_WORDS_BIGENDIAN)
-#  define FP_ENDIAN_IDX 1
-#else
-#  define FP_ENDIAN_IDX 0
-#endif
-
-typedef struct CPUMIPSFPUContext CPUMIPSFPUContext;
-struct CPUMIPSFPUContext {
-    /* Floating point registers */
-    fpr_t fpr[32];
-    float_status fp_status;
-    /* fpu implementation/revision register (fir) */
-    uint32_t fcr0;
-#define FCR0_UFRP 28
-#define FCR0_F64 22
-#define FCR0_L 21
-#define FCR0_W 20
-#define FCR0_3D 19
-#define FCR0_PS 18
-#define FCR0_D 17
-#define FCR0_S 16
-#define FCR0_PRID 8
-#define FCR0_REV 0
-    /* fcsr */
-    uint32_t fcr31;
-#define SET_FP_COND(num,env)     do { ((env).fcr31) |= ((num) ? (1 << ((num) + 24)) : (1 << 23)); } while(0)
-#define CLEAR_FP_COND(num,env)   do { ((env).fcr31) &= ~((num) ? (1 << ((num) + 24)) : (1 << 23)); } while(0)
-#define GET_FP_COND(env)         ((((env).fcr31 >> 24) & 0xfe) | (((env).fcr31 >> 23) & 0x1))
-#define GET_FP_CAUSE(reg)        (((reg) >> 12) & 0x3f)
-#define GET_FP_ENABLE(reg)       (((reg) >>  7) & 0x1f)
-#define GET_FP_FLAGS(reg)        (((reg) >>  2) & 0x1f)
-#define SET_FP_CAUSE(reg,v)      do { (reg) = ((reg) & ~(0x3f << 12)) | ((v & 0x3f) << 12); } while(0)
-#define SET_FP_ENABLE(reg,v)     do { (reg) = ((reg) & ~(0x1f <<  7)) | ((v & 0x1f) << 7); } while(0)
-#define SET_FP_FLAGS(reg,v)      do { (reg) = ((reg) & ~(0x1f <<  2)) | ((v & 0x1f) << 2); } while(0)
-#define UPDATE_FP_FLAGS(reg,v)   do { (reg) |= ((v & 0x1f) << 2); } while(0)
-#define FP_INEXACT        1
-#define FP_UNDERFLOW      2
-#define FP_OVERFLOW       4
-#define FP_DIV0           8
-#define FP_INVALID        16
-#define FP_UNIMPLEMENTED  32
-};
-
 #define NB_MMU_MODES 3
 
 typedef struct CPUMIPSMVPContext CPUMIPSMVPContext;
@@ -233,10 +180,8 @@ struct TCState {
 typedef struct CPUMIPSState CPUMIPSState;
 struct CPUMIPSState {
     TCState active_tc;
-    CPUMIPSFPUContext active_fpu;
 
     uint32_t current_tc;
-    uint32_t current_fpu;
 
     uint32_t SEGBITS;
     uint32_t PABITS;
@@ -484,7 +429,6 @@ struct CPUMIPSState {
     int32_t CP0_DESAVE;
     /* We waste some space so we can handle shadow registers like TCs. */
     TCState tcs[MIPS_SHADOW_SET_MAX];
-    CPUMIPSFPUContext fpus[MIPS_FPU_MAX];
     /* QEMU */
     int error_code;
     uint32_t hflags;    /* CPU State */
@@ -773,69 +717,5 @@ static inline int mips_vpe_active(CPUMIPSState *env)
 }
 
 #include "exec/exec-all.h"
-
-static inline void compute_hflags(CPUMIPSState *env)
-{
-    env->hflags &= ~(MIPS_HFLAG_COP1X | MIPS_HFLAG_64 | MIPS_HFLAG_CP0 |
-                     MIPS_HFLAG_F64 | MIPS_HFLAG_FPU | MIPS_HFLAG_KSU |
-                     MIPS_HFLAG_UX | MIPS_HFLAG_DSP | MIPS_HFLAG_DSPR2);
-    if (!(env->CP0_Status & (1 << CP0St_EXL)) &&
-        !(env->CP0_Status & (1 << CP0St_ERL)) &&
-        !(env->hflags & MIPS_HFLAG_DM)) {
-        env->hflags |= (env->CP0_Status >> CP0St_KSU) & MIPS_HFLAG_KSU;
-    }
-#if defined(TARGET_MIPS64)
-    if (((env->hflags & MIPS_HFLAG_KSU) != MIPS_HFLAG_UM) ||
-        (env->CP0_Status & (1 << CP0St_PX)) ||
-        (env->CP0_Status & (1 << CP0St_UX))) {
-        env->hflags |= MIPS_HFLAG_64;
-    }
-    if (env->CP0_Status & (1 << CP0St_UX)) {
-        env->hflags |= MIPS_HFLAG_UX;
-    }
-#endif
-    if ((env->CP0_Status & (1 << CP0St_CU0)) ||
-        !(env->hflags & MIPS_HFLAG_KSU)) {
-        env->hflags |= MIPS_HFLAG_CP0;
-    }
-    if (env->CP0_Status & (1 << CP0St_CU1)) {
-        env->hflags |= MIPS_HFLAG_FPU;
-    }
-    if (env->CP0_Status & (1 << CP0St_FR)) {
-        env->hflags |= MIPS_HFLAG_F64;
-    }
-    if (env->insn_flags & ASE_DSPR2) {
-        /* Enables access MIPS DSP resources, now our cpu is DSP ASER2,
-           so enable to access DSPR2 resources. */
-        if (env->CP0_Status & (1 << CP0St_MX)) {
-            env->hflags |= MIPS_HFLAG_DSP | MIPS_HFLAG_DSPR2;
-        }
-
-    } else if (env->insn_flags & ASE_DSP) {
-        /* Enables access MIPS DSP resources, now our cpu is DSP ASE,
-           so enable to access DSP resources. */
-        if (env->CP0_Status & (1 << CP0St_MX)) {
-            env->hflags |= MIPS_HFLAG_DSP;
-        }
-
-    }
-    if (env->insn_flags & ISA_MIPS32R2) {
-        if (env->active_fpu.fcr0 & (1 << FCR0_F64)) {
-            env->hflags |= MIPS_HFLAG_COP1X;
-        }
-    } else if (env->insn_flags & ISA_MIPS32) {
-        if (env->hflags & MIPS_HFLAG_64) {
-            env->hflags |= MIPS_HFLAG_COP1X;
-        }
-    } else if (env->insn_flags & ISA_MIPS4) {
-        /* All supported MIPS IV CPUs use the XX (CU3) to enable
-           and disable the MIPS IV extensions to the MIPS III ISA.
-           Some other MIPS IV CPUs ignore the bit, so the check here
-           would be too restrictive for them.  */
-        if (env->CP0_Status & (1U << CP0St_CU3)) {
-            env->hflags |= MIPS_HFLAG_COP1X;
-        }
-    }
-}
 
 #endif /* !defined (__MIPS_CPU_H__) */

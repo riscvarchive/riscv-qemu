@@ -428,7 +428,6 @@ void helper_eret(CPUMIPSState *env)
         set_pc(env, env->CP0_EPC);
         env->CP0_Status &= ~(1 << CP0St_EXL);
     }
-    compute_hflags(env);
     debug_post_eret(env);
     env->lladdr = 1;
 }
@@ -439,7 +438,6 @@ void helper_deret(CPUMIPSState *env)
     set_pc(env, env->CP0_DEPC);
 
     env->hflags &= MIPS_HFLAG_DM;
-    compute_hflags(env);
     debug_post_eret(env);
     env->lladdr = 1;
 }

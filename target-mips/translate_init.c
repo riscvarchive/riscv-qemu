@@ -267,8 +267,6 @@ static const mips_def_t mips_defs[] =
         .CCRes = 2,
         /* No DSP implemented. */
         .CP0_Status_rw_bitmask = 0x3678FF1F,
-        .CP1_fcr0 = (1 << FCR0_F64) | (1 << FCR0_L) | (1 << FCR0_W) |
-                    (1 << FCR0_D) | (1 << FCR0_S) | (0x93 << FCR0_PRID),
         .SEGBITS = 32,
         .PABITS = 32,
         .insn_flags = CPU_MIPS32R2 | ASE_MIPS16,
@@ -297,8 +295,6 @@ static const mips_def_t mips_defs[] =
                     (1 << CP0TCSt_DA) | (1 << CP0TCSt_A) |
                     (0x3 << CP0TCSt_TKSU) | (1 << CP0TCSt_IXMT) |
                     (0xff << CP0TCSt_TASID),
-        .CP1_fcr0 = (1 << FCR0_F64) | (1 << FCR0_L) | (1 << FCR0_W) |
-                    (1 << FCR0_D) | (1 << FCR0_S) | (0x95 << FCR0_PRID),
         .CP0_SRSCtl = (0xf << CP0SRSCtl_HSS),
         .CP0_SRSConf0_rw_bitmask = 0x3fffffff,
         .CP0_SRSConf0 = (1U << CP0SRSC0_M) | (0x3fe << CP0SRSC0_SRS3) |
@@ -336,8 +332,6 @@ static const mips_def_t mips_defs[] =
         .SYNCI_Step = 32,
         .CCRes = 2,
         .CP0_Status_rw_bitmask = 0x3778FF1F,
-        .CP1_fcr0 = (1 << FCR0_F64) | (1 << FCR0_L) | (1 << FCR0_W) |
-                    (1 << FCR0_D) | (1 << FCR0_S) | (0x93 << FCR0_PRID),
         .SEGBITS = 32,
         .PABITS = 32,
         .insn_flags = CPU_MIPS32R2 | ASE_MIPS16 | ASE_DSP | ASE_DSPR2,
@@ -368,9 +362,6 @@ static const mips_def_t mips_defs[] =
         .SYNCI_Step = 32,
         .CCRes = 2,
         .CP0_Status_rw_bitmask = 0x3778FF1F,
-        .CP1_fcr0 = (1 << FCR0_UFRP) | (1 << FCR0_F64) | (1 << FCR0_L) |
-                    (1 << FCR0_W) | (1 << FCR0_D) | (1 << FCR0_S) |
-                    (0x93 << FCR0_PRID),
         .SEGBITS = 32,
         .PABITS = 32,
         .insn_flags = CPU_MIPS32R5 | ASE_MIPS16 | ASE_DSP | ASE_DSPR2,
@@ -390,7 +381,6 @@ static const mips_def_t mips_defs[] =
         .CCRes = 2,
         .CP0_Status_rw_bitmask = 0x3678FFFF,
         /* The R4000 has a full 64bit FPU but doesn't use the fcr0 bits. */
-        .CP1_fcr0 = (0x5 << FCR0_PRID) | (0x0 << FCR0_REV),
         .SEGBITS = 40,
         .PABITS = 36,
         .insn_flags = CPU_MIPS3,
@@ -408,7 +398,6 @@ static const mips_def_t mips_defs[] =
         .CCRes = 2,
         .CP0_Status_rw_bitmask = 0x3678FFFF,
         /* The VR5432 has a full 64bit FPU but doesn't use the fcr0 bits. */
-        .CP1_fcr0 = (0x54 << FCR0_PRID) | (0x0 << FCR0_REV),
         .SEGBITS = 40,
         .PABITS = 32,
         .insn_flags = CPU_VR54XX,
@@ -452,8 +441,6 @@ static const mips_def_t mips_defs[] =
         .CCRes = 2,
         .CP0_Status_rw_bitmask = 0x36F8FFFF,
         /* The 5Kf has F64 / L / W but doesn't use the fcr0 bits. */
-        .CP1_fcr0 = (1 << FCR0_D) | (1 << FCR0_S) |
-                    (0x81 << FCR0_PRID) | (0x0 << FCR0_REV),
         .SEGBITS = 42,
         .PABITS = 36,
         .insn_flags = CPU_MIPS64,
@@ -478,9 +465,6 @@ static const mips_def_t mips_defs[] =
         .CCRes = 1,
         .CP0_Status_rw_bitmask = 0x36FBFFFF,
         /* The 20Kc has F64 / L / W but doesn't use the fcr0 bits. */
-        .CP1_fcr0 = (1 << FCR0_3D) | (1 << FCR0_PS) |
-                    (1 << FCR0_D) | (1 << FCR0_S) |
-                    (0x82 << FCR0_PRID) | (0x0 << FCR0_REV),
         .SEGBITS = 40,
         .PABITS = 36,
         .insn_flags = CPU_MIPS64 | ASE_MIPS3D,
@@ -504,9 +488,6 @@ static const mips_def_t mips_defs[] =
         .SYNCI_Step = 32,
         .CCRes = 2,
         .CP0_Status_rw_bitmask = 0x36FBFFFF,
-        .CP1_fcr0 = (1 << FCR0_F64) | (1 << FCR0_3D) | (1 << FCR0_PS) |
-                    (1 << FCR0_L) | (1 << FCR0_W) | (1 << FCR0_D) |
-                    (1 << FCR0_S) | (0x00 << FCR0_PRID) | (0x0 << FCR0_REV),
         .SEGBITS = 42,
         /* The architectural limit is 59, but we have hardcoded 36 bit
            in some places...
@@ -526,8 +507,6 @@ static const mips_def_t mips_defs[] =
         .SYNCI_Step = 16,
         .CCRes = 2,
         .CP0_Status_rw_bitmask = 0x35D0FFFF,
-        .CP1_fcr0 = (0x5 << FCR0_PRID) | (0x1 << FCR0_REV),
-        .SEGBITS = 40,
         .PABITS = 40,
         .insn_flags = CPU_LOONGSON2E,
         .mmu_type = MMU_TYPE_R4000,
@@ -543,7 +522,6 @@ static const mips_def_t mips_defs[] =
       .SYNCI_Step = 16,
       .CCRes = 2,
       .CP0_Status_rw_bitmask = 0xF5D0FF1F,   /*bit5:7 not writable*/
-      .CP1_fcr0 = (0x5 << FCR0_PRID) | (0x1 << FCR0_REV),
       .SEGBITS = 40,
       .PABITS = 40,
       .insn_flags = CPU_LOONGSON2F,
@@ -567,9 +545,6 @@ static const mips_def_t mips_defs[] =
         .SYNCI_Step = 32,
         .CCRes = 2,
         .CP0_Status_rw_bitmask = 0x37FBFFFF,
-        .CP1_fcr0 = (1 << FCR0_F64) | (1 << FCR0_3D) | (1 << FCR0_PS) |
-                    (1 << FCR0_L) | (1 << FCR0_W) | (1 << FCR0_D) |
-                    (1 << FCR0_S) | (0x00 << FCR0_PRID) | (0x0 << FCR0_REV),
         .SEGBITS = 42,
         /* The architectural limit is 59, but we have hardcoded 36 bit
            in some places...
@@ -630,16 +605,6 @@ static void mmu_init (CPUMIPSState *env, const mips_def_t *def)
     }
 }
 #endif /* CONFIG_USER_ONLY */
-
-static void fpu_init (CPUMIPSState *env, const mips_def_t *def)
-{
-    int i;
-
-    for (i = 0; i < MIPS_FPU_MAX; i++)
-        env->fpus[i].fcr0 = def->CP1_fcr0;
-
-    memcpy(&env->active_fpu, &env->fpus[0], sizeof(env->active_fpu));
-}
 
 static void mvp_init (CPUMIPSState *env, const mips_def_t *def)
 {

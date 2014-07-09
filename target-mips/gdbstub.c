@@ -32,18 +32,16 @@ int mips_cpu_gdb_read_register(CPUState *cs, uint8_t *mem_buf, int n)
     if (env->CP0_Config1 & (1 << CP0C1_FP)) {
         if (n >= 38 && n < 70) {
             if (env->CP0_Status & (1 << CP0St_FR)) {
-                return gdb_get_regl(mem_buf,
-                    env->active_fpu.fpr[n - 38].d);
+                return 0;
             } else {
-                return gdb_get_regl(mem_buf,
-                    env->active_fpu.fpr[n - 38].w[FP_ENDIAN_IDX]);
+                return 0;
             }
         }
         switch (n) {
         case 70:
-            return gdb_get_regl(mem_buf, (int32_t)env->active_fpu.fcr31);
+            return 0;
         case 71:
-            return gdb_get_regl(mem_buf, (int32_t)env->active_fpu.fcr0);
+            return 0;
         }
     }
     switch (n) {
@@ -73,17 +71,6 @@ int mips_cpu_gdb_read_register(CPUState *cs, uint8_t *mem_buf, int n)
     return 0;
 }
 
-/* convert MIPS rounding mode in FCR31 to IEEE library */
-static unsigned int ieee_rm[] = {
-    float_round_nearest_even,
-    float_round_to_zero,
-    float_round_up,
-    float_round_down
-};
-#define RESTORE_ROUNDING_MODE \
-    set_float_rounding_mode(ieee_rm[env->active_fpu.fcr31 & 3], \
-                            &env->active_fpu.fp_status)
-
 int mips_cpu_gdb_write_register(CPUState *cs, uint8_t *mem_buf, int n)
 {
     MIPSCPU *cpu = MIPS_CPU(cs);
@@ -98,21 +85,10 @@ int mips_cpu_gdb_write_register(CPUState *cs, uint8_t *mem_buf, int n)
     }
     if (env->CP0_Config1 & (1 << CP0C1_FP)
             && n >= 38 && n < 73) {
-        if (n < 70) {
-            if (env->CP0_Status & (1 << CP0St_FR)) {
-                env->active_fpu.fpr[n - 38].d = tmp;
-            } else {
-                env->active_fpu.fpr[n - 38].w[FP_ENDIAN_IDX] = tmp;
-            }
-        }
         switch (n) {
         case 70:
-            env->active_fpu.fcr31 = tmp & 0xFF83FFFF;
-            /* set rounding mode */
-            RESTORE_ROUNDING_MODE;
             break;
         case 71:
-            env->active_fpu.fcr0 = tmp;
             break;
         }
         return sizeof(target_ulong);
