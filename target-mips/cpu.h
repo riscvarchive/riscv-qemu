@@ -557,10 +557,6 @@ struct CPUMIPSState {
 #include "cpu-qom.h"
 
 #if !defined(CONFIG_USER_ONLY)
-int no_mmu_map_address (CPUMIPSState *env, hwaddr *physical, int *prot,
-                        target_ulong address, int rw, int access_type);
-int fixed_mmu_map_address (CPUMIPSState *env, hwaddr *physical, int *prot,
-                           target_ulong address, int rw, int access_type);
 int r4k_map_address (CPUMIPSState *env, hwaddr *physical, int *prot,
                      target_ulong address, int rw, int access_type);
 void r4k_helper_tlbwi(CPUMIPSState *env);

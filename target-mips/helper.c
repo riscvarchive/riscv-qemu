@@ -35,36 +35,10 @@ enum {
 
 #if !defined(CONFIG_USER_ONLY)
 
-/* no MMU emulation */
-int no_mmu_map_address (CPUMIPSState *env, hwaddr *physical, int *prot,
-                        target_ulong address, int rw, int access_type)
-{
-    *physical = address;
-    *prot = PAGE_READ | PAGE_WRITE;
-    return TLBRET_MATCH;
-}
-
-/* fixed mapping MMU emulation */
-int fixed_mmu_map_address (CPUMIPSState *env, hwaddr *physical, int *prot,
-                           target_ulong address, int rw, int access_type)
-{
-    if (address <= (int32_t)0x7FFFFFFFUL) {
-        if (!(env->CP0_Status & (1 << CP0St_ERL)))
-            *physical = address + 0x40000000UL;
-        else
-            *physical = address;
-    } else if (address <= (int32_t)0xBFFFFFFFUL)
-        *physical = address & 0x1FFFFFFF;
-    else
-        *physical = address;
-
-    *prot = PAGE_READ | PAGE_WRITE;
-    return TLBRET_MATCH;
-}
-
 int r4k_map_address (CPUMIPSState *env, hwaddr *physical, int *prot,
                      target_ulong address, int rw, int access_type)
 {
+    printf("this was called");
     // TODO TLB
 /*    uint8_t ASID = env->CP0_EntryHi & 0xFF;
     int i;
@@ -126,6 +100,13 @@ static int get_physical_address (CPUMIPSState *env, hwaddr *physical,
             *prot = PAGE_READ | PAGE_WRITE | PAGE_EXEC;
             return ret;
         }
+        if (address < 0x2000) {
+            *physical = address;
+            *prot = PAGE_READ | PAGE_WRITE | PAGE_EXEC;
+            return ret;
+        }
+
+
 /*        if ((address == 0xb)) {
             *physical = address;
             *prot = PAGE_READ | PAGE_WRITE | PAGE_EXEC;
