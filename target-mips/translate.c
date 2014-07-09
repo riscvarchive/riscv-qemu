@@ -351,9 +351,11 @@ static inline void gen_save_pc(target_ulong pc)
 void kill_unknown(DisasContext *ctx, int excp) {
     TCGv s1;
     if (excp == RISCV_EXCP_FP_DISABLED) {
-        printf("FP INSTRUCTION at addr 0x" TARGET_FMT_lx ", opcode 0x%x\n", ctx->pc, ctx->opcode);
+        printf("       FP INSTRUCTION at addr 0x" TARGET_FMT_lx ", opcode 0x%x\n", ctx->pc, ctx->opcode);
+    } else if (excp == RISCV_EXCP_SCALL) {
+        printf("       SCALL at addr 0x" TARGET_FMT_lx ", opcode 0x%x\n", ctx->pc, ctx->opcode);
     } else {
-        printf("ILLEGAL INSTRUCTION at addr 0x" TARGET_FMT_lx ", opcode 0x%x\n", ctx->pc, ctx->opcode);
+        printf("       ILLEGAL INSTRUCTION at addr 0x" TARGET_FMT_lx ", opcode 0x%x\n", ctx->pc, ctx->opcode);
     }
 
     // TODO
@@ -1489,95 +1491,16 @@ static void gen_system(DisasContext *ctx, uint32_t opc,
 
     case OPC_RISC_SCALL:
         switch (backup_csr) {
-            case 0x0:
-                // SCALL
-//                gen_helper_riscv_exception(cpu_env, RISCV_EXCP_SCALL);
-
-                // TODO: add save_cpu_state
-/*                tcg_gen_movi_tl(cpu_PC, ctx->pc);
-                ctx->saved_pc = ctx->pc;
-                gen_helper_0e0i(riscv_exception, RISCV_EXCP_SCALL);
-                ctx->bstate = BS_STOP;*/
-                // try custom implementation
-/*
-                // very hacky for now, but just a test
-                tcg_gen_movi_tl(cpu_csr[CSR_CAUSE], RISCV_EXCP_SCALL);
-                // S should be disabled, so just set PS off...
-                tcg_gen_andi_tl(cpu_csr[CSR_STATUS], cpu_csr[CSR_STATUS], ~((uint64_t)SR_PS));
-                tcg_gen_ori_tl(cpu_csr[CSR_STATUS], cpu_csr[CSR_STATUS], SR_S);
-
-                tcg_gen_andi_tl(cpu_csr[CSR_STATUS], cpu_csr[CSR_STATUS], ~((uint64_t)SR_EI));
-                tcg_gen_ori_tl(cpu_csr[CSR_STATUS], cpu_csr[CSR_STATUS], SR_PEI);
-
-                tcg_gen_movi_tl(cpu_csr[CSR_EPC], ctx->pc);
-
-                tcg_gen_mov_tl(cpu_PC, cpu_csr[CSR_EVEC]);
-                tcg_gen_exit_tb(0);
-                ctx->bstate = BS_BRANCH;
-
-                */
-                {
-                   TCGv s1;
-
-                // very hacky for now, but just a test
-                tcg_gen_movi_tl(cpu_csr[CSR_CAUSE], RISCV_EXCP_SCALL);
-                // S should be disabled, so just set PS off...
-/*                tcg_gen_andi_tl(cpu_csr[CSR_STATUS], cpu_csr[CSR_STATUS], ~((uint64_t)SR_PS));
-                tcg_gen_ori_tl(cpu_csr[CSR_STATUS], cpu_csr[CSR_STATUS], SR_S);
-
-
-
-
-
-
-                tcg_gen_andi_tl(cpu_csr[CSR_STATUS], cpu_csr[CSR_STATUS], ~((uint64_t)SR_EI));
-                tcg_gen_ori_tl(cpu_csr[CSR_STATUS], cpu_csr[CSR_STATUS], SR_PEI);
-
-*/
-
-
-                     s1 = tcg_temp_local_new();
-
-                    int turn_off_ps = gen_new_label();
-                    int turn_off_pei = gen_new_label();
-                    int next = gen_new_label();
-                    int done = gen_new_label();
-
-                    // first, handle S/PS stack
-                    tcg_gen_andi_tl(s1, cpu_csr[CSR_STATUS], SR_S);
-                    tcg_gen_brcondi_tl(TCG_COND_EQ, s1, 0x0, turn_off_ps);
-                    // here, set SR_S
-                    tcg_gen_ori_tl(cpu_csr[CSR_STATUS], cpu_csr[CSR_STATUS], SR_PS);
-                    tcg_gen_br(next); // jump to next
-                    gen_set_label(turn_off_ps);
-                    // here, turn off SR_S
-                    tcg_gen_andi_tl(cpu_csr[CSR_STATUS], cpu_csr[CSR_STATUS], ~SR_PS);
-                    gen_set_label(next); // now handle EI/PEI stack
-
-                    tcg_gen_andi_tl(s1, cpu_csr[CSR_STATUS], SR_EI);
-                    tcg_gen_brcondi_tl(TCG_COND_EQ, s1, 0x0, turn_off_pei);
-                    // here, set SR_EI
-                    tcg_gen_ori_tl(cpu_csr[CSR_STATUS], cpu_csr[CSR_STATUS], SR_PEI);
-                    tcg_gen_br(done); // jump to done
-                    gen_set_label(turn_off_pei);
-                    tcg_gen_andi_tl(cpu_csr[CSR_STATUS], cpu_csr[CSR_STATUS], ~SR_PEI);
-
-                tcg_gen_movi_tl(cpu_csr[CSR_EPC], ctx->pc);
-
-                tcg_gen_mov_tl(cpu_PC, cpu_csr[CSR_EVEC]);
-                tcg_gen_exit_tb(0);
-                ctx->bstate = BS_BRANCH;
-
-                }
+            case 0x0: // SCALL
+                // use kill_unknown to generate syscall
+                kill_unknown(ctx, RISCV_EXCP_SCALL);
                 break;
 
-            case 0x1:
-                // SBREAK
+            case 0x1: // SBREAK
                 kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
                 break;
 
-            case 0x800:
-                // SRET
+            case 0x800: // SRET
                 {
                     TCGv s1;
                     s1 = tcg_temp_local_new();
@@ -1595,7 +1518,7 @@ static void gen_system(DisasContext *ctx, uint32_t opc,
                     tcg_gen_br(next); // jump to next
                     gen_set_label(turn_off_s);
                     // here, turn off SR_S
-                    tcg_gen_andi_tl(cpu_csr[CSR_STATUS], cpu_csr[CSR_STATUS], ~SR_S);
+                    tcg_gen_andi_tl(cpu_csr[CSR_STATUS], cpu_csr[CSR_STATUS], ~((uint64_t)SR_S));
                     gen_set_label(next); // now handle EI/PEI stack
 
                     tcg_gen_andi_tl(s1, cpu_csr[CSR_STATUS], SR_PEI);
@@ -1604,8 +1527,7 @@ static void gen_system(DisasContext *ctx, uint32_t opc,
                     tcg_gen_ori_tl(cpu_csr[CSR_STATUS], cpu_csr[CSR_STATUS], SR_EI);
                     tcg_gen_br(done); // jump to done
                     gen_set_label(turn_off_ei);
-                    tcg_gen_andi_tl(cpu_csr[CSR_STATUS], cpu_csr[CSR_STATUS], ~SR_EI);
-
+                    tcg_gen_andi_tl(cpu_csr[CSR_STATUS], cpu_csr[CSR_STATUS], ~((uint64_t)SR_EI));
                     gen_set_label(done); // finish up
                     tcg_gen_mov_tl(cpu_PC, cpu_csr[CSR_EPC]);
                     tcg_gen_exit_tb(0); // no chaining
@@ -1762,7 +1684,7 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
     }
 
     /* TODO: TEMP HACK TO SEE IF TESTS PASS/FAIL */
-
+/*
     if (ctx->opcode == 0x51e0d073) {
         printf("SUCCESS\n");
         exit(0);
@@ -1770,7 +1692,7 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
         printf("FAIL\n");
         exit(0);
     }
-
+*/
     op = MASK_OP_MAJOR(ctx->opcode);
     rs1 = (ctx->opcode >> 15) & 0x1f;
     rs2 = (ctx->opcode >> 20) & 0x1f;

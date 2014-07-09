@@ -107,6 +107,12 @@ static int get_physical_address (CPUMIPSState *env, hwaddr *physical,
 {
     // TODO: implement permissions checking, page faults
 
+
+    // flush TLB
+/*    MIPSCPU *cpu = mips_env_get_cpu(env);
+    tlb_flush(CPU(cpu), 1); */
+
+
     // first, check if VM is on:
     int vm_on = env->active_tc.csr[CSR_STATUS] & SR_VM; // check if vm on
     int ret = TLBRET_MATCH; // need to change this later probably
@@ -117,9 +123,19 @@ static int get_physical_address (CPUMIPSState *env, hwaddr *physical,
         // handle translation
         if ((address >= 0x3f8) && (address <= 0x400)) {
             *physical = address;
-            *prot = PAGE_READ | PAGE_WRITE;
+            *prot = PAGE_READ | PAGE_WRITE | PAGE_EXEC;
             return ret;
         }
+/*        if ((address == 0xb)) {
+            *physical = address;
+            *prot = PAGE_READ | PAGE_WRITE | PAGE_EXEC;
+            return ret;
+        }
+*/
+
+
+
+
         CPUState *cs = CPU(mips_env_get_cpu(env));
         uint64_t pte = 0; 
         uint64_t base = env->active_tc.csr[CSR_PTBR];
@@ -137,12 +153,12 @@ static int get_physical_address (CPUMIPSState *env, hwaddr *physical,
            
             if (!(ptd & 0x1)) {
 //                printf("INVALID MAPPING (should really page fault)\n");
-                printf("input vaddr: %016lX\n", address);
+                printf("          input vaddr: %016lX\n", address);
 //                printf("reached walk iter: %d\n", (int)i);
-                printf("access type: %x\n", access_type);
-                printf("access rw val: %x\n", rw);
-                printf("currentPC %016lX\n", env->active_tc.PC);
-                printf("---");
+                printf("          access type: %x\n", access_type);
+                printf("          access rw val: %x\n", rw);
+                printf("          currentPC %016lX\n", env->active_tc.PC);
+                printf("          ---\n");
                 return TLBRET_NOMATCH;
 //                exit(0);
             } else if (ptd & 0x2) { 
