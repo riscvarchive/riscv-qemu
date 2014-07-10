@@ -57,8 +57,8 @@ static int get_physical_address (CPUMIPSState *env, hwaddr *physical,
 
 
     // flush TLB
-/*    MIPSCPU *cpu = mips_env_get_cpu(env);
-    tlb_flush(CPU(cpu), 1); */
+//    MIPSCPU *cpu = mips_env_get_cpu(env);
+//    tlb_flush(CPU(cpu), 1); 
 
 
     // first, check if VM is on:
@@ -69,17 +69,17 @@ static int get_physical_address (CPUMIPSState *env, hwaddr *physical,
         *prot = PAGE_READ | PAGE_WRITE | PAGE_EXEC;
     } else {
         // handle translation
-/*        if ((address >= 0x3f8) && (address <= 0x400)) {
+        if ((address >= 0x3f8) && (address <= 0x400)) {
             *physical = address;
             *prot = PAGE_READ | PAGE_WRITE | PAGE_EXEC;
             return ret;
-        } */
+        } /*
         if (address < 0x2000) { // IO hole
             *physical = address;
             *prot = PAGE_READ | PAGE_WRITE | PAGE_EXEC;
             return ret;
         }
-
+*/
 
 /*        if ((address == 0xb)) {
             *physical = address;
@@ -118,14 +118,6 @@ static int get_physical_address (CPUMIPSState *env, hwaddr *physical,
                 /* NOTE: the env->active_tc.PC value visible here will not be
                  * correct, but the value visible to the exception handler 
                  * (mips_cpu_do_interrupt) is correct */
-/*                if (rw == 0x2) {
-                    printf("core   0: exception trap_instruction_access_fault, epc 0x%016lX\n", env->active_tc.PC);
-                } else if (rw == 0x1) {
-                    printf("core   0: exception trap_store_access_fault, epc 0x%016lX (pc will not match)\n", env->active_tc.PC);
-                } else if (rw == 0x0) {
-                    printf("load access fault %016lX (pc will not match)\n", env->active_tc.PC);
-                }
-*/
 
                 return TLBRET_NOMATCH;
 //                exit(0);
@@ -144,6 +136,9 @@ static int get_physical_address (CPUMIPSState *env, hwaddr *physical,
         *prot = PAGE_EXEC | PAGE_READ | PAGE_WRITE;
 
 //        asm("int3"); // trigger breakpoint in GDB
+    }
+    if ((*physical) == 0) {
+        printf("PHYS0 vaddr: %016lX\n", address);
     }
     return ret;
 }
@@ -312,12 +307,15 @@ void mips_cpu_do_interrupt(CPUState *cs)
     MIPSCPU *cpu = MIPS_CPU(cs);
     CPUMIPSState *env = &cpu->env;
 
+    printf("%d\n", cs->exception_index);
+
     bool deb_inter = true;
     if (deb_inter) {
         if (!(cs->exception_index & (0x1 << 31))) {
             printf("core   0: exception trap_%s, epc 0x%016lx\n", riscv_excp_names[cs->exception_index], env->active_tc.PC);
         } else {
-           // printf("SERIAL INTERRUPT");
+            // printf("SERIAL INTERRUPT");
+            printf("serial interrupt, epc 0x%016lx\n", env->active_tc.PC);
         }
     }
 
@@ -351,7 +349,7 @@ void mips_cpu_do_interrupt(CPUState *cs)
 
     // If trap is misaligned address or access fault,
     // set badvaddr to faulting address. this will be in env->CP0_BadVAddr
-    if (set_badvaddr(cs->exception_index) & (!(cs->exception_index & (0x1 << 31)))) {
+    if ((set_badvaddr(cs->exception_index)) && (!(cs->exception_index & (0x1 << 31)))) {
         env->active_tc.csr[CSR_BADVADDR] = env->CP0_BadVAddr;
     }
 
