@@ -314,11 +314,22 @@ void mips_cpu_do_interrupt(CPUState *cs)
 
     bool deb_inter = true;
     if (deb_inter) {
-        printf("core   0: exception trap_%s, epc 0x%016lx\n", riscv_excp_names[cs->exception_index], env->active_tc.PC);
+        if (!(cs->exception_index & (0x1 << 31))) {
+            printf("core   0: exception trap_%s, epc 0x%016lx\n", riscv_excp_names[cs->exception_index], env->active_tc.PC);
+        } else {
+           // printf("SERIAL INTERRUPT");
+        }
     }
 
     // Store Cause in CSR_CAUSE. this comes from cs->exception_index
-    env->active_tc.csr[CSR_CAUSE] = cs->exception_index;
+    if (cs->exception_index & (0x1 << 31)) {
+        // hacky for now. the MSB (bit 63) indicates interrupt but cs->exception 
+        // index is only 32 bits wide
+        env->active_tc.csr[CSR_CAUSE] = cs->exception_index & 0x1F;
+        env->active_tc.csr[CSR_CAUSE] |= (1L << 63);
+    } else {
+        env->active_tc.csr[CSR_CAUSE] = cs->exception_index;
+    }
 
     // Manage the PS/S Stack: CSR_STATUS[SR_PS] = CSR_STATUS[SR_S], 
     // CSR_STATUS[SR_S] = 1 // enable supervisor
@@ -340,7 +351,7 @@ void mips_cpu_do_interrupt(CPUState *cs)
 
     // If trap is misaligned address or access fault,
     // set badvaddr to faulting address. this will be in env->CP0_BadVAddr
-    if (set_badvaddr(cs->exception_index)) {
+    if (set_badvaddr(cs->exception_index) & (!(cs->exception_index & (0x1 << 31)))) {
         env->active_tc.csr[CSR_BADVADDR] = env->CP0_BadVAddr;
     }
 

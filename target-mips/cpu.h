@@ -77,6 +77,8 @@ struct r4k_tlb_t {
 #define RISCV_EXCP_STORE_ACCEL_DISABLED 0xc
 #define RISCV_EXCP_TIMER_INTERRUPT      0x7 // TODO: ALSO NEEDS interruptBit
 #define RISCV_EXCP_HOST_INTERRUPT       0x6 // TODO: ALSO NEEDS interruptBit
+#define RISCV_EXCP_SERIAL_INTERRUPT     ((0x4) | (1 << 31))
+
 
 // RISCV Status Reg Bits
 #define SR_S           0x1
@@ -542,32 +544,28 @@ static inline int cpu_mips_hw_interrupts_pending(CPUMIPSState *env)
     int32_t status;
     int r;
 
-    if (!(env->CP0_Status & (1 << CP0St_IE)) ||
-        (env->CP0_Status & (1 << CP0St_EXL)) ||
-        (env->CP0_Status & (1 << CP0St_ERL)) ||
-        /* Note that the TCStatus IXMT field is initialized to zero,
-           and only MT capable cores can set it to one. So we don't
-           need to check for MT capabilities here.  */
-        (env->active_tc.CP0_TCStatus & (1 << CP0TCSt_IXMT)) ||
-        (env->hflags & MIPS_HFLAG_DM)) {
-        /* Interrupts are disabled */
+    /* first check if interrupts are disabled */
+    if (!((env->active_tc.csr[CSR_STATUS] >> 2) & 0x1)) {
+        // interrupts disabled
         return 0;
     }
 
-    pending = env->CP0_Cause & CP0Ca_IP_mask;
-    status = env->CP0_Status & CP0Ca_IP_mask;
+    pending = (env->active_tc.csr[CSR_STATUS] >> 24) & 0xFF;
+    status = (env->active_tc.csr[CSR_STATUS] >> 16) & 0xFF;
 
-    if (env->CP0_Config3 & (1 << CP0C3_VEIC)) {
+    // TODO handle priority here?
+
+//    if (env->CP0_Config3 & (1 << CP0C3_VEIC)) {
         /* A MIPS configured with a vectorizing external interrupt controller
            will feed a vector into the Cause pending lines. The core treats
            the status lines as a vector level, not as indiviual masks.  */
-        r = pending > status;
-    } else {
+//        r = pending > status;
+//    } else {
         /* A MIPS configured with compatibility or VInt (Vectored Interrupts)
            treats the pending lines as individual interrupt lines, the status
            lines are individual masks.  */
-        r = pending & status;
-    }
+    r = pending & status;
+//    }
     return r;
 }
 

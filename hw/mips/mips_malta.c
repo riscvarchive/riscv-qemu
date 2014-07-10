@@ -541,8 +541,12 @@ void mips_malta_init(QEMUMachineInitArgs *args)
     } 
 
 
-    serial_mm_init(system_memory, 0x3f8, 0, NULL, 1843200/16, serial_hds[0], 
+    serial_mm_init(system_memory, 0x3f8, 0, env->irq[4], 1843200/16, serial_hds[0], 
             DEVICE_NATIVE_ENDIAN);
+/*    serial_mm_init(system_memory, 0x2f8, 0, NULL, 1843200/16, serial_hds[1], 
+            DEVICE_NATIVE_ENDIAN);
+    serial_mm_init(system_memory, 0x3e8, 0, NULL, 1843200/16, serial_hds[2], 
+            DEVICE_NATIVE_ENDIAN);*/
 
 
     /*

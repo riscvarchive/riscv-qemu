@@ -24,26 +24,80 @@
 #include "hw/mips/cpudevs.h"
 #include "cpu.h"
 
+
+// just for testing
+#define BTBPat "%d%d%d%d%d%d%d%d"
+#define BTBMac(byte)  \
+      (byte & 0x80 ? 1 : 0), \
+  (byte & 0x40 ? 1 : 0), \
+  (byte & 0x20 ? 1 : 0), \
+  (byte & 0x10 ? 1 : 0), \
+  (byte & 0x08 ? 1 : 0), \
+  (byte & 0x04 ? 1 : 0), \
+  (byte & 0x02 ? 1 : 0), \
+  (byte & 0x01 ? 1 : 0) 
+
 static void cpu_mips_irq_request(void *opaque, int irq, int level)
 {
     MIPSCPU *cpu = opaque;
     CPUMIPSState *env = &cpu->env;
     CPUState *cs = CPU(cpu);
 
-    if (irq < 0 || irq > 7)
+    if (irq < 0 || irq > 7) {
         return;
+    }
 
+    // currently disable all irqs that are not 4
+    if (irq != 4) {
+        return;
+    }
+
+/*    if (env->active_tc.PC & 0xffff000000000000) {
+        return;
+    }*/
+
+/*
     if (level) {
         env->CP0_Cause |= 1 << (irq + CP0Ca_IP);
     } else {
         env->CP0_Cause &= ~(1 << (irq + CP0Ca_IP));
     }
+*/
 
-    if (env->CP0_Cause & CP0Ca_IP_mask) {
+/*
+    printf("called with "BTBPat"\n", BTBMac(1 << irq));
+    printf("enabled are "BTBPat"\n", BTBMac((uint8_t)((env->active_tc.csr[CSR_STATUS] >> 16) & 0xFF)));
+
+*/
+
+    if (level) {
+        env->active_tc.csr[CSR_STATUS] |= (1 << (irq + 24));
+    } else {
+        env->active_tc.csr[CSR_STATUS] &= ~(1 << (irq + 24));
+    }
+/*
+    if ((env->active_tc.csr[CSR_STATUS] >> 16) & (0x1 << irq)) {
+        printf("doing interrupt\n");
         cpu_interrupt(cs, CPU_INTERRUPT_HARD);
     } else {
         cpu_reset_interrupt(cs, CPU_INTERRUPT_HARD);
     }
+
+    */
+
+    if (env->active_tc.csr[CSR_STATUS] & (0xFF << 24)) {
+        cpu_interrupt(cs, CPU_INTERRUPT_HARD);
+    } else {
+        cpu_reset_interrupt(cs, CPU_INTERRUPT_HARD);
+    }
+
+
+/*
+    if (env->CP0_Cause & CP0Ca_IP_mask) {
+        cpu_interrupt(cs, CPU_INTERRUPT_HARD);
+    } else {
+        cpu_reset_interrupt(cs, CPU_INTERRUPT_HARD);
+    }*/
 }
 
 void cpu_mips_irq_init_cpu(CPUMIPSState *env)
