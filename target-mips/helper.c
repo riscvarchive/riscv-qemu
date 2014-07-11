@@ -57,8 +57,8 @@ static int get_physical_address (CPUMIPSState *env, hwaddr *physical,
 
 
     // flush TLB
-//    MIPSCPU *cpu = mips_env_get_cpu(env);
-//    tlb_flush(CPU(cpu), 1); 
+    MIPSCPU *cpu = mips_env_get_cpu(env);
+    tlb_flush(CPU(cpu), 1); 
 
 
     // first, check if VM is on:
@@ -307,15 +307,15 @@ void mips_cpu_do_interrupt(CPUState *cs)
     MIPSCPU *cpu = MIPS_CPU(cs);
     CPUMIPSState *env = &cpu->env;
 
-    printf("%d\n", cs->exception_index);
+//    printf("%d\n", cs->exception_index);
 
     bool deb_inter = true;
     if (deb_inter) {
         if (!(cs->exception_index & (0x1 << 31))) {
-            printf("core   0: exception trap_%s, epc 0x%016lx\n", riscv_excp_names[cs->exception_index], env->active_tc.PC);
+//            printf("core   0: exception trap_%s, epc 0x%016lx\n", riscv_excp_names[cs->exception_index], env->active_tc.PC);
         } else {
             // printf("SERIAL INTERRUPT");
-            printf("serial interrupt, epc 0x%016lx\n", env->active_tc.PC);
+//            printf("serial interrupt, epc 0x%016lx\n", env->active_tc.PC);
         }
     }
 

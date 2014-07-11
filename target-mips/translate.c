@@ -1493,7 +1493,12 @@ static void gen_system(DisasContext *ctx, uint32_t opc,
         switch (backup_csr) {
             case 0x0: // SCALL
                 // use kill_unknown to generate syscall
-                kill_unknown(ctx, RISCV_EXCP_SCALL);
+
+
+                // try generating the syscall the right way:
+//                gen_helper_raise_exception(cpu_env, RISCV_EXCP_SCALL);
+                generate_exception(ctx, RISCV_EXCP_SCALL);
+//                kill_unknown(ctx, RISCV_EXCP_SCALL);
                 break;
 
             case 0x1: // SBREAK

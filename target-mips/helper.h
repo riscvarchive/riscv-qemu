@@ -8,6 +8,7 @@ DEF_HELPER_3(mulsu, tl, env, tl, tl)
 
 /* Special functions */
 #ifndef CONFIG_USER_ONLY
+DEF_HELPER_1(read_count, tl, env)
 DEF_HELPER_1(tlbwi, void, env)
 DEF_HELPER_1(tlbwr, void, env)
 DEF_HELPER_1(tlbp, void, env)

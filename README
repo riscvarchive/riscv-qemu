@@ -1,23 +1,24 @@
-Read the documentation in qemu-doc.html or on http://wiki.qemu-project.org
-
-- QEMU team
-
---------------------------------------------------------------------------
-
 riscv is being implemented under target-mips
 
+--------------------------------------------------------------------------------
+ 
+using the mips64-softmmu (really rv64) target to boot riscv-linux (a compiled
+kernel with busybox is included in hacking/vmlinux/vmlinux):
+
+./configure --target-list=mips64-softmmu --enable-debug 
+make
+cd mips64-softmmu
+./qemu-system-mips64 -M malta -kernel ../hacking/vmlinux/vmlinux -nographic
+
+(note to kill it, you'll probably have to do pkill qemu)
+
+--------------------------------------------------------------------------------
+
+OLD: mips64-linux-user target (probably doesn't work right now)
 do:
 ./configure --target-list=mips64-linux-user --enable-debug
 make
 
-output in:
-mips64-linux-user/qemu-mips64
-
--------------------------------------------------------------------------
-
+ISA tests (on mips64-linux-user):
 running riscv-tests (requires python3):
 ./runtest.py
-
---- eventually, will switch to this for full system emulation:
-./configure --target-list=mips64-softmmu --enable-debug 
-make

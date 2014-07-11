@@ -160,6 +160,10 @@ target_ulong helper_mulsu(CPUMIPSState *env, target_ulong arg1,
     return (int64_t)((__int128_t)a*b >> 64);
 }
 
+target_ulong helper_read_count(CPUMIPSState *env)
+{
+    return (int32_t)cpu_mips_get_count(env);
+}
 
 /* RISCV exception raise */
 /*void helper_riscv_exception(CPUMIPSState *env, int excp_no) {
