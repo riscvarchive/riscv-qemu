@@ -57,8 +57,8 @@ static int get_physical_address (CPUMIPSState *env, hwaddr *physical,
 
 
     // flush TLB
-    MIPSCPU *cpu = mips_env_get_cpu(env);
-    tlb_flush(CPU(cpu), 1); 
+//    MIPSCPU *cpu = mips_env_get_cpu(env);
+//    tlb_flush(CPU(cpu), 1); 
 
 
     // first, check if VM is on:

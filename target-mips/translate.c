@@ -1482,6 +1482,10 @@ static void gen_system(DisasContext *ctx, uint32_t opc,
 */
     csr = csr_regno(csr);
 
+    if (backup_csr == 0x50D || backup_csr == 0x505) {
+        gen_helper_tlb_flush(cpu_env);
+    }
+
     TCGv source1;
     source1 = tcg_temp_new();
 

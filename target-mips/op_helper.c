@@ -316,6 +316,13 @@ void r4k_helper_tlbp(CPUMIPSState *env)
     }
 }
 
+
+void helper_tlb_flush(CPUMIPSState *env)
+{
+    cpu_mips_tlb_flush(env, 1);
+}
+
+
 void r4k_helper_tlbr(CPUMIPSState *env)
 {
     r4k_tlb_t *tlb;
