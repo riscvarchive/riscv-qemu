@@ -37,6 +37,15 @@
   (byte & 0x02 ? 1 : 0), \
   (byte & 0x01 ? 1 : 0) 
 
+// TODO: move constants to cpu.h
+
+/* irq request function, called in hw/irq.h by qemu_irq_raise (level = 1), 
+ * qemu_irq_lower (level = 0), qemu_irq_pulse (level = 1, then 0) 
+ *
+ * The device will call this once to raise the interrupt line and once to 
+ * lower the interrupt line for level-trigerring
+ *
+ */
 static void cpu_mips_irq_request(void *opaque, int irq, int level)
 {
     MIPSCPU *cpu = opaque;
@@ -47,57 +56,31 @@ static void cpu_mips_irq_request(void *opaque, int irq, int level)
         return;
     }
 
-    // currently disable all irqs that are not 4
+    // TODO: remove this: currently disable all irqs that are not 4
     if (irq != 4) {
         return;
     }
 
-/*    if (env->active_tc.PC & 0xffff000000000000) {
-        return;
-    }*/
-
-/*
     if (level) {
-        env->CP0_Cause |= 1 << (irq + CP0Ca_IP);
-    } else {
-        env->CP0_Cause &= ~(1 << (irq + CP0Ca_IP));
-    }
-*/
-
-/*
-    printf("called with "BTBPat"\n", BTBMac(1 << irq));
-    printf("enabled are "BTBPat"\n", BTBMac((uint8_t)((env->active_tc.csr[CSR_STATUS] >> 16) & 0xFF)));
-
-*/
-
-    if (level) {
+        // level high, set the interrupt in CSR_STATUS
         env->active_tc.csr[CSR_STATUS] |= (1 << (irq + 24));
     } else {
+        // level low, turn off the interrupt in CSR_STATUS
         env->active_tc.csr[CSR_STATUS] &= ~(1 << (irq + 24));
     }
-/*
-    if ((env->active_tc.csr[CSR_STATUS] >> 16) & (0x1 << irq)) {
-        printf("doing interrupt\n");
-        cpu_interrupt(cs, CPU_INTERRUPT_HARD);
-    } else {
-        cpu_reset_interrupt(cs, CPU_INTERRUPT_HARD);
-    }
-
-    */
 
     if (env->active_tc.csr[CSR_STATUS] & (0xFF << 24)) {
+        // call cpu_interrupt from include/qom/cpu.h
+        // this will call cpu_interrupt_handler aka
+        // tcg_handle_interrupt from translate-all.c
         cpu_interrupt(cs, CPU_INTERRUPT_HARD);
     } else {
+        // call cpu_reset_interrupt from qom/cpu.c
+        // this just turns off the relevant bits
+        // in cpu->interrupt_request
         cpu_reset_interrupt(cs, CPU_INTERRUPT_HARD);
     }
 
-
-/*
-    if (env->CP0_Cause & CP0Ca_IP_mask) {
-        cpu_interrupt(cs, CPU_INTERRUPT_HARD);
-    } else {
-        cpu_reset_interrupt(cs, CPU_INTERRUPT_HARD);
-    }*/
 }
 
 void cpu_mips_irq_init_cpu(CPUMIPSState *env)
@@ -113,6 +96,7 @@ void cpu_mips_irq_init_cpu(CPUMIPSState *env)
 
 void cpu_mips_soft_irq(CPUMIPSState *env, int irq, int level)
 {
+    printf("softirq called...?\n");
     if (irq < 0 || irq > 2) {
         return;
     }

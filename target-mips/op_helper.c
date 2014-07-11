@@ -575,6 +575,10 @@ void mips_cpu_unassigned_access(CPUState *cs, hwaddr addr,
     MIPSCPU *cpu = MIPS_CPU(cs);
     CPUMIPSState *env = &cpu->env;
 
+    printf("this was called?\n");
+    printf("with addr: %016lX\n", addr);
+
+
     if (is_exec) {
         helper_raise_exception(env, EXCP_IBE);
     } else {
