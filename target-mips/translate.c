@@ -29,8 +29,8 @@
 #define GEN_HELPER 1
 #include "helper.h"
 
-#define DISABLE_CHAINING_BRANCH
-#define DISABLE_CHAINING_JAL
+//#define DISABLE_CHAINING_BRANCH
+//#define DISABLE_CHAINING_JAL
 
 #define MIPS_DEBUG_DISAS 0
 
