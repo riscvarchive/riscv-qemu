@@ -10,7 +10,7 @@ make
 cd mips64-softmmu
 ./qemu-system-mips64 -M malta -kernel ../hacking/vmlinux/vmlinux -nographic
 
-(note to kill it, you'll probably have to do pkill qemu)
+To exit the simulated system, hit: Ctrl-a x
 
 --------------------------------------------------------------------------------
 

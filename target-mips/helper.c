@@ -137,9 +137,6 @@ static int get_physical_address (CPUMIPSState *env, hwaddr *physical,
 
 //        asm("int3"); // trigger breakpoint in GDB
     }
-    if ((*physical) == 0) {
-        printf("PHYS0 vaddr: %016lX\n", address);
-    }
     return ret;
 }
 #endif
