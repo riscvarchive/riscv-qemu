@@ -6,9 +6,14 @@ DEF_HELPER_2(raise_exception, noreturn, env, i32)
 DEF_HELPER_3(mulsu, tl, env, tl, tl)
 //DEF_HELPER_2(riscv_exception, void, env, int)
 
+//DEF_HELPER_1(read_count, tl, env)
+
+
 /* Special functions */
 #ifndef CONFIG_USER_ONLY
 DEF_HELPER_1(read_count, tl, env)
+DEF_HELPER_2(store_compare, void, env, tl)
+DEF_HELPER_2(store_count, void, env, tl)
 DEF_HELPER_1(tlb_flush, void, env)
 DEF_HELPER_1(tlbwi, void, env)
 DEF_HELPER_1(tlbwr, void, env)

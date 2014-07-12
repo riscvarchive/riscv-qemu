@@ -75,8 +75,8 @@ struct r4k_tlb_t {
 #define RISCV_EXCP_LOAD_ACCESS_FAULT    0xa
 #define RISCV_EXCP_STORE_ACCESS_FAULT   0xb
 #define RISCV_EXCP_STORE_ACCEL_DISABLED 0xc
-#define RISCV_EXCP_TIMER_INTERRUPT      0x7 // TODO: ALSO NEEDS interruptBit
-#define RISCV_EXCP_HOST_INTERRUPT       0x6 // TODO: ALSO NEEDS interruptBit
+#define RISCV_EXCP_TIMER_INTERRUPT      (0x7  | (1 << 31)) // TODO: ALSO NEEDS interruptBit
+#define RISCV_EXCP_HOST_INTERRUPT       (0x6  | (1 << 31)) // TODO: ALSO NEEDS interruptBit
 #define RISCV_EXCP_SERIAL_INTERRUPT     ((0x4) | (1 << 31))
 
 

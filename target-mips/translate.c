@@ -1480,6 +1480,12 @@ static void gen_system(DisasContext *ctx, uint32_t opc,
         return;
     }
 */
+
+    if (csr == 0x506)  {
+        printf("touched count: %x\n", ctx->opcode);
+    } else if (csr == 0x507) {
+        printf("touched compare: %x\n", ctx->opcode);
+    }
     csr = csr_regno(csr);
 
     if (backup_csr == 0x50D || backup_csr == 0x505) {
@@ -1550,14 +1556,23 @@ static void gen_system(DisasContext *ctx, uint32_t opc,
         break;
     case OPC_RISC_CSRRW:
         gen_set_gpr(rd, cpu_csr[csr]);     // R[rd] <- CSR[csr]
-        tcg_gen_mov_tl(cpu_csr[csr], source1); // CSR[csr] <- source1 (original rs1)
+        if (backup_csr == 0x507) {
+            // special handling for write to compare
+            gen_helper_store_compare(cpu_env, source1);
+        } else {
+            tcg_gen_mov_tl(cpu_csr[csr], source1); // CSR[csr] <- source1 (original rs1)
+        }
         // force writes to be visible
         tcg_gen_movi_tl(cpu_PC, ctx->pc + 4);
         tcg_gen_exit_tb(0);
         break;
     case OPC_RISC_CSRRS:
-        gen_set_gpr(rd, cpu_csr[csr]);     // R[rd] <- CSR[csr]
-        tcg_gen_or_tl(cpu_csr[csr], source1, cpu_csr[csr]); // CSR[csr] <- CSR[csr] | source1 (original rs1)
+        if (backup_csr == 0x506) {
+            gen_helper_read_count(source1, cpu_env);
+        } else {
+            gen_set_gpr(rd, cpu_csr[csr]);     // R[rd] <- CSR[csr]
+            tcg_gen_or_tl(cpu_csr[csr], source1, cpu_csr[csr]); // CSR[csr] <- CSR[csr] | source1 (original rs1)
+        }
         // force writes to be visible
         tcg_gen_movi_tl(cpu_PC, ctx->pc + 4);
         tcg_gen_exit_tb(0);
@@ -1574,15 +1589,27 @@ static void gen_system(DisasContext *ctx, uint32_t opc,
         break;
     case OPC_RISC_CSRRWI:
         gen_set_gpr(rd, cpu_csr[csr]);     // R[rd] <- CSR[csr]
-        tcg_gen_movi_tl(cpu_csr[csr], rs1); // CSR[csr] <- rs1 (treat as imm)
+
+        if (backup_csr == 0x506) {
+            // special handling for write to count
+            TCGv tempZ = tcg_temp_new();
+            tcg_gen_movi_tl(tempZ, 0);
+            gen_helper_store_count(cpu_env, tempZ);
+        } else {
+            tcg_gen_movi_tl(cpu_csr[csr], rs1); // CSR[csr] <- rs1 (treat as imm)
+        }
         // force writes to be visible
         tcg_gen_movi_tl(cpu_PC, ctx->pc + 4);
         tcg_gen_exit_tb(0);
 
         break;
     case OPC_RISC_CSRRSI:
-        gen_set_gpr(rd, cpu_csr[csr]);     // R[rd] <- CSR[csr]
-        tcg_gen_ori_tl(cpu_csr[csr], cpu_csr[csr], rs1); // CSR[csr] <- CSR[csr] | rs1 (as imm)
+        if (backup_csr == 0x506) {
+            gen_helper_read_count(source1, cpu_env);
+        } else {
+            gen_set_gpr(rd, cpu_csr[csr]);     // R[rd] <- CSR[csr]
+            tcg_gen_ori_tl(cpu_csr[csr], cpu_csr[csr], rs1); // CSR[csr] <- CSR[csr] | rs1 (as imm)
+        }
         // force writes to be visible
         tcg_gen_movi_tl(cpu_PC, ctx->pc + 4);
         tcg_gen_exit_tb(0);
@@ -1602,7 +1629,7 @@ static void gen_system(DisasContext *ctx, uint32_t opc,
         break;
 
     }
-
+    ctx->bstate = BS_BRANCH;
     tcg_temp_free(source1);
 }
 
@@ -1702,6 +1729,10 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
         exit(0);
     }
 */
+
+    // increment cycle:
+    tcg_gen_addi_tl(cpu_csr[CSR_CYCLE], cpu_csr[CSR_CYCLE], 1);
+
     op = MASK_OP_MAJOR(ctx->opcode);
     rs1 = (ctx->opcode >> 15) & 0x1f;
     rs2 = (ctx->opcode >> 20) & 0x1f;
@@ -1814,6 +1845,8 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
     case OPC_RISC_FNMSUB:
     case OPC_RISC_FNMADD:
     case OPC_RISC_FP_ARITH:
+        printf("GOT HERE GOT HERE");
+        exit(0);
         kill_unknown(ctx, RISCV_EXCP_FP_DISABLED);
         break;
 

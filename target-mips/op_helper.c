@@ -162,8 +162,21 @@ target_ulong helper_mulsu(CPUMIPSState *env, target_ulong arg1,
 
 target_ulong helper_read_count(CPUMIPSState *env)
 {
-    return (int32_t)cpu_mips_get_count(env);
+    uint32_t val = (int32_t)cpu_mips_get_count(env);
+//    printf("got count val: %d\n", val);
+    return val;
 }
+
+void helper_store_compare(CPUMIPSState *env, target_ulong arg1)
+{
+    cpu_mips_store_compare(env, arg1);
+}
+
+void helper_store_count(CPUMIPSState *env, target_ulong arg1)
+{
+    cpu_mips_store_count(env, arg1);
+}
+
 
 /* RISCV exception raise */
 /*void helper_riscv_exception(CPUMIPSState *env, int excp_no) {
@@ -207,7 +220,7 @@ static void r4k_mips_tlb_flush_extra (CPUMIPSState *env, int first)
 static void r4k_fill_tlb(CPUMIPSState *env, int idx)
 {
     r4k_tlb_t *tlb;
-
+    printf("THIS HAPPENED\n");
     /* XXX: detect conflicting TLBs and raise a MCHECK exception when needed */
     tlb = &env->tlb->mmu.r4k.tlb[idx];
     tlb->VPN = env->CP0_EntryHi & (TARGET_PAGE_MASK << 1);

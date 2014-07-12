@@ -41,34 +41,32 @@ uint32_t cpu_mips_get_random (CPUMIPSState *env)
     return idx;
 }
 
-/* MIPS R4K timer */
+/* updated */
 static void cpu_mips_timer_update(CPUMIPSState *env)
 {
     uint64_t now, next;
     uint32_t wait;
 
     now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
-    wait = env->CP0_Compare - env->CP0_Count -
+    wait = env->active_tc.csr[CSR_COMPARE] - env->active_tc.csr[CSR_COUNT] -
 	    (uint32_t)muldiv64(now, TIMER_FREQ, get_ticks_per_sec());
     next = now + muldiv64(wait, get_ticks_per_sec(), TIMER_FREQ);
     timer_mod(env->timer, next);
 }
 
-/* Expire the timer.  */
+/* updated */
 static void cpu_mips_timer_expire(CPUMIPSState *env)
 {
     cpu_mips_timer_update(env);
-    if (env->insn_flags & ISA_MIPS32R2) {
-        env->CP0_Cause |= 1 << CP0Ca_TI;
-    }
-    qemu_irq_raise(env->irq[(env->CP0_IntCtl >> CP0IntCtl_IPTI) & 0x7]);
+    qemu_irq_raise(env->irq[7]);
 }
 
 uint32_t cpu_mips_get_count (CPUMIPSState *env)
 {
-    if (env->CP0_Cause & (1 << CP0Ca_DC)) {
-        return env->CP0_Count;
-    } else {
+//    if (env->CP0_Cause & (1 << CP0Ca_DC)) { 
+        // is this maybe "count disabled?"
+//        return env->CP0_Count;
+//    } else {
         uint64_t now;
 
         now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
@@ -78,38 +76,40 @@ uint32_t cpu_mips_get_count (CPUMIPSState *env)
             cpu_mips_timer_expire(env);
         }
 
-        return env->CP0_Count +
+        return env->active_tc.csr[CSR_COUNT] +
             (uint32_t)muldiv64(now, TIMER_FREQ, get_ticks_per_sec());
-    }
+//    }
 }
 
 void cpu_mips_store_count (CPUMIPSState *env, uint32_t count)
 {
-    if (env->CP0_Cause & (1 << CP0Ca_DC))
+/*    if (env->CP0_Cause & (1 << CP0Ca_DC))
         env->CP0_Count = count;
-    else {
+    else {*/
         /* Store new count register */
-        env->CP0_Count =
+        env->active_tc.csr[CSR_COUNT] =
             count - (uint32_t)muldiv64(qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL),
                                        TIMER_FREQ, get_ticks_per_sec());
         /* Update timer timer */
         cpu_mips_timer_update(env);
-    }
+//    }
 }
 
 void cpu_mips_store_compare (CPUMIPSState *env, uint32_t value)
 {
-    env->CP0_Compare = value;
-    if (!(env->CP0_Cause & (1 << CP0Ca_DC)))
+    env->active_tc.csr[CSR_COMPARE] = value;
+//    if (!(env->CP0_Cause & (1 << CP0Ca_DC)))
         cpu_mips_timer_update(env);
-    if (env->insn_flags & ISA_MIPS32R2)
-        env->CP0_Cause &= ~(1 << CP0Ca_TI);
-    qemu_irq_lower(env->irq[(env->CP0_IntCtl >> CP0IntCtl_IPTI) & 0x7]);
+//    if (env->insn_flags & ISA_MIPS32R2)
+//        env->CP0_Cause &= ~(1 << CP0Ca_TI);
+
+    // according to RISCV spec, any write to compare clears timer interrupt
+    qemu_irq_lower(env->irq[7]);
 }
 
 void cpu_mips_start_count(CPUMIPSState *env)
 {
-    cpu_mips_store_count(env, env->CP0_Count);
+    cpu_mips_store_count(env, env->active_tc.csr[CSR_COUNT]);
 }
 
 void cpu_mips_stop_count(CPUMIPSState *env)
@@ -128,8 +128,8 @@ static void mips_timer_cb (void *opaque)
     qemu_log("%s\n", __func__);
 #endif
 
-    if (env->CP0_Cause & (1 << CP0Ca_DC))
-        return;
+//    if (env->CP0_Cause & (1 << CP0Ca_DC))
+//        return;
 
     /* ??? This callback should occur when the counter is exactly equal to
        the comparator value.  Offset the count by one to avoid immediately

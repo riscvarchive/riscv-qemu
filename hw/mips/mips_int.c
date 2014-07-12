@@ -57,7 +57,7 @@ static void cpu_mips_irq_request(void *opaque, int irq, int level)
     }
 
     // TODO: remove this: currently disable all irqs that are not 4
-    if (irq != 4) {
+    if ((irq != 4) && (irq != 7)) {
         return;
     }
 

@@ -309,7 +309,9 @@ void mips_cpu_do_interrupt(CPUState *cs)
     bool deb_inter = true;
     if (deb_inter) {
         if (!(cs->exception_index & (0x1 << 31))) {
-//            printf("core   0: exception trap_%s, epc 0x%016lx\n", riscv_excp_names[cs->exception_index], env->active_tc.PC);
+            if ((cs->exception_index == RISCV_EXCP_ILLEGAL_INST) || (cs->exception_index == RISCV_EXCP_FP_DISABLED)) {
+                printf("core   0: exception trap_%s, epc 0x%016lx\n", riscv_excp_names[cs->exception_index], env->active_tc.PC);
+            }
         } else {
             // printf("SERIAL INTERRUPT");
 //            printf("serial interrupt, epc 0x%016lx\n", env->active_tc.PC);
