@@ -29,8 +29,8 @@
 #define GEN_HELPER 1
 #include "helper.h"
 
-//#define DISABLE_CHAINING_BRANCH
-//#define DISABLE_CHAINING_JAL
+#define DISABLE_CHAINING_BRANCH
+#define DISABLE_CHAINING_JAL
 
 #define MIPS_DEBUG_DISAS 0
 
@@ -360,10 +360,8 @@ void kill_unknown(DisasContext *ctx, int excp) {
 
 static inline void save_cpu_state (DisasContext *ctx, int do_save_pc)
 {
-    LOG_DISAS("hflags %08x saved %08x\n", ctx->hflags, ctx->saved_hflags);
-    if (do_save_pc && ctx->pc != ctx->saved_pc) {
-        gen_save_pc(ctx->pc);
-        ctx->saved_pc = ctx->pc;
+    if (do_save_pc) {
+        tcg_gen_movi_tl(cpu_PC, ctx->pc);
     }
 }
 
@@ -372,21 +370,12 @@ static inline void restore_cpu_state (CPUMIPSState *env, DisasContext *ctx)
 }
 
 static inline void
-generate_exception_err (DisasContext *ctx, int excp, int err)
-{
-    TCGv_i32 texcp = tcg_const_i32(excp);
-    TCGv_i32 terr = tcg_const_i32(err);
-    save_cpu_state(ctx, 1);
-    gen_helper_raise_exception_err(cpu_env, texcp, terr);
-    tcg_temp_free_i32(terr);
-    tcg_temp_free_i32(texcp);
-}
-
-static inline void
 generate_exception (DisasContext *ctx, int excp)
 {
-    save_cpu_state(ctx, 1);
-    gen_helper_0e0i(raise_exception, excp);
+    tcg_gen_movi_tl(cpu_PC, ctx->pc);
+    TCGv_i32 helper_tmp = tcg_const_i32(excp);
+    gen_helper_raise_exception(cpu_env, helper_tmp);
+    tcg_temp_free_i32(helper_tmp);
 }
 
 static inline void gen_goto_tb(DisasContext *ctx, int n, target_ulong dest)
@@ -486,7 +475,7 @@ static void gen_arith(DisasContext *ctx, uint32_t opc,
         break;
     case OPC_RISC_MULHSU:
         // TODO: better way to do this? currently implemented as a C helper
-        gen_helper_mulsu(source1, cpu_env, source1, source2);
+        gen_helper_mulhsu(source1, cpu_env, source1, source2);
         break;
     case OPC_RISC_MULHU:
         tcg_gen_mulu2_tl(source2, source1, source1, source2);
@@ -1465,8 +1454,16 @@ static void gen_system(DisasContext *ctx, uint32_t opc,
     case OPC_RISC_SCALL:
         switch (backup_csr) {
             case 0x0: // SCALL
-                generate_exception(ctx, RISCV_EXCP_SCALL);
-                ctx->bstate = BS_STOP;
+/*                generate_exception(ctx, RISCV_EXCP_SCALL);
+                ctx->bstate = BS_STOP;*/
+                tcg_gen_movi_tl(cpu_PC, ctx->pc); // excluding this before
+                                                  // jumping into the helper
+                                                  // was previously the issue
+                gen_helper_scall(cpu_PC, cpu_env, cpu_PC);
+                tcg_gen_exit_tb(0); // no chaining
+                ctx->bstate = BS_BRANCH;
+
+
                 break;
 
             case 0x1: // SBREAK
@@ -1615,10 +1612,6 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
         env->CP0_BadVAddr = ctx->pc;
         generate_exception(ctx, EXCP_AdEL);
         return;
-    }
-
-    if (unlikely(qemu_loglevel_mask(CPU_LOG_TB_OP | CPU_LOG_TB_OP_OPT))) {
-        tcg_gen_debug_insn_start(ctx->pc);
     }
 
     /* TODO: TEMP HACK TO SEE IF TESTS PASS/FAIL */
@@ -1831,7 +1824,6 @@ gen_intermediate_code_internal(MIPSCPU *cpu, TranslationBlock *tb,
             gen_io_start();
         }
 
-        // fetch and decode instruction
         ctx.opcode = cpu_ldl_code(env, ctx.pc);
         insn_bytes = 4;
         decode_opc(env, &ctx);
@@ -1840,60 +1832,60 @@ gen_intermediate_code_internal(MIPSCPU *cpu, TranslationBlock *tb,
 
         num_insns++;
 
-        /* Execute a branch and its delay slot as a single instruction.
-           This is what GDB expects and is consistent with what the
-           hardware does (e.g. if a delay slot instruction faults, the
-           reported PC is the PC of the branch).  */
-        if (cs->singlestep_enabled && (ctx.hflags & MIPS_HFLAG_BMASK) == 0) {
+        if ((ctx.pc & (TARGET_PAGE_SIZE - 1)) == 0) { 
+            // handle tb at the end of a page
             break;
         }
-
-        if ((ctx.pc & (TARGET_PAGE_SIZE - 1)) == 0) // handle tb at the end of a page
-            break;
-
         if (tcg_ctx.gen_opc_ptr >= gen_opc_end) {
             break;
         }
 
-        if (num_insns >= max_insns)
+        if (num_insns >= max_insns) {
             break;
+        }
 
-        if (singlestep)
+        if (singlestep) {
+            printf("singlestep is not currently supported for riscv\n");
+            exit(1);
             break;
+        }
+
     }
     if (tb->cflags & CF_LAST_IO) {
         gen_io_end();
     }
-    if (cs->singlestep_enabled && ctx.bstate != BS_BRANCH) {
-        save_cpu_state(&ctx, ctx.bstate == BS_NONE);
-        gen_helper_0e0i(raise_exception, EXCP_DEBUG);
-    } else {
-        switch (ctx.bstate) {
-        case BS_STOP:
-            gen_goto_tb(&ctx, 0, ctx.pc);
-            break;
-        case BS_NONE:
-            /* handle end of page case, we can even chain these, I think */
+    switch (ctx.bstate) {
+    case BS_STOP:
+        gen_goto_tb(&ctx, 0, ctx.pc);
 
-            /* method 1: this may be unsafe, but is an optimization */
-            /*tcg_gen_goto_tb(1); // try chaining
-            tcg_gen_movi_tl(cpu_PC, ctx.pc); // NOT PC+4, that was already done
-            tcg_gen_exit_tb((uintptr_t)ctx.tb | 0x1);*/
-            /* end unsafe */
 
-            /* method 2: this is safe */
-            tcg_gen_movi_tl(cpu_PC, ctx.pc); // NOT PC+4, that was already done
-            tcg_gen_exit_tb(0);
-            /* end safe */
 
-            break;
-        case BS_EXCP: // TODO: not yet handled for riscv
-            tcg_gen_exit_tb(0);
-            break;
-        case BS_BRANCH:
-        default:
-            break;
-        }
+
+
+
+
+        break;
+    case BS_NONE:
+        /* handle end of page case, we can even chain these, I think */
+
+        /* method 1: this may be unsafe, but is an optimization */
+        /*tcg_gen_goto_tb(1); // try chaining
+        tcg_gen_movi_tl(cpu_PC, ctx.pc); // NOT PC+4, that was already done
+        tcg_gen_exit_tb((uintptr_t)ctx.tb | 0x1);*/
+        /* end unsafe */
+
+        /* method 2: this is safe */
+        tcg_gen_movi_tl(cpu_PC, ctx.pc); // NOT PC+4, that was already done
+        tcg_gen_exit_tb(0);
+        /* end safe */
+
+        break;
+    case BS_EXCP: // TODO: not yet handled for riscv
+        tcg_gen_exit_tb(0);
+        break;
+    case BS_BRANCH:
+    default:
+        break;
     }
 done_generating:
     gen_tb_end(tb, num_insns);
@@ -1957,13 +1949,6 @@ void mips_cpu_dump_state(CPUState *cs, FILE *f, fprintf_function cpu_fprintf,
             cpu_fprintf(f, "\n");
         }
     }
-//    cpu_fprintf(f, "CP0 Status  0x%08x Cause   0x%08x EPC    0x" TARGET_FMT_lx "\n",
-//                env->CP0_Status, env->CP0_Cause, env->CP0_EPC);
-//    cpu_fprintf(f, "    Config0 0x%08x Config1 0x%08x LLAddr 0x" TARGET_FMT_lx "\n",
-//                env->CP0_Config0, env->CP0_Config1, env->lladdr);
-//    if (env->hflags & MIPS_HFLAG_FPU) {
-//        ;
-//    }
 }
 
 void mips_tcg_init(void)
