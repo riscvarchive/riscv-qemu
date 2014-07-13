@@ -56,8 +56,7 @@ int mips_cpu_gdb_read_register(CPUState *cs, uint8_t *mem_buf, int n)
     case 36:
         return gdb_get_regl(mem_buf, (int32_t)env->CP0_Cause);
     case 37:
-        return gdb_get_regl(mem_buf, env->active_tc.PC |
-                                     !!(env->hflags & MIPS_HFLAG_M16));
+        return gdb_get_regl(mem_buf, env->active_tc.PC);
     case 72:
         return gdb_get_regl(mem_buf, 0); /* fp */
     case 89:
@@ -111,11 +110,6 @@ int mips_cpu_gdb_write_register(CPUState *cs, uint8_t *mem_buf, int n)
         break;
     case 37:
         env->active_tc.PC = tmp & ~(target_ulong)1;
-        if (tmp & 1) {
-            env->hflags |= MIPS_HFLAG_M16;
-        } else {
-            env->hflags &= ~(MIPS_HFLAG_M16);
-        }
         break;
     case 72: /* fp, ignored */
         break;

@@ -436,49 +436,6 @@ struct CPUMIPSState {
     TCState tcs[MIPS_SHADOW_SET_MAX];
     /* QEMU */
     int error_code;
-    uint32_t hflags;    /* CPU State */
-    /* TMASK defines different execution modes */
-#define MIPS_HFLAG_TMASK  0xC07FF
-#define MIPS_HFLAG_MODE   0x00007 /* execution modes                    */
-    /* The KSU flags must be the lowest bits in hflags. The flag order
-       must be the same as defined for CP0 Status. This allows to use
-       the bits as the value of mmu_idx. */
-#define MIPS_HFLAG_KSU    0x00003 /* kernel/supervisor/user mode mask   */
-#define MIPS_HFLAG_UM     0x00002 /* user mode flag                     */
-#define MIPS_HFLAG_SM     0x00001 /* supervisor mode flag               */
-#define MIPS_HFLAG_KM     0x00000 /* kernel mode flag                   */
-#define MIPS_HFLAG_DM     0x00004 /* Debug mode                         */
-#define MIPS_HFLAG_64     0x00008 /* 64-bit instructions enabled        */
-#define MIPS_HFLAG_CP0    0x00010 /* CP0 enabled                        */
-#define MIPS_HFLAG_FPU    0x00020 /* FPU enabled                        */
-#define MIPS_HFLAG_F64    0x00040 /* 64-bit FPU enabled                 */
-    /* True if the MIPS IV COP1X instructions can be used.  This also
-       controls the non-COP1X instructions RECIP.S, RECIP.D, RSQRT.S
-       and RSQRT.D.  */
-#define MIPS_HFLAG_COP1X  0x00080 /* COP1X instructions enabled         */
-#define MIPS_HFLAG_RE     0x00100 /* Reversed endianness                */
-#define MIPS_HFLAG_UX     0x00200 /* 64-bit user mode                   */
-#define MIPS_HFLAG_M16    0x00400 /* MIPS16 mode flag                   */
-#define MIPS_HFLAG_M16_SHIFT 10
-    /* If translation is interrupted between the branch instruction and
-     * the delay slot, record what type of branch it is so that we can
-     * resume translation properly.  It might be possible to reduce
-     * this from three bits to two.  */
-#define MIPS_HFLAG_BMASK_BASE  0x03800
-#define MIPS_HFLAG_B      0x00800 /* Unconditional branch               */
-#define MIPS_HFLAG_BC     0x01000 /* Conditional branch                 */
-#define MIPS_HFLAG_BL     0x01800 /* Likely branch                      */
-#define MIPS_HFLAG_BR     0x02000 /* branch to register (can't link TB) */
-    /* Extra flags about the current pending branch.  */
-#define MIPS_HFLAG_BMASK_EXT 0x3C000
-#define MIPS_HFLAG_B16    0x04000 /* branch instruction was 16 bits     */
-#define MIPS_HFLAG_BDS16  0x08000 /* branch requires 16-bit delay slot  */
-#define MIPS_HFLAG_BDS32  0x10000 /* branch requires 32-bit delay slot  */
-#define MIPS_HFLAG_BX     0x20000 /* branch exchanges execution mode    */
-#define MIPS_HFLAG_BMASK  (MIPS_HFLAG_BMASK_BASE | MIPS_HFLAG_BMASK_EXT)
-    /* MIPS DSP resources access. */
-#define MIPS_HFLAG_DSP   0x40000  /* Enable access to MIPS DSP resources. */
-#define MIPS_HFLAG_DSPR2 0x80000  /* Enable access to MIPS DSPR2 resources. */
     target_ulong btarget;        /* Jump / branch target               */
     target_ulong bcond;          /* Branch condition (if needed)       */
 
@@ -538,7 +495,8 @@ extern uint32_t cpu_rddsp(uint32_t mask_num, CPUMIPSState *env);
 #define MMU_USER_IDX 2
 static inline int cpu_mmu_index (CPUMIPSState *env)
 {
-    return env->hflags & MIPS_HFLAG_KSU;
+//    return env->hflags & MIPS_HFLAG_KSU;
+    return 0;
 }
 
 static inline int cpu_mips_hw_interrupts_pending(CPUMIPSState *env)
@@ -673,7 +631,6 @@ static inline void cpu_get_tb_cpu_state(CPUMIPSState *env, target_ulong *pc,
 {
     *pc = env->active_tc.PC;
     *cs_base = 0;
-    *flags = env->hflags & (MIPS_HFLAG_TMASK | MIPS_HFLAG_BMASK);
 }
 
 static inline int mips_vpe_active(CPUMIPSState *env)

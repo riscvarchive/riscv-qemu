@@ -1420,7 +1420,8 @@ CPUInterruptHandler cpu_interrupt_handler = tcg_handle_interrupt;
    must be at the end of the TB */
 void cpu_io_recompile(CPUState *cpu, uintptr_t retaddr)
 {
-#if defined(TARGET_MIPS) || defined(TARGET_SH4)
+#if defined(TARGET_MIPS) 
+#elif defined(TARGET_SH4)
     CPUArchState *env = cpu->env_ptr;
 #endif
     TranslationBlock *tb;
@@ -1445,11 +1446,6 @@ void cpu_io_recompile(CPUState *cpu, uintptr_t retaddr)
        the first instruction in a TB then re-execute the preceding
        branch.  */
 #if defined(TARGET_MIPS)
-    if ((env->hflags & MIPS_HFLAG_BMASK) != 0 && n > 1) {
-        env->active_tc.PC -= 4;
-        cpu->icount_decr.u16.low++;
-        env->hflags &= ~MIPS_HFLAG_BMASK;
-    }
 #elif defined(TARGET_SH4)
     if ((env->flags & ((DELAY_SLOT | DELAY_SLOT_CONDITIONAL))) != 0
             && n > 1) {

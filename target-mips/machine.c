@@ -67,7 +67,6 @@ void cpu_save(QEMUFile *f, void *opaque)
     /* Save CPU metastate */
     qemu_put_be32s(f, &env->current_tc);
     qemu_put_sbe32s(f, &env->error_code);
-    qemu_put_be32s(f, &env->hflags);
     qemu_put_betls(f, &env->btarget);
     i = env->bcond;
     qemu_put_sbe32s(f, &i);
@@ -203,7 +202,6 @@ int cpu_load(QEMUFile *f, void *opaque, int version_id)
     /* Load CPU metastate */
     qemu_get_be32s(f, &env->current_tc);
     qemu_get_sbe32s(f, &env->error_code);
-    qemu_get_be32s(f, &env->hflags);
     qemu_get_betls(f, &env->btarget);
     qemu_get_sbe32s(f, &i);
     env->bcond = i;

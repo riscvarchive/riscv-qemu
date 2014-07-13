@@ -111,9 +111,6 @@ static void main_cpu_reset(void *opaque)
 
     cpu_reset(CPU(s->cpu));
     env->active_tc.PC = s->vector & ~(target_ulong)1;
-    if (s->vector & 1) {
-        env->hflags |= MIPS_HFLAG_M16;
-    }
 }
 
 static void mipsnet_init(int base, qemu_irq irq, NICInfo *nd)
