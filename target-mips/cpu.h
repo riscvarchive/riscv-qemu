@@ -11,7 +11,7 @@
 
 #include "config.h"
 #include "qemu-common.h"
-#include "mips-defs.h"
+#include "riscv-defs.h"
 #include "exec/cpu-defs.h"
 
 struct CPUMIPSState;
