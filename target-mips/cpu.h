@@ -147,7 +147,6 @@ typedef struct mips_def_t mips_def_t;
 typedef struct TCState TCState;
 struct TCState {
     target_ulong gpr[32];
-    target_ulong csr[32];
     target_ulong fpr[32];
     target_ulong PC;
     target_ulong HI[MIPS_DSP_ACC];
@@ -189,6 +188,10 @@ struct CPUMIPSState {
     uint32_t PABITS;
     target_ulong SEGMask;
     target_ulong PAMask;
+
+    uint64_t helper_csr[32]; // RISCV CSR registers
+
+
 
     int32_t CP0_Index;
     /* CP0_MVP* are per MVP registers. */
@@ -545,13 +548,13 @@ static inline int cpu_mips_hw_interrupts_pending(CPUMIPSState *env)
     int r;
 
     /* first check if interrupts are disabled */
-    if (!((env->active_tc.csr[CSR_STATUS] >> 2) & 0x1)) {
+    if (!((env->helper_csr[CSR_STATUS] >> 2) & 0x1)) {
         // interrupts disabled
         return 0;
     }
 
-    pending = (env->active_tc.csr[CSR_STATUS] >> 24) & 0xFF;
-    status = (env->active_tc.csr[CSR_STATUS] >> 16) & 0xFF;
+    pending = (env->helper_csr[CSR_STATUS] >> 24) & 0xFF;
+    status = (env->helper_csr[CSR_STATUS] >> 16) & 0xFF;
 
     // TODO handle priority here?
 

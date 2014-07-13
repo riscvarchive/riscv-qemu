@@ -160,6 +160,46 @@ target_ulong helper_mulsu(CPUMIPSState *env, target_ulong arg1,
     return (int64_t)((__int128_t)a*b >> 64);
 }
 
+target_ulong helper_csrrw(CPUMIPSState *env, target_ulong src, target_ulong csr) {
+    uint64_t csr_backup = env->helper_csr[csr]; 
+    env->helper_csr[csr] = src;
+    return csr_backup;
+}
+
+target_ulong helper_csrrs(CPUMIPSState *env, target_ulong src, target_ulong csr) {
+    uint64_t csr_backup = env->helper_csr[csr]; 
+    env->helper_csr[csr] = csr_backup | src;
+    return csr_backup;
+}
+
+target_ulong helper_csrrc(CPUMIPSState *env, target_ulong src, target_ulong csr) {
+    uint64_t csr_backup = env->helper_csr[csr]; 
+    env->helper_csr[csr] = csr_backup & (~src);
+    return csr_backup;
+}
+
+target_ulong helper_sret(CPUMIPSState *env) {
+    // first handle S/PS stack
+    if (env->helper_csr[CSR_STATUS] & SR_PS) {
+        env->helper_csr[CSR_STATUS] |= SR_S;
+    } else {
+        env->helper_csr[CSR_STATUS] &= ~((uint64_t)SR_S);
+    }
+
+    // handle EI/PEI stack
+    if (env->helper_csr[CSR_STATUS] & SR_PEI) {
+        env->helper_csr[CSR_STATUS] |= SR_EI;
+    } else {
+        env->helper_csr[CSR_STATUS] &= ~((uint64_t)SR_EI);
+    }
+
+    // finally, return EPC value to set cpu_PC
+    return env->helper_csr[CSR_EPC];
+}
+
+
+
+
 target_ulong helper_read_count(CPUMIPSState *env)
 {
     uint32_t val = (int32_t)cpu_mips_get_count(env);

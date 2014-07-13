@@ -8,9 +8,14 @@ DEF_HELPER_3(mulsu, tl, env, tl, tl)
 
 //DEF_HELPER_1(read_count, tl, env)
 
+DEF_HELPER_3(csrrw, tl, env, tl, tl)
+DEF_HELPER_3(csrrs, tl, env, tl, tl)
+DEF_HELPER_3(csrrc, tl, env, tl, tl)
+
 
 /* Special functions */
 #ifndef CONFIG_USER_ONLY
+DEF_HELPER_1(sret, tl, env)
 DEF_HELPER_1(read_count, tl, env)
 DEF_HELPER_2(store_compare, void, env, tl)
 DEF_HELPER_2(store_count, void, env, tl)

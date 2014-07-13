@@ -48,7 +48,7 @@ static void cpu_mips_timer_update(CPUMIPSState *env)
     uint32_t wait;
 
     now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
-    wait = env->active_tc.csr[CSR_COMPARE] - env->active_tc.csr[CSR_COUNT] -
+    wait = env->helper_csr[CSR_COMPARE] - env->helper_csr[CSR_COUNT] -
 	    (uint32_t)muldiv64(now, TIMER_FREQ, get_ticks_per_sec());
     next = now + muldiv64(wait, get_ticks_per_sec(), TIMER_FREQ);
     timer_mod(env->timer, next);
@@ -76,7 +76,7 @@ uint32_t cpu_mips_get_count (CPUMIPSState *env)
             cpu_mips_timer_expire(env);
         }
 
-        return env->active_tc.csr[CSR_COUNT] +
+        return env->helper_csr[CSR_COUNT] +
             (uint32_t)muldiv64(now, TIMER_FREQ, get_ticks_per_sec());
 //    }
 }
@@ -87,7 +87,7 @@ void cpu_mips_store_count (CPUMIPSState *env, uint32_t count)
         env->CP0_Count = count;
     else {*/
         /* Store new count register */
-        env->active_tc.csr[CSR_COUNT] =
+        env->helper_csr[CSR_COUNT] =
             count - (uint32_t)muldiv64(qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL),
                                        TIMER_FREQ, get_ticks_per_sec());
         /* Update timer timer */
@@ -97,7 +97,7 @@ void cpu_mips_store_count (CPUMIPSState *env, uint32_t count)
 
 void cpu_mips_store_compare (CPUMIPSState *env, uint32_t value)
 {
-    env->active_tc.csr[CSR_COMPARE] = value;
+    env->helper_csr[CSR_COMPARE] = value;
 //    if (!(env->CP0_Cause & (1 << CP0Ca_DC)))
         cpu_mips_timer_update(env);
 //    if (env->insn_flags & ISA_MIPS32R2)
@@ -109,13 +109,13 @@ void cpu_mips_store_compare (CPUMIPSState *env, uint32_t value)
 
 void cpu_mips_start_count(CPUMIPSState *env)
 {
-    cpu_mips_store_count(env, env->active_tc.csr[CSR_COUNT]);
+    cpu_mips_store_count(env, env->helper_csr[CSR_COUNT]);
 }
 
 void cpu_mips_stop_count(CPUMIPSState *env)
 {
     /* Store the current value */
-    env->active_tc.csr[CSR_COUNT] += (uint32_t)muldiv64(qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL),
+    env->helper_csr[CSR_COUNT] += (uint32_t)muldiv64(qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL),
                                          TIMER_FREQ, get_ticks_per_sec());
 }
 
@@ -134,14 +134,14 @@ static void mips_timer_cb (void *opaque)
     /* ??? This callback should occur when the counter is exactly equal to
        the comparator value.  Offset the count by one to avoid immediately
        retriggering the callback before any virtual time has passed.  */
-    env->active_tc.csr[CSR_COUNT]++;
+    env->helper_csr[CSR_COUNT]++;
     cpu_mips_timer_expire(env);
-    env->active_tc.csr[CSR_COUNT]--;
+    env->helper_csr[CSR_COUNT]--;
 }
 
 void cpu_mips_clock_init (CPUMIPSState *env)
 {
     env->timer = timer_new_ns(QEMU_CLOCK_VIRTUAL, &mips_timer_cb, env);
-    env->active_tc.csr[CSR_COMPARE] = 0;
+    env->helper_csr[CSR_COMPARE] = 0;
     cpu_mips_store_count(env, 1);
 }

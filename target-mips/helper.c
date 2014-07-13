@@ -62,7 +62,7 @@ static int get_physical_address (CPUMIPSState *env, hwaddr *physical,
 
 
     // first, check if VM is on:
-    int vm_on = env->active_tc.csr[CSR_STATUS] & SR_VM; // check if vm on
+    int vm_on = env->helper_csr[CSR_STATUS] & SR_VM; // check if vm on
     int ret = TLBRET_MATCH; // need to change this later probably
     if(!vm_on) { // TODO add unlikely
         *physical = address;
@@ -93,7 +93,7 @@ static int get_physical_address (CPUMIPSState *env, hwaddr *physical,
 
         CPUState *cs = CPU(mips_env_get_cpu(env));
         uint64_t pte = 0; 
-        uint64_t base = env->active_tc.csr[CSR_PTBR];
+        uint64_t base = env->helper_csr[CSR_PTBR];
         uint64_t ptd;
         int ptshift = 20;
         int64_t i = 0;
@@ -322,44 +322,44 @@ void mips_cpu_do_interrupt(CPUState *cs)
     if (cs->exception_index & (0x1 << 31)) {
         // hacky for now. the MSB (bit 63) indicates interrupt but cs->exception 
         // index is only 32 bits wide
-        env->active_tc.csr[CSR_CAUSE] = cs->exception_index & 0x1F;
-        env->active_tc.csr[CSR_CAUSE] |= (1L << 63);
+        env->helper_csr[CSR_CAUSE] = cs->exception_index & 0x1F;
+        env->helper_csr[CSR_CAUSE] |= (1L << 63);
     } else {
-        env->active_tc.csr[CSR_CAUSE] = cs->exception_index;
+        env->helper_csr[CSR_CAUSE] = cs->exception_index;
     }
 
     // Manage the PS/S Stack: CSR_STATUS[SR_PS] = CSR_STATUS[SR_S], 
     // CSR_STATUS[SR_S] = 1 // enable supervisor
-    if (env->active_tc.csr[CSR_STATUS] & SR_S) {
-        env->active_tc.csr[CSR_STATUS] |= SR_PS;
+    if (env->helper_csr[CSR_STATUS] & SR_S) {
+        env->helper_csr[CSR_STATUS] |= SR_PS;
     } else {
-        env->active_tc.csr[CSR_STATUS] &= ~((uint64_t)SR_PS);
+        env->helper_csr[CSR_STATUS] &= ~((uint64_t)SR_PS);
     }
-    env->active_tc.csr[CSR_STATUS] |= SR_S; // turn on supervisor;
+    env->helper_csr[CSR_STATUS] |= SR_S; // turn on supervisor;
 
     // Manage the EI/PEI Stack: CSR_STATUS[SR_PEI] = CSR_STATUS[SR_EI]
     // CSR_STATUS[SR_EI] = 0 // disable interrupts
-    if (env->active_tc.csr[CSR_STATUS] & SR_EI) {
-        env->active_tc.csr[CSR_STATUS] |= SR_PEI;
+    if (env->helper_csr[CSR_STATUS] & SR_EI) {
+        env->helper_csr[CSR_STATUS] |= SR_PEI;
     } else {
-        env->active_tc.csr[CSR_STATUS] &= ~((uint64_t)SR_PEI);
+        env->helper_csr[CSR_STATUS] &= ~((uint64_t)SR_PEI);
     }
-    env->active_tc.csr[CSR_STATUS] &= ~((uint64_t)SR_EI); // turn off interrupts
+    env->helper_csr[CSR_STATUS] &= ~((uint64_t)SR_EI); // turn off interrupts
 
     // If trap is misaligned address or access fault,
     // set badvaddr to faulting address. this will be in env->CP0_BadVAddr
     if ((set_badvaddr(cs->exception_index)) && (!(cs->exception_index & (0x1 << 31)))) {
-        env->active_tc.csr[CSR_BADVADDR] = env->CP0_BadVAddr;
+        env->helper_csr[CSR_BADVADDR] = env->CP0_BadVAddr;
     }
 
     // Store original PC to epc reg
     // This is correct because the env->active_tc.PC value visible here is 
     // actually the correct value, unlike other places where env->active_tc.PC
     // may be used.
-    env->active_tc.csr[CSR_EPC] = env->active_tc.PC;
+    env->helper_csr[CSR_EPC] = env->active_tc.PC;
 
     // FINALLY, set PC to value in evec register and return
-    env->active_tc.PC = env->active_tc.csr[CSR_EVEC];
+    env->active_tc.PC = env->helper_csr[CSR_EVEC];
 
     cs->exception_index = EXCP_NONE; // mark handled to qemu
 }

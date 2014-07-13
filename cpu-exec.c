@@ -435,7 +435,7 @@ int cpu_exec(CPUArchState *env)
                     if ((interrupt_request & CPU_INTERRUPT_HARD) &&
                         cpu_mips_hw_interrupts_pending(env)) {
                         /* Raise it */
-                        if ((env->active_tc.csr[CSR_STATUS] >> 24) & 0x10) {
+                        if ((env->helper_csr[CSR_STATUS] >> 24) & 0x10) {
                             cpu->exception_index = RISCV_EXCP_SERIAL_INTERRUPT;
                         } else {
                             cpu->exception_index = RISCV_EXCP_TIMER_INTERRUPT;

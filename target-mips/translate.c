@@ -265,7 +265,7 @@ enum {
 
 /* global register indices */
 static TCGv_ptr cpu_env;
-static TCGv cpu_gpr[32], cpu_PC, cpu_csr[32], cpu_fpr[32];
+static TCGv cpu_gpr[32], cpu_PC, cpu_fpr[32];
 static TCGv_i32 hflags;
 
 static uint32_t gen_opc_hflags[OPC_BUF_SIZE];
@@ -349,52 +349,13 @@ static inline void gen_save_pc(target_ulong pc)
 
 // filling in for unknown instruction exception for now
 void kill_unknown(DisasContext *ctx, int excp) {
-    TCGv s1;
     if (excp == RISCV_EXCP_FP_DISABLED) {
         printf("       FP INSTRUCTION at addr 0x" TARGET_FMT_lx ", opcode 0x%x\n", ctx->pc, ctx->opcode);
-    } else if (excp == RISCV_EXCP_SCALL) {
-        printf("       SCALL at addr 0x" TARGET_FMT_lx ", opcode 0x%x\n", ctx->pc, ctx->opcode);
     } else {
         printf("       ILLEGAL INSTRUCTION at addr 0x" TARGET_FMT_lx ", opcode 0x%x\n", ctx->pc, ctx->opcode);
     }
-
-    // TODO
-    tcg_gen_movi_tl(cpu_csr[CSR_CAUSE], excp);
-
-    s1 = tcg_temp_local_new();
-
-    int turn_off_ps = gen_new_label();
-    int turn_off_pei = gen_new_label();
-    int next = gen_new_label();
-    int done = gen_new_label();
-
-    // first, handle S/PS stack
-    tcg_gen_andi_tl(s1, cpu_csr[CSR_STATUS], SR_S);
-    tcg_gen_brcondi_tl(TCG_COND_EQ, s1, 0x0, turn_off_ps);
-    // here, set SR_S
-    tcg_gen_ori_tl(cpu_csr[CSR_STATUS], cpu_csr[CSR_STATUS], SR_PS);
-    tcg_gen_br(next); // jump to next
-    gen_set_label(turn_off_ps);
-    // here, turn off SR_S
-    tcg_gen_andi_tl(cpu_csr[CSR_STATUS], cpu_csr[CSR_STATUS], ~((uint64_t)SR_PS));
-
-    // now handle EI/PEI stack
-    gen_set_label(next); 
-    tcg_gen_andi_tl(s1, cpu_csr[CSR_STATUS], SR_EI);
-    tcg_gen_brcondi_tl(TCG_COND_EQ, s1, 0x0, turn_off_pei);
-    // here, set SR_EI
-    tcg_gen_ori_tl(cpu_csr[CSR_STATUS], cpu_csr[CSR_STATUS], SR_PEI);
-    tcg_gen_br(done); // jump to done
-    gen_set_label(turn_off_pei);
-    tcg_gen_andi_tl(cpu_csr[CSR_STATUS], cpu_csr[CSR_STATUS], ~((uint64_t)SR_PEI));
-
-    // store current pc to EPC
-    tcg_gen_movi_tl(cpu_csr[CSR_EPC], ctx->pc);
-
-    // put exception handler pc in cpu_PC, exit the tb
-    tcg_gen_mov_tl(cpu_PC, cpu_csr[CSR_EVEC]);
-    tcg_gen_exit_tb(0);
-    ctx->bstate = BS_BRANCH;
+    printf("killed due to unknown instruction\n");
+    exit(0);
 }
 
 static inline void save_cpu_state (DisasContext *ctx, int do_save_pc)
@@ -1492,61 +1453,31 @@ static void gen_system(DisasContext *ctx, uint32_t opc,
         gen_helper_tlb_flush(cpu_env);
     }
 
-    TCGv source1;
+    TCGv source1, csr_store, dest;
     source1 = tcg_temp_new();
-
+    csr_store = tcg_temp_new();
+    dest = tcg_temp_new();
     gen_get_gpr(source1, rs1);
+    tcg_gen_movi_tl(csr_store, csr); // copy into temp reg to feed to helper
 
     switch (opc) {
 
     case OPC_RISC_SCALL:
         switch (backup_csr) {
             case 0x0: // SCALL
-                // use kill_unknown to generate syscall
-
-
-                // try generating the syscall the right way:
-//                gen_helper_raise_exception(cpu_env, RISCV_EXCP_SCALL);
                 generate_exception(ctx, RISCV_EXCP_SCALL);
-//                kill_unknown(ctx, RISCV_EXCP_SCALL);
+                ctx->bstate = BS_STOP;
                 break;
 
             case 0x1: // SBREAK
                 kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
+                ctx->bstate = BS_STOP;
                 break;
 
             case 0x800: // SRET
-                {
-                    TCGv s1;
-                    s1 = tcg_temp_local_new();
-
-                    int turn_off_s = gen_new_label();
-                    int turn_off_ei = gen_new_label();
-                    int next = gen_new_label();
-                    int done = gen_new_label();
-
-                    // first, handle S/PS stack
-                    tcg_gen_andi_tl(s1, cpu_csr[CSR_STATUS], SR_PS);
-                    tcg_gen_brcondi_tl(TCG_COND_EQ, s1, 0x0, turn_off_s);
-                    // here, set SR_S
-                    tcg_gen_ori_tl(cpu_csr[CSR_STATUS], cpu_csr[CSR_STATUS], SR_S);
-                    tcg_gen_br(next); // jump to next
-                    gen_set_label(turn_off_s);
-                    // here, turn off SR_S
-                    tcg_gen_andi_tl(cpu_csr[CSR_STATUS], cpu_csr[CSR_STATUS], ~((uint64_t)SR_S));
-                    gen_set_label(next); // now handle EI/PEI stack
-
-                    tcg_gen_andi_tl(s1, cpu_csr[CSR_STATUS], SR_PEI);
-                    tcg_gen_brcondi_tl(TCG_COND_EQ, s1, 0x0, turn_off_ei);
-                    // here, set SR_S
-                    tcg_gen_ori_tl(cpu_csr[CSR_STATUS], cpu_csr[CSR_STATUS], SR_EI);
-                    tcg_gen_br(done); // jump to done
-                    gen_set_label(turn_off_ei);
-                    tcg_gen_andi_tl(cpu_csr[CSR_STATUS], cpu_csr[CSR_STATUS], ~((uint64_t)SR_EI));
-                    gen_set_label(done); // finish up
-                    tcg_gen_mov_tl(cpu_PC, cpu_csr[CSR_EPC]);
-                    tcg_gen_exit_tb(0); // no chaining
-                }
+                gen_helper_sret(cpu_PC, cpu_env);
+                tcg_gen_exit_tb(0); // no chaining
+                ctx->bstate = BS_BRANCH;
                 break;
 
             default:
@@ -1555,73 +1486,43 @@ static void gen_system(DisasContext *ctx, uint32_t opc,
         }
         break;
     case OPC_RISC_CSRRW:
-        gen_set_gpr(rd, cpu_csr[csr]);     // R[rd] <- CSR[csr]
-        if (backup_csr == 0x507) {
-            // special handling for write to compare
-            gen_helper_store_compare(cpu_env, source1);
-        } else {
-            tcg_gen_mov_tl(cpu_csr[csr], source1); // CSR[csr] <- source1 (original rs1)
-        }
-        // force writes to be visible
-        tcg_gen_movi_tl(cpu_PC, ctx->pc + 4);
-        tcg_gen_exit_tb(0);
+        gen_helper_csrrw(dest, cpu_env, source1, csr_store);
+        gen_set_gpr(rd, dest);
         break;
     case OPC_RISC_CSRRS:
-        if (backup_csr == 0x506) {
-            gen_helper_read_count(source1, cpu_env);
-        } else {
-            gen_set_gpr(rd, cpu_csr[csr]);     // R[rd] <- CSR[csr]
-            tcg_gen_or_tl(cpu_csr[csr], source1, cpu_csr[csr]); // CSR[csr] <- CSR[csr] | source1 (original rs1)
-        }
-        // force writes to be visible
-        tcg_gen_movi_tl(cpu_PC, ctx->pc + 4);
-        tcg_gen_exit_tb(0);
-
+        gen_helper_csrrs(dest, cpu_env, source1, csr_store);
+        gen_set_gpr(rd, dest);
         break;
     case OPC_RISC_CSRRC:
-        gen_set_gpr(rd, cpu_csr[csr]);     // R[rd] <- CSR[csr]
-        tcg_gen_not_tl(source1, source1);  
-        tcg_gen_and_tl(cpu_csr[csr], source1, cpu_csr[csr]); // CSR[csr] <- CSR[csr] & ~source1 (original rs1)
-        // force writes to be visible
-        tcg_gen_movi_tl(cpu_PC, ctx->pc + 4);
-        tcg_gen_exit_tb(0);
-
+        gen_helper_csrrc(dest, cpu_env, source1, csr_store);
+        gen_set_gpr(rd, dest);
         break;
     case OPC_RISC_CSRRWI:
-        gen_set_gpr(rd, cpu_csr[csr]);     // R[rd] <- CSR[csr]
-
-        if (backup_csr == 0x506) {
-            // special handling for write to count
-            TCGv tempZ = tcg_temp_new();
-            tcg_gen_movi_tl(tempZ, 0);
-            gen_helper_store_count(cpu_env, tempZ);
-        } else {
-            tcg_gen_movi_tl(cpu_csr[csr], rs1); // CSR[csr] <- rs1 (treat as imm)
+        {
+            TCGv imm_rs1 = tcg_temp_new();
+            tcg_gen_movi_tl(imm_rs1, rs1);
+            gen_helper_csrrw(dest, cpu_env, imm_rs1, csr_store);
+            gen_set_gpr(rd, dest);
+            tcg_temp_free(imm_rs1);
         }
-        // force writes to be visible
-        tcg_gen_movi_tl(cpu_PC, ctx->pc + 4);
-        tcg_gen_exit_tb(0);
-
         break;
     case OPC_RISC_CSRRSI:
-        if (backup_csr == 0x506) {
-            gen_helper_read_count(source1, cpu_env);
-        } else {
-            gen_set_gpr(rd, cpu_csr[csr]);     // R[rd] <- CSR[csr]
-            tcg_gen_ori_tl(cpu_csr[csr], cpu_csr[csr], rs1); // CSR[csr] <- CSR[csr] | rs1 (as imm)
+        {
+            TCGv imm_rs1 = tcg_temp_new();
+            tcg_gen_movi_tl(imm_rs1, rs1);
+            gen_helper_csrrs(dest, cpu_env, imm_rs1, csr_store);
+            gen_set_gpr(rd, dest);
+            tcg_temp_free(imm_rs1);
         }
-        // force writes to be visible
-        tcg_gen_movi_tl(cpu_PC, ctx->pc + 4);
-        tcg_gen_exit_tb(0);
-
         break;
     case OPC_RISC_CSRRCI:
-        gen_set_gpr(rd, cpu_csr[csr]);     // R[rd] <- CSR[csr]
-        tcg_gen_andi_tl(cpu_csr[csr], cpu_csr[csr], ~((uint64_t)rs1)); // CSR[csr] <- CSR[csr] & ~rs1 (as imm)
-        // force writes to be visible
-        tcg_gen_movi_tl(cpu_PC, ctx->pc + 4);
-        tcg_gen_exit_tb(0);
-
+        {
+            TCGv imm_rs1 = tcg_temp_new();
+            tcg_gen_movi_tl(imm_rs1, rs1);
+            gen_helper_csrrc(dest, cpu_env, imm_rs1, csr_store);
+            gen_set_gpr(rd, dest);
+            tcg_temp_free(imm_rs1);
+        }
         break;
     default:
         // TODO: exception
@@ -1629,8 +1530,9 @@ static void gen_system(DisasContext *ctx, uint32_t opc,
         break;
 
     }
-    ctx->bstate = BS_BRANCH;
     tcg_temp_free(source1);
+    tcg_temp_free(dest);
+    tcg_temp_free(csr_store);
 }
 
 
@@ -1731,7 +1633,7 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
 */
 
     // increment cycle:
-    tcg_gen_addi_tl(cpu_csr[CSR_CYCLE], cpu_csr[CSR_CYCLE], 1);
+//    tcg_gen_addi_tl(cpu_csr[CSR_CYCLE], cpu_csr[CSR_CYCLE], 1);
 
     op = MASK_OP_MAJOR(ctx->opcode);
     rs1 = (ctx->opcode >> 15) & 0x1f;
@@ -2050,7 +1952,7 @@ void mips_cpu_dump_state(CPUState *cs, FILE *f, fprintf_function cpu_fprintf,
         if ((i & 3) == 0) {
             cpu_fprintf(f, "CSR%02d:", i);
         }
-        cpu_fprintf(f, " %s " TARGET_FMT_lx, cs_regnames[i], env->active_tc.csr[i]);
+        cpu_fprintf(f, " %s " TARGET_FMT_lx, cs_regnames[i], env->helper_csr[i]);
         if ((i & 3) == 3) {
             cpu_fprintf(f, "\n");
         }
@@ -2086,12 +1988,12 @@ void mips_tcg_init(void)
                                         regnames[i]);
     }
 
-    for (i = 0; i < 32; i++) {
+/*    for (i = 0; i < 32; i++) {
         cpu_csr[i] = tcg_global_mem_new(TCG_AREG0,
                                         offsetof(CPUMIPSState, active_tc.csr[i]),
                                         cs_regnames[i]);
     }
-
+*/
 
     for (i = 0; i < 32; i++) {
         cpu_fpr[i] = tcg_global_mem_new(TCG_AREG0,

@@ -11,8 +11,6 @@ static void save_tc(QEMUFile *f, TCState *tc)
     for(i = 0; i < 32; i++)
         qemu_put_betls(f, &tc->gpr[i]);
     for(i = 0; i < 32; i++)
-        qemu_put_betls(f, &tc->csr[i]);
-    for(i = 0; i < 32; i++)
         qemu_put_betls(f, &tc->fpr[i]);
     qemu_put_betls(f, &tc->PC);
     for(i = 0; i < MIPS_DSP_ACC; i++)
@@ -143,8 +141,6 @@ static void load_tc(QEMUFile *f, TCState *tc)
     /* Save active TC */
     for(i = 0; i < 32; i++)
         qemu_get_betls(f, &tc->gpr[i]);
-    for(i = 0; i < 32; i++)
-        qemu_get_betls(f, &tc->csr[i]);
     for(i = 0; i < 32; i++)
         qemu_get_betls(f, &tc->fpr[i]);
     qemu_get_betls(f, &tc->PC);
