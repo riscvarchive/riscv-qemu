@@ -93,6 +93,17 @@ struct r4k_tlb_t {
 #define SR_IM     0xFF0000
 #define SR_IP   0xFF000000
 
+// RISCV pte bits
+#define PTE_V    0x1
+#define PTE_T    0x2
+#define PTE_G    0x4
+#define PTE_UR   0x8
+#define PTE_UW  0x10
+#define PTE_UX  0x20
+#define PTE_SR  0x40
+#define PTE_SW  0x80
+#define PTE_SX 0x100
+
 #if !defined(CONFIG_USER_ONLY)
 typedef struct CPUMIPSTLBContext CPUMIPSTLBContext;
 struct CPUMIPSTLBContext {
@@ -450,7 +461,6 @@ struct CPUMIPSState {
     CPU_COMMON
 
     /* Fields from here on are preserved across CPU reset. */
-    CPUMIPSMVPContext *mvp;
 #if !defined(CONFIG_USER_ONLY)
     CPUMIPSTLBContext *tlb;
 #endif
@@ -631,37 +641,6 @@ static inline void cpu_get_tb_cpu_state(CPUMIPSState *env, target_ulong *pc,
 {
     *pc = env->active_tc.PC;
     *cs_base = 0;
-}
-
-static inline int mips_vpe_active(CPUMIPSState *env)
-{
-    int active = 1;
-
-    /* Check that the VPE is enabled.  */
-    if (!(env->mvp->CP0_MVPControl & (1 << CP0MVPCo_EVP))) {
-        active = 0;
-    }
-    /* Check that the VPE is activated.  */
-    if (!(env->CP0_VPEConf0 & (1 << CP0VPEC0_VPA))) {
-        active = 0;
-    }
-
-    /* Now verify that there are active thread contexts in the VPE.
-
-       This assumes the CPU model will internally reschedule threads
-       if the active one goes to sleep. If there are no threads available
-       the active one will be in a sleeping state, and we can turn off
-       the entire VPE.  */
-    if (!(env->active_tc.CP0_TCStatus & (1 << CP0TCSt_A))) {
-        /* TC is not activated.  */
-        active = 0;
-    }
-    if (env->active_tc.CP0_TCHalt & 1) {
-        /* TC is in halt state.  */
-        active = 0;
-    }
-
-    return active;
 }
 
 #include "exec/exec-all.h"

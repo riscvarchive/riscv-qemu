@@ -278,7 +278,7 @@ static TCGv cpu_gpr[32], cpu_PC, cpu_fpr[32];
 
 typedef struct DisasContext {
     struct TranslationBlock *tb;
-    target_ulong pc, saved_pc;
+    target_ulong pc;
     uint32_t opcode;
     int singlestep_enabled;
     int insn_flags;
@@ -1771,7 +1771,6 @@ gen_intermediate_code_internal(MIPSCPU *cpu, TranslationBlock *tb,
     pc_start = tb->pc;
     gen_opc_end = tcg_ctx.gen_opc_buf + OPC_MAX_SIZE;
     ctx.pc = pc_start;
-    ctx.saved_pc = -1;
     ctx.singlestep_enabled = cs->singlestep_enabled;
     ctx.insn_flags = env->insn_flags;
     ctx.tb = tb;
@@ -2003,7 +2002,6 @@ MIPSCPU *cpu_mips_init(const char *cpu_model)
 #ifndef CONFIG_USER_ONLY
     mmu_init(env, def);
 #endif
-    mvp_init(env, def);
 
     object_property_set_bool(OBJECT(cpu), true, "realized", NULL);
 

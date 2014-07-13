@@ -59,9 +59,6 @@ static bool mips_cpu_has_work(CPUState *cs)
             has_work = true;
         }
 
-        if (!mips_vpe_active(env)) {
-            has_work = false;
-        }
     }
     return has_work;
 }
@@ -73,9 +70,9 @@ static void mips_cpu_reset(CPUState *s)
     MIPSCPUClass *mcc = MIPS_CPU_GET_CLASS(cpu);
     CPUMIPSState *env = &cpu->env;
 
+    // TODO WHAT IS THIS
     mcc->parent_reset(s);
 
-    memset(env, 0, offsetof(CPUMIPSState, mvp));
     tlb_flush(s, 1);
 
     cpu_state_reset(env);

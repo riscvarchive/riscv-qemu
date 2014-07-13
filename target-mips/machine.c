@@ -37,10 +37,11 @@ void cpu_save(QEMUFile *f, void *opaque)
     /* Save active TC */
     save_tc(f, &env->active_tc);
 
+    for (i = 0; i < 32; i++) {
+        qemu_put_betls(f, &env->helper_csr[i]);
+    }
+
     /* Save MVP */
-    qemu_put_sbe32s(f, &env->mvp->CP0_MVPControl);
-    qemu_put_sbe32s(f, &env->mvp->CP0_MVPConf0);
-    qemu_put_sbe32s(f, &env->mvp->CP0_MVPConf1);
 
     /* Save TLB */
     qemu_put_be32s(f, &env->tlb->nb_tlb);
@@ -171,10 +172,11 @@ int cpu_load(QEMUFile *f, void *opaque, int version_id)
     /* Load active TC */
     load_tc(f, &env->active_tc);
 
+    for (i = 0; i < 32; i++) {
+        qemu_get_betls(f, &env->helper_csr[i]);
+    }
+
     /* Load MVP */
-    qemu_get_sbe32s(f, &env->mvp->CP0_MVPControl);
-    qemu_get_sbe32s(f, &env->mvp->CP0_MVPConf0);
-    qemu_get_sbe32s(f, &env->mvp->CP0_MVPConf1);
 
     /* Load TLB */
     qemu_get_be32s(f, &env->tlb->nb_tlb);

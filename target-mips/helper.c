@@ -69,27 +69,11 @@ static int get_physical_address (CPUMIPSState *env, hwaddr *physical,
         *prot = PAGE_READ | PAGE_WRITE | PAGE_EXEC;
     } else {
         // handle translation
-        if ((address >= 0x3f8) && (address <= 0x400)) {
+        if ((address >= 0x3f8) && (address < 0x400)) {
             *physical = address;
-            *prot = PAGE_READ | PAGE_WRITE | PAGE_EXEC;
-            return ret;
-        } /*
-        if (address < 0x2000) { // IO hole
-            *physical = address;
-            *prot = PAGE_READ | PAGE_WRITE | PAGE_EXEC;
+            *prot = PAGE_READ | PAGE_WRITE /*| PAGE_EXEC*/;
             return ret;
         }
-*/
-
-/*        if ((address == 0xb)) {
-            *physical = address;
-            *prot = PAGE_READ | PAGE_WRITE | PAGE_EXEC;
-            return ret;
-        }
-*/
-
-
-
 
         CPUState *cs = CPU(mips_env_get_cpu(env));
         uint64_t pte = 0; 
@@ -132,8 +116,48 @@ static int get_physical_address (CPUMIPSState *env, hwaddr *physical,
                 break;
             }
         }
+
+        // TODO: needs optimization
+        // check pte access bits
+        if (env->helper_csr[CSR_STATUS] & SR_S) {
+            // check supervisor
+            if ((rw & 0x2) & !(pte & PTE_SX)) {
+                return TLBRET_NOMATCH;
+            } else if ((rw == 0x1) & !(pte & PTE_SW)) {
+                return TLBRET_NOMATCH;
+            } else if (!(pte & PTE_SR)) {
+                return TLBRET_NOMATCH;
+            }
+            if (pte & PTE_SX) {
+                *prot |= PAGE_EXEC;
+            }
+            if (pte & PTE_SW) {
+                *prot |= PAGE_WRITE;
+            }
+            if (pte & PTE_SR) {
+                *prot |= PAGE_READ;
+            }
+        } else {
+            // check user
+            if ((rw & 0x2) & !(pte & PTE_UX)) {
+                return TLBRET_NOMATCH;
+            } else if ((rw == 0x1) & !(pte & PTE_UW)) {
+                return TLBRET_NOMATCH;
+            } else if (!(pte & PTE_UR)) {
+                return TLBRET_NOMATCH;
+            }
+            if (pte & PTE_UX) {
+                *prot |= PAGE_EXEC;
+            }
+            if (pte & PTE_UW) {
+                *prot |= PAGE_WRITE;
+            }
+            if (pte & PTE_UR) {
+                *prot |= PAGE_READ;
+            }
+        }
         *physical = ((pte >> 13) << 13) | (address & 0x1FFF);
-        *prot = PAGE_EXEC | PAGE_READ | PAGE_WRITE;
+//        *prot = PAGE_EXEC | PAGE_READ | PAGE_WRITE;
 
 //        asm("int3"); // trigger breakpoint in GDB
     }
