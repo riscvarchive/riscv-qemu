@@ -40,9 +40,8 @@ static inline void QEMU_NORETURN do_raise_exception_err(CPUMIPSState *env,
 {
     CPUState *cs = CPU(mips_env_get_cpu(env));
 
-    if (exception < EXCP_SC) {
-        qemu_log("%s: %d %d\n", __func__, exception, error_code);
-    }
+    qemu_log("%s: %d %d\n", __func__, exception, error_code);
+
     cs->exception_index = exception;
 
     if (pc) {
@@ -183,7 +182,8 @@ void helper_wait(CPUMIPSState *env)
 
     cs->halted = 1;
     cpu_reset_interrupt(cs, CPU_INTERRUPT_WAKE);
-    helper_raise_exception(env, EXCP_HLT);
+    printf("NOT IMPLEMENTED FOR RISCV\n");
+    exit(1);
 }
 
 #if !defined(CONFIG_USER_ONLY)
@@ -212,8 +212,7 @@ static void do_unaligned_access(CPUMIPSState *env, target_ulong addr,
 {
     printf("REACHED DO UNALIGNED ACCESS\n");
     printf("%016lX\n", (uint64_t)addr);
-    exit(0);
-//    helper_riscv_exception(env, (is_write == 1) ? RISCV_EXCP_STORE_ADDR_MIS : RISCV_EXCP_LOAD_ADDR_MIS);
+    exit(1);
 }
 
 /* called by qemu's softmmu to fill the qemu tlb */
@@ -236,17 +235,10 @@ void mips_cpu_unassigned_access(CPUState *cs, hwaddr addr,
                                 bool is_write, bool is_exec, int unused,
                                 unsigned size)
 {
-    MIPSCPU *cpu = MIPS_CPU(cs);
-    CPUMIPSState *env = &cpu->env;
-
     printf("unassigned address was called?\n");
     printf("with addr: %016lX\n", addr);
 
-
-    if (is_exec) {
-        helper_raise_exception(env, EXCP_IBE);
-    } else {
-        helper_raise_exception(env, EXCP_DBE);
-    }
+    printf("not implemented for riscv\n");
+    exit(1);
 }
 #endif /* !CONFIG_USER_ONLY */

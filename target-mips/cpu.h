@@ -17,7 +17,6 @@
 // TODO: figure out what's up with this
 #define NB_MMU_MODES 3
 
-
 struct CPUMIPSState;
 
 // RISCV CSR mappings. These are not the "real" mappings defined by the isa.
@@ -50,6 +49,7 @@ struct CPUMIPSState;
 #define CSR_FROMHOST  0x1f
 
 // RISCV Exception Codes
+#define EXCP_NONE                       -1
 #define RISCV_EXCP_INST_ADDR_MIS        0x0
 #define RISCV_EXCP_INST_ACCESS_FAULT    0x1
 #define RISCV_EXCP_ILLEGAL_INST         0x2
@@ -183,49 +183,6 @@ enum {
     ACCESS_INT   = 0x20, /* Integer load/store access        */
     ACCESS_FLOAT = 0x30, /* floating point load/store access */
 };
-
-/* Exceptions */
-enum {
-    EXCP_NONE          = -1,
-    EXCP_RESET         = 0,
-    EXCP_SRESET,
-    EXCP_DSS,
-    EXCP_DINT,
-    EXCP_DDBL,
-    EXCP_DDBS,
-    EXCP_NMI,
-    EXCP_MCHECK,
-    EXCP_EXT_INTERRUPT, /* 8 */
-    EXCP_DFWATCH,
-    EXCP_DIB,
-    EXCP_IWATCH,
-    EXCP_AdEL,
-    EXCP_AdES,
-    EXCP_TLBF,
-    EXCP_IBE,
-    EXCP_DBp, /* 16 */
-    EXCP_SYSCALL,
-    EXCP_BREAK,
-    EXCP_CpU,
-    EXCP_RI,
-    EXCP_OVERFLOW,
-    EXCP_TRAP,
-    EXCP_FPE,
-    EXCP_DWATCH, /* 24 */
-    EXCP_LTLBL,
-    EXCP_TLBL,
-    EXCP_TLBS,
-    EXCP_DBE,
-    EXCP_THREAD,
-    EXCP_MDMX,
-    EXCP_C2E,
-    EXCP_CACHE, /* 32 */
-    EXCP_DSPDIS,
-
-    EXCP_LAST = EXCP_DSPDIS,
-};
-/* Dummy exception for conditional stores.  */
-#define EXCP_SC 0x100
 
 /*
  * This is an interrnally generated WAKE request line.
