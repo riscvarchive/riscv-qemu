@@ -29,8 +29,8 @@
 #define GEN_HELPER 1
 #include "helper.h"
 
-#define DISABLE_CHAINING_BRANCH
-#define DISABLE_CHAINING_JAL
+//#define DISABLE_CHAINING_BRANCH
+//#define DISABLE_CHAINING_JAL
 
 #define MIPS_DEBUG_DISAS 0
 
@@ -1421,12 +1421,6 @@ static void gen_system(DisasContext *ctx, uint32_t opc,
 {
     // get index into csr array
     int backup_csr = csr;
-/*    if ((csr) < 0x4 && (csr >= 0) && (opc != OPC_RISC_SCALL)) {
-        kill_unknown(ctx, RISCV_EXCP_FP_DISABLED);
-        return;
-    }
-*/
-
     if (csr == 0x506)  {
         printf("touched count: %x\n", ctx->opcode);
     } else if (csr == 0x507) {
@@ -1450,16 +1444,15 @@ static void gen_system(DisasContext *ctx, uint32_t opc,
     case OPC_RISC_SCALL:
         switch (backup_csr) {
             case 0x0: // SCALL
-/*                generate_exception(ctx, RISCV_EXCP_SCALL);
-                ctx->bstate = BS_STOP;*/
-                tcg_gen_movi_tl(cpu_PC, ctx->pc); // excluding this before
+                generate_exception(ctx, RISCV_EXCP_SCALL);
+                ctx->bstate = BS_STOP;
+/*                tcg_gen_movi_tl(cpu_PC, ctx->pc); // excluding this before
                                                   // jumping into the helper
                                                   // was previously the issue
                 gen_helper_scall(cpu_PC, cpu_env, cpu_PC);
                 tcg_gen_exit_tb(0); // no chaining
                 ctx->bstate = BS_BRANCH;
-
-
+*/
                 break;
 
             case 0x1: // SBREAK
