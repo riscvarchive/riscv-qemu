@@ -110,6 +110,7 @@ static int get_physical_address (CPUMIPSState *env, hwaddr *physical,
             }
         }
 
+        *prot = 0;
         // TODO: needs optimization
         // check pte access bits
         if (env->helper_csr[CSR_STATUS] & SR_S) {

@@ -999,7 +999,7 @@ static void gen_load(DisasContext *ctx, uint32_t opc,
 
     target_ulong uimm = (target_long)imm; /* sign ext 16->64 bits */
 
-    gen_helper_tlb_flush(cpu_env);
+//    gen_helper_tlb_flush(cpu_env);
 
     TCGv t0 = tcg_temp_new();
     gen_get_gpr(t0, rs1);
@@ -1045,7 +1045,7 @@ static void gen_store(DisasContext *ctx, uint32_t opc,
 {
     target_ulong uimm = (target_long)imm; /* sign ext 16->64 bits */
 
-    gen_helper_tlb_flush(cpu_env);
+//    gen_helper_tlb_flush(cpu_env);
 
     TCGv t0 = tcg_temp_new();
     TCGv dat = tcg_temp_new();
@@ -1431,9 +1431,10 @@ static void gen_system(DisasContext *ctx, uint32_t opc,
     }
     csr = csr_regno(csr);
 
-    if (backup_csr == 0x50D || backup_csr == 0x505) {
+/*    if (backup_csr == 0x50D || backup_csr == 0x505) {
         gen_helper_tlb_flush(cpu_env);
-    }
+    }*/
+    gen_helper_tlb_flush(cpu_env);
 
     TCGv source1, csr_store, dest;
     source1 = tcg_temp_new();
@@ -1609,6 +1610,8 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
     // increment cycle:
 //    tcg_gen_addi_tl(cpu_csr[CSR_CYCLE], cpu_csr[CSR_CYCLE], 1);
 
+//    gen_helper_tlb_flush(cpu_env);
+
     op = MASK_OP_MAJOR(ctx->opcode);
     rs1 = (ctx->opcode >> 15) & 0x1f;
     rs2 = (ctx->opcode >> 20) & 0x1f;
@@ -1763,7 +1766,7 @@ gen_intermediate_code_internal(MIPSCPU *cpu, TranslationBlock *tb,
 #ifdef CONFIG_USER_ONLY
         ctx.mem_idx = MIPS_HFLAG_UM;
 #else
-        ctx.mem_idx = env->helper_csr[CSR_STATUS] & SR_S;
+        ctx.mem_idx = 0; //env->helper_csr[CSR_STATUS] & SR_S;
 
 #endif
     num_insns = 0;

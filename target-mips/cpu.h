@@ -15,7 +15,7 @@
 #include "exec/cpu-defs.h"
 
 // TODO: figure out what's up with this
-#define NB_MMU_MODES 3
+#define NB_MMU_MODES 2
 
 struct CPUMIPSState;
 
