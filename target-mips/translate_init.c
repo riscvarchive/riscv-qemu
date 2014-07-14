@@ -18,22 +18,16 @@
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
-enum mips_mmu_types {
-    MMU_TYPE_R4000,
-};
-
 struct mips_def_t {
     const char *name;
-    enum mips_mmu_types mmu_type;
 };
 
 /*****************************************************************************/
 /* MIPS CPU definitions */
 static const mips_def_t mips_defs[] =
 {
-    {   ///////////////////// TODO: THIS ONE
+    {  
         .name = "20Kc",
-        .mmu_type = MMU_TYPE_R4000,
     },
 };
 
@@ -58,21 +52,3 @@ void mips_cpu_list (FILE *f, fprintf_function cpu_fprintf)
                        mips_defs[i].name);
     }
 }
-
-#ifndef CONFIG_USER_ONLY
-static void r4k_mmu_init (CPUMIPSState *env, const mips_def_t *def)
-{
-    env->tlb->nb_tlb = 1;
-    env->tlb->map_address = &r4k_map_address;
-    env->tlb->helper_tlbwi = r4k_helper_tlbwi;
-    env->tlb->helper_tlbwr = r4k_helper_tlbwr;
-    env->tlb->helper_tlbp = r4k_helper_tlbp;
-    env->tlb->helper_tlbr = r4k_helper_tlbr;
-}
-
-static void mmu_init (CPUMIPSState *env, const mips_def_t *def)
-{
-    env->tlb = g_malloc0(sizeof(CPUMIPSTLBContext));
-    r4k_mmu_init(env, def);
-}
-#endif /* CONFIG_USER_ONLY */

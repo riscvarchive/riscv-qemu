@@ -21,10 +21,6 @@ DEF_HELPER_1(read_count, tl, env)
 DEF_HELPER_2(store_compare, void, env, tl)
 DEF_HELPER_2(store_count, void, env, tl)
 DEF_HELPER_1(tlb_flush, void, env)
-DEF_HELPER_1(tlbwi, void, env)
-DEF_HELPER_1(tlbwr, void, env)
-DEF_HELPER_1(tlbp, void, env)
-DEF_HELPER_1(tlbr, void, env)
 #endif /* !CONFIG_USER_ONLY */
 DEF_HELPER_1(wait, void, env)
 

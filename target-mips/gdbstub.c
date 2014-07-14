@@ -28,45 +28,11 @@ int mips_cpu_gdb_read_register(CPUState *cs, uint8_t *mem_buf, int n)
 
     if (n < 32) {
         return gdb_get_regl(mem_buf, env->active_tc.gpr[n]);
-    }
-    if (env->CP0_Config1 & (1 << CP0C1_FP)) {
-        if (n >= 38 && n < 70) {
-            if (env->CP0_Status & (1 << CP0St_FR)) {
-                return 0;
-            } else {
-                return 0;
-            }
-        }
-        switch (n) {
-        case 70:
-            return 0;
-        case 71:
-            return 0;
-        }
-    }
-    switch (n) {
-    case 32:
-        return gdb_get_regl(mem_buf, (int32_t)env->CP0_Status);
-    case 33:
-        return gdb_get_regl(mem_buf, env->active_tc.LO[0]);
-    case 34:
-        return gdb_get_regl(mem_buf, env->active_tc.HI[0]);
-    case 35:
-        return gdb_get_regl(mem_buf, env->CP0_BadVAddr);
-    case 36:
-        return gdb_get_regl(mem_buf, (int32_t)env->CP0_Cause);
-    case 37:
+    } else if (n < 64) {
+        return gdb_get_regl(mem_buf, env->helper_csr[n-32]);
+    } else if (n == 64) {
         return gdb_get_regl(mem_buf, env->active_tc.PC);
-    case 72:
-        return gdb_get_regl(mem_buf, 0); /* fp */
-    case 89:
-        return gdb_get_regl(mem_buf, (int32_t)env->CP0_PRid);
     }
-    if (n >= 73 && n <= 88) {
-        /* 16 embedded regs.  */
-        return gdb_get_regl(mem_buf, 0);
-    }
-
     return 0;
 }
 
@@ -81,45 +47,12 @@ int mips_cpu_gdb_write_register(CPUState *cs, uint8_t *mem_buf, int n)
     if (n < 32) {
         env->active_tc.gpr[n] = tmp;
         return sizeof(target_ulong);
-    }
-    if (env->CP0_Config1 & (1 << CP0C1_FP)
-            && n >= 38 && n < 73) {
-        switch (n) {
-        case 70:
-            break;
-        case 71:
-            break;
-        }
+    } else if (n < 64) {
+        env->helper_csr[n-32] = tmp;
+        return sizeof(target_ulong);
+    } else if (n == 64) {
+        env->active_tc.PC = tmp;
         return sizeof(target_ulong);
     }
-    switch (n) {
-    case 32:
-        env->CP0_Status = tmp;
-        break;
-    case 33:
-        env->active_tc.LO[0] = tmp;
-        break;
-    case 34:
-        env->active_tc.HI[0] = tmp;
-        break;
-    case 35:
-        env->CP0_BadVAddr = tmp;
-        break;
-    case 36:
-        env->CP0_Cause = tmp;
-        break;
-    case 37:
-        env->active_tc.PC = tmp & ~(target_ulong)1;
-        break;
-    case 72: /* fp, ignored */
-        break;
-    default:
-        if (n > 89) {
-            return 0;
-        }
-        /* Other registers are readonly.  Ignore writes.  */
-        break;
-    }
-
     return sizeof(target_ulong);
 }

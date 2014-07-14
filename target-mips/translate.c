@@ -1988,10 +1988,6 @@ MIPSCPU *cpu_mips_init(const char *cpu_model)
     env = &cpu->env;
     env->cpu_model = def;
 
-#ifndef CONFIG_USER_ONLY
-    mmu_init(env, def);
-#endif
-
     object_property_set_bool(OBJECT(cpu), true, "realized", NULL);
 
     return cpu;
