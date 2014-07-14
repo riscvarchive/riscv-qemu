@@ -1431,10 +1431,10 @@ static void gen_system(DisasContext *ctx, uint32_t opc,
     }
     csr = csr_regno(csr);
 
-/*    if (backup_csr == 0x50D || backup_csr == 0x505) {
+    if (backup_csr == 0x50D || backup_csr == 0x505) {
         gen_helper_tlb_flush(cpu_env);
-    }*/
-    gen_helper_tlb_flush(cpu_env);
+    }
+//    gen_helper_tlb_flush(cpu_env);
 
     TCGv source1, csr_store, dest;
     source1 = tcg_temp_new();
@@ -1766,7 +1766,7 @@ gen_intermediate_code_internal(MIPSCPU *cpu, TranslationBlock *tb,
 #ifdef CONFIG_USER_ONLY
         ctx.mem_idx = MIPS_HFLAG_UM;
 #else
-        ctx.mem_idx = 0; //env->helper_csr[CSR_STATUS] & SR_S;
+        ctx.mem_idx = env->helper_csr[CSR_STATUS] & SR_S;
 
 #endif
     num_insns = 0;
