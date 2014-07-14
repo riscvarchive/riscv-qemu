@@ -383,6 +383,7 @@ static void do_unaligned_access(CPUMIPSState *env, target_ulong addr,
 //    helper_riscv_exception(env, (is_write == 1) ? RISCV_EXCP_STORE_ADDR_MIS : RISCV_EXCP_LOAD_ADDR_MIS);
 }
 
+/* called by qemu's softmmu to fill the qemu tlb */
 void tlb_fill(CPUState *cs, target_ulong addr, int is_write, int mmu_idx,
               uintptr_t retaddr)
 {
