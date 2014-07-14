@@ -1892,15 +1892,15 @@ done_generating:
 
 void gen_intermediate_code (CPUMIPSState *env, struct TranslationBlock *tb)
 {
-    gen_intermediate_code_internal(mips_env_get_cpu(env), tb, false);
+    gen_intermediate_code_internal(riscv_env_get_cpu(env), tb, false);
 }
 
 void gen_intermediate_code_pc (CPUMIPSState *env, struct TranslationBlock *tb)
 {
-    gen_intermediate_code_internal(mips_env_get_cpu(env), tb, true);
+    gen_intermediate_code_internal(riscv_env_get_cpu(env), tb, true);
 }
 
-void mips_cpu_dump_state(CPUState *cs, FILE *f, fprintf_function cpu_fprintf,
+void riscv_cpu_dump_state(CPUState *cs, FILE *f, fprintf_function cpu_fprintf,
                          int flags)
 {
     MIPSCPU *cpu = MIPS_CPU(cs);
@@ -1928,7 +1928,7 @@ void mips_cpu_dump_state(CPUState *cs, FILE *f, fprintf_function cpu_fprintf,
     }
 }
 
-void mips_tcg_init(void)
+void riscv_tcg_init(void)
 {
     int i;
     static int inited;
@@ -1970,13 +1970,13 @@ void mips_tcg_init(void)
 
 #include "translate_init.c"
 
-MIPSCPU *cpu_mips_init(const char *cpu_model)
+MIPSCPU *cpu_riscv_init(const char *cpu_model)
 {
     MIPSCPU *cpu;
     CPUMIPSState *env;
-    const mips_def_t *def;
+    const riscv_def_t *def;
 
-    def = cpu_mips_find_by_name(cpu_model);
+    def = cpu_riscv_find_by_name(cpu_model);
     if (!def)
         return NULL;
     cpu = MIPS_CPU(object_new(TYPE_MIPS_CPU));
@@ -1990,7 +1990,7 @@ MIPSCPU *cpu_mips_init(const char *cpu_model)
 
 void cpu_state_reset(CPUMIPSState *env)
 {
-    MIPSCPU *cpu = mips_env_get_cpu(env);
+    MIPSCPU *cpu = riscv_env_get_cpu(env);
     CPUState *cs = CPU(cpu);
 
     env->active_tc.PC = (int32_t)0x10000; // STARTING PC VALUE

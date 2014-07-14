@@ -48,7 +48,7 @@ static void load_tc(QEMUFile *f, TCState *tc)
 int cpu_load(QEMUFile *f, void *opaque, int version_id)
 {
     CPUMIPSState *env = opaque;
-    MIPSCPU *cpu = mips_env_get_cpu(env);
+    MIPSCPU *cpu = riscv_env_get_cpu(env);
     int i;
 
     if (version_id != 3)

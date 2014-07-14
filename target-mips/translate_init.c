@@ -18,37 +18,37 @@
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
-struct mips_def_t {
+struct riscv_def_t {
     const char *name;
 };
 
 /*****************************************************************************/
 /* MIPS CPU definitions */
-static const mips_def_t mips_defs[] =
+static const riscv_def_t riscv_defs[] =
 {
     {  
         .name = "20Kc",
     },
 };
 
-static const mips_def_t *cpu_mips_find_by_name (const char *name)
+static const riscv_def_t *cpu_riscv_find_by_name (const char *name)
 {
     int i;
 
-    for (i = 0; i < ARRAY_SIZE(mips_defs); i++) {
-        if (strcasecmp(name, mips_defs[i].name) == 0) {
-            return &mips_defs[i];
+    for (i = 0; i < ARRAY_SIZE(riscv_defs); i++) {
+        if (strcasecmp(name, riscv_defs[i].name) == 0) {
+            return &riscv_defs[i];
         }
     }
     return NULL;
 }
 
-void mips_cpu_list (FILE *f, fprintf_function cpu_fprintf)
+void riscv_cpu_list (FILE *f, fprintf_function cpu_fprintf)
 {
     int i;
 
-    for (i = 0; i < ARRAY_SIZE(mips_defs); i++) {
+    for (i = 0; i < ARRAY_SIZE(riscv_defs); i++) {
         (*cpu_fprintf)(f, "MIPS '%s'\n",
-                       mips_defs[i].name);
+                       riscv_defs[i].name);
     }
 }

@@ -50,7 +50,7 @@ static int get_physical_address (CPUMIPSState *env, hwaddr *physical,
 
 
     // flush TLB
-//    MIPSCPU *cpu = mips_env_get_cpu(env);
+//    MIPSCPU *cpu = riscv_env_get_cpu(env);
 //    tlb_flush(CPU(cpu), 1); 
 
 
@@ -68,7 +68,7 @@ static int get_physical_address (CPUMIPSState *env, hwaddr *physical,
             return ret;
         }
 
-        CPUState *cs = CPU(mips_env_get_cpu(env));
+        CPUState *cs = CPU(riscv_env_get_cpu(env));
         uint64_t pte = 0; 
         uint64_t base = env->helper_csr[CSR_PTBR];
         uint64_t ptd;
@@ -94,7 +94,7 @@ static int get_physical_address (CPUMIPSState *env, hwaddr *physical,
 */
                 /* NOTE: the env->active_tc.PC value visible here will not be
                  * correct, but the value visible to the exception handler 
-                 * (mips_cpu_do_interrupt) is correct */
+                 * (riscv_cpu_do_interrupt) is correct */
 
                 return TLBRET_NOMATCH;
 //                exit(0);
@@ -161,7 +161,7 @@ static int get_physical_address (CPUMIPSState *env, hwaddr *physical,
 static void raise_mmu_exception(CPUMIPSState *env, target_ulong address,
                                 int rw, int tlb_error)
 {
-    CPUState *cs = CPU(mips_env_get_cpu(env));
+    CPUState *cs = CPU(riscv_env_get_cpu(env));
     int exception = 0;
 
     switch (tlb_error) {
@@ -187,7 +187,7 @@ static void raise_mmu_exception(CPUMIPSState *env, target_ulong address,
 }
 
 #if !defined(CONFIG_USER_ONLY)
-hwaddr mips_cpu_get_phys_page_debug(CPUState *cs, vaddr addr)
+hwaddr riscv_cpu_get_phys_page_debug(CPUState *cs, vaddr addr)
 {
     MIPSCPU *cpu = MIPS_CPU(cs);
     hwaddr phys_addr;
@@ -202,7 +202,7 @@ hwaddr mips_cpu_get_phys_page_debug(CPUState *cs, vaddr addr)
 #endif
 
 // NOTE: this gets called a lot
-int mips_cpu_handle_mmu_fault(CPUState *cs, vaddr address, int rw,
+int riscv_cpu_handle_mmu_fault(CPUState *cs, vaddr address, int rw,
                               int mmu_idx)
 {
     MIPSCPU *cpu = MIPS_CPU(cs);
@@ -279,7 +279,7 @@ inline int set_badvaddr(int excp) {
     return ((excp == RISCV_EXCP_LOAD_ACCESS_FAULT) || (excp == RISCV_EXCP_STORE_ACCESS_FAULT) || (excp == RISCV_EXCP_LOAD_ADDR_MIS) || (excp == RISCV_EXCP_STORE_ADDR_MIS));
 }
 
-void mips_cpu_do_interrupt(CPUState *cs)
+void riscv_cpu_do_interrupt(CPUState *cs)
 {
     MIPSCPU *cpu = MIPS_CPU(cs);
     CPUMIPSState *env = &cpu->env;

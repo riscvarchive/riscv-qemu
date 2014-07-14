@@ -473,7 +473,7 @@ void mips_malta_init(QEMUMachineInitArgs *args)
     }
 
     for (i = 0; i < smp_cpus; i++) {
-        cpu = cpu_mips_init(cpu_model);
+        cpu = cpu_riscv_init(cpu_model);
         if (cpu == NULL) {
             fprintf(stderr, "Unable to find CPU definition\n");
             exit(1);
@@ -481,8 +481,8 @@ void mips_malta_init(QEMUMachineInitArgs *args)
         env = &cpu->env;
 
         /* Init internal devices */
-        cpu_mips_irq_init_cpu(env);
-        cpu_mips_clock_init(env);
+        cpu_riscv_irq_init_cpu(env);
+        cpu_riscv_clock_init(env);
         qemu_register_reset(main_cpu_reset, cpu);
     }
     cpu = MIPS_CPU(first_cpu);
@@ -552,8 +552,8 @@ void mips_malta_init(QEMUMachineInitArgs *args)
     stl_p(memory_region_get_ram_ptr(bios_copy) + 0x10, 0x00000420);
 
     /* Init internal devices */
-    cpu_mips_irq_init_cpu(env);
-    cpu_mips_clock_init(env);
+    cpu_riscv_irq_init_cpu(env);
+    cpu_riscv_clock_init(env);
 
     /*
      * We have a circular dependency problem: pci_bus depends on isa_irq,

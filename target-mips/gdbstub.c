@@ -21,7 +21,7 @@
 #include "qemu-common.h"
 #include "exec/gdbstub.h"
 
-int mips_cpu_gdb_read_register(CPUState *cs, uint8_t *mem_buf, int n)
+int riscv_cpu_gdb_read_register(CPUState *cs, uint8_t *mem_buf, int n)
 {
     MIPSCPU *cpu = MIPS_CPU(cs);
     CPUMIPSState *env = &cpu->env;
@@ -36,7 +36,7 @@ int mips_cpu_gdb_read_register(CPUState *cs, uint8_t *mem_buf, int n)
     return 0;
 }
 
-int mips_cpu_gdb_write_register(CPUState *cs, uint8_t *mem_buf, int n)
+int riscv_cpu_gdb_write_register(CPUState *cs, uint8_t *mem_buf, int n)
 {
     MIPSCPU *cpu = MIPS_CPU(cs);
     CPUMIPSState *env = &cpu->env;

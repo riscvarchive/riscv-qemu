@@ -433,7 +433,7 @@ int cpu_exec(CPUArchState *env)
                     }
 #elif defined(TARGET_MIPS)
                     if ((interrupt_request & CPU_INTERRUPT_HARD) &&
-                        cpu_mips_hw_interrupts_pending(env)) {
+                        cpu_riscv_hw_interrupts_pending(env)) {
                         /* Raise it */
                         if ((env->helper_csr[CSR_STATUS] >> 24) & 0x10) {
                             cpu->exception_index = RISCV_EXCP_SERIAL_INTERRUPT;

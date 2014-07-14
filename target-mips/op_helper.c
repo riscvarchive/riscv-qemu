@@ -27,7 +27,7 @@
 #endif /* !defined(CONFIG_USER_ONLY) */
 
 #ifndef CONFIG_USER_ONLY
-static inline void cpu_mips_tlb_flush (CPUMIPSState *env, int flush_global);
+static inline void cpu_riscv_tlb_flush (CPUMIPSState *env, int flush_global);
 #endif
 
 /*****************************************************************************/
@@ -38,7 +38,7 @@ static inline void QEMU_NORETURN do_raise_exception_err(CPUMIPSState *env,
                                                         int error_code,
                                                         uintptr_t pc)
 {
-    CPUState *cs = CPU(mips_env_get_cpu(env));
+    CPUState *cs = CPU(riscv_env_get_cpu(env));
 
     qemu_log("%s: %d %d\n", __func__, exception, error_code);
 
@@ -140,28 +140,28 @@ target_ulong helper_scall(CPUMIPSState *env, target_ulong bad_pc) {
 
 target_ulong helper_read_count(CPUMIPSState *env)
 {
-    uint32_t val = (int32_t)cpu_mips_get_count(env);
+    uint32_t val = (int32_t)cpu_riscv_get_count(env);
 //    printf("got count val: %d\n", val);
     return val;
 }
 
 void helper_store_compare(CPUMIPSState *env, target_ulong arg1)
 {
-    cpu_mips_store_compare(env, arg1);
+    cpu_riscv_store_compare(env, arg1);
 }
 
 void helper_store_count(CPUMIPSState *env, target_ulong arg1)
 {
-    cpu_mips_store_count(env, arg1);
+    cpu_riscv_store_count(env, arg1);
 }
 
 
 
 #ifndef CONFIG_USER_ONLY
 /* TLB management */
-static void cpu_mips_tlb_flush (CPUMIPSState *env, int flush_global)
+static void cpu_riscv_tlb_flush (CPUMIPSState *env, int flush_global)
 {
-    MIPSCPU *cpu = mips_env_get_cpu(env);
+    MIPSCPU *cpu = riscv_env_get_cpu(env);
 
     /* Flush qemu's TLB and discard all shadowed entries.  */
     tlb_flush(CPU(cpu), flush_global);
@@ -170,7 +170,7 @@ static void cpu_mips_tlb_flush (CPUMIPSState *env, int flush_global)
 
 void helper_tlb_flush(CPUMIPSState *env)
 {
-    cpu_mips_tlb_flush(env, 1);
+    cpu_riscv_tlb_flush(env, 1);
 }
 
 
@@ -178,7 +178,7 @@ void helper_tlb_flush(CPUMIPSState *env)
 
 void helper_wait(CPUMIPSState *env)
 {
-    CPUState *cs = CPU(mips_env_get_cpu(env));
+    CPUState *cs = CPU(riscv_env_get_cpu(env));
 
     cs->halted = 1;
     cpu_reset_interrupt(cs, CPU_INTERRUPT_WAKE);
@@ -221,7 +221,7 @@ void tlb_fill(CPUState *cs, target_ulong addr, int is_write, int mmu_idx,
 {
     int ret;
 
-    ret = mips_cpu_handle_mmu_fault(cs, addr, is_write, mmu_idx);
+    ret = riscv_cpu_handle_mmu_fault(cs, addr, is_write, mmu_idx);
     if (ret) {
         MIPSCPU *cpu = MIPS_CPU(cs);
         CPUMIPSState *env = &cpu->env;
@@ -231,7 +231,7 @@ void tlb_fill(CPUState *cs, target_ulong addr, int is_write, int mmu_idx,
     }
 }
 
-void mips_cpu_unassigned_access(CPUState *cs, hwaddr addr,
+void riscv_cpu_unassigned_access(CPUState *cs, hwaddr addr,
                                 bool is_write, bool is_exec, int unused,
                                 unsigned size)
 {

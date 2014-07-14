@@ -7,9 +7,9 @@ uint64_t cpu_mips_kseg0_to_phys(void *opaque, uint64_t addr);
 uint64_t cpu_mips_phys_to_kseg0(void *opaque, uint64_t addr);
 
 /* mips_int.c */
-void cpu_mips_irq_init_cpu(CPUMIPSState *env);
+void cpu_riscv_irq_init_cpu(CPUMIPSState *env);
 
 /* mips_timer.c */
-void cpu_mips_clock_init(CPUMIPSState *);
+void cpu_riscv_clock_init(CPUMIPSState *);
 
 #endif

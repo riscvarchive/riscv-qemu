@@ -46,7 +46,7 @@
  * lower the interrupt line for level-trigerring
  *
  */
-static void cpu_mips_irq_request(void *opaque, int irq, int level)
+static void cpu_riscv_irq_request(void *opaque, int irq, int level)
 {
     MIPSCPU *cpu = opaque;
     CPUMIPSState *env = &cpu->env;
@@ -83,18 +83,18 @@ static void cpu_mips_irq_request(void *opaque, int irq, int level)
 
 }
 
-void cpu_mips_irq_init_cpu(CPUMIPSState *env)
+void cpu_riscv_irq_init_cpu(CPUMIPSState *env)
 {
     qemu_irq *qi;
     int i;
 
-    qi = qemu_allocate_irqs(cpu_mips_irq_request, mips_env_get_cpu(env), 8);
+    qi = qemu_allocate_irqs(cpu_riscv_irq_request, riscv_env_get_cpu(env), 8);
     for (i = 0; i < 8; i++) {
         env->irq[i] = qi[i];
     }
 }
 
-void cpu_mips_soft_irq(CPUMIPSState *env, int irq, int level)
+void cpu_riscv_soft_irq(CPUMIPSState *env, int irq, int level)
 {
     printf("softirq called...?\n");
     if (irq < 0 || irq > 2) {

@@ -92,7 +92,7 @@ struct CPUMIPSState;
 #define PTE_SX 0x100
 
 
-typedef struct mips_def_t mips_def_t;
+typedef struct riscv_def_t riscv_def_t;
 
 typedef struct TCState TCState;
 struct TCState {
@@ -116,7 +116,7 @@ struct CPUMIPSState {
     CPU_COMMON
 
     /* Fields from here on are preserved across CPU reset. */
-    const mips_def_t *cpu_model;
+    const riscv_def_t *cpu_model;
     void *irq[8];
     QEMUTimer *timer; /* Internal timer */
 };
@@ -124,17 +124,17 @@ struct CPUMIPSState {
 #include "cpu-qom.h"
 
 #if !defined(CONFIG_USER_ONLY)
-void mips_cpu_unassigned_access(CPUState *cpu, hwaddr addr,
+void riscv_cpu_unassigned_access(CPUState *cpu, hwaddr addr,
                                 bool is_write, bool is_exec, int unused,
                                 unsigned size);
 #endif
 
-void mips_cpu_list (FILE *f, fprintf_function cpu_fprintf);
+void riscv_cpu_list (FILE *f, fprintf_function cpu_fprintf);
 
-#define cpu_exec cpu_mips_exec
-#define cpu_gen_code cpu_mips_gen_code
-#define cpu_signal_handler cpu_mips_signal_handler
-#define cpu_list mips_cpu_list
+#define cpu_exec cpu_riscv_exec
+#define cpu_gen_code cpu_riscv_gen_code
+#define cpu_signal_handler cpu_riscv_signal_handler
+#define cpu_list riscv_cpu_list
 
 extern void cpu_wrdsp(uint32_t rs, uint32_t mask_num, CPUMIPSState *env);
 extern uint32_t cpu_rddsp(uint32_t mask_num, CPUMIPSState *env);
@@ -146,7 +146,7 @@ static inline int cpu_mmu_index (CPUMIPSState *env)
     return 0;
 }
 
-static inline int cpu_mips_hw_interrupts_pending(CPUMIPSState *env)
+static inline int cpu_riscv_hw_interrupts_pending(CPUMIPSState *env)
 {
     int32_t pending;
     int32_t status;
@@ -192,14 +192,14 @@ enum {
  */
 #define CPU_INTERRUPT_WAKE CPU_INTERRUPT_TGT_INT_0
 
-int cpu_mips_exec(CPUMIPSState *s);
-void mips_tcg_init(void);
-MIPSCPU *cpu_mips_init(const char *cpu_model);
-int cpu_mips_signal_handler(int host_signum, void *pinfo, void *puc);
+int cpu_riscv_exec(CPUMIPSState *s);
+void riscv_tcg_init(void);
+MIPSCPU *cpu_riscv_init(const char *cpu_model);
+int cpu_riscv_signal_handler(int host_signum, void *pinfo, void *puc);
 
 static inline CPUMIPSState *cpu_init(const char *cpu_model)
 {
-    MIPSCPU *cpu = cpu_mips_init(cpu_model);
+    MIPSCPU *cpu = cpu_riscv_init(cpu_model);
     if (cpu == NULL) {
         return NULL;
     }
@@ -210,21 +210,21 @@ static inline CPUMIPSState *cpu_init(const char *cpu_model)
 void cpu_state_reset(CPUMIPSState *s);
 
 /* mips_timer.c */
-uint32_t cpu_mips_get_random (CPUMIPSState *env);
-uint32_t cpu_mips_get_count (CPUMIPSState *env);
-void cpu_mips_store_count (CPUMIPSState *env, uint32_t value);
-void cpu_mips_store_compare (CPUMIPSState *env, uint32_t value);
-void cpu_mips_start_count(CPUMIPSState *env);
-void cpu_mips_stop_count(CPUMIPSState *env);
+uint32_t cpu_riscv_get_random (CPUMIPSState *env);
+uint32_t cpu_riscv_get_count (CPUMIPSState *env);
+void cpu_riscv_store_count (CPUMIPSState *env, uint32_t value);
+void cpu_riscv_store_compare (CPUMIPSState *env, uint32_t value);
+void cpu_riscv_start_count(CPUMIPSState *env);
+void cpu_riscv_stop_count(CPUMIPSState *env);
 
 /* mips_int.c */
-void cpu_mips_soft_irq(CPUMIPSState *env, int irq, int level);
+void cpu_riscv_soft_irq(CPUMIPSState *env, int irq, int level);
 
 /* helper.c */
-int mips_cpu_handle_mmu_fault(CPUState *cpu, vaddr address, int rw,
+int riscv_cpu_handle_mmu_fault(CPUState *cpu, vaddr address, int rw,
                               int mmu_idx);
 #if !defined(CONFIG_USER_ONLY)
-hwaddr cpu_mips_translate_address (CPUMIPSState *env, target_ulong address,
+hwaddr cpu_riscv_translate_address (CPUMIPSState *env, target_ulong address,
 		                               int rw);
 #endif
 target_ulong exception_resume_pc (CPUMIPSState *env);

@@ -37,7 +37,7 @@ static void riscv_cpu_synchronize_from_tb(CPUState *cs, TranslationBlock *tb)
     env->active_tc.PC = tb->pc;
 }
 
-static bool mips_cpu_has_work(CPUState *cs)
+static bool riscv_cpu_has_work(CPUState *cs)
 {
     MIPSCPU *cpu = MIPS_CPU(cs);
     CPUMIPSState *env = &cpu->env;
@@ -47,7 +47,7 @@ static bool mips_cpu_has_work(CPUState *cs)
        wake-up the CPU, however most of the implementations only
        check for interrupts that can be taken. */
     if ((cs->interrupt_request & CPU_INTERRUPT_HARD) &&
-        cpu_mips_hw_interrupts_pending(env)) {
+        cpu_riscv_hw_interrupts_pending(env)) {
         has_work = true;
     }
 
@@ -55,7 +55,7 @@ static bool mips_cpu_has_work(CPUState *cs)
 }
 
 /* CPUClass::reset() */
-static void mips_cpu_reset(CPUState *s)
+static void riscv_cpu_reset(CPUState *s)
 {
     MIPSCPU *cpu = MIPS_CPU(s);
     MIPSCPUClass *mcc = MIPS_CPU_GET_CLASS(cpu);
@@ -69,7 +69,7 @@ static void mips_cpu_reset(CPUState *s)
     cpu_state_reset(env);
 }
 
-static void mips_cpu_realizefn(DeviceState *dev, Error **errp)
+static void riscv_cpu_realizefn(DeviceState *dev, Error **errp)
 {
     CPUState *cs = CPU(dev);
     MIPSCPUClass *mcc = MIPS_CPU_GET_CLASS(dev);
@@ -80,7 +80,7 @@ static void mips_cpu_realizefn(DeviceState *dev, Error **errp)
     mcc->parent_realize(dev, errp);
 }
 
-static void mips_cpu_initfn(Object *obj)
+static void riscv_cpu_initfn(Object *obj)
 {
     CPUState *cs = CPU(obj);
     MIPSCPU *cpu = MIPS_CPU(obj);
@@ -90,52 +90,52 @@ static void mips_cpu_initfn(Object *obj)
     cpu_exec_init(env);
 
     if (tcg_enabled()) {
-        mips_tcg_init();
+        riscv_tcg_init();
     }
 }
 
-static void mips_cpu_class_init(ObjectClass *c, void *data)
+static void riscv_cpu_class_init(ObjectClass *c, void *data)
 {
     MIPSCPUClass *mcc = MIPS_CPU_CLASS(c);
     CPUClass *cc = CPU_CLASS(c);
     DeviceClass *dc = DEVICE_CLASS(c);
 
     mcc->parent_realize = dc->realize;
-    dc->realize = mips_cpu_realizefn;
+    dc->realize = riscv_cpu_realizefn;
 
     mcc->parent_reset = cc->reset;
-    cc->reset = mips_cpu_reset;
+    cc->reset = riscv_cpu_reset;
 
-    cc->has_work = mips_cpu_has_work;
-    cc->do_interrupt = mips_cpu_do_interrupt;
-    cc->dump_state = mips_cpu_dump_state;
+    cc->has_work = riscv_cpu_has_work;
+    cc->do_interrupt = riscv_cpu_do_interrupt;
+    cc->dump_state = riscv_cpu_dump_state;
     cc->set_pc = riscv_cpu_set_pc;
     cc->synchronize_from_tb = riscv_cpu_synchronize_from_tb;
-    cc->gdb_read_register = mips_cpu_gdb_read_register;
-    cc->gdb_write_register = mips_cpu_gdb_write_register;
+    cc->gdb_read_register = riscv_cpu_gdb_read_register;
+    cc->gdb_write_register = riscv_cpu_gdb_write_register;
 #ifdef CONFIG_USER_ONLY
-    cc->handle_mmu_fault = mips_cpu_handle_mmu_fault;
+    cc->handle_mmu_fault = riscv_cpu_handle_mmu_fault;
 #else
-    cc->do_unassigned_access = mips_cpu_unassigned_access;
-    cc->get_phys_page_debug = mips_cpu_get_phys_page_debug;
+    cc->do_unassigned_access = riscv_cpu_unassigned_access;
+    cc->get_phys_page_debug = riscv_cpu_get_phys_page_debug;
 #endif
 
     cc->gdb_num_core_regs = 73;
 }
 
-static const TypeInfo mips_cpu_type_info = {
+static const TypeInfo riscv_cpu_type_info = {
     .name = TYPE_MIPS_CPU,
     .parent = TYPE_CPU,
     .instance_size = sizeof(MIPSCPU),
-    .instance_init = mips_cpu_initfn,
+    .instance_init = riscv_cpu_initfn,
     .abstract = false,
     .class_size = sizeof(MIPSCPUClass),
-    .class_init = mips_cpu_class_init,
+    .class_init = riscv_cpu_class_init,
 };
 
-static void mips_cpu_register_types(void)
+static void riscv_cpu_register_types(void)
 {
-    type_register_static(&mips_cpu_type_info);
+    type_register_static(&riscv_cpu_type_info);
 }
 
-type_init(mips_cpu_register_types)
+type_init(riscv_cpu_register_types)
