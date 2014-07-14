@@ -106,24 +106,6 @@ static const mips_def_t mips_defs[] =
 {
     {   ///////////////////// TODO: THIS ONE
         .name = "20Kc",
-        .CP0_PRid = 0x000182a0,
-        .CP0_Config0 = MIPS_CONFIG0 | (0x2 << CP0C0_AT) |
-                    (MMU_TYPE_R4000 << CP0C0_MT) | (1 << CP0C0_VI),
-        .CP0_Config1 = MIPS_CONFIG1 | (1 << CP0C1_FP) | (47 << CP0C1_MMU) |
-                       (2 << CP0C1_IS) | (4 << CP0C1_IL) | (3 << CP0C1_IA) |
-                       (2 << CP0C1_DS) | (4 << CP0C1_DL) | (3 << CP0C1_DA) |
-                       (1 << CP0C1_PC) | (1 << CP0C1_WR) | (1 << CP0C1_EP),
-        .CP0_Config2 = MIPS_CONFIG2,
-        .CP0_Config3 = MIPS_CONFIG3,
-        .CP0_LLAddr_rw_bitmask = 0,
-        .CP0_LLAddr_shift = 0,
-        .SYNCI_Step = 32,
-        .CCRes = 1,
-        .CP0_Status_rw_bitmask = 0x36FBFFFF,
-        /* The 20Kc has F64 / L / W but doesn't use the fcr0 bits. */
-        .SEGBITS = 40,
-        .PABITS = 36,
-//        .insn_flags = CPU_MIPS64 | ASE_MIPS3D,
         .mmu_type = MMU_TYPE_R4000,
     },
 };
@@ -153,7 +135,7 @@ void mips_cpu_list (FILE *f, fprintf_function cpu_fprintf)
 #ifndef CONFIG_USER_ONLY
 static void r4k_mmu_init (CPUMIPSState *env, const mips_def_t *def)
 {
-    env->tlb->nb_tlb = 1 + ((def->CP0_Config1 >> CP0C1_MMU) & 63);
+    env->tlb->nb_tlb = 1;
     env->tlb->map_address = &r4k_map_address;
     env->tlb->helper_tlbwi = r4k_helper_tlbwi;
     env->tlb->helper_tlbwr = r4k_helper_tlbwr;

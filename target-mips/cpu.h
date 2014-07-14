@@ -124,30 +124,6 @@ struct CPUMIPSTLBContext {
 
 #define NB_MMU_MODES 3
 
-typedef struct CPUMIPSMVPContext CPUMIPSMVPContext;
-struct CPUMIPSMVPContext {
-    int32_t CP0_MVPControl;
-#define CP0MVPCo_CPA	3
-#define CP0MVPCo_STLB	2
-#define CP0MVPCo_VPC	1
-#define CP0MVPCo_EVP	0
-    int32_t CP0_MVPConf0;
-#define CP0MVPC0_M	31
-#define CP0MVPC0_TLBS	29
-#define CP0MVPC0_GS	28
-#define CP0MVPC0_PCP	27
-#define CP0MVPC0_PTLBE	16
-#define CP0MVPC0_TCA	15
-#define CP0MVPC0_PVPE	10
-#define CP0MVPC0_PTC	0
-    int32_t CP0_MVPConf1;
-#define CP0MVPC1_CIM	31
-#define CP0MVPC1_CIF	30
-#define CP0MVPC1_PCX	20
-#define CP0MVPC1_PCP2	10
-#define CP0MVPC1_PCP1	0
-};
-
 typedef struct mips_def_t mips_def_t;
 
 #define MIPS_SHADOW_SET_MAX 16

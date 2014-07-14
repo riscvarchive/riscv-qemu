@@ -377,7 +377,6 @@ static void /*QEMU_NORETURN*/ do_unaligned_access(CPUMIPSState *env,
 static void do_unaligned_access(CPUMIPSState *env, target_ulong addr,
                                 int is_write, int is_user, uintptr_t retaddr)
 {
-    env->CP0_BadVAddr = addr;
     printf("REACHED DO UNALIGNED ACCESS\n");
     printf("%016lX\n", (uint64_t)addr);
     exit(0);

@@ -1605,22 +1605,11 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
     target_ulong ubimm;
 
     /* make sure instructions are on a word boundary */
-    if (ctx->pc & 0x3) { // NOT tested for RISCV
-        env->CP0_BadVAddr = ctx->pc;
-        generate_exception(ctx, EXCP_AdEL);
+    if (ctx->pc & 0x3) { 
+        // NOT tested for RISCV
+        printf("misaligned instruction, not yet implemented for riscv\n");
         return;
     }
-
-    /* TODO: TEMP HACK TO SEE IF TESTS PASS/FAIL */
-/*
-    if (ctx->opcode == 0x51e0d073) {
-        printf("SUCCESS\n");
-        exit(0);
-    } else if (ctx->opcode == 0x51ee1073) {
-        printf("FAIL\n");
-        exit(0);
-    }
-*/
 
     // increment cycle:
 //    tcg_gen_addi_tl(cpu_csr[CSR_CYCLE], cpu_csr[CSR_CYCLE], 1);

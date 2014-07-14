@@ -178,10 +178,10 @@ static void raise_mmu_exception(CPUMIPSState *env, target_ulong address,
             exception = RISCV_EXCP_INST_ACCESS_FAULT;
         } else if (rw == 0x1) { // store access
             exception = RISCV_EXCP_STORE_ACCESS_FAULT;
-            env->CP0_BadVAddr = address;
+            env->helper_csr[CSR_BADVADDR] = address;
         } else { // load access
             exception = RISCV_EXCP_LOAD_ACCESS_FAULT;
-            env->CP0_BadVAddr = address;
+            env->helper_csr[CSR_BADVADDR] = address;
         }
         break;
     default:
@@ -190,7 +190,6 @@ static void raise_mmu_exception(CPUMIPSState *env, target_ulong address,
         exit(0);
         break;
     }
-//    printf("excp: %x\n", exception);
     cs->exception_index = exception;
 }
 
@@ -370,11 +369,7 @@ void mips_cpu_do_interrupt(CPUState *cs)
     }
     env->helper_csr[CSR_STATUS] &= ~((uint64_t)SR_EI); // turn off interrupts
 
-    // If trap is misaligned address or access fault,
-    // set badvaddr to faulting address. this will be in env->CP0_BadVAddr
-    if ((set_badvaddr(cs->exception_index)) && (!(cs->exception_index & (0x1 << 31)))) {
-        env->helper_csr[CSR_BADVADDR] = env->CP0_BadVAddr;
-    }
+    // NOTE: CSR_BADVADDR should be set from the handler that raises the exception
 
     // Store original PC to epc reg
     // This is correct because the env->active_tc.PC value visible here is 
@@ -391,59 +386,5 @@ void mips_cpu_do_interrupt(CPUState *cs)
 #if !defined(CONFIG_USER_ONLY)
 void r4k_invalidate_tlb (CPUMIPSState *env, int idx, int use_extra)
 {
-    MIPSCPU *cpu = mips_env_get_cpu(env);
-    CPUState *cs;
-    r4k_tlb_t *tlb;
-    target_ulong addr;
-    target_ulong end;
-    uint8_t ASID = env->CP0_EntryHi & 0xFF;
-    target_ulong mask;
-
-    tlb = &env->tlb->mmu.r4k.tlb[idx];
-    /* The qemu TLB is flushed when the ASID changes, so no need to
-       flush these entries again.  */
-    if (tlb->G == 0 && tlb->ASID != ASID) {
-        return;
-    }
-
-    if (use_extra && env->tlb->tlb_in_use < MIPS_TLB_MAX) {
-        /* For tlbwr, we can shadow the discarded entry into
-           a new (fake) TLB entry, as long as the guest can not
-           tell that it's there.  */
-        env->tlb->mmu.r4k.tlb[env->tlb->tlb_in_use] = *tlb;
-        env->tlb->tlb_in_use++;
-        return;
-    }
-
-    /* 1k pages are not supported. */
-    mask = tlb->PageMask | ~(TARGET_PAGE_MASK << 1);
-    if (tlb->V0) {
-        cs = CPU(cpu);
-        addr = tlb->VPN & ~mask;
-#if defined(TARGET_MIPS64)
-        if (addr >= (0xFFFFFFFF80000000ULL & env->SEGMask)) {
-            addr |= 0x3FFFFF0000000000ULL;
-        }
-#endif
-        end = addr | (mask >> 1);
-        while (addr < end) {
-            tlb_flush_page(cs, addr);
-            addr += TARGET_PAGE_SIZE;
-        }
-    }
-    if (tlb->V1) {
-        cs = CPU(cpu);
-        addr = (tlb->VPN & ~mask) | ((mask >> 1) + 1);
-#if defined(TARGET_MIPS64)
-        if (addr >= (0xFFFFFFFF80000000ULL & env->SEGMask)) {
-            addr |= 0x3FFFFF0000000000ULL;
-        }
-#endif
-        end = addr | mask;
-        while (addr - 1 < end) {
-            tlb_flush_page(cs, addr);
-            addr += TARGET_PAGE_SIZE;
-        }
-    }
 }
 #endif
