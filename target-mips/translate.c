@@ -999,6 +999,7 @@ static void gen_load(DisasContext *ctx, uint32_t opc,
 
     target_ulong uimm = (target_long)imm; /* sign ext 16->64 bits */
 
+    gen_helper_tlb_flush(cpu_env);
 
     TCGv t0 = tcg_temp_new();
     gen_get_gpr(t0, rs1);
@@ -1043,6 +1044,8 @@ static void gen_store(DisasContext *ctx, uint32_t opc,
                       int rs1, int rs2, int16_t imm)
 {
     target_ulong uimm = (target_long)imm; /* sign ext 16->64 bits */
+
+    gen_helper_tlb_flush(cpu_env);
 
     TCGv t0 = tcg_temp_new();
     TCGv dat = tcg_temp_new();
