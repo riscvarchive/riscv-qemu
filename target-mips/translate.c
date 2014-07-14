@@ -281,7 +281,6 @@ typedef struct DisasContext {
     target_ulong pc;
     uint32_t opcode;
     int singlestep_enabled;
-    int insn_flags;
     /* Routine used to access memory */
     int mem_idx;
     int bstate;
@@ -1761,7 +1760,6 @@ gen_intermediate_code_internal(MIPSCPU *cpu, TranslationBlock *tb,
     gen_opc_end = tcg_ctx.gen_opc_buf + OPC_MAX_SIZE;
     ctx.pc = pc_start;
     ctx.singlestep_enabled = cs->singlestep_enabled;
-    ctx.insn_flags = env->insn_flags;
     ctx.tb = tb;
     ctx.bstate = BS_NONE;
     /* Restore delay slot state from the tb context.  */
@@ -1909,10 +1907,7 @@ void mips_cpu_dump_state(CPUState *cs, FILE *f, fprintf_function cpu_fprintf,
     CPUMIPSState *env = &cpu->env;
     int i;
 
-    cpu_fprintf(f, "pc=0x" TARGET_FMT_lx " HI=0x" TARGET_FMT_lx
-                " LO=0x" TARGET_FMT_lx 
-                "\n",
-                env->active_tc.PC, env->active_tc.HI[0], env->active_tc.LO[0]);
+    cpu_fprintf(f, "pc=0x" TARGET_FMT_lx "\n", env->active_tc.PC);
     for (i = 0; i < 32; i++) {
         if ((i & 3) == 0) {
             cpu_fprintf(f, "GPR%02d:", i);

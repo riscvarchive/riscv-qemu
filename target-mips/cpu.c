@@ -51,15 +51,6 @@ static bool mips_cpu_has_work(CPUState *cs)
         has_work = true;
     }
 
-    /* MIPS-MT has the ability to halt the CPU.  */
-    if (env->CP0_Config3 & (1 << CP0C3_MT)) {
-        /* The QEMU model will issue an _WAKE request whenever the CPUs
-           should be woken up.  */
-        if (cs->interrupt_request & CPU_INTERRUPT_WAKE) {
-            has_work = true;
-        }
-
-    }
     return has_work;
 }
 

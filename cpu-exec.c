@@ -440,7 +440,6 @@ int cpu_exec(CPUArchState *env)
                         } else {
                             cpu->exception_index = RISCV_EXCP_TIMER_INTERRUPT;
                         }
-                        env->error_code = 0;
                         cc->do_interrupt(cpu);
                         next_tb = 0;
                     }

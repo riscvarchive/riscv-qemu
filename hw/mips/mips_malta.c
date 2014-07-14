@@ -402,17 +402,7 @@ static int64_t load_kernel (void)
 static void main_cpu_reset(void *opaque)
 {
     MIPSCPU *cpu = opaque;
-    CPUMIPSState *env = &cpu->env;
-
     cpu_reset(CPU(cpu));
-
-    /* The bootloader does not need to be rewritten as it is located in a
-       read only location. The kernel location and the arguments table
-       location does not change. */
-    if (loaderparams.kernel_filename) {
-        env->CP0_Status &= ~((1 << CP0St_BEV) | (1 << CP0St_ERL));
-    }
-
 }
 
 static void cpu_request_exit(void *opaque, int irq, int level)

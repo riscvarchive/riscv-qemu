@@ -44,7 +44,6 @@ static inline void QEMU_NORETURN do_raise_exception_err(CPUMIPSState *env,
         qemu_log("%s: %d %d\n", __func__, exception, error_code);
     }
     cs->exception_index = exception;
-    env->error_code = error_code;
 
     if (pc) {
         /* now we have a real cpu fault */
@@ -229,7 +228,7 @@ void tlb_fill(CPUState *cs, target_ulong addr, int is_write, int mmu_idx,
         CPUMIPSState *env = &cpu->env;
 
         do_raise_exception_err(env, cs->exception_index,
-                               env->error_code, retaddr);
+                               0, retaddr);
     }
 }
 

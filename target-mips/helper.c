@@ -35,13 +35,6 @@ enum {
 
 #if !defined(CONFIG_USER_ONLY)
 
-int r4k_map_address (CPUMIPSState *env, hwaddr *physical, int *prot,
-                     target_ulong address, int rw, int access_type)
-{
-    printf("this was called");
-    return TLBRET_NOMATCH;
-}
-
 /* helper for grabbing PTEs */
 static uint64_t load_double_phys_le_f(CPUState *cs, int64_t physaddr)
 {
@@ -382,9 +375,3 @@ void mips_cpu_do_interrupt(CPUState *cs)
 
     cs->exception_index = EXCP_NONE; // mark handled to qemu
 }
-
-#if !defined(CONFIG_USER_ONLY)
-void r4k_invalidate_tlb (CPUMIPSState *env, int idx, int use_extra)
-{
-}
-#endif

@@ -14,24 +14,11 @@
 #include "riscv-defs.h"
 #include "exec/cpu-defs.h"
 
+// TODO: figure out what's up with this
+#define NB_MMU_MODES 3
+
+
 struct CPUMIPSState;
-
-// TODO LOOK HERE FOR TLB SETTINGS
-typedef struct r4k_tlb_t r4k_tlb_t;
-struct r4k_tlb_t {
-    target_ulong VPN;
-    uint32_t PageMask;
-    uint_fast8_t ASID;
-    uint_fast16_t G:1;
-    uint_fast16_t C0:3;
-    uint_fast16_t C1:3;
-    uint_fast16_t V0:1;
-    uint_fast16_t V1:1;
-    uint_fast16_t D0:1;
-    uint_fast16_t D1:1;
-    target_ulong PFN[2];
-};
-
 
 // RISCV CSR mappings. These are not the "real" mappings defined by the isa.
 // Instead, they are the indices into our csr array (ie the output given when
@@ -104,73 +91,20 @@ struct r4k_tlb_t {
 #define PTE_SW  0x80
 #define PTE_SX 0x100
 
-#if !defined(CONFIG_USER_ONLY)
-typedef struct CPUMIPSTLBContext CPUMIPSTLBContext;
-struct CPUMIPSTLBContext {
-    uint32_t nb_tlb;
-    uint32_t tlb_in_use;
-    int (*map_address) (struct CPUMIPSState *env, hwaddr *physical, int *prot, target_ulong address, int rw, int access_type);
-    void (*helper_tlbwi)(struct CPUMIPSState *env);
-    void (*helper_tlbwr)(struct CPUMIPSState *env);
-    void (*helper_tlbp)(struct CPUMIPSState *env);
-    void (*helper_tlbr)(struct CPUMIPSState *env);
-    union {
-        struct {
-            r4k_tlb_t tlb[MIPS_TLB_MAX];
-        } r4k;
-    } mmu;
-};
-#endif
-
-#define NB_MMU_MODES 3
 
 typedef struct mips_def_t mips_def_t;
-
-#define MIPS_SHADOW_SET_MAX 16
-#define MIPS_TC_MAX 5
-#define MIPS_FPU_MAX 1
-#define MIPS_DSP_ACC 4
 
 typedef struct TCState TCState;
 struct TCState {
     target_ulong gpr[32];
     target_ulong fpr[32];
     target_ulong PC;
-    target_ulong HI[MIPS_DSP_ACC];
-    target_ulong LO[MIPS_DSP_ACC];
-    target_ulong ACX[MIPS_DSP_ACC];
-    target_ulong DSPControl;
-    int32_t CP0_TCStatus;
-#define CP0TCSt_TCU3	31
-#define CP0TCSt_TCU2	30
-#define CP0TCSt_TCU1	29
-#define CP0TCSt_TCU0	28
-#define CP0TCSt_TMX	27
-#define CP0TCSt_RNST	23
-#define CP0TCSt_TDS	21
-#define CP0TCSt_DT	20
-#define CP0TCSt_DA	15
-#define CP0TCSt_A	13
-#define CP0TCSt_TKSU	11
-#define CP0TCSt_IXMT	10
-#define CP0TCSt_TASID	0
-    int32_t CP0_TCBind;
-#define CP0TCBd_CurTC	21
-#define CP0TCBd_TBE	17
-#define CP0TCBd_CurVPE	0
-    target_ulong CP0_TCHalt;
-    target_ulong CP0_TCContext;
-    target_ulong CP0_TCSchedule;
-    target_ulong CP0_TCScheFBack;
-    int32_t CP0_Debug_tcstatus;
 };
 
 typedef struct CPUMIPSState CPUMIPSState;
 struct CPUMIPSState {
     TCState active_tc;
-
     uint32_t current_tc;
-
     uint32_t SEGBITS;
     uint32_t PABITS;
     target_ulong SEGMask;
@@ -178,269 +112,10 @@ struct CPUMIPSState {
 
     uint64_t helper_csr[32]; // RISCV CSR registers
 
-
-
-    int32_t CP0_Index;
-    /* CP0_MVP* are per MVP registers. */
-    int32_t CP0_Random;
-    int32_t CP0_VPEControl;
-#define CP0VPECo_YSI	21
-#define CP0VPECo_GSI	20
-#define CP0VPECo_EXCPT	16
-#define CP0VPECo_TE	15
-#define CP0VPECo_TargTC	0
-    int32_t CP0_VPEConf0;
-#define CP0VPEC0_M	31
-#define CP0VPEC0_XTC	21
-#define CP0VPEC0_TCS	19
-#define CP0VPEC0_SCS	18
-#define CP0VPEC0_DSC	17
-#define CP0VPEC0_ICS	16
-#define CP0VPEC0_MVP	1
-#define CP0VPEC0_VPA	0
-    int32_t CP0_VPEConf1;
-#define CP0VPEC1_NCX	20
-#define CP0VPEC1_NCP2	10
-#define CP0VPEC1_NCP1	0
-    target_ulong CP0_YQMask;
-    target_ulong CP0_VPESchedule;
-    target_ulong CP0_VPEScheFBack;
-    int32_t CP0_VPEOpt;
-#define CP0VPEOpt_IWX7	15
-#define CP0VPEOpt_IWX6	14
-#define CP0VPEOpt_IWX5	13
-#define CP0VPEOpt_IWX4	12
-#define CP0VPEOpt_IWX3	11
-#define CP0VPEOpt_IWX2	10
-#define CP0VPEOpt_IWX1	9
-#define CP0VPEOpt_IWX0	8
-#define CP0VPEOpt_DWX7	7
-#define CP0VPEOpt_DWX6	6
-#define CP0VPEOpt_DWX5	5
-#define CP0VPEOpt_DWX4	4
-#define CP0VPEOpt_DWX3	3
-#define CP0VPEOpt_DWX2	2
-#define CP0VPEOpt_DWX1	1
-#define CP0VPEOpt_DWX0	0
-    target_ulong CP0_EntryLo0;
-    target_ulong CP0_EntryLo1;
-    target_ulong CP0_Context;
-    int32_t CP0_PageMask;
-    int32_t CP0_PageGrain;
-    int32_t CP0_Wired;
-    int32_t CP0_SRSConf0_rw_bitmask;
-    int32_t CP0_SRSConf0;
-#define CP0SRSC0_M	31
-#define CP0SRSC0_SRS3	20
-#define CP0SRSC0_SRS2	10
-#define CP0SRSC0_SRS1	0
-    int32_t CP0_SRSConf1_rw_bitmask;
-    int32_t CP0_SRSConf1;
-#define CP0SRSC1_M	31
-#define CP0SRSC1_SRS6	20
-#define CP0SRSC1_SRS5	10
-#define CP0SRSC1_SRS4	0
-    int32_t CP0_SRSConf2_rw_bitmask;
-    int32_t CP0_SRSConf2;
-#define CP0SRSC2_M	31
-#define CP0SRSC2_SRS9	20
-#define CP0SRSC2_SRS8	10
-#define CP0SRSC2_SRS7	0
-    int32_t CP0_SRSConf3_rw_bitmask;
-    int32_t CP0_SRSConf3;
-#define CP0SRSC3_M	31
-#define CP0SRSC3_SRS12	20
-#define CP0SRSC3_SRS11	10
-#define CP0SRSC3_SRS10	0
-    int32_t CP0_SRSConf4_rw_bitmask;
-    int32_t CP0_SRSConf4;
-#define CP0SRSC4_SRS15	20
-#define CP0SRSC4_SRS14	10
-#define CP0SRSC4_SRS13	0
-    int32_t CP0_HWREna;
-    target_ulong CP0_BadVAddr;
-    int32_t CP0_Count;
-    target_ulong CP0_EntryHi;
-    int32_t CP0_Compare;
-    int32_t CP0_Status;
-#define CP0St_CU3   31
-#define CP0St_CU2   30
-#define CP0St_CU1   29
-#define CP0St_CU0   28
-#define CP0St_RP    27
-#define CP0St_FR    26
-#define CP0St_RE    25
-#define CP0St_MX    24
-#define CP0St_PX    23
-#define CP0St_BEV   22
-#define CP0St_TS    21
-#define CP0St_SR    20
-#define CP0St_NMI   19
-#define CP0St_IM    8
-#define CP0St_KX    7
-#define CP0St_SX    6
-#define CP0St_UX    5
-#define CP0St_KSU   3
-#define CP0St_ERL   2
-#define CP0St_EXL   1
-#define CP0St_IE    0
-    int32_t CP0_IntCtl;
-#define CP0IntCtl_IPTI 29
-#define CP0IntCtl_IPPC1 26
-#define CP0IntCtl_VS 5
-    int32_t CP0_SRSCtl;
-#define CP0SRSCtl_HSS 26
-#define CP0SRSCtl_EICSS 18
-#define CP0SRSCtl_ESS 12
-#define CP0SRSCtl_PSS 6
-#define CP0SRSCtl_CSS 0
-    int32_t CP0_SRSMap;
-#define CP0SRSMap_SSV7 28
-#define CP0SRSMap_SSV6 24
-#define CP0SRSMap_SSV5 20
-#define CP0SRSMap_SSV4 16
-#define CP0SRSMap_SSV3 12
-#define CP0SRSMap_SSV2 8
-#define CP0SRSMap_SSV1 4
-#define CP0SRSMap_SSV0 0
-    int32_t CP0_Cause;
-#define CP0Ca_BD   31
-#define CP0Ca_TI   30
-#define CP0Ca_CE   28
-#define CP0Ca_DC   27
-#define CP0Ca_PCI  26
-#define CP0Ca_IV   23
-#define CP0Ca_WP   22
-#define CP0Ca_IP    8
-#define CP0Ca_IP_mask 0x0000FF00
-#define CP0Ca_EC    2
-    target_ulong CP0_EPC;
-    int32_t CP0_PRid;
-    int32_t CP0_EBase;
-    int32_t CP0_Config0;
-#define CP0C0_M    31
-#define CP0C0_K23  28
-#define CP0C0_KU   25
-#define CP0C0_MDU  20
-#define CP0C0_MM   17
-#define CP0C0_BM   16
-#define CP0C0_BE   15
-#define CP0C0_AT   13
-#define CP0C0_AR   10
-#define CP0C0_MT   7
-#define CP0C0_VI   3
-#define CP0C0_K0   0
-    int32_t CP0_Config1;
-#define CP0C1_M    31
-#define CP0C1_MMU  25
-#define CP0C1_IS   22
-#define CP0C1_IL   19
-#define CP0C1_IA   16
-#define CP0C1_DS   13
-#define CP0C1_DL   10
-#define CP0C1_DA   7
-#define CP0C1_C2   6
-#define CP0C1_MD   5
-#define CP0C1_PC   4
-#define CP0C1_WR   3
-#define CP0C1_CA   2
-#define CP0C1_EP   1
-#define CP0C1_FP   0
-    int32_t CP0_Config2;
-#define CP0C2_M    31
-#define CP0C2_TU   28
-#define CP0C2_TS   24
-#define CP0C2_TL   20
-#define CP0C2_TA   16
-#define CP0C2_SU   12
-#define CP0C2_SS   8
-#define CP0C2_SL   4
-#define CP0C2_SA   0
-    int32_t CP0_Config3;
-#define CP0C3_M    31
-#define CP0C3_ISA_ON_EXC 16
-#define CP0C3_DSPP 10
-#define CP0C3_LPA  7
-#define CP0C3_VEIC 6
-#define CP0C3_VInt 5
-#define CP0C3_SP   4
-#define CP0C3_MT   2
-#define CP0C3_SM   1
-#define CP0C3_TL   0
-    uint32_t CP0_Config4;
-    uint32_t CP0_Config4_rw_bitmask;
-#define CP0C4_M    31
-    uint32_t CP0_Config5;
-    uint32_t CP0_Config5_rw_bitmask;
-#define CP0C5_M          31
-#define CP0C5_K          30
-#define CP0C5_CV         29
-#define CP0C5_EVA        28
-#define CP0C5_MSAEn      27
-#define CP0C5_UFR        2
-#define CP0C5_NFExists   0
-    int32_t CP0_Config6;
-    int32_t CP0_Config7;
-    /* XXX: Maybe make LLAddr per-TC? */
-    target_ulong lladdr;
-    target_ulong llval;
-    target_ulong llnewval;
-    target_ulong llreg;
-    target_ulong CP0_LLAddr_rw_bitmask;
-    int CP0_LLAddr_shift;
-    target_ulong CP0_WatchLo[8];
-    int32_t CP0_WatchHi[8];
-    target_ulong CP0_XContext;
-    int32_t CP0_Framemask;
-    int32_t CP0_Debug;
-#define CP0DB_DBD  31
-#define CP0DB_DM   30
-#define CP0DB_LSNM 28
-#define CP0DB_Doze 27
-#define CP0DB_Halt 26
-#define CP0DB_CNT  25
-#define CP0DB_IBEP 24
-#define CP0DB_DBEP 21
-#define CP0DB_IEXI 20
-#define CP0DB_VER  15
-#define CP0DB_DEC  10
-#define CP0DB_SSt  8
-#define CP0DB_DINT 5
-#define CP0DB_DIB  4
-#define CP0DB_DDBS 3
-#define CP0DB_DDBL 2
-#define CP0DB_DBp  1
-#define CP0DB_DSS  0
-    target_ulong CP0_DEPC;
-    int32_t CP0_Performance0;
-    int32_t CP0_TagLo;
-    int32_t CP0_DataLo;
-    int32_t CP0_TagHi;
-    int32_t CP0_DataHi;
-    target_ulong CP0_ErrorEPC;
-    int32_t CP0_DESAVE;
-    /* We waste some space so we can handle shadow registers like TCs. */
-    TCState tcs[MIPS_SHADOW_SET_MAX];
     /* QEMU */
-    int error_code;
-    target_ulong btarget;        /* Jump / branch target               */
-    target_ulong bcond;          /* Branch condition (if needed)       */
-
-    int SYNCI_Step; /* Address step size for SYNCI */
-    int CCRes; /* Cycle count resolution/divisor */
-    uint32_t CP0_Status_rw_bitmask; /* Read/write bits in CP0_Status */
-    uint32_t CP0_TCStatus_rw_bitmask; /* Read/write bits in CP0_TCStatus */
-    int insn_flags; /* Supported instruction set */
-
-    target_ulong tls_value; /* For usermode emulation */
-
     CPU_COMMON
 
     /* Fields from here on are preserved across CPU reset. */
-#if !defined(CONFIG_USER_ONLY)
-    CPUMIPSTLBContext *tlb;
-#endif
-
     const mips_def_t *cpu_model;
     void *irq[8];
     QEMUTimer *timer; /* Internal timer */
@@ -449,13 +124,6 @@ struct CPUMIPSState {
 #include "cpu-qom.h"
 
 #if !defined(CONFIG_USER_ONLY)
-int r4k_map_address (CPUMIPSState *env, hwaddr *physical, int *prot,
-                     target_ulong address, int rw, int access_type);
-void r4k_helper_tlbwi(CPUMIPSState *env);
-void r4k_helper_tlbwr(CPUMIPSState *env);
-void r4k_helper_tlbp(CPUMIPSState *env);
-void r4k_helper_tlbr(CPUMIPSState *env);
-
 void mips_cpu_unassigned_access(CPUState *cpu, hwaddr addr,
                                 bool is_write, bool is_exec, int unused,
                                 unsigned size);
@@ -473,15 +141,8 @@ extern uint32_t cpu_rddsp(uint32_t mask_num, CPUMIPSState *env);
 
 #define CPU_SAVE_VERSION 3
 
-/* MMU modes definitions. We carefully match the indices with our
-   hflags layout. */
-#define MMU_MODE0_SUFFIX _kernel
-#define MMU_MODE1_SUFFIX _super
-#define MMU_MODE2_SUFFIX _user
-#define MMU_USER_IDX 2
 static inline int cpu_mmu_index (CPUMIPSState *env)
 {
-//    return env->hflags & MIPS_HFLAG_KSU;
     return 0;
 }
 
@@ -606,7 +267,6 @@ void cpu_mips_soft_irq(CPUMIPSState *env, int irq, int level);
 int mips_cpu_handle_mmu_fault(CPUState *cpu, vaddr address, int rw,
                               int mmu_idx);
 #if !defined(CONFIG_USER_ONLY)
-void r4k_invalidate_tlb (CPUMIPSState *env, int idx, int use_extra);
 hwaddr cpu_mips_translate_address (CPUMIPSState *env, target_ulong address,
 		                               int rw);
 #endif

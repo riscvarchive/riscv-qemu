@@ -24,12 +24,12 @@ void cpu_save(QEMUFile *f, void *opaque)
     /* Save active TC */
     save_tc(f, &env->active_tc);
 
+    /* Save CPU metastate */
+    qemu_put_be32s(f, &env->current_tc);
+
     for (i = 0; i < 32; i++) {
         qemu_put_betls(f, &env->helper_csr[i]);
     }
-
-    /* Save CPU metastate */
-    qemu_put_be32s(f, &env->current_tc);
 }
 
 static void load_tc(QEMUFile *f, TCState *tc)
@@ -57,12 +57,12 @@ int cpu_load(QEMUFile *f, void *opaque, int version_id)
     /* Load active TC */
     load_tc(f, &env->active_tc);
 
+    /* Load CPU metastate */
+    qemu_get_be32s(f, &env->current_tc);
+
     for (i = 0; i < 32; i++) {
         qemu_get_betls(f, &env->helper_csr[i]);
     }
-
-    /* Load CPU metastate */
-    qemu_get_be32s(f, &env->current_tc);
 
     tlb_flush(CPU(cpu), 1);
     return 0;
