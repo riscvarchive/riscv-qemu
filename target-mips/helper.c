@@ -303,6 +303,11 @@ void riscv_cpu_do_interrupt(CPUState *cs)
     if (cs->exception_index & (0x1 << 31)) {
         // hacky for now. the MSB (bit 63) indicates interrupt but cs->exception 
         // index is only 32 bits wide
+        if (cs->exception_index == RISCV_EXCP_SERIAL_INTERRUPT) {
+            // help out the slow serial device so the driver doesn't get confused
+            // turn off it's irq line
+            env->helper_csr[CSR_STATUS] &= ~(0x1 << 28);
+        }
         env->helper_csr[CSR_CAUSE] = cs->exception_index & 0x1F;
         env->helper_csr[CSR_CAUSE] |= (1L << 63);
     } else {
