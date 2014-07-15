@@ -5,10 +5,11 @@ riscv is being implemented under target-mips
 using the mips64-softmmu (really rv64) target to boot riscv-linux (a compiled
 kernel with busybox is included in hacking/vmlinux/vmlinux):
 
-./configure --target-list=mips64-softmmu --enable-debug 
-make
-cd mips64-softmmu
-./qemu-system-mips64 -M malta -kernel ../hacking/vmlinux/vmlinux -nographic
+$ git submodule update --init pixman
+$ ./configure --target-list=mips64-softmmu --enable-debug 
+$ make
+$ cd mips64-softmmu
+$ ./qemu-system-mips64 -M malta -kernel ../hacking/vmlinux/vmlinux -nographic
 
 To exit the simulated system, hit: Ctrl-a x
 
