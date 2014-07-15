@@ -30,7 +30,7 @@ static uint64_t last_count_update;
 
 
 // should be the cpu freq
-#define TIMER_FREQ	10 * 1000 * 1000
+#define TIMER_FREQ	200 * 1000 * 1000
 
 /* XXX: do not use a global */
 // note this doesn't work, just leftover

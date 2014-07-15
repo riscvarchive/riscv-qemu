@@ -435,7 +435,7 @@ int cpu_exec(CPUArchState *env)
                     if ((interrupt_request & CPU_INTERRUPT_HARD) &&
                         cpu_riscv_hw_interrupts_pending(env)) {
                         /* Raise it */
-                        if ((env->helper_csr[CSR_STATUS] >> 24) & 0x10) {
+                        if (((env->helper_csr[CSR_STATUS] >> 24) & 0x10) & (env->helper_csr[CSR_STATUS] >> 16)) {
                             cpu->exception_index = RISCV_EXCP_SERIAL_INTERRUPT;
                         } else {
                             if (qemu_loglevel_mask(CPU_LOG_EXEC)) {
