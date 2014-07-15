@@ -24,7 +24,13 @@
 #include "hw/mips/cpudevs.h"
 #include "qemu/timer.h"
 
-#define TIMER_FREQ	100 * 1000 * 1000
+
+static uint64_t last_count_update;
+//static uint64_t last_compare_update;
+
+
+// should be the cpu freq
+#define TIMER_FREQ	10 * 1000 * 1000
 
 /* XXX: do not use a global */
 // note this doesn't work, just leftover
@@ -45,6 +51,8 @@ uint32_t cpu_riscv_get_random (CPUMIPSState *env)
 uint64_t cpu_riscv_get_cycle (CPUMIPSState *env) {
     uint64_t now;
     now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
+    // first, convert _now_ to seconds by dividing by get_ticks_per_sec
+    // and then multiply by the timer freq.
     return muldiv64(now, TIMER_FREQ, get_ticks_per_sec());
 }
 
@@ -52,12 +60,11 @@ uint64_t cpu_riscv_get_cycle (CPUMIPSState *env) {
 static void cpu_riscv_timer_update(CPUMIPSState *env)
 {
     uint64_t now, next;
-    uint32_t wait;
+    uint32_t diff;
 
     now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
-    wait = env->helper_csr[CSR_COMPARE] - env->helper_csr[CSR_COUNT] -
-	    (uint32_t)muldiv64(now, TIMER_FREQ, get_ticks_per_sec());
-    next = now + muldiv64(wait, get_ticks_per_sec(), TIMER_FREQ);
+    diff = (uint32_t)(env->helper_csr[CSR_COMPARE] - env->helper_csr[CSR_COUNT]);
+    next = now + muldiv64(diff, get_ticks_per_sec(), TIMER_FREQ);
     timer_mod(env->timer, next);
 }
 
@@ -70,24 +77,24 @@ static void cpu_riscv_timer_expire(CPUMIPSState *env)
 
 uint32_t cpu_riscv_get_count (CPUMIPSState *env)
 {
-    uint64_t now;
+    uint64_t diff;
 
-    now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
-    if (timer_pending(env->timer) && timer_expired(env->timer, now)) {
+    diff = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) - last_count_update;
+//    if (timer_pending(env->timer) && timer_expired(env->timer, now)) {
         /* The timer has already expired.  */
-        cpu_riscv_timer_expire(env);
-    }
+//        cpu_riscv_timer_expire(env);
+//    }
 
     return env->helper_csr[CSR_COUNT] +
-        (uint32_t)muldiv64(now, TIMER_FREQ, get_ticks_per_sec());
+        (uint32_t)muldiv64(diff, TIMER_FREQ, get_ticks_per_sec());
 }
 
 void cpu_riscv_store_count (CPUMIPSState *env, uint32_t count)
 {
     /* Store new count register */
-    env->helper_csr[CSR_COUNT] =
-        count - (uint32_t)muldiv64(qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL),
-                                   TIMER_FREQ, get_ticks_per_sec());
+    env->helper_csr[CSR_COUNT] = count;
+    last_count_update = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
+
     /* Update timer timer */
     cpu_riscv_timer_update(env);
 }
@@ -95,14 +102,9 @@ void cpu_riscv_store_count (CPUMIPSState *env, uint32_t count)
 void cpu_riscv_store_compare (CPUMIPSState *env, uint32_t value)
 {
     env->helper_csr[CSR_COMPARE] = value;
-    cpu_riscv_timer_update(env);
-    // according to RISCV spec, any write to compare clears timer interrupt
     qemu_irq_lower(env->irq[7]);
-}
-
-void cpu_riscv_start_count(CPUMIPSState *env)
-{
-    cpu_riscv_store_count(env, env->helper_csr[CSR_COUNT]);
+    // according to RISCV spec, any write to compare clears timer interrupt
+    cpu_riscv_timer_update(env);
 }
 
 static void riscv_timer_cb (void *opaque)

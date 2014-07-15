@@ -57,9 +57,13 @@ static void cpu_riscv_irq_request(void *opaque, int irq, int level)
     }
 
     // TODO: remove this: currently disable all irqs that are not 4
-    if ((irq != 4) /* && (irq != 7)*/) {
+    if ((irq != 4) && (irq != 7)) {
         return;
     }
+
+/*    if (irq == 7) {
+        printf("timer interrupt\n");
+    }*/
 
     if (level) {
         // level high, set the interrupt in CSR_STATUS
@@ -69,7 +73,7 @@ static void cpu_riscv_irq_request(void *opaque, int irq, int level)
         env->helper_csr[CSR_STATUS] &= ~(1 << (irq + 24));
     }
 
-    if (env->helper_csr[CSR_STATUS] & (0xFF << 24)) {
+    if (env->helper_csr[CSR_STATUS] & (0x1 << (24+irq))) {
         // call cpu_interrupt from include/qom/cpu.h
         // this will call cpu_interrupt_handler aka
         // tcg_handle_interrupt from translate-all.c

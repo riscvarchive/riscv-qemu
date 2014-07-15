@@ -1408,13 +1408,13 @@ static void gen_system(DisasContext *ctx, uint32_t opc,
 {
     // get index into csr array
     int backup_csr = csr;
-    if (csr == 0x506)  {
+/*    if (csr == 0x506)  {
         printf("touched count: %x\n", ctx->opcode);
     } else if (csr == 0x507) {
         printf("touched compare: %x\n", ctx->opcode);
     } else if (csr == 0xC00) {
         printf("touched cycle: %x\n", ctx->opcode);
-    }
+    }*/
 
     csr = csr_regno(csr);
 
@@ -1905,7 +1905,14 @@ void riscv_cpu_dump_state(CPUState *cs, FILE *f, fprintf_function cpu_fprintf,
         if ((i & 3) == 0) {
             cpu_fprintf(f, "CSR%02d:", i);
         }
-        cpu_fprintf(f, " %s " TARGET_FMT_lx, cs_regnames[i], env->helper_csr[i]);
+        if (i == CSR_COUNT) {
+            cpu_fprintf(f, " %s " TARGET_FMT_lx, cs_regnames[i], (target_ulong)cpu_riscv_get_count(env));
+
+        } else if (i == CSR_CYCLE) {
+            cpu_fprintf(f, " %s " TARGET_FMT_lx, cs_regnames[i], cpu_riscv_get_cycle(env));
+        } else {
+            cpu_fprintf(f, " %s " TARGET_FMT_lx, cs_regnames[i], env->helper_csr[i]);
+        }
         if ((i & 3) == 3) {
             cpu_fprintf(f, "\n");
         }

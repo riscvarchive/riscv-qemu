@@ -438,6 +438,9 @@ int cpu_exec(CPUArchState *env)
                         if ((env->helper_csr[CSR_STATUS] >> 24) & 0x10) {
                             cpu->exception_index = RISCV_EXCP_SERIAL_INTERRUPT;
                         } else {
+                            if (qemu_loglevel_mask(CPU_LOG_EXEC)) {
+                                qemu_log("timer interrupt\n");
+                            }
                             cpu->exception_index = RISCV_EXCP_TIMER_INTERRUPT;
                         }
                         cc->do_interrupt(cpu);
