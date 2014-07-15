@@ -86,9 +86,13 @@ target_ulong helper_csrrw(CPUMIPSState *env, target_ulong src, target_ulong csr)
 }
 
 target_ulong helper_csrrs(CPUMIPSState *env, target_ulong src, target_ulong csr) {
-    uint64_t csr_backup = env->helper_csr[csr]; 
-    env->helper_csr[csr] = csr_backup | src;
-    return csr_backup;
+    if (csr != CSR_CYCLE) {
+        uint64_t csr_backup = env->helper_csr[csr]; 
+        env->helper_csr[csr] = csr_backup | src;
+        return csr_backup;
+    } else {
+        return cpu_riscv_get_cycle(env);
+    }
 }
 
 target_ulong helper_csrrc(CPUMIPSState *env, target_ulong src, target_ulong csr) {
@@ -137,7 +141,13 @@ target_ulong helper_scall(CPUMIPSState *env, target_ulong bad_pc) {
 
     return env->helper_csr[CSR_EVEC];
 }
-
+/*
+target_ulong helper_read_cycle(CPUMIPSState *env) 
+{
+    uint32_t val = (int32_t)cpu_riscv_get_cycle(env);
+    return val;
+}
+*/
 target_ulong helper_read_count(CPUMIPSState *env)
 {
     uint32_t val = (int32_t)cpu_riscv_get_count(env);

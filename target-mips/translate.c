@@ -354,17 +354,6 @@ void kill_unknown(DisasContext *ctx, int excp) {
     exit(0);
 }
 
-static inline void save_cpu_state (DisasContext *ctx, int do_save_pc)
-{
-    if (do_save_pc) {
-        tcg_gen_movi_tl(cpu_PC, ctx->pc);
-    }
-}
-
-static inline void restore_cpu_state (CPUMIPSState *env, DisasContext *ctx)
-{
-}
-
 static inline void
 generate_exception (DisasContext *ctx, int excp)
 {
@@ -386,7 +375,6 @@ static inline void gen_goto_tb(DisasContext *ctx, int n, target_ulong dest)
     } else {
         gen_save_pc(dest);
         if (ctx->singlestep_enabled) {
-            save_cpu_state(ctx, 0);
             gen_helper_0e0i(raise_exception, EXCP_DEBUG);
         }
         tcg_gen_exit_tb(0);
@@ -999,8 +987,6 @@ static void gen_load(DisasContext *ctx, uint32_t opc,
 
     target_ulong uimm = (target_long)imm; /* sign ext 16->64 bits */
 
-//    gen_helper_tlb_flush(cpu_env);
-
     TCGv t0 = tcg_temp_new();
     gen_get_gpr(t0, rs1);
     tcg_gen_addi_tl(t0, t0, uimm); // 
@@ -1044,8 +1030,6 @@ static void gen_store(DisasContext *ctx, uint32_t opc,
                       int rs1, int rs2, int16_t imm)
 {
     target_ulong uimm = (target_long)imm; /* sign ext 16->64 bits */
-
-//    gen_helper_tlb_flush(cpu_env);
 
     TCGv t0 = tcg_temp_new();
     TCGv dat = tcg_temp_new();
@@ -1428,13 +1412,15 @@ static void gen_system(DisasContext *ctx, uint32_t opc,
         printf("touched count: %x\n", ctx->opcode);
     } else if (csr == 0x507) {
         printf("touched compare: %x\n", ctx->opcode);
+    } else if (csr == 0xC00) {
+        printf("touched cycle: %x\n", ctx->opcode);
     }
+
     csr = csr_regno(csr);
 
     if (backup_csr == 0x50D || backup_csr == 0x505) {
         gen_helper_tlb_flush(cpu_env);
     }
-//    gen_helper_tlb_flush(cpu_env);
 
     TCGv source1, csr_store, dest;
     source1 = tcg_temp_new();
@@ -1762,7 +1748,6 @@ gen_intermediate_code_internal(MIPSCPU *cpu, TranslationBlock *tb,
     ctx.tb = tb;
     ctx.bstate = BS_NONE;
     /* Restore delay slot state from the tb context.  */
-    restore_cpu_state(env, &ctx);
 #ifdef CONFIG_USER_ONLY
         ctx.mem_idx = MIPS_HFLAG_UM;
 #else
@@ -1778,7 +1763,7 @@ gen_intermediate_code_internal(MIPSCPU *cpu, TranslationBlock *tb,
         if (unlikely(!QTAILQ_EMPTY(&cs->breakpoints))) {
             QTAILQ_FOREACH(bp, &cs->breakpoints, entry) {
                 if (bp->pc == ctx.pc) {
-                    save_cpu_state(&ctx, 1);
+                    tcg_gen_movi_tl(cpu_PC, ctx.pc);
                     ctx.bstate = BS_BRANCH;
                     gen_helper_0e0i(raise_exception, EXCP_DEBUG);
                     /* Include the breakpoint location or the tb won't

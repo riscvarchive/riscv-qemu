@@ -210,12 +210,12 @@ static inline CPUMIPSState *cpu_init(const char *cpu_model)
 void cpu_state_reset(CPUMIPSState *s);
 
 /* mips_timer.c */
+uint64_t cpu_riscv_get_cycle (CPUMIPSState *env);
 uint32_t cpu_riscv_get_random (CPUMIPSState *env);
 uint32_t cpu_riscv_get_count (CPUMIPSState *env);
 void cpu_riscv_store_count (CPUMIPSState *env, uint32_t value);
 void cpu_riscv_store_compare (CPUMIPSState *env, uint32_t value);
 void cpu_riscv_start_count(CPUMIPSState *env);
-void cpu_riscv_stop_count(CPUMIPSState *env);
 
 /* mips_int.c */
 void cpu_riscv_soft_irq(CPUMIPSState *env, int irq, int level);
