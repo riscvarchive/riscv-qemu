@@ -59,10 +59,6 @@
 #define ENVP_ENTRY_SIZE	 	256
 
 /* Hardware addresses */
-#define FLASH_ADDRESS 0x1e000000ULL
-#define RESET_ADDRESS 0x10000ULL
-
-#define FLASH_SIZE    0x400000
 
 #define MAX_IDE_BUS 2
 
@@ -115,29 +111,6 @@ static void network_init(PCIBus *pci_bus)
 
         pci_nic_init_nofail(nd, pci_bus, "pcnet", default_devaddr);
     }
-}
-
-/* ROM and pseudo bootloader
-
-   The following code implements a very very simple bootloader. 
-   This will eventually be removed, currently just jumps to kernel_entry.   
-*/
-
-static void write_bootloader (CPURISCVState *env, uint8_t *base,
-                              int64_t kernel_entry)
-{
-    uint32_t *p;
-
-    p = (uint32_t *)base;
-
-    // temporary RISCV bootloader here
-
-    // lui ra, hi20(kernel_entry)
-    stl_raw(p++, 0x000000b7 | (kernel_entry & 0xFFFFF000));
-    // addiw ra,ra,low12(kernel_entry)
-    stl_raw(p++, 0x0000809b | ((kernel_entry & 0xFFF) << 20));
-    // jr ra
-    stl_raw(p++, 0x00008067);
 }
 
 static void GCC_FMT_ATTR(3, 4) prom_set(uint32_t* prom_buf, int index,
@@ -256,17 +229,10 @@ void riscv_board_init(QEMUMachineInitArgs *args)
     const char *kernel_filename = args->kernel_filename;
     const char *kernel_cmdline = args->kernel_cmdline;
     const char *initrd_filename = args->initrd_filename;
-//    char *filename;
-    pflash_t *fl;
     MemoryRegion *system_memory = get_system_memory();
     MemoryRegion *main_mem = g_new(MemoryRegion, 1);
-//    MemoryRegion *ram_low_preio = g_new(MemoryRegion, 1);
-//    MemoryRegion *ram_low_postio;
-    MemoryRegion *bios, *bios_copy = g_new(MemoryRegion, 1);
-    target_long bios_size = FLASH_SIZE;
     const size_t smbus_eeprom_size = 8 * 256;
     uint8_t *smbus_eeprom_buf = g_malloc0(smbus_eeprom_size);
-    int64_t kernel_entry;
     PCIBus *pci_bus;
     ISABus *isa_bus;
     RISCVCPU *cpu;
@@ -278,9 +244,6 @@ void riscv_board_init(QEMUMachineInitArgs *args)
     int i;
     DriveInfo *hd[MAX_IDE_BUS * MAX_IDE_DEVS];
     DriveInfo *fd[MAX_FD];
-    int fl_idx = 0;
-    int fl_sectors = bios_size >> 16;
-    int be;
 
     DeviceState *dev = qdev_create(NULL, TYPE_RISCV_BOARD);
     BoardState *s = RISCV_BOARD(dev);
@@ -330,60 +293,26 @@ void riscv_board_init(QEMUMachineInitArgs *args)
         exit(1);
     }
 
-    /* register RAM at high address where it is undisturbed by IO */
+    /* register system main memory (actual RAM) */
     memory_region_init_ram(main_mem, NULL, "riscv_board.ram", ram_size);
     vmstate_register_ram_global(main_mem);
     memory_region_add_subregion(system_memory, 0x0, main_mem);
 
-    /* RISCV is little endian by spec */
-    be = 0;
-
-    fl = pflash_cfi01_register(FLASH_ADDRESS, NULL, "riscv_board.bios",
-                               BIOS_SIZE, NULL,
-                               65536, fl_sectors,
-                               4, 0x0000, 0x0000, 0x0000, 0x0000, be);
-    bios = pflash_cfi01_get_memory(fl);
-    fl_idx++;
     if (kernel_filename) {
         /* Write a small bootloader to the flash location. */
         loaderparams.ram_size = MIN(ram_size, 256 << 20);
         loaderparams.kernel_filename = kernel_filename;
         loaderparams.kernel_cmdline = kernel_cmdline;
         loaderparams.initrd_filename = initrd_filename;
-        kernel_entry = load_kernel();
-        write_bootloader(env, memory_region_get_ram_ptr(bios), kernel_entry);
-    } 
+        load_kernel();
+    }
 
     // write memory amount in MiB to 0x0
     stl_p(memory_region_get_ram_ptr(main_mem), loaderparams.ram_size >> 20);
 
+    // add serial device 0x3f8-0x3ff
     serial_mm_init(system_memory, 0x3f8, 0, env->irq[4], 1843200/16, serial_hds[0], 
             DEVICE_NATIVE_ENDIAN);
-/*    serial_mm_init(system_memory, 0x2f8, 0, NULL, 1843200/16, serial_hds[1], 
-            DEVICE_NATIVE_ENDIAN);
-    serial_mm_init(system_memory, 0x3e8, 0, NULL, 1843200/16, serial_hds[2], 
-            DEVICE_NATIVE_ENDIAN);*/
-
-
-    /*
-     * Map the BIOS at a 2nd physical location, as on the real board.
-     * Copy it so that we can patch in the RISCV revision, which cannot be
-     * handled by an overlapping region as the resulting ROM code subpage
-     * regions are not executable.
-     */
-    memory_region_init_ram(bios_copy, NULL, "bios.1fc", BIOS_SIZE);
-    if (!rom_copy(memory_region_get_ram_ptr(bios_copy),
-                  FLASH_ADDRESS, BIOS_SIZE)) {
-        memcpy(memory_region_get_ram_ptr(bios_copy),
-               memory_region_get_ram_ptr(bios), BIOS_SIZE);
-    }
-
-
-    // TODO: want to actually make this read only, but we mess with the linux
-    // gp this way. eventually reduce bios size to prevent this overlap/accidental
-    // write-protection of the gp
-//    memory_region_set_readonly(bios_copy, true);
-    memory_region_add_subregion(system_memory, RESET_ADDRESS, bios_copy);
 
     /* Init internal devices */
     cpu_riscv_irq_init_cpu(env);
