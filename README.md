@@ -16,8 +16,7 @@ $ git submodule update --init pixman
 $ ./configure --target-list=riscv-softmmu --enable-debug
 $ make
 $ cd riscv-softmmu
-$ ./qemu-system-riscv -M board -kernel ../hacking/vmlinux/vmlinux -nographic
-
+$ ./qemu-system-riscv -kernel ../hacking/vmlinux/vmlinux -nographic
 ```
 
 Notes
