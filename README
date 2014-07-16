@@ -1,25 +1,32 @@
-riscv is being implemented under target-mips
+riscv-qemu
+=========
 
---------------------------------------------------------------------------------
- 
-using the mips64-softmmu (really rv64) target to boot riscv-linux (a compiled
-kernel with busybox is included in hacking/vmlinux/vmlinux):
+The riscv-softmmu target for full system emulation is currently supported. 
+It supports booting [riscv-linux] (currently requires building from the 
+[qemu branch]). A precompiled copy of the kernel is included in the "hacking" 
+directory for convenience.
 
+Installation
+--------------
+
+```sh
+$ git clone git@github.com:ucb-bar/riscv-qemu.git
+$ cd riscv-qemu
 $ git submodule update --init pixman
-$ ./configure --target-list=mips64-softmmu --enable-debug 
+$ ./configure --target-list=riscv-softmmu --enable-debug
 $ make
-$ cd mips64-softmmu
-$ ./qemu-system-mips64 -M malta -kernel ../hacking/vmlinux/vmlinux -nographic
+$ cd riscv-softmmu
+$ ./qemu-system-riscv -M board -kernel ../hacking/vmlinux/vmlinux -nographic
 
-To exit the simulated system, hit: Ctrl-a x
+```
 
---------------------------------------------------------------------------------
+Notes
+-----
 
-OLD: mips64-linux-user target (probably doesn't work right now)
-do:
-./configure --target-list=mips64-linux-user --enable-debug
-make
+- Qemu also supports a "linux-user" mode, however this is currently not implemented for RISC-V.
+- Files/directories of interest:
+  - target-riscv/
+  - hw/riscv/
 
-ISA tests (on mips64-linux-user):
-running riscv-tests (requires python3):
-./runtest.py
+[riscv-linux]:https://github.com/ucb-bar/riscv-linux
+[qemu branch]:https://github.com/ucb-bar/riscv-linux/tree/qemu
