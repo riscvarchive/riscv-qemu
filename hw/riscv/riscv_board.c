@@ -119,24 +119,8 @@ static void network_init(PCIBus *pci_bus)
 
 /* ROM and pseudo bootloader
 
-   The following code implements a very very simple bootloader. It first
-   loads the registers a0 to a3 to the values expected by the OS, and
-   then jump at the kernel address.
-
-   The bootloader should pass the locations of the kernel arguments and
-   environment variables tables. Those tables contain the 32-bit address
-   of NULL terminated strings. The environment variables table should be
-   terminated by a NULL address.
-
-   For a simpler implementation, the number of kernel arguments is fixed
-   to two (the name of the kernel and the command line), and the two
-   tables are actually the same one.
-
-   The registers a0 to a3 should contain the following values:
-     a0 - number of kernel arguments
-     a1 - 32-bit address of the kernel arguments table
-     a2 - 32-bit address of the environment variables table
-     a3 - RAM size in bytes
+   The following code implements a very very simple bootloader. 
+   This will eventually be removed, currently just jumps to kernel_entry.   
 */
 
 static void write_bootloader (CPURISCVState *env, uint8_t *base,
@@ -147,21 +131,6 @@ static void write_bootloader (CPURISCVState *env, uint8_t *base,
     p = (uint32_t *)base;
 
     // temporary RISCV bootloader here
-
-    // initialize status reg. this doesn't really belong in the bootloader:
-    // TODO: move somewhere else
-    // li t0, 0x71 // VM=0, S64=1, U64=1, EF=1, PEI=0, EI=0, PS=0, S=1
-    stl_raw(p++, 0x07100d13);
-    // csrw status,t0
-    stl_raw(p++, 0x50ad1073);
-
-    // store memamt to 0 as a 32 bit quantity in MiB
-    // lui ra, hi20(ram_size)
-    stl_raw(p++, 0x000000b7 | ((loaderparams.ram_size >> 20) & 0xFFFFF000));
-    // addiw ra,ra,low12(ram_size)
-    stl_raw(p++, 0x0000809b | (((loaderparams.ram_size >> 20) & 0xFFF) << 20));
-    // sw rs2, 0(zero)
-    stl_raw(p++, 0x00102023);
 
     // lui ra, hi20(kernel_entry)
     stl_raw(p++, 0x000000b7 | (kernel_entry & 0xFFFFF000));
@@ -385,6 +354,8 @@ void riscv_board_init(QEMUMachineInitArgs *args)
         write_bootloader(env, memory_region_get_ram_ptr(bios), kernel_entry);
     } 
 
+    // write memory amount in MiB to 0x0
+    stl_p(memory_region_get_ram_ptr(main_mem), loaderparams.ram_size >> 20);
 
     serial_mm_init(system_memory, 0x3f8, 0, env->irq[4], 1843200/16, serial_hds[0], 
             DEVICE_NATIVE_ENDIAN);
@@ -413,8 +384,6 @@ void riscv_board_init(QEMUMachineInitArgs *args)
     // write-protection of the gp
 //    memory_region_set_readonly(bios_copy, true);
     memory_region_add_subregion(system_memory, RESET_ADDRESS, bios_copy);
-
-    /* Board ID = 0x420 (Board Board with CoreLV) */
 
     /* Init internal devices */
     cpu_riscv_irq_init_cpu(env);

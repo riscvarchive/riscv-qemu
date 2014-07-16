@@ -1974,6 +1974,9 @@ RISCVCPU *cpu_riscv_init(const char *cpu_model)
     env = &cpu->env;
     env->cpu_model = def;
 
+    // set status register from def 
+    env->helper_csr[CSR_STATUS] = def->init_status_reg;
+
     object_property_set_bool(OBJECT(cpu), true, "realized", NULL);
 
     return cpu;
@@ -1984,7 +1987,7 @@ void cpu_state_reset(CPURISCVState *env)
     RISCVCPU *cpu = riscv_env_get_cpu(env);
     CPUState *cs = CPU(cpu);
 
-    env->active_tc.PC = (int32_t)0x10000; // STARTING PC VALUE
+    env->active_tc.PC = RISCV_START_PC; // STARTING PC VALUE def'd in cpu.h
     cs->exception_index = EXCP_NONE;
 }
 

@@ -20,6 +20,7 @@
 
 struct riscv_def_t {
     const char *name;
+    uint64_t init_status_reg;
 };
 
 /*****************************************************************************/
@@ -28,6 +29,7 @@ static const riscv_def_t riscv_defs[] =
 {
     {  
         .name = "riscv-generic",
+        .init_status_reg = SR_S64 | SR_U64 | SR_EF | SR_S,
     },
 };
 
