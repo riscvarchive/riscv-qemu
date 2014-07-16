@@ -2,8 +2,8 @@ riscv-qemu
 =========
 
 The riscv-softmmu target for full system emulation is currently supported. 
-It supports booting [riscv-linux] (currently requires building from the 
-[qemu branch]). A precompiled copy of the kernel is included in the "hacking" 
+It supports booting [riscv-linux] \(currently requires building from the 
+[qemu branch]\). A precompiled copy of the kernel is included in the "hacking" 
 directory for convenience.
 
 Installation
