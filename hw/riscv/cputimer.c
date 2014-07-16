@@ -21,7 +21,7 @@
  */
 
 #include "hw/hw.h"
-#include "hw/mips/cpudevs.h"
+#include "hw/riscv/cpudevs.h"
 #include "qemu/timer.h"
 
 

@@ -23,7 +23,7 @@
  */
 
 #include "hw/hw.h"
-#include "hw/mips/mips.h"
+#include "hw/riscv/riscv.h"
 #include "hw/pci/pci.h"
 #include "hw/pci/pci_host.h"
 #include "hw/i386/pc.h"
