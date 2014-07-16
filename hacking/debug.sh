@@ -1,3 +1,3 @@
 #!/bin/bash
 
-cgdb qemu-system-mips64 -x startqemu
+cgdb qemu-system-riscv -x startqemu
