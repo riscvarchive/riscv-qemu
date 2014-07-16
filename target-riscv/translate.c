@@ -287,7 +287,7 @@ typedef struct DisasContext {
 } DisasContext;
 
 
-void kill_unknown(DisasContext *ctx, int excp);
+static inline void kill_unknown(DisasContext *ctx, int excp);
 
 enum {
     BS_NONE     = 0, /* We go out of the TB without reaching a branch or an
@@ -342,25 +342,18 @@ static inline void gen_save_pc(target_ulong pc)
     tcg_gen_movi_tl(cpu_PC, pc);
 }
 
-
-// filling in for unknown instruction exception for now
-void kill_unknown(DisasContext *ctx, int excp) {
-    if (excp == RISCV_EXCP_FP_DISABLED) {
-        printf("       FP INSTRUCTION at addr 0x" TARGET_FMT_lx ", opcode 0x%x\n", ctx->pc, ctx->opcode);
-    } else {
-        printf("       ILLEGAL INSTRUCTION at addr 0x" TARGET_FMT_lx ", opcode 0x%x\n", ctx->pc, ctx->opcode);
-    }
-    printf("killed due to unknown instruction\n");
-    exit(0);
-}
-
-static inline void
-generate_exception (DisasContext *ctx, int excp)
+static inline void generate_exception (DisasContext *ctx, int excp)
 {
     tcg_gen_movi_tl(cpu_PC, ctx->pc);
     TCGv_i32 helper_tmp = tcg_const_i32(excp);
     gen_helper_raise_exception(cpu_env, helper_tmp);
     tcg_temp_free_i32(helper_tmp);
+}
+
+// unknown instruction / fp disabled
+static inline void kill_unknown(DisasContext *ctx, int excp) {
+    generate_exception(ctx, excp);
+    ctx->bstate = BS_STOP;
 }
 
 static inline void gen_goto_tb(DisasContext *ctx, int n, target_ulong dest)
@@ -1710,15 +1703,11 @@ static void decode_opc (CPURISCVState *env, DisasContext *ctx)
     case OPC_RISC_FNMSUB:
     case OPC_RISC_FNMADD:
     case OPC_RISC_FP_ARITH:
-        printf("GOT HERE GOT HERE");
-        exit(0);
         kill_unknown(ctx, RISCV_EXCP_FP_DISABLED);
         break;
 
     default:
         kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
-        // TODO REMOVED FOR TESTING, REPLACE
-        // generate_exception(ctx, EXCP_RI);
         break;
     }
 }
