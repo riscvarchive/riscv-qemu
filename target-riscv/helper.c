@@ -1,5 +1,5 @@
 /*
- *  MIPS emulation helpers for qemu.
+ *  RISCV emulation helpers for qemu.
  *
  *  Copyright (c) 2004-2005 Jocelyn Mayer
  *
@@ -42,7 +42,7 @@ static uint64_t load_double_phys_le_f(CPUState *cs, int64_t physaddr)
     return loadval;
 }
 
-static int get_physical_address (CPUMIPSState *env, hwaddr *physical,
+static int get_physical_address (CPURISCVState *env, hwaddr *physical,
                                 int *prot, target_ulong address,
                                 int rw, int access_type)
 {
@@ -50,7 +50,7 @@ static int get_physical_address (CPUMIPSState *env, hwaddr *physical,
 
 
     // flush TLB
-//    MIPSCPU *cpu = riscv_env_get_cpu(env);
+//    RISCVCPU *cpu = riscv_env_get_cpu(env);
 //    tlb_flush(CPU(cpu), 1); 
 
 
@@ -159,7 +159,7 @@ static int get_physical_address (CPUMIPSState *env, hwaddr *physical,
 }
 #endif
 
-static void raise_mmu_exception(CPUMIPSState *env, target_ulong address,
+static void raise_mmu_exception(CPURISCVState *env, target_ulong address,
                                 int rw, int tlb_error)
 {
     CPUState *cs = CPU(riscv_env_get_cpu(env));
@@ -190,7 +190,7 @@ static void raise_mmu_exception(CPUMIPSState *env, target_ulong address,
 #if !defined(CONFIG_USER_ONLY)
 hwaddr riscv_cpu_get_phys_page_debug(CPUState *cs, vaddr addr)
 {
-    MIPSCPU *cpu = MIPS_CPU(cs);
+    RISCVCPU *cpu = RISCV_CPU(cs);
     hwaddr phys_addr;
     int prot;
 
@@ -206,8 +206,8 @@ hwaddr riscv_cpu_get_phys_page_debug(CPUState *cs, vaddr addr)
 int riscv_cpu_handle_mmu_fault(CPUState *cs, vaddr address, int rw,
                               int mmu_idx)
 {
-    MIPSCPU *cpu = MIPS_CPU(cs);
-    CPUMIPSState *env = &cpu->env;
+    RISCVCPU *cpu = RISCV_CPU(cs);
+    CPURISCVState *env = &cpu->env;
 #if !defined(CONFIG_USER_ONLY)
     hwaddr physical;
     int prot;
@@ -267,7 +267,7 @@ static const char * const riscv_excp_names[13] = {
 };
 
 
-target_ulong exception_resume_pc (CPUMIPSState *env)
+target_ulong exception_resume_pc (CPURISCVState *env)
 {
     target_ulong bad_pc;
     bad_pc = env->active_tc.PC;
@@ -282,8 +282,8 @@ inline int set_badvaddr(int excp) {
 
 void riscv_cpu_do_interrupt(CPUState *cs)
 {
-    MIPSCPU *cpu = MIPS_CPU(cs);
-    CPUMIPSState *env = &cpu->env;
+    RISCVCPU *cpu = RISCV_CPU(cs);
+    CPURISCVState *env = &cpu->env;
 
 //    printf("%d\n", cs->exception_index);
 

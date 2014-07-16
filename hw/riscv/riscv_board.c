@@ -1,5 +1,5 @@
 /*
- * QEMU Malta board support
+ * QEMU Board board support
  *
  * Copyright (c) 2006 Aurelien Jarno
  *
@@ -31,14 +31,14 @@
 #include "hw/i2c/smbus.h"
 #include "block/block.h"
 #include "hw/block/flash.h"
-#include "hw/mips/mips.h"
-#include "hw/mips/cpudevs.h"
+#include "hw/riscv/riscv.h"
+#include "hw/riscv/cpudevs.h"
 #include "hw/pci/pci.h"
 #include "sysemu/char.h"
 #include "sysemu/sysemu.h"
 #include "sysemu/arch_init.h"
 #include "qemu/log.h"
-#include "hw/mips/bios.h"
+#include "hw/riscv/bios.h"
 #include "hw/ide.h"
 #include "hw/loader.h"
 #include "elf.h"
@@ -80,16 +80,16 @@ typedef struct {
     CharDriverState *display;
     char display_text[9];
     SerialState *uart;
-} MaltaFPGAState;
+} BoardFPGAState;
 
-#define TYPE_MIPS_MALTA "mips-malta"
-#define MIPS_MALTA(obj) OBJECT_CHECK(MaltaState, (obj), TYPE_MIPS_MALTA)
+#define TYPE_RISCV_BOARD "riscv-board"
+#define RISCV_BOARD(obj) OBJECT_CHECK(BoardState, (obj), TYPE_RISCV_BOARD)
 
 typedef struct {
     SysBusDevice parent_obj;
 
     qemu_irq *i8259;
-} MaltaState;
+} BoardState;
 
 static ISADevice *pit;
 
@@ -110,7 +110,7 @@ static void network_init(PCIBus *pci_bus)
         const char *default_devaddr = NULL;
 
         if (i == 0 && (!nd->model || strcmp(nd->model, "pcnet") == 0))
-            /* The malta board has a PCNet card using PCI SLOT 11 */
+            /* The board board has a PCNet card using PCI SLOT 11 */
             default_devaddr = "0b";
 
         pci_nic_init_nofail(nd, pci_bus, "pcnet", default_devaddr);
@@ -139,7 +139,7 @@ static void network_init(PCIBus *pci_bus)
      a3 - RAM size in bytes
 */
 
-static void write_bootloader (CPUMIPSState *env, uint8_t *base,
+static void write_bootloader (CPURISCVState *env, uint8_t *base,
                               int64_t kernel_entry)
 {
     uint32_t *p;
@@ -335,13 +335,9 @@ static int64_t load_kernel (void)
     long prom_size;
     int prom_index = 0;
 
-#ifdef TARGET_WORDS_BIGENDIAN
-    big_endian = 1;
-#else
     big_endian = 0;
-#endif
 
-    if (load_elf(loaderparams.kernel_filename, cpu_mips_kseg0_to_phys, NULL,
+    if (load_elf(loaderparams.kernel_filename, cpu_riscv_kseg0_to_phys, NULL,
                  (uint64_t *)&kernel_entry, NULL, (uint64_t *)&kernel_high,
                  big_endian, ELF_MACHINE, 1) < 0) {
         fprintf(stderr, "qemu: could not load kernel '%s'\n",
@@ -380,7 +376,7 @@ static int64_t load_kernel (void)
     prom_set(prom_buf, prom_index++, "%s", loaderparams.kernel_filename);
     if (initrd_size > 0) {
         prom_set(prom_buf, prom_index++, "rd_start=0x%" PRIx64 " rd_size=%li %s",
-                 cpu_mips_phys_to_kseg0(NULL, initrd_offset), initrd_size,
+                 cpu_riscv_phys_to_kseg0(NULL, initrd_offset), initrd_size,
                  loaderparams.kernel_cmdline);
     } else {
         prom_set(prom_buf, prom_index++, "%s", loaderparams.kernel_cmdline);
@@ -394,14 +390,14 @@ static int64_t load_kernel (void)
     prom_set(prom_buf, prom_index++, NULL);
 
     rom_add_blob_fixed("prom", prom_buf, prom_size,
-                       cpu_mips_kseg0_to_phys(NULL, ENVP_ADDR));
+                       cpu_riscv_kseg0_to_phys(NULL, ENVP_ADDR));
 
     return kernel_entry;
 }
 
 static void main_cpu_reset(void *opaque)
 {
-    MIPSCPU *cpu = opaque;
+    RISCVCPU *cpu = opaque;
     cpu_reset(CPU(cpu));
 }
 
@@ -415,7 +411,7 @@ static void cpu_request_exit(void *opaque, int irq, int level)
 }
 
 static
-void mips_malta_init(QEMUMachineInitArgs *args)
+void riscv_board_init(QEMUMachineInitArgs *args)
 {
     ram_addr_t ram_size = args->ram_size;
     const char *cpu_model = args->cpu_model;
@@ -435,8 +431,8 @@ void mips_malta_init(QEMUMachineInitArgs *args)
     int64_t kernel_entry;
     PCIBus *pci_bus;
     ISABus *isa_bus;
-    MIPSCPU *cpu;
-    CPUMIPSState *env;
+    RISCVCPU *cpu;
+    CPURISCVState *env;
     qemu_irq *isa_irq;
     qemu_irq *cpu_exit_irq;
     int piix4_devfn;
@@ -448,8 +444,8 @@ void mips_malta_init(QEMUMachineInitArgs *args)
     int fl_sectors = bios_size >> 16;
     int be;
 
-    DeviceState *dev = qdev_create(NULL, TYPE_MIPS_MALTA);
-    MaltaState *s = MIPS_MALTA(dev);
+    DeviceState *dev = qdev_create(NULL, TYPE_RISCV_BOARD);
+    BoardState *s = RISCV_BOARD(dev);
 
     /* The whole address space decoded by the GT-64120A doesn't generate
        exception when accessing invalid memory. Create an empty slot to
@@ -469,7 +465,7 @@ void mips_malta_init(QEMUMachineInitArgs *args)
 
     /* init CPUs */
     if (cpu_model == NULL) {
-        cpu_model = "20Kc";
+        cpu_model = "riscv-generic";
     }
 
     for (i = 0; i < smp_cpus; i++) {
@@ -485,7 +481,7 @@ void mips_malta_init(QEMUMachineInitArgs *args)
         cpu_riscv_clock_init(env);
         qemu_register_reset(main_cpu_reset, cpu);
     }
-    cpu = MIPS_CPU(first_cpu);
+    cpu = RISCV_CPU(first_cpu);
     env = &cpu->env;
 
     /* allocate RAM */
@@ -497,14 +493,14 @@ void mips_malta_init(QEMUMachineInitArgs *args)
     }
 
     /* register RAM at high address where it is undisturbed by IO */
-    memory_region_init_ram(ram_high, NULL, "mips_malta.ram", ram_size);
+    memory_region_init_ram(ram_high, NULL, "riscv_board.ram", ram_size);
     vmstate_register_ram_global(ram_high);
     memory_region_add_subregion(system_memory, 0x0, ram_high);
 
     /* RISCV is little endian by spec */
     be = 0;
 
-    fl = pflash_cfi01_register(FLASH_ADDRESS, NULL, "mips_malta.bios",
+    fl = pflash_cfi01_register(FLASH_ADDRESS, NULL, "riscv_board.bios",
                                BIOS_SIZE, NULL,
                                65536, fl_sectors,
                                4, 0x0000, 0x0000, 0x0000, 0x0000, be);
@@ -531,7 +527,7 @@ void mips_malta_init(QEMUMachineInitArgs *args)
 
     /*
      * Map the BIOS at a 2nd physical location, as on the real board.
-     * Copy it so that we can patch in the MIPS revision, which cannot be
+     * Copy it so that we can patch in the RISCV revision, which cannot be
      * handled by an overlapping region as the resulting ROM code subpage
      * regions are not executable.
      */
@@ -548,7 +544,7 @@ void mips_malta_init(QEMUMachineInitArgs *args)
 //    memory_region_set_readonly(bios_copy, true);
     memory_region_add_subregion(system_memory, RESET_ADDRESS, bios_copy);
 
-    /* Board ID = 0x420 (Malta Board with CoreLV) */
+    /* Board ID = 0x420 (Board Board with CoreLV) */
     stl_p(memory_region_get_ram_ptr(bios_copy) + 0x10, 0x00000420);
 
     /* Init internal devices */
@@ -573,7 +569,7 @@ void mips_malta_init(QEMUMachineInitArgs *args)
     piix4_devfn = piix4_init(pci_bus, &isa_bus, 80);
 
     /* Interrupt controller */
-    /* The 8259 is attached to the MIPS CPU INT0 pin, ie interrupt 2 */
+    /* The 8259 is attached to the RISCV CPU INT0 pin, ie interrupt 2 */
     s->i8259 = i8259_init(isa_bus, env->irq[2]);
 
     isa_bus_irqs(isa_bus, s->i8259);
@@ -607,42 +603,42 @@ void mips_malta_init(QEMUMachineInitArgs *args)
     pci_vga_init(pci_bus);
 }
 
-static int mips_malta_sysbus_device_init(SysBusDevice *sysbusdev)
+static int riscv_board_sysbus_device_init(SysBusDevice *sysbusdev)
 {
     return 0;
 }
 
-static void mips_malta_class_init(ObjectClass *klass, void *data)
+static void riscv_board_class_init(ObjectClass *klass, void *data)
 {
     SysBusDeviceClass *k = SYS_BUS_DEVICE_CLASS(klass);
 
-    k->init = mips_malta_sysbus_device_init;
+    k->init = riscv_board_sysbus_device_init;
 }
 
-static const TypeInfo mips_malta_device = {
-    .name          = TYPE_MIPS_MALTA,
+static const TypeInfo riscv_board_device = {
+    .name          = TYPE_RISCV_BOARD,
     .parent        = TYPE_SYS_BUS_DEVICE,
-    .instance_size = sizeof(MaltaState),
-    .class_init    = mips_malta_class_init,
+    .instance_size = sizeof(BoardState),
+    .class_init    = riscv_board_class_init,
 };
 
-static QEMUMachine mips_malta_machine = {
-    .name = "malta",
-    .desc = "MIPS Malta Core LV",
-    .init = mips_malta_init,
+static QEMUMachine riscv_board_machine = {
+    .name = "board",
+    .desc = "RISCV Board",
+    .init = riscv_board_init,
     .max_cpus = 16,
     .is_default = 1,
 };
 
-static void mips_malta_register_types(void)
+static void riscv_board_register_types(void)
 {
-    type_register_static(&mips_malta_device);
+    type_register_static(&riscv_board_device);
 }
 
-static void mips_malta_machine_init(void)
+static void riscv_board_machine_init(void)
 {
-    qemu_register_machine(&mips_malta_machine);
+    qemu_register_machine(&riscv_board_machine);
 }
 
-type_init(mips_malta_register_types)
-machine_init(mips_malta_machine_init);
+type_init(riscv_board_register_types)
+machine_init(riscv_board_machine_init);

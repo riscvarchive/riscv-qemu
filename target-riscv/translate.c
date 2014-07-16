@@ -1,5 +1,5 @@
 /*
- *  MIPS32 emulation for qemu: main translation routines.
+ *  RISCV emulation for qemu: main translation routines.
  *
  *  Copyright (c) 2004-2005 Jocelyn Mayer
  *  Copyright (c) 2006 Marius Groeger (FPU operations)
@@ -32,7 +32,7 @@
 //#define DISABLE_CHAINING_BRANCH
 //#define DISABLE_CHAINING_JAL
 
-#define MIPS_DEBUG_DISAS 0
+#define RISCV_DEBUG_DISAS 0
 
 static int csr_regno(int regno);
 
@@ -321,9 +321,9 @@ static const char * const fpr_regnames[] = {
 
 
 
-#define MIPS_DEBUG(fmt, ...)                                                  \
+#define RISCV_DEBUG(fmt, ...)                                                  \
     do {                                                                      \
-        if (MIPS_DEBUG_DISAS) {                                               \
+        if (RISCV_DEBUG_DISAS) {                                               \
             qemu_log_mask(CPU_LOG_TB_IN_ASM,                                  \
                           TARGET_FMT_lx ": %08x " fmt "\n",                   \
                           ctx->pc, ctx->opcode , ## __VA_ARGS__);             \
@@ -332,7 +332,7 @@ static const char * const fpr_regnames[] = {
 
 #define LOG_DISAS(...)                                                        \
     do {                                                                      \
-        if (MIPS_DEBUG_DISAS) {                                               \
+        if (RISCV_DEBUG_DISAS) {                                               \
             qemu_log_mask(CPU_LOG_TB_IN_ASM, ## __VA_ARGS__);                 \
         }                                                                     \
     } while (0)
@@ -1577,7 +1577,7 @@ static void gen_fp_store(DisasContext *ctx, uint32_t opc,
 #define GET_STORE_IMM(inst)           ((int16_t)(((((int32_t)inst) >> 25) << 5) | ((inst >> 7) & 0x1F)))
 #define GET_JAL_IMM(inst)             ((int32_t)((inst & 0xFF000) | (((inst >> 20) & 0x1) << 11) | (((inst >> 21) & 0x3FF) << 1) | ((((int32_t)inst) >> 31) << 20)))
 
-static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
+static void decode_opc (CPURISCVState *env, DisasContext *ctx)
 {
     int rs1;
     int rs2;
@@ -1724,11 +1724,11 @@ static void decode_opc (CPUMIPSState *env, DisasContext *ctx)
 }
 
 static inline void
-gen_intermediate_code_internal(MIPSCPU *cpu, TranslationBlock *tb,
+gen_intermediate_code_internal(RISCVCPU *cpu, TranslationBlock *tb,
                                bool search_pc)
 {
     CPUState *cs = CPU(cpu);
-    CPUMIPSState *env = &cpu->env;
+    CPURISCVState *env = &cpu->env;
     DisasContext ctx;
     target_ulong pc_start;
     uint16_t *gen_opc_end;
@@ -1749,7 +1749,7 @@ gen_intermediate_code_internal(MIPSCPU *cpu, TranslationBlock *tb,
     ctx.bstate = BS_NONE;
     /* Restore delay slot state from the tb context.  */
 #ifdef CONFIG_USER_ONLY
-        ctx.mem_idx = MIPS_HFLAG_UM;
+        ctx.mem_idx = 0;
 #else
         ctx.mem_idx = env->helper_csr[CSR_STATUS] & SR_S;
 
@@ -1874,12 +1874,12 @@ done_generating:
 #endif
 }
 
-void gen_intermediate_code (CPUMIPSState *env, struct TranslationBlock *tb)
+void gen_intermediate_code (CPURISCVState *env, struct TranslationBlock *tb)
 {
     gen_intermediate_code_internal(riscv_env_get_cpu(env), tb, false);
 }
 
-void gen_intermediate_code_pc (CPUMIPSState *env, struct TranslationBlock *tb)
+void gen_intermediate_code_pc (CPURISCVState *env, struct TranslationBlock *tb)
 {
     gen_intermediate_code_internal(riscv_env_get_cpu(env), tb, true);
 }
@@ -1887,8 +1887,8 @@ void gen_intermediate_code_pc (CPUMIPSState *env, struct TranslationBlock *tb)
 void riscv_cpu_dump_state(CPUState *cs, FILE *f, fprintf_function cpu_fprintf,
                          int flags)
 {
-    MIPSCPU *cpu = MIPS_CPU(cs);
-    CPUMIPSState *env = &cpu->env;
+    RISCVCPU *cpu = RISCV_CPU(cs);
+    CPURISCVState *env = &cpu->env;
     int i;
 
     cpu_fprintf(f, "pc=0x" TARGET_FMT_lx "\n", env->active_tc.PC);
@@ -1937,40 +1937,40 @@ void riscv_tcg_init(void)
     TCGV_UNUSED(cpu_gpr[0]);
     for (i = 1; i < 32; i++) {
         cpu_gpr[i] = tcg_global_mem_new(TCG_AREG0,
-                                        offsetof(CPUMIPSState, active_tc.gpr[i]),
+                                        offsetof(CPURISCVState, active_tc.gpr[i]),
                                         regnames[i]);
     }
 
 /*    for (i = 0; i < 32; i++) {
         cpu_csr[i] = tcg_global_mem_new(TCG_AREG0,
-                                        offsetof(CPUMIPSState, active_tc.csr[i]),
+                                        offsetof(CPURISCVState, active_tc.csr[i]),
                                         cs_regnames[i]);
     }
 */
 
     for (i = 0; i < 32; i++) {
         cpu_fpr[i] = tcg_global_mem_new(TCG_AREG0,
-                                        offsetof(CPUMIPSState, active_tc.fpr[i]),
+                                        offsetof(CPURISCVState, active_tc.fpr[i]),
                                         fpr_regnames[i]);
     }
 
     cpu_PC = tcg_global_mem_new(TCG_AREG0,
-                                offsetof(CPUMIPSState, active_tc.PC), "PC");
+                                offsetof(CPURISCVState, active_tc.PC), "PC");
     inited = 1;
 }
 
 #include "translate_init.c"
 
-MIPSCPU *cpu_riscv_init(const char *cpu_model)
+RISCVCPU *cpu_riscv_init(const char *cpu_model)
 {
-    MIPSCPU *cpu;
-    CPUMIPSState *env;
+    RISCVCPU *cpu;
+    CPURISCVState *env;
     const riscv_def_t *def;
 
     def = cpu_riscv_find_by_name(cpu_model);
     if (!def)
         return NULL;
-    cpu = MIPS_CPU(object_new(TYPE_MIPS_CPU));
+    cpu = RISCV_CPU(object_new(TYPE_RISCV_CPU));
     env = &cpu->env;
     env->cpu_model = def;
 
@@ -1979,16 +1979,16 @@ MIPSCPU *cpu_riscv_init(const char *cpu_model)
     return cpu;
 }
 
-void cpu_state_reset(CPUMIPSState *env)
+void cpu_state_reset(CPURISCVState *env)
 {
-    MIPSCPU *cpu = riscv_env_get_cpu(env);
+    RISCVCPU *cpu = riscv_env_get_cpu(env);
     CPUState *cs = CPU(cpu);
 
     env->active_tc.PC = (int32_t)0x10000; // STARTING PC VALUE
     cs->exception_index = EXCP_NONE;
 }
 
-void restore_state_to_opc(CPUMIPSState *env, TranslationBlock *tb, int pc_pos)
+void restore_state_to_opc(CPURISCVState *env, TranslationBlock *tb, int pc_pos)
 {
     env->active_tc.PC = tcg_ctx.gen_opc_pc[pc_pos];
 }

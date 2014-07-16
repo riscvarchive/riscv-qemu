@@ -1,13 +1,13 @@
-#if !defined (__MIPS_CPU_H__)
-#define __MIPS_CPU_H__
+#if !defined (__RISCV_CPU_H__)
+#define __RISCV_CPU_H__
 
 //#define DEBUG_OP
 
 #define TARGET_HAS_ICE 1
 
-#define ELF_MACHINE	EM_MIPS
+#define ELF_MACHINE	EM_RISCV
 
-#define CPUArchState struct CPUMIPSState
+#define CPUArchState struct CPURISCVState
 
 #include "config.h"
 #include "qemu-common.h"
@@ -17,7 +17,7 @@
 // TODO: figure out what's up with this
 #define NB_MMU_MODES 2
 
-struct CPUMIPSState;
+struct CPURISCVState;
 
 // RISCV CSR mappings. These are not the "real" mappings defined by the isa.
 // Instead, they are the indices into our csr array (ie the output given when
@@ -101,8 +101,8 @@ struct TCState {
     target_ulong PC;
 };
 
-typedef struct CPUMIPSState CPUMIPSState;
-struct CPUMIPSState {
+typedef struct CPURISCVState CPURISCVState;
+struct CPURISCVState {
     TCState active_tc;
     uint32_t current_tc;
     uint32_t SEGBITS;
@@ -136,17 +136,17 @@ void riscv_cpu_list (FILE *f, fprintf_function cpu_fprintf);
 #define cpu_signal_handler cpu_riscv_signal_handler
 #define cpu_list riscv_cpu_list
 
-extern void cpu_wrdsp(uint32_t rs, uint32_t mask_num, CPUMIPSState *env);
-extern uint32_t cpu_rddsp(uint32_t mask_num, CPUMIPSState *env);
+extern void cpu_wrdsp(uint32_t rs, uint32_t mask_num, CPURISCVState *env);
+extern uint32_t cpu_rddsp(uint32_t mask_num, CPURISCVState *env);
 
 #define CPU_SAVE_VERSION 3
 
-static inline int cpu_mmu_index (CPUMIPSState *env)
+static inline int cpu_mmu_index (CPURISCVState *env)
 {
     return 0;
 }
 
-static inline int cpu_riscv_hw_interrupts_pending(CPUMIPSState *env)
+static inline int cpu_riscv_hw_interrupts_pending(CPURISCVState *env)
 {
     int32_t pending;
     int32_t status;
@@ -192,14 +192,14 @@ enum {
  */
 #define CPU_INTERRUPT_WAKE CPU_INTERRUPT_TGT_INT_0
 
-int cpu_riscv_exec(CPUMIPSState *s);
+int cpu_riscv_exec(CPURISCVState *s);
 void riscv_tcg_init(void);
-MIPSCPU *cpu_riscv_init(const char *cpu_model);
+RISCVCPU *cpu_riscv_init(const char *cpu_model);
 int cpu_riscv_signal_handler(int host_signum, void *pinfo, void *puc);
 
-static inline CPUMIPSState *cpu_init(const char *cpu_model)
+static inline CPURISCVState *cpu_init(const char *cpu_model)
 {
-    MIPSCPU *cpu = cpu_riscv_init(cpu_model);
+    RISCVCPU *cpu = cpu_riscv_init(cpu_model);
     if (cpu == NULL) {
         return NULL;
     }
@@ -207,29 +207,29 @@ static inline CPUMIPSState *cpu_init(const char *cpu_model)
 }
 
 /* TODO QOM'ify CPU reset and remove */
-void cpu_state_reset(CPUMIPSState *s);
+void cpu_state_reset(CPURISCVState *s);
 
 /* mips_timer.c */
-uint64_t cpu_riscv_get_cycle (CPUMIPSState *env);
-uint32_t cpu_riscv_get_random (CPUMIPSState *env);
-uint32_t cpu_riscv_get_count (CPUMIPSState *env);
-void cpu_riscv_store_count (CPUMIPSState *env, uint32_t value);
-void cpu_riscv_store_compare (CPUMIPSState *env, uint32_t value);
-void cpu_riscv_start_count(CPUMIPSState *env);
+uint64_t cpu_riscv_get_cycle (CPURISCVState *env);
+uint32_t cpu_riscv_get_random (CPURISCVState *env);
+uint32_t cpu_riscv_get_count (CPURISCVState *env);
+void cpu_riscv_store_count (CPURISCVState *env, uint32_t value);
+void cpu_riscv_store_compare (CPURISCVState *env, uint32_t value);
+void cpu_riscv_start_count(CPURISCVState *env);
 
 /* mips_int.c */
-void cpu_riscv_soft_irq(CPUMIPSState *env, int irq, int level);
+void cpu_riscv_soft_irq(CPURISCVState *env, int irq, int level);
 
 /* helper.c */
 int riscv_cpu_handle_mmu_fault(CPUState *cpu, vaddr address, int rw,
                               int mmu_idx);
 #if !defined(CONFIG_USER_ONLY)
-hwaddr cpu_riscv_translate_address (CPUMIPSState *env, target_ulong address,
+hwaddr cpu_riscv_translate_address (CPURISCVState *env, target_ulong address,
 		                               int rw);
 #endif
-target_ulong exception_resume_pc (CPUMIPSState *env);
+target_ulong exception_resume_pc (CPURISCVState *env);
 
-static inline void cpu_get_tb_cpu_state(CPUMIPSState *env, target_ulong *pc,
+static inline void cpu_get_tb_cpu_state(CPURISCVState *env, target_ulong *pc,
                                         target_ulong *cs_base, int *flags)
 {
     *pc = env->active_tc.PC;
@@ -238,4 +238,4 @@ static inline void cpu_get_tb_cpu_state(CPUMIPSState *env, target_ulong *pc,
 
 #include "exec/exec-all.h"
 
-#endif /* !defined (__MIPS_CPU_H__) */
+#endif /* !defined (__RISCV_CPU_H__) */

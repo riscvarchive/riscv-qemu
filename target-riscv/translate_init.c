@@ -1,5 +1,5 @@
 /*
- *  MIPS emulation for qemu: CPU initialisation routines.
+ *  RISCV emulation for qemu: CPU initialisation routines.
  *
  *  Copyright (c) 2004-2005 Jocelyn Mayer
  *  Copyright (c) 2007 Herve Poussineau
@@ -23,11 +23,11 @@ struct riscv_def_t {
 };
 
 /*****************************************************************************/
-/* MIPS CPU definitions */
+/* RISCV CPU definitions */
 static const riscv_def_t riscv_defs[] =
 {
     {  
-        .name = "20Kc",
+        .name = "riscv-generic",
     },
 };
 
@@ -48,7 +48,7 @@ void riscv_cpu_list (FILE *f, fprintf_function cpu_fprintf)
     int i;
 
     for (i = 0; i < ARRAY_SIZE(riscv_defs); i++) {
-        (*cpu_fprintf)(f, "MIPS '%s'\n",
+        (*cpu_fprintf)(f, "RISCV '%s'\n",
                        riscv_defs[i].name);
     }
 }

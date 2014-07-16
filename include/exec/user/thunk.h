@@ -121,7 +121,7 @@ static inline int thunk_type_size(const argtype *type_ptr, int is_host)
 #if defined(TARGET_X86_64)
             return 8;
 #elif defined(TARGET_ALPHA) || defined(TARGET_IA64) || defined(TARGET_MIPS) || \
-      defined(TARGET_PARISC) || defined(TARGET_SPARC64)
+      defined(TARGET_PARISC) || defined(TARGET_SPARC64) || defined(TARGET_RISCV)
             return 4;
 #elif defined(TARGET_PPC)
             return TARGET_ABI_BITS / 8;

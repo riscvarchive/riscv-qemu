@@ -1,5 +1,5 @@
 /*
- * QEMU MIPS CPU
+ * QEMU RISCV CPU
  *
  * Copyright (c) 2012 SUSE LINUX Products GmbH
  *
@@ -17,62 +17,58 @@
  * License along with this library; if not, see
  * <http://www.gnu.org/licenses/lgpl-2.1.html>
  */
-#ifndef QEMU_MIPS_CPU_QOM_H
-#define QEMU_MIPS_CPU_QOM_H
+#ifndef QEMU_RISCV_CPU_QOM_H
+#define QEMU_RISCV_CPU_QOM_H
 
 #include "qom/cpu.h"
 
-#ifdef TARGET_MIPS64
-#define TYPE_MIPS_CPU "mips64-cpu"
-#else
-#define TYPE_MIPS_CPU "mips-cpu"
-#endif
+#define TYPE_RISCV_CPU "riscv-cpu"
 
-#define MIPS_CPU_CLASS(klass) \
-    OBJECT_CLASS_CHECK(MIPSCPUClass, (klass), TYPE_MIPS_CPU)
-#define MIPS_CPU(obj) \
-    OBJECT_CHECK(MIPSCPU, (obj), TYPE_MIPS_CPU)
-#define MIPS_CPU_GET_CLASS(obj) \
-    OBJECT_GET_CLASS(MIPSCPUClass, (obj), TYPE_MIPS_CPU)
+#define RISCV_CPU_CLASS(klass) \
+    OBJECT_CLASS_CHECK(RISCVCPUClass, (klass), TYPE_RISCV_CPU)
+#define RISCV_CPU(obj) \
+    OBJECT_CHECK(RISCVCPU, (obj), TYPE_RISCV_CPU)
+#define RISCV_CPU_GET_CLASS(obj) \
+    OBJECT_GET_CLASS(RISCVCPUClass, (obj), TYPE_RISCV_CPU)
 
 /**
- * MIPSCPUClass:
+ * RISCVCPUClass:
  * @parent_realize: The parent class' realize handler.
  * @parent_reset: The parent class' reset handler.
  *
- * A MIPS CPU model.
+ * A RISCV CPU model.
  */
-typedef struct MIPSCPUClass {
+typedef struct RISCVCPUClass {
     /*< private >*/
     CPUClass parent_class;
     /*< public >*/
 
     DeviceRealize parent_realize;
     void (*parent_reset)(CPUState *cpu);
-} MIPSCPUClass;
+} RISCVCPUClass;
 
 /**
- * MIPSCPU:
- * @env: #CPUMIPSState
+ * RISCVCPU:
+ * @env: #CPURISCVState
  *
- * A MIPS CPU.
+ * A RISCV CPU.
  */
-typedef struct MIPSCPU {
+typedef struct RISCVCPU {
     /*< private >*/
     CPUState parent_obj;
     /*< public >*/
 
-    CPUMIPSState env;
-} MIPSCPU;
+    CPURISCVState env;
+} RISCVCPU;
 
-static inline MIPSCPU *riscv_env_get_cpu(CPUMIPSState *env)
+static inline RISCVCPU *riscv_env_get_cpu(CPURISCVState *env)
 {
-    return container_of(env, MIPSCPU, env);
+    return container_of(env, RISCVCPU, env);
 }
 
 #define ENV_GET_CPU(e) CPU(riscv_env_get_cpu(e))
 
-#define ENV_OFFSET offsetof(MIPSCPU, env)
+#define ENV_OFFSET offsetof(RISCVCPU, env)
 
 void riscv_cpu_do_interrupt(CPUState *cpu);
 void riscv_cpu_dump_state(CPUState *cpu, FILE *f, fprintf_function cpu_fprintf,

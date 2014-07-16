@@ -1,0 +1,3 @@
+obj-y += riscv_board.o
+obj-y += addr.o cputimer.o riscv_int.o
+obj-y += gt64xxx_pci.o

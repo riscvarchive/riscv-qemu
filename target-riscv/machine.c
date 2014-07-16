@@ -18,7 +18,7 @@ static void save_tc(QEMUFile *f, TCState *tc)
 
 void cpu_save(QEMUFile *f, void *opaque)
 {
-    CPUMIPSState *env = opaque;
+    CPURISCVState *env = opaque;
     int i;
 
     /* Save active TC */
@@ -47,8 +47,8 @@ static void load_tc(QEMUFile *f, TCState *tc)
 
 int cpu_load(QEMUFile *f, void *opaque, int version_id)
 {
-    CPUMIPSState *env = opaque;
-    MIPSCPU *cpu = riscv_env_get_cpu(env);
+    CPURISCVState *env = opaque;
+    RISCVCPU *cpu = riscv_env_get_cpu(env);
     int i;
 
     if (version_id != 3)

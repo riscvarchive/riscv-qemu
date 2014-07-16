@@ -1351,6 +1351,9 @@ CpuInfoList *qmp_query_cpus(Error **errp)
 #elif defined(TARGET_SPARC)
         SPARCCPU *sparc_cpu = SPARC_CPU(cpu);
         CPUSPARCState *env = &sparc_cpu->env;
+#elif defined(TARGET_RISCV)
+        RISCVCPU *mips_cpu = RISCV_CPU(cpu);
+        CPURISCVState *env = &mips_cpu->env;
 #elif defined(TARGET_MIPS)
         MIPSCPU *mips_cpu = MIPS_CPU(cpu);
         CPUMIPSState *env = &mips_cpu->env;
@@ -1376,6 +1379,9 @@ CpuInfoList *qmp_query_cpus(Error **errp)
         info->value->has_npc = true;
         info->value->npc = env->npc;
 #elif defined(TARGET_MIPS)
+        info->value->has_PC = true;
+        info->value->PC = env->active_tc.PC;
+#elif defined(TARGET_RISCV)
         info->value->has_PC = true;
         info->value->PC = env->active_tc.PC;
 #endif

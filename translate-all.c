@@ -1420,7 +1420,7 @@ CPUInterruptHandler cpu_interrupt_handler = tcg_handle_interrupt;
    must be at the end of the TB */
 void cpu_io_recompile(CPUState *cpu, uintptr_t retaddr)
 {
-#if defined(TARGET_MIPS) 
+#if defined(TARGET_RISCV) 
 #elif defined(TARGET_SH4)
     CPUArchState *env = cpu->env_ptr;
 #endif
@@ -1445,7 +1445,7 @@ void cpu_io_recompile(CPUState *cpu, uintptr_t retaddr)
        they were already the first instruction in the TB.  If this is not
        the first instruction in a TB then re-execute the preceding
        branch.  */
-#if defined(TARGET_MIPS)
+#if defined(TARGET_RISCV)
 #elif defined(TARGET_SH4)
     if ((env->flags & ((DELAY_SLOT | DELAY_SLOT_CONDITIONAL))) != 0
             && n > 1) {

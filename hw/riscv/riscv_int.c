@@ -1,5 +1,5 @@
 /*
- * QEMU MIPS interrupt support
+ * QEMU RISCV interrupt support
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -48,8 +48,8 @@
  */
 static void cpu_riscv_irq_request(void *opaque, int irq, int level)
 {
-    MIPSCPU *cpu = opaque;
-    CPUMIPSState *env = &cpu->env;
+    RISCVCPU *cpu = opaque;
+    CPURISCVState *env = &cpu->env;
     CPUState *cs = CPU(cpu);
 
     if (irq < 0 || irq > 7) {
@@ -87,7 +87,7 @@ static void cpu_riscv_irq_request(void *opaque, int irq, int level)
 
 }
 
-void cpu_riscv_irq_init_cpu(CPUMIPSState *env)
+void cpu_riscv_irq_init_cpu(CPURISCVState *env)
 {
     qemu_irq *qi;
     int i;
@@ -98,7 +98,7 @@ void cpu_riscv_irq_init_cpu(CPUMIPSState *env)
     }
 }
 
-void cpu_riscv_soft_irq(CPUMIPSState *env, int irq, int level)
+void cpu_riscv_soft_irq(CPURISCVState *env, int irq, int level)
 {
     printf("softirq called...?\n");
     if (irq < 0 || irq > 2) {

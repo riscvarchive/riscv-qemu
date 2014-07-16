@@ -1,5 +1,5 @@
 /*
- *  MIPS emulation helpers for qemu.
+ *  RISCV emulation helpers for qemu.
  *
  *  Copyright (c) 2004-2005 Jocelyn Mayer
  *
@@ -27,13 +27,13 @@
 #endif /* !defined(CONFIG_USER_ONLY) */
 
 #ifndef CONFIG_USER_ONLY
-static inline void cpu_riscv_tlb_flush (CPUMIPSState *env, int flush_global);
+static inline void cpu_riscv_tlb_flush (CPURISCVState *env, int flush_global);
 #endif
 
 /*****************************************************************************/
 /* Exceptions processing helpers */
 
-static inline void QEMU_NORETURN do_raise_exception_err(CPUMIPSState *env,
+static inline void QEMU_NORETURN do_raise_exception_err(CPURISCVState *env,
                                                         uint32_t exception,
                                                         int error_code,
                                                         uintptr_t pc)
@@ -52,26 +52,26 @@ static inline void QEMU_NORETURN do_raise_exception_err(CPUMIPSState *env,
     cpu_loop_exit(cs);
 }
 
-static inline void QEMU_NORETURN do_raise_exception(CPUMIPSState *env,
+static inline void QEMU_NORETURN do_raise_exception(CPURISCVState *env,
                                                     uint32_t exception,
                                                     uintptr_t pc)
 {
     do_raise_exception_err(env, exception, 0, pc);
 }
 
-void helper_raise_exception_err(CPUMIPSState *env, uint32_t exception,
+void helper_raise_exception_err(CPURISCVState *env, uint32_t exception,
                                 int error_code)
 {
     do_raise_exception_err(env, exception, error_code, 0);
 }
 
-void helper_raise_exception(CPUMIPSState *env, uint32_t exception)
+void helper_raise_exception(CPURISCVState *env, uint32_t exception)
 {
     do_raise_exception(env, exception, 0);
 }
 
 /* MODIFIED FOR RISCV*/
-target_ulong helper_mulhsu(CPUMIPSState *env, target_ulong arg1,
+target_ulong helper_mulhsu(CPURISCVState *env, target_ulong arg1,
                           target_ulong arg2)
 {
     int64_t a = arg1;
@@ -79,7 +79,7 @@ target_ulong helper_mulhsu(CPUMIPSState *env, target_ulong arg1,
     return (int64_t)((__int128_t)a*b >> 64);
 }
 
-target_ulong helper_csrrw(CPUMIPSState *env, target_ulong src, target_ulong csr) {
+target_ulong helper_csrrw(CPURISCVState *env, target_ulong src, target_ulong csr) {
     if (csr != CSR_COUNT && csr != CSR_COMPARE) {
         uint64_t csr_backup = env->helper_csr[csr]; 
         env->helper_csr[csr] = src;
@@ -98,7 +98,7 @@ target_ulong helper_csrrw(CPUMIPSState *env, target_ulong src, target_ulong csr)
     return 0;
 }
 
-target_ulong helper_csrrs(CPUMIPSState *env, target_ulong src, target_ulong csr) {
+target_ulong helper_csrrs(CPURISCVState *env, target_ulong src, target_ulong csr) {
     if (csr != CSR_COUNT && csr != CSR_COMPARE && csr != CSR_CYCLE) {
         uint64_t csr_backup = env->helper_csr[csr]; 
         env->helper_csr[csr] = csr_backup | src;
@@ -117,7 +117,7 @@ target_ulong helper_csrrs(CPUMIPSState *env, target_ulong src, target_ulong csr)
     return 0;
 }
 
-target_ulong helper_csrrc(CPUMIPSState *env, target_ulong src, target_ulong csr) {
+target_ulong helper_csrrc(CPURISCVState *env, target_ulong src, target_ulong csr) {
     if (csr != CSR_COUNT && csr != CSR_COMPARE && csr != CSR_CYCLE) {
         uint64_t csr_backup = env->helper_csr[csr]; 
         env->helper_csr[csr] = csr_backup & (~src);
@@ -136,7 +136,7 @@ target_ulong helper_csrrc(CPUMIPSState *env, target_ulong src, target_ulong csr)
     return 0;
 }
 
-target_ulong helper_sret(CPUMIPSState *env) {
+target_ulong helper_sret(CPURISCVState *env) {
     // first handle S/PS stack
     if (env->helper_csr[CSR_STATUS] & SR_PS) {
         env->helper_csr[CSR_STATUS] |= SR_S;
@@ -155,7 +155,7 @@ target_ulong helper_sret(CPUMIPSState *env) {
     return env->helper_csr[CSR_EPC];
 }
 
-target_ulong helper_scall(CPUMIPSState *env, target_ulong bad_pc) {
+target_ulong helper_scall(CPURISCVState *env, target_ulong bad_pc) {
     env->helper_csr[CSR_CAUSE] = RISCV_EXCP_SCALL;
 
     if (env->helper_csr[CSR_STATUS] & SR_S) {
@@ -177,25 +177,25 @@ target_ulong helper_scall(CPUMIPSState *env, target_ulong bad_pc) {
     return env->helper_csr[CSR_EVEC];
 }
 /*
-target_ulong helper_read_cycle(CPUMIPSState *env) 
+target_ulong helper_read_cycle(CPURISCVState *env) 
 {
     uint32_t val = (int32_t)cpu_riscv_get_cycle(env);
     return val;
 }
 */
-target_ulong helper_read_count(CPUMIPSState *env)
+target_ulong helper_read_count(CPURISCVState *env)
 {
     uint32_t val = (int32_t)cpu_riscv_get_count(env);
 //    printf("got count val: %d\n", val);
     return val;
 }
 
-void helper_store_compare(CPUMIPSState *env, target_ulong arg1)
+void helper_store_compare(CPURISCVState *env, target_ulong arg1)
 {
     cpu_riscv_store_compare(env, arg1);
 }
 
-void helper_store_count(CPUMIPSState *env, target_ulong arg1)
+void helper_store_count(CPURISCVState *env, target_ulong arg1)
 {
     cpu_riscv_store_count(env, arg1);
 }
@@ -204,16 +204,16 @@ void helper_store_count(CPUMIPSState *env, target_ulong arg1)
 
 #ifndef CONFIG_USER_ONLY
 /* TLB management */
-static void cpu_riscv_tlb_flush (CPUMIPSState *env, int flush_global)
+static void cpu_riscv_tlb_flush (CPURISCVState *env, int flush_global)
 {
-    MIPSCPU *cpu = riscv_env_get_cpu(env);
+    RISCVCPU *cpu = riscv_env_get_cpu(env);
 
     /* Flush qemu's TLB and discard all shadowed entries.  */
     tlb_flush(CPU(cpu), flush_global);
 }
 
 
-void helper_tlb_flush(CPUMIPSState *env)
+void helper_tlb_flush(CPURISCVState *env)
 {
     cpu_riscv_tlb_flush(env, 1);
 }
@@ -221,7 +221,7 @@ void helper_tlb_flush(CPUMIPSState *env)
 
 #endif /* !CONFIG_USER_ONLY */
 
-void helper_wait(CPUMIPSState *env)
+void helper_wait(CPURISCVState *env)
 {
     CPUState *cs = CPU(riscv_env_get_cpu(env));
 
@@ -233,7 +233,7 @@ void helper_wait(CPUMIPSState *env)
 
 #if !defined(CONFIG_USER_ONLY)
 
-static void /*QEMU_NORETURN*/ do_unaligned_access(CPUMIPSState *env,
+static void /*QEMU_NORETURN*/ do_unaligned_access(CPURISCVState *env,
                                               target_ulong addr, int is_write,
                                               int is_user, uintptr_t retaddr);
 
@@ -252,7 +252,7 @@ static void /*QEMU_NORETURN*/ do_unaligned_access(CPUMIPSState *env,
 #define SHIFT 3
 #include "exec/softmmu_template.h"
 
-static void do_unaligned_access(CPUMIPSState *env, target_ulong addr,
+static void do_unaligned_access(CPURISCVState *env, target_ulong addr,
                                 int is_write, int is_user, uintptr_t retaddr)
 {
     printf("REACHED DO UNALIGNED ACCESS\n");
@@ -268,8 +268,8 @@ void tlb_fill(CPUState *cs, target_ulong addr, int is_write, int mmu_idx,
 
     ret = riscv_cpu_handle_mmu_fault(cs, addr, is_write, mmu_idx);
     if (ret) {
-        MIPSCPU *cpu = MIPS_CPU(cs);
-        CPUMIPSState *env = &cpu->env;
+        RISCVCPU *cpu = RISCV_CPU(cs);
+        CPURISCVState *env = &cpu->env;
 
         do_raise_exception_err(env, cs->exception_index,
                                0, retaddr);

@@ -34,7 +34,7 @@ static uint64_t last_count_update;
 
 /* XXX: do not use a global */
 // note this doesn't work, just leftover
-uint32_t cpu_riscv_get_random (CPUMIPSState *env)
+uint32_t cpu_riscv_get_random (CPURISCVState *env)
 {
     static uint32_t lfsr = 1;
     static uint32_t prev_idx = 0;
@@ -48,7 +48,7 @@ uint32_t cpu_riscv_get_random (CPUMIPSState *env)
     return idx;
 }
 
-uint64_t cpu_riscv_get_cycle (CPUMIPSState *env) {
+uint64_t cpu_riscv_get_cycle (CPURISCVState *env) {
     uint64_t now;
     now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
     // first, convert _now_ to seconds by dividing by get_ticks_per_sec
@@ -57,7 +57,7 @@ uint64_t cpu_riscv_get_cycle (CPUMIPSState *env) {
 }
 
 /* updated */
-static void cpu_riscv_timer_update(CPUMIPSState *env)
+static void cpu_riscv_timer_update(CPURISCVState *env)
 {
     uint64_t now, next;
     uint32_t diff;
@@ -69,13 +69,13 @@ static void cpu_riscv_timer_update(CPUMIPSState *env)
 }
 
 /* updated */
-static void cpu_riscv_timer_expire(CPUMIPSState *env)
+static void cpu_riscv_timer_expire(CPURISCVState *env)
 {
     cpu_riscv_timer_update(env);
     qemu_irq_raise(env->irq[7]);
 }
 
-uint32_t cpu_riscv_get_count (CPUMIPSState *env)
+uint32_t cpu_riscv_get_count (CPURISCVState *env)
 {
     uint64_t diff;
 
@@ -89,7 +89,7 @@ uint32_t cpu_riscv_get_count (CPUMIPSState *env)
         (uint32_t)muldiv64(diff, TIMER_FREQ, get_ticks_per_sec());
 }
 
-void cpu_riscv_store_count (CPUMIPSState *env, uint32_t count)
+void cpu_riscv_store_count (CPURISCVState *env, uint32_t count)
 {
     /* Store new count register */
     env->helper_csr[CSR_COUNT] = count;
@@ -99,7 +99,7 @@ void cpu_riscv_store_count (CPUMIPSState *env, uint32_t count)
     cpu_riscv_timer_update(env);
 }
 
-void cpu_riscv_store_compare (CPUMIPSState *env, uint32_t value)
+void cpu_riscv_store_compare (CPURISCVState *env, uint32_t value)
 {
     env->helper_csr[CSR_COMPARE] = value;
     qemu_irq_lower(env->irq[7]);
@@ -109,7 +109,7 @@ void cpu_riscv_store_compare (CPUMIPSState *env, uint32_t value)
 
 static void riscv_timer_cb (void *opaque)
 {
-    CPUMIPSState *env;
+    CPURISCVState *env;
     env = opaque;
 
     env->helper_csr[CSR_COUNT]++;
@@ -117,7 +117,7 @@ static void riscv_timer_cb (void *opaque)
     env->helper_csr[CSR_COUNT]--;
 }
 
-void cpu_riscv_clock_init (CPUMIPSState *env)
+void cpu_riscv_clock_init (CPURISCVState *env)
 {
     env->timer = timer_new_ns(QEMU_CLOCK_VIRTUAL, &riscv_timer_cb, env);
     env->helper_csr[CSR_COMPARE] = 0;

@@ -1,5 +1,5 @@
 /*
- * QEMU MIPS CPU
+ * QEMU RISCV CPU
  *
  * Copyright (c) 2012 SUSE LINUX Products GmbH
  *
@@ -24,23 +24,23 @@
 
 static void riscv_cpu_set_pc(CPUState *cs, vaddr value)
 {
-    MIPSCPU *cpu = MIPS_CPU(cs);
-    CPUMIPSState *env = &cpu->env;
+    RISCVCPU *cpu = RISCV_CPU(cs);
+    CPURISCVState *env = &cpu->env;
     env->active_tc.PC = value;
 }
 
 static void riscv_cpu_synchronize_from_tb(CPUState *cs, TranslationBlock *tb)
 {
-    MIPSCPU *cpu = MIPS_CPU(cs);
-    CPUMIPSState *env = &cpu->env;
+    RISCVCPU *cpu = RISCV_CPU(cs);
+    CPURISCVState *env = &cpu->env;
 
     env->active_tc.PC = tb->pc;
 }
 
 static bool riscv_cpu_has_work(CPUState *cs)
 {
-    MIPSCPU *cpu = MIPS_CPU(cs);
-    CPUMIPSState *env = &cpu->env;
+    RISCVCPU *cpu = RISCV_CPU(cs);
+    CPURISCVState *env = &cpu->env;
     bool has_work = false;
 
     /* It is implementation dependent if non-enabled interrupts
@@ -57,9 +57,9 @@ static bool riscv_cpu_has_work(CPUState *cs)
 /* CPUClass::reset() */
 static void riscv_cpu_reset(CPUState *s)
 {
-    MIPSCPU *cpu = MIPS_CPU(s);
-    MIPSCPUClass *mcc = MIPS_CPU_GET_CLASS(cpu);
-    CPUMIPSState *env = &cpu->env;
+    RISCVCPU *cpu = RISCV_CPU(s);
+    RISCVCPUClass *mcc = RISCV_CPU_GET_CLASS(cpu);
+    CPURISCVState *env = &cpu->env;
 
     // TODO WHAT IS THIS
     mcc->parent_reset(s);
@@ -72,7 +72,7 @@ static void riscv_cpu_reset(CPUState *s)
 static void riscv_cpu_realizefn(DeviceState *dev, Error **errp)
 {
     CPUState *cs = CPU(dev);
-    MIPSCPUClass *mcc = MIPS_CPU_GET_CLASS(dev);
+    RISCVCPUClass *mcc = RISCV_CPU_GET_CLASS(dev);
 
     cpu_reset(cs);
     qemu_init_vcpu(cs);
@@ -83,8 +83,8 @@ static void riscv_cpu_realizefn(DeviceState *dev, Error **errp)
 static void riscv_cpu_initfn(Object *obj)
 {
     CPUState *cs = CPU(obj);
-    MIPSCPU *cpu = MIPS_CPU(obj);
-    CPUMIPSState *env = &cpu->env;
+    RISCVCPU *cpu = RISCV_CPU(obj);
+    CPURISCVState *env = &cpu->env;
 
     cs->env_ptr = env;
     cpu_exec_init(env);
@@ -96,7 +96,7 @@ static void riscv_cpu_initfn(Object *obj)
 
 static void riscv_cpu_class_init(ObjectClass *c, void *data)
 {
-    MIPSCPUClass *mcc = MIPS_CPU_CLASS(c);
+    RISCVCPUClass *mcc = RISCV_CPU_CLASS(c);
     CPUClass *cc = CPU_CLASS(c);
     DeviceClass *dc = DEVICE_CLASS(c);
 
@@ -124,12 +124,12 @@ static void riscv_cpu_class_init(ObjectClass *c, void *data)
 }
 
 static const TypeInfo riscv_cpu_type_info = {
-    .name = TYPE_MIPS_CPU,
+    .name = TYPE_RISCV_CPU,
     .parent = TYPE_CPU,
-    .instance_size = sizeof(MIPSCPU),
+    .instance_size = sizeof(RISCVCPU),
     .instance_init = riscv_cpu_initfn,
     .abstract = false,
-    .class_size = sizeof(MIPSCPUClass),
+    .class_size = sizeof(RISCVCPUClass),
     .class_init = riscv_cpu_class_init,
 };
 

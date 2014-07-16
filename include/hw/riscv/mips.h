@@ -1,5 +1,5 @@
-#ifndef HW_MIPS_H
-#define HW_MIPS_H
+#ifndef HW_RISCV_H
+#define HW_RISCV_H
 /* Definitions for mips board emulation.  */
 
 /* Kernels can be configured with 64KB pages */
