@@ -13,6 +13,10 @@ DEF_HELPER_3(csrrs, tl, env, tl, tl)
 DEF_HELPER_3(csrrc, tl, env, tl, tl)
 
 
+DEF_HELPER_3(fadd_d, tl, env, tl, tl)
+
+
+
 /* Special functions */
 #ifndef CONFIG_USER_ONLY
 DEF_HELPER_1(sret, tl, env)

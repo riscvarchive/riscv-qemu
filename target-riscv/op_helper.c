@@ -26,6 +26,8 @@
 #include "exec/softmmu_exec.h"
 #endif /* !defined(CONFIG_USER_ONLY) */
 
+#include "fpu-custom-riscv/softfloat.h"
+
 #ifndef CONFIG_USER_ONLY
 static inline void cpu_riscv_tlb_flush (CPURISCVState *env, int flush_global);
 #endif
@@ -69,6 +71,28 @@ void helper_raise_exception(CPURISCVState *env, uint32_t exception)
 {
     do_raise_exception(env, exception, 0);
 }
+
+
+uint64_t helper_fadd_d(CPURISCVState *env, uint64_t freg1, uint64_t freg2)
+{
+    softfloat_roundingMode = 0; // TODO FIX
+    freg1 = f64_mulAdd(freg1, 0x3ff0000000000000ULL, freg2);
+    // handle exceptions here
+    return freg1;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 /* MODIFIED FOR RISCV*/
 target_ulong helper_mulhsu(CPURISCVState *env, target_ulong arg1,

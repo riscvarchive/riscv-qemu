@@ -263,6 +263,105 @@ enum {
     OPC_RISC_FSD   = OPC_RISC_FP_STORE | (0x3 << 12),
 };
 
+#define MASK_OP_FP_FMADD(op)   (MASK_OP_MAJOR(op) | (op & (0x3 << 25)))
+enum {
+    OPC_RISC_FMADD_S = OPC_RISC_FMADD | (0x0 << 25),
+    OPC_RISC_FMADD_D = OPC_RISC_FMADD | (0x1 << 25),
+};
+
+#define MASK_OP_FP_FMSUB(op)   (MASK_OP_MAJOR(op) | (op & (0x3 << 25)))
+enum {
+    OPC_RISC_FMSUB_S = OPC_RISC_FMSUB | (0x0 << 25),
+    OPC_RISC_FMSUB_D = OPC_RISC_FMSUB | (0x1 << 25),
+};
+
+#define MASK_OP_FP_FNMADD(op)   (MASK_OP_MAJOR(op) | (op & (0x3 << 25)))
+enum {
+    OPC_RISC_FNMADD_S = OPC_RISC_FNMADD | (0x0 << 25),
+    OPC_RISC_FNMADD_D = OPC_RISC_FNMADD | (0x1 << 25),
+};
+
+#define MASK_OP_FP_FNMSUB(op)   (MASK_OP_MAJOR(op) | (op & (0x3 << 25)))
+enum {
+    OPC_RISC_FNMSUB_S = OPC_RISC_FNMSUB | (0x0 << 25),
+    OPC_RISC_FNMSUB_D = OPC_RISC_FNMSUB | (0x1 << 25),
+};
+
+#define MASK_OP_FP_ARITH(op)   (MASK_OP_MAJOR(op) | (op & (0x3F << 25)))
+enum {
+    // float
+    OPC_RISC_FADD_S    = OPC_RISC_FP_ARITH | (0x0 << 25),
+    OPC_RISC_FSUB_S    = OPC_RISC_FP_ARITH | (0x4 << 25),
+    OPC_RISC_FMUL_S    = OPC_RISC_FP_ARITH | (0x8 << 25),
+    OPC_RISC_FDIV_S    = OPC_RISC_FP_ARITH | (0xC << 25),
+
+    OPC_RISC_FSGNJ_S   = OPC_RISC_FP_ARITH | (0x10 << 25),
+    OPC_RISC_FSGNJN_S  = OPC_RISC_FP_ARITH | (0x10 << 25),
+    OPC_RISC_FSGNJX_S  = OPC_RISC_FP_ARITH | (0x10 << 25),
+
+    OPC_RISC_FMIN_S    = OPC_RISC_FP_ARITH | (0x14 << 25),
+    OPC_RISC_FMAX_S    = OPC_RISC_FP_ARITH | (0x14 << 25),
+
+    OPC_RISC_FSQRT_S   = OPC_RISC_FP_ARITH | (0x2C << 25),
+
+    OPC_RISC_FEQ_S     = OPC_RISC_FP_ARITH | (0x50 << 25),
+    OPC_RISC_FLT_S     = OPC_RISC_FP_ARITH | (0x50 << 25),
+    OPC_RISC_FLE_S     = OPC_RISC_FP_ARITH | (0x50 << 25),
+
+    OPC_RISC_FCVT_W_S  = OPC_RISC_FP_ARITH | (0x60 << 25),
+    OPC_RISC_FCVT_WU_S = OPC_RISC_FP_ARITH | (0x60 << 25),
+    OPC_RISC_FCVT_L_S  = OPC_RISC_FP_ARITH | (0x60 << 25),
+    OPC_RISC_FCVT_LU_S = OPC_RISC_FP_ARITH | (0x60 << 25),
+
+    OPC_RISC_FCVT_S_W  = OPC_RISC_FP_ARITH | (0x68 << 25),
+    OPC_RISC_FCVT_S_WU = OPC_RISC_FP_ARITH | (0x68 << 25),
+    OPC_RISC_FCVT_S_L  = OPC_RISC_FP_ARITH | (0x68 << 25),
+    OPC_RISC_FCVT_S_LU = OPC_RISC_FP_ARITH | (0x68 << 25),
+
+    OPC_RISC_FMV_X_S   = OPC_RISC_FP_ARITH | (0x70 << 25),
+    OPC_RISC_FCLASS_S  = OPC_RISC_FP_ARITH | (0x70 << 25),
+
+    OPC_RISC_FMV_S_X   = OPC_RISC_FP_ARITH | (0x78 << 25),
+
+    // double
+    OPC_RISC_FADD_D    = OPC_RISC_FP_ARITH | (0x1 << 25),
+    OPC_RISC_FSUB_D    = OPC_RISC_FP_ARITH | (0x5 << 25),
+    OPC_RISC_FMUL_D    = OPC_RISC_FP_ARITH | (0x9 << 25),
+    OPC_RISC_FDIV_D    = OPC_RISC_FP_ARITH | (0xD << 25),
+
+    OPC_RISC_FSGNJ_D   = OPC_RISC_FP_ARITH | (0x11 << 25),
+    OPC_RISC_FSGNJN_D  = OPC_RISC_FP_ARITH | (0x11 << 25),
+    OPC_RISC_FSGNJX_D  = OPC_RISC_FP_ARITH | (0x11 << 25),
+
+    OPC_RISC_FMIN_D    = OPC_RISC_FP_ARITH | (0x15 << 25),
+    OPC_RISC_FMAX_D    = OPC_RISC_FP_ARITH | (0x15 << 25),
+
+    OPC_RISCV_FCVT_S_D = OPC_RISC_FP_ARITH | (0x20 << 25),
+    OPC_RISCV_FCVT_D_S = OPC_RISC_FP_ARITH | (0x21 << 25),
+
+    OPC_RISC_FSQRT_D   = OPC_RISC_FP_ARITH | (0x2D << 25),
+
+    OPC_RISC_FEQ_D     = OPC_RISC_FP_ARITH | (0x51 << 25),
+    OPC_RISC_FLT_D     = OPC_RISC_FP_ARITH | (0x51 << 25),
+    OPC_RISC_FLE_D     = OPC_RISC_FP_ARITH | (0x51 << 25),
+
+    OPC_RISC_FCVT_W_D  = OPC_RISC_FP_ARITH | (0x61 << 25),
+    OPC_RISC_FCVT_WU_D = OPC_RISC_FP_ARITH | (0x61 << 25),
+    OPC_RISC_FCVT_L_D  = OPC_RISC_FP_ARITH | (0x61 << 25),
+    OPC_RISC_FCVT_LU_D = OPC_RISC_FP_ARITH | (0x61 << 25),
+
+    OPC_RISC_FCVT_D_W  = OPC_RISC_FP_ARITH | (0x69 << 25),
+    OPC_RISC_FCVT_D_WU = OPC_RISC_FP_ARITH | (0x69 << 25),
+    OPC_RISC_FCVT_D_L  = OPC_RISC_FP_ARITH | (0x69 << 25),
+    OPC_RISC_FCVT_D_LU = OPC_RISC_FP_ARITH | (0x69 << 25),
+
+    OPC_RISC_FMV_X_D   = OPC_RISC_FP_ARITH | (0x71 << 25),
+    OPC_RISC_FCLASS_D  = OPC_RISC_FP_ARITH | (0x71 << 25),
+
+    OPC_RISC_FMV_D_X   = OPC_RISC_FP_ARITH | (0x79 << 25),
+};
+
+
 /* global register indices */
 static TCGv_ptr cpu_env;
 static TCGv cpu_gpr[32], cpu_PC, cpu_fpr[32];
@@ -317,9 +416,6 @@ static const char * const fpr_regnames[] = {
     "f16", "f17", "f18", "f19", "f20", "f21", "f22", "f23",
     "f24", "f25", "f26", "f27", "f28", "f29", "f30", "f31",
 };
-
-
-
 
 #define RISCV_DEBUG(fmt, ...)                                                  \
     do {                                                                      \
@@ -1703,6 +1799,9 @@ static void decode_opc (CPURISCVState *env, DisasContext *ctx)
     case OPC_RISC_FNMSUB:
     case OPC_RISC_FNMADD:
     case OPC_RISC_FP_ARITH:
+
+        gen_helper_fadd_d(cpu_fpr[0], cpu_env, cpu_fpr[0], cpu_fpr[1]);
+
         kill_unknown(ctx, RISCV_EXCP_FP_DISABLED);
         break;
 
