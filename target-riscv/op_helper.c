@@ -73,7 +73,7 @@ void helper_raise_exception(CPURISCVState *env, uint32_t exception)
 }
 
 
-uint64_t helper_fadd_d(CPURISCVState *env, uint64_t freg1, uint64_t freg2)
+uint64_t helper_fadd_d(CPURISCVState *env, uint64_t freg1, uint64_t freg2, uint64_t rm)
 {
     softfloat_roundingMode = 0; // TODO FIX
     freg1 = f64_mulAdd(freg1, 0x3ff0000000000000ULL, freg2);

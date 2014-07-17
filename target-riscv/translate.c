@@ -287,7 +287,7 @@ enum {
     OPC_RISC_FNMSUB_D = OPC_RISC_FNMSUB | (0x1 << 25),
 };
 
-#define MASK_OP_FP_ARITH(op)   (MASK_OP_MAJOR(op) | (op & (0x3F << 25)))
+#define MASK_OP_FP_ARITH(op)   (MASK_OP_MAJOR(op) | (op & (0x7F << 25)))
 enum {
     // float
     OPC_RISC_FADD_S    = OPC_RISC_FP_ARITH | (0x0 << 25),
@@ -1662,9 +1662,90 @@ static void gen_fp_store(DisasContext *ctx, uint32_t opc,
     tcg_temp_free(dat);
 }
 
+static void gen_fp_arith(DisasContext *ctx, uint32_t opc, 
+                    int rd, int rs1, int rs2, int rm) 
+{
+
+    switch (opc) {
+    case OPC_RISC_FADD_S:  
+        // also: OPC_RISC_FSUB_S, OPC_RISC_FMUL_S, OPC_RISC_FDIV_S    
+        break;
+    case OPC_RISC_FSGNJ_S:
+        // also: OPC_RISC_FSGNJN_S, OPC_RISC_FSGNJX_S  
+
+        break;
+    case OPC_RISC_FMIN_S:
+        // also: OPC_RISC_FMAX_S    
+        break;
+
+    case OPC_RISC_FSQRT_S:
+
+        break;
+
+    case OPC_RISC_FEQ_S:
+        // also OPC_RISC_FLT_S, OPC_RISC_FLE_S
+
+        break;
+
+    case OPC_RISC_FCVT_W_S:
+        // also OPC_RISC_FCVT_WU_S, OPC_RISC_FCVT_L_S, OPC_RISC_FCVT_LU_S 
+
+        break;
+
+    case OPC_RISC_FCVT_S_W:
+        // also OPC_RISC_FCVT_S_WU, OPC_RISC_FCVT_S_L, OPC_RISC_FCVT_S_LU 
+        break;
+
+    case OPC_RISC_FMV_X_S:
+        // also OPC_RISC_FCLASS_S  
+
+        break;
+    case OPC_RISC_FMV_S_X:
+        break;
+
+
+// double
+    case OPC_RISC_FADD_D:
+        // also OPC_RISC_FSUB_D, OPC_RISC_FMUL_D, OPC_RISC_FDIV_D    
+        gen_helper_fadd_d(cpu_fpr[0], cpu_env, cpu_fpr[0], cpu_fpr[1], cpu_fpr[1]);
+        break;
+    case OPC_RISC_FSGNJ_D:
+        // also OPC_RISC_FSGNJN_D, OPC_RISC_FSGNJX_D  
+        break;
+    case OPC_RISC_FMIN_D:
+        // also OPC_RISC_FMAX_D    
+        break;
+    case OPC_RISCV_FCVT_S_D:
+        // also OPC_RISCV_FCVT_D_S 
+        break;
+    case OPC_RISC_FSQRT_D:
+        break;
+    case OPC_RISC_FEQ_D:
+        // also OPC_RISC_FLT_D, OPC_RISC_FLE_D     
+        break;
+    case OPC_RISC_FCVT_W_D:
+        // also OPC_RISC_FCVT_WU_D, OPC_RISC_FCVT_L_D, OPC_RISC_FCVT_LU_D 
+        break;
+    case OPC_RISC_FCVT_D_W:
+        // also OPC_RISC_FCVT_D_WU, OPC_RISC_FCVT_D_L, OPC_RISC_FCVT_D_LU 
+        break;
+    case OPC_RISC_FMV_X_D:
+        // also OPC_RISC_FCLASS_D  
+        break;
+    case OPC_RISC_FMV_D_X:
+
+        break;
+    default:
+        kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
+        break;
+    }
+
+}
+
 #define GET_B_IMM(inst)              ((int16_t)((((inst >> 25) & 0x3F) << 5) | ((((int32_t)inst) >> 31) << 12) | (((inst >> 8) & 0xF) << 1) | (((inst >> 7) & 0x1) << 11)))  /* THIS BUILDS 13 bit imm (implicit zero is tacked on here), also note that bit #12 is obtained in a special way to get sign extension */
 #define GET_STORE_IMM(inst)           ((int16_t)(((((int32_t)inst) >> 25) << 5) | ((inst >> 7) & 0x1F)))
 #define GET_JAL_IMM(inst)             ((int32_t)((inst & 0xFF000) | (((inst >> 20) & 0x1) << 11) | (((inst >> 21) & 0x3FF) << 1) | ((((int32_t)inst) >> 31) << 20)))
+#define GET_RM(inst)                  ((inst >> 12) & 0x7)
 
 static void decode_opc (CPURISCVState *env, DisasContext *ctx)
 {
@@ -1679,13 +1760,9 @@ static void decode_opc (CPURISCVState *env, DisasContext *ctx)
     if (ctx->pc & 0x3) { 
         // NOT tested for RISCV
         printf("misaligned instruction, not yet implemented for riscv\n");
+        exit(1);
         return;
     }
-
-    // increment cycle:
-//    tcg_gen_addi_tl(cpu_csr[CSR_CYCLE], cpu_csr[CSR_CYCLE], 1);
-
-//    gen_helper_tlb_flush(cpu_env);
 
     op = MASK_OP_MAJOR(ctx->opcode);
     rs1 = (ctx->opcode >> 15) & 0x1f;
@@ -1798,11 +1875,11 @@ static void decode_opc (CPURISCVState *env, DisasContext *ctx)
     case OPC_RISC_FMSUB:
     case OPC_RISC_FNMSUB:
     case OPC_RISC_FNMADD:
-    case OPC_RISC_FP_ARITH:
-
-        gen_helper_fadd_d(cpu_fpr[0], cpu_env, cpu_fpr[0], cpu_fpr[1]);
-
         kill_unknown(ctx, RISCV_EXCP_FP_DISABLED);
+        break;
+
+    case OPC_RISC_FP_ARITH:
+        gen_fp_arith(ctx, MASK_OP_FP_ARITH(ctx->opcode), rd, rs1, rs2, GET_RM(ctx->opcode));
         break;
 
     default:

@@ -13,7 +13,7 @@ DEF_HELPER_3(csrrs, tl, env, tl, tl)
 DEF_HELPER_3(csrrc, tl, env, tl, tl)
 
 
-DEF_HELPER_3(fadd_d, tl, env, tl, tl)
+DEF_HELPER_4(fadd_d, tl, env, tl, tl, tl)
 
 
 
