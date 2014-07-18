@@ -375,15 +375,120 @@ uint64_t helper_fmax_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2)
     return frs1;
 }
 
+uint64_t helper_fcvt_s_d(CPURISCVState *env, uint64_t rs1, uint64_t rm)
+{
+    softfloat_roundingMode = RISCV_RM;
+    rs1 = f64_to_f32(rs1);
+    set_fp_exceptions;
+    return rs1;
+}
 
+uint64_t helper_fcvt_d_s(CPURISCVState *env, uint64_t rs1, uint64_t rm)
+{
+    softfloat_roundingMode = RISCV_RM;
+    rs1 = f32_to_f64(rs1);
+    set_fp_exceptions;
+    return rs1;
+}
 
+uint64_t helper_fsqrt_d(CPURISCVState *env, uint64_t frs1, uint64_t rm)
+{
+    softfloat_roundingMode = RISCV_RM;
+    frs1 = f64_sqrt(frs1);
+    set_fp_exceptions;
+    return frs1;
+}
 
+uint64_t helper_fle_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2)
+{
+    frs1 = f64_le(frs1, frs2);
+    set_fp_exceptions;
+    return frs1;
+}
 
+uint64_t helper_flt_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2)
+{
+    frs1 = f64_lt(frs1, frs2);
+    set_fp_exceptions;
+    return frs1;
+}
 
+uint64_t helper_feq_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2)
+{
+    frs1 = f64_eq(frs1, frs2);
+    set_fp_exceptions;
+    return frs1;
+}
 
+uint64_t helper_fcvt_w_d(CPURISCVState *env, uint64_t frs1, uint64_t rm)
+{
+    softfloat_roundingMode = RISCV_RM;
+    frs1 = (int64_t)((int32_t)f64_to_i32(frs1, RISCV_RM, true));
+    set_fp_exceptions;
+    return frs1;
+}
 
+uint64_t helper_fcvt_wu_d(CPURISCVState *env, uint64_t frs1, uint64_t rm)
+{
+    softfloat_roundingMode = RISCV_RM;
+    frs1 = (int64_t)((int32_t)f64_to_ui32(frs1, RISCV_RM, true));
+    set_fp_exceptions;
+    return frs1;
+}
 
+uint64_t helper_fcvt_l_d(CPURISCVState *env, uint64_t frs1, uint64_t rm)
+{
+    softfloat_roundingMode = RISCV_RM;
+    frs1 = f64_to_i64(frs1, RISCV_RM, true);
+    set_fp_exceptions;
+    return frs1;
+}
 
+uint64_t helper_fcvt_lu_d(CPURISCVState *env, uint64_t frs1, uint64_t rm)
+{
+    softfloat_roundingMode = RISCV_RM;
+    frs1 = f64_to_ui64(frs1, RISCV_RM, true);
+    set_fp_exceptions;
+    return frs1;
+}
+
+uint64_t helper_fcvt_d_w(CPURISCVState *env, uint64_t frs1, uint64_t rm)
+{
+    softfloat_roundingMode = RISCV_RM;
+    frs1 = i32_to_f64((int32_t)frs1);
+    set_fp_exceptions;
+    return frs1;
+}
+
+uint64_t helper_fcvt_d_wu(CPURISCVState *env, uint64_t frs1, uint64_t rm)
+{
+    softfloat_roundingMode = RISCV_RM;
+    frs1 = ui32_to_f64((uint32_t)frs1);
+    set_fp_exceptions;
+    return frs1;
+}
+
+uint64_t helper_fcvt_d_l(CPURISCVState *env, uint64_t frs1, uint64_t rm)
+{
+    softfloat_roundingMode = RISCV_RM;
+    frs1 = i64_to_f64(frs1);
+    set_fp_exceptions;
+    return frs1;
+}
+
+uint64_t helper_fcvt_d_lu(CPURISCVState *env, uint64_t frs1, uint64_t rm)
+{
+    softfloat_roundingMode = RISCV_RM;
+    frs1 = ui64_to_f64(frs1);
+    set_fp_exceptions;
+    return frs1;
+}
+
+uint64_t helper_fclass_d(CPURISCVState *env, uint64_t frs1)
+{
+    frs1 = f64_classify(frs1);
+    return frs1;
+}
 
 /* MODIFIED FOR RISCV*/
 target_ulong helper_mulhsu(CPURISCVState *env, target_ulong arg1,

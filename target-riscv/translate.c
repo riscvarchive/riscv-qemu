@@ -336,8 +336,9 @@ enum {
     OPC_RISC_FMIN_D    = OPC_RISC_FP_ARITH | (0x15 << 25),
     OPC_RISC_FMAX_D    = OPC_RISC_FP_ARITH | (0x15 << 25),
 
-    OPC_RISCV_FCVT_S_D = OPC_RISC_FP_ARITH | (0x20 << 25),
-    OPC_RISCV_FCVT_D_S = OPC_RISC_FP_ARITH | (0x21 << 25),
+    OPC_RISC_FCVT_S_D = OPC_RISC_FP_ARITH | (0x20 << 25),
+
+    OPC_RISC_FCVT_D_S = OPC_RISC_FP_ARITH | (0x21 << 25),
 
     OPC_RISC_FSQRT_D   = OPC_RISC_FP_ARITH | (0x2D << 25),
 
@@ -1892,26 +1893,81 @@ static void gen_fp_arith(DisasContext *ctx, uint32_t opc,
             kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         }
         break;
-/*    case OPC_RISCV_FCVT_S_D:
-        // also OPC_RISCV_FCVT_D_S 
+    case OPC_RISC_FCVT_S_D:
+        if (rs2 == 0x1) {
+            gen_helper_fcvt_s_d(cpu_fpr[rd], cpu_env, cpu_fpr[rs1], rm_reg);
+        } else {
+            kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
+        }
+        break;
+    case OPC_RISC_FCVT_D_S:
+        if (rs2 == 0x0) {
+            gen_helper_fcvt_d_s(cpu_fpr[rd], cpu_env, cpu_fpr[rs1], rm_reg);
+        } else {
+            kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
+        }
         break;
     case OPC_RISC_FSQRT_D:
+        gen_helper_fsqrt_d(cpu_fpr[rd], cpu_env, cpu_fpr[rs1], rm_reg);
         break;
     case OPC_RISC_FEQ_D:
         // also OPC_RISC_FLT_D, OPC_RISC_FLE_D     
+        if (rm == 0x0) {
+            gen_helper_fle_d(write_int_rd, cpu_env, cpu_fpr[rs1], cpu_fpr[rs2]);
+        } else if (rm == 0x1) {
+            gen_helper_flt_d(write_int_rd, cpu_env, cpu_fpr[rs1], cpu_fpr[rs2]);
+        } else if (rm == 0x2) {
+            gen_helper_feq_d(write_int_rd, cpu_env, cpu_fpr[rs1], cpu_fpr[rs2]);
+        } else {
+            kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
+        }
+        gen_set_gpr(rd, write_int_rd);
         break;
     case OPC_RISC_FCVT_W_D:
         // also OPC_RISC_FCVT_WU_D, OPC_RISC_FCVT_L_D, OPC_RISC_FCVT_LU_D 
+        if (rs2 == 0x0) {
+            gen_helper_fcvt_w_d(write_int_rd, cpu_env, cpu_fpr[rs1], rm_reg);
+        } else if (rs2 == 0x1) {
+            gen_helper_fcvt_wu_d(write_int_rd, cpu_env, cpu_fpr[rs1], rm_reg);
+        } else if (rs2 == 0x2) {
+            gen_helper_fcvt_l_d(write_int_rd, cpu_env, cpu_fpr[rs1], rm_reg);
+        } else if (rs2 == 0x3) {
+            gen_helper_fcvt_lu_d(write_int_rd, cpu_env, cpu_fpr[rs1], rm_reg);
+        } else {
+            kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
+        }
+        gen_set_gpr(rd, write_int_rd);
         break;
     case OPC_RISC_FCVT_D_W:
-        // also OPC_RISC_FCVT_D_WU, OPC_RISC_FCVT_D_L, OPC_RISC_FCVT_D_LU 
+        // also OPC_RISC_FCVT_D_WU, OPC_RISC_FCVT_D_L, OPC_RISC_FCVT_D_LU
+        gen_get_gpr(write_int_rd, rs1);
+        if (rs2 == 0x0) {
+            gen_helper_fcvt_d_w(cpu_fpr[rd], cpu_env, write_int_rd, rm_reg);
+        } else if (rs2 == 0x1) {
+            gen_helper_fcvt_d_wu(cpu_fpr[rd], cpu_env, write_int_rd, rm_reg);
+        } else if (rs2 == 0x2) {
+            gen_helper_fcvt_d_l(cpu_fpr[rd], cpu_env, write_int_rd, rm_reg);
+        } else if (rs2 == 0x3) {
+            gen_helper_fcvt_d_lu(cpu_fpr[rd], cpu_env, write_int_rd, rm_reg);
+        } else {
+            kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
+        }
         break;
     case OPC_RISC_FMV_X_D:
         // also OPC_RISC_FCLASS_D  
+        if (rm == 0x0) { // FMV
+            tcg_gen_mov_tl(write_int_rd, cpu_fpr[rs1]);
+        } else if (rm == 0x1) {
+            gen_helper_fclass_d(write_int_rd, cpu_env, cpu_fpr[rs1]);
+        } else {
+            kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
+        }
+        gen_set_gpr(rd, write_int_rd);
         break;
     case OPC_RISC_FMV_D_X:
-
-        break;*/
+        gen_get_gpr(write_int_rd, rs1);
+        tcg_gen_mov_tl(cpu_fpr[rd], write_int_rd);
+        break;
     default:
         kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         break;
