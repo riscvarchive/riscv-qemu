@@ -44,6 +44,14 @@ DEF_HELPER_5(fnmadd_s, tl, env, tl, tl, tl, tl)
 DEF_HELPER_5(fnmadd_d, tl, env, tl, tl, tl, tl)
 
 DEF_HELPER_4(fadd_d, tl, env, tl, tl, tl)
+DEF_HELPER_4(fsub_d, tl, env, tl, tl, tl)
+DEF_HELPER_4(fmul_d, tl, env, tl, tl, tl)
+DEF_HELPER_4(fdiv_d, tl, env, tl, tl, tl)
+DEF_HELPER_3(fsgnj_d, tl, env, tl, tl)
+DEF_HELPER_3(fsgnjn_d, tl, env, tl, tl)
+DEF_HELPER_3(fsgnjx_d, tl, env, tl, tl)
+DEF_HELPER_3(fmin_d, tl, env, tl, tl)
+DEF_HELPER_3(fmax_d, tl, env, tl, tl)
 
 
 

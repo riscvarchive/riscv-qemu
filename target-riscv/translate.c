@@ -1858,22 +1858,41 @@ static void gen_fp_arith(DisasContext *ctx, uint32_t opc,
         break;
 
     // double
-/*    case OPC_RISC_FADD_D:
+    case OPC_RISC_FADD_D:
         gen_helper_fadd_d(cpu_fpr[rd], cpu_env, cpu_fpr[rs1], cpu_fpr[rs2], rm_reg);
         break;
-    case OPC_RISC_FSUB_D: 
+    case OPC_RISC_FSUB_D:
+        gen_helper_fsub_d(cpu_fpr[rd], cpu_env, cpu_fpr[rs1], cpu_fpr[rs2], rm_reg);
         break;
-    case OPC_RISC_FMUL_D: 
+    case OPC_RISC_FMUL_D:
+        gen_helper_fmul_d(cpu_fpr[rd], cpu_env, cpu_fpr[rs1], cpu_fpr[rs2], rm_reg);
         break;
     case OPC_RISC_FDIV_D:
+        gen_helper_fdiv_d(cpu_fpr[rd], cpu_env, cpu_fpr[rs1], cpu_fpr[rs2], rm_reg);
         break;
     case OPC_RISC_FSGNJ_D:
         // also OPC_RISC_FSGNJN_D, OPC_RISC_FSGNJX_D  
+        if (rm == 0x0) {
+            gen_helper_fsgnj_d(cpu_fpr[rd], cpu_env, cpu_fpr[rs1], cpu_fpr[rs2]);  
+        } else if (rm == 0x1) {
+            gen_helper_fsgnjn_d(cpu_fpr[rd], cpu_env, cpu_fpr[rs1], cpu_fpr[rs2]);  
+        } else if (rm == 0x2) {
+            gen_helper_fsgnjx_d(cpu_fpr[rd], cpu_env, cpu_fpr[rs1], cpu_fpr[rs2]);  
+        } else {
+            kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
+        }
         break;
     case OPC_RISC_FMIN_D:
         // also OPC_RISC_FMAX_D    
+        if (rm == 0x0) {
+            gen_helper_fmin_d(cpu_fpr[rd], cpu_env, cpu_fpr[rs1], cpu_fpr[rs2]);
+        } else if (rm == 0x1) {
+            gen_helper_fmax_d(cpu_fpr[rd], cpu_env, cpu_fpr[rs1], cpu_fpr[rs2]);
+        } else {
+            kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
+        }
         break;
-    case OPC_RISCV_FCVT_S_D:
+/*    case OPC_RISCV_FCVT_S_D:
         // also OPC_RISCV_FCVT_D_S 
         break;
     case OPC_RISC_FSQRT_D:

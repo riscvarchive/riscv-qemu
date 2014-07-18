@@ -180,7 +180,6 @@ uint64_t helper_fdiv_s(CPURISCVState *env, uint64_t frs1, uint64_t frs2, uint64_
     return frs1;
 }
 
-
 uint64_t helper_fsgnj_s(CPURISCVState *env, uint64_t frs1, uint64_t frs2)
 {
     frs1 = (frs1 &~ (uint32_t)INT32_MIN) | (frs2 & (uint32_t)INT32_MIN);
@@ -312,15 +311,6 @@ uint64_t helper_fclass_s(CPURISCVState *env, uint64_t frs1)
     return frs1;
 }
 
-
-
-
-
-
-
-
-
-
 uint64_t helper_fadd_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2, uint64_t rm)
 {
     softfloat_roundingMode = RISCV_RM;
@@ -329,8 +319,61 @@ uint64_t helper_fadd_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2, uint64_
     return frs1;
 }
 
+uint64_t helper_fsub_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2, uint64_t rm)
+{
+    softfloat_roundingMode = RISCV_RM;
+    frs1 = f64_mulAdd(frs1, 0x3f80000000000000ULL, frs2 ^ (uint64_t)INT64_MIN);
+    set_fp_exceptions;
+    return frs1;
+}
 
+uint64_t helper_fmul_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2, uint64_t rm)
+{
+    softfloat_roundingMode = RISCV_RM;
+    frs1 = f64_mulAdd(frs1, frs2, (frs1 ^ frs2) & (uint64_t)INT64_MIN);
+    set_fp_exceptions;
+    return frs1;
+}
 
+uint64_t helper_fdiv_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2, uint64_t rm)
+{
+    softfloat_roundingMode = RISCV_RM;
+    frs1 = f64_div(frs1, frs2);
+    set_fp_exceptions;
+    return frs1;
+}
+
+uint64_t helper_fsgnj_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2)
+{
+    frs1 = (frs1 &~ INT64_MIN) | (frs2 & INT64_MIN);
+    return frs1;
+}
+
+uint64_t helper_fsgnjn_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2)
+{
+    frs1 = (frs1 &~ INT64_MIN) | ((~frs2) & INT64_MIN);
+    return frs1;
+}
+
+uint64_t helper_fsgnjx_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2)
+{
+    frs1 = frs1 ^ (frs2 & INT64_MIN);
+    return frs1;
+}
+
+uint64_t helper_fmin_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2)
+{
+    frs1 = isNaNF64UI(frs2) || f64_lt_quiet(frs1, frs2) ? frs1 : frs2;
+    set_fp_exceptions;
+    return frs1;
+}
+
+uint64_t helper_fmax_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2)
+{
+    frs1 = isNaNF64UI(frs2) || f64_lt_quiet(frs2, frs1) ? frs1 : frs2;
+    set_fp_exceptions;
+    return frs1;
+}
 
 
 
