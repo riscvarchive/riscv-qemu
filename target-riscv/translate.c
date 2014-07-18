@@ -31,6 +31,7 @@
 
 //#define DISABLE_CHAINING_BRANCH
 //#define DISABLE_CHAINING_JAL
+//#define DISABLE_CHAINING_END_OF_PAGE
 
 #define RISCV_DEBUG_DISAS 0
 
@@ -2231,28 +2232,22 @@ gen_intermediate_code_internal(RISCVCPU *cpu, TranslationBlock *tb,
     switch (ctx.bstate) {
     case BS_STOP:
         gen_goto_tb(&ctx, 0, ctx.pc);
-
-
-
-
-
-
-
         break;
     case BS_NONE:
         /* handle end of page case, we can even chain these, I think */
 
-        /* method 1: this may be unsafe, but is an optimization */
-        /*tcg_gen_goto_tb(1); // try chaining
-        tcg_gen_movi_tl(cpu_PC, ctx.pc); // NOT PC+4, that was already done
-        tcg_gen_exit_tb((uintptr_t)ctx.tb | 0x1);*/
-        /* end unsafe */
-
-        /* method 2: this is safe */
+#ifdef DISABLE_CHAINING_END_OF_PAGE
+        /* method 1: this is safe */
         tcg_gen_movi_tl(cpu_PC, ctx.pc); // NOT PC+4, that was already done
         tcg_gen_exit_tb(0);
         /* end safe */
-
+#else
+        /* method 2: this may be unsafe, but is an optimization */
+        tcg_gen_goto_tb(1); // try chaining
+        tcg_gen_movi_tl(cpu_PC, ctx.pc); // NOT PC+4, that was already done
+        tcg_gen_exit_tb((uintptr_t)ctx.tb | 0x1);
+        /* end unsafe */
+#endif
         break;
     case BS_EXCP: // TODO: not yet handled for riscv
         tcg_gen_exit_tb(0);
@@ -2273,7 +2268,7 @@ done_generating:
         tb->size = ctx.pc - pc_start;
         tb->icount = num_insns;
     }
-#ifdef DEBUG_DISAS
+#ifdef DEBUG_DISAS // TODO: riscv disassembly
     LOG_DISAS("\n");
     if (qemu_loglevel_mask(CPU_LOG_TB_IN_ASM)) {
         qemu_log("IN: %s\n", lookup_symbol(pc_start));
@@ -2319,6 +2314,8 @@ void riscv_cpu_dump_state(CPUState *cs, FILE *f, fprintf_function cpu_fprintf,
 
         } else if (i == CSR_CYCLE) {
             cpu_fprintf(f, " %s " TARGET_FMT_lx, cs_regnames[i], cpu_riscv_get_cycle(env));
+        } else if (i == CSR_FCSR) {
+             cpu_fprintf(f, " %s " TARGET_FMT_lx, cs_regnames[i], env->helper_csr[CSR_FFLAGS] | (env->helper_csr[CSR_FRM] << 5));
         } else {
             cpu_fprintf(f, " %s " TARGET_FMT_lx, cs_regnames[i], env->helper_csr[i]);
         }
@@ -2326,6 +2323,18 @@ void riscv_cpu_dump_state(CPUState *cs, FILE *f, fprintf_function cpu_fprintf,
             cpu_fprintf(f, "\n");
         }
     }
+
+    for (i = 0; i < 32; i++) {
+        if ((i & 3) == 0) {
+            cpu_fprintf(f, "FPR%02d:", i);
+        }
+        cpu_fprintf(f, " %s " TARGET_FMT_lx, fpr_regnames[i], env->active_tc.fpr[i]);
+        if ((i & 3) == 3) {
+            cpu_fprintf(f, "\n");
+        }
+    }
+
+
 }
 
 void riscv_tcg_init(void)
@@ -2349,13 +2358,6 @@ void riscv_tcg_init(void)
                                         offsetof(CPURISCVState, active_tc.gpr[i]),
                                         regnames[i]);
     }
-
-/*    for (i = 0; i < 32; i++) {
-        cpu_csr[i] = tcg_global_mem_new(TCG_AREG0,
-                                        offsetof(CPURISCVState, active_tc.csr[i]),
-                                        cs_regnames[i]);
-    }
-*/
 
     for (i = 0; i < 32; i++) {
         cpu_fpr[i] = tcg_global_mem_new(TCG_AREG0,
