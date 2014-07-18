@@ -31,7 +31,6 @@
 
 //#define DISABLE_CHAINING_BRANCH
 //#define DISABLE_CHAINING_JAL
-//#define DISABLE_CHAINING_END_OF_PAGE
 
 #define RISCV_DEBUG_DISAS 0
 
@@ -435,11 +434,6 @@ static const char * const fpr_regnames[] = {
         }                                                                     \
     } while (0)
 
-static inline void gen_save_pc(target_ulong pc)
-{
-    tcg_gen_movi_tl(cpu_PC, pc);
-}
-
 static inline void generate_exception (DisasContext *ctx, int excp)
 {
     tcg_gen_movi_tl(cpu_PC, ctx->pc);
@@ -458,16 +452,16 @@ static inline void gen_goto_tb(DisasContext *ctx, int n, target_ulong dest)
 {
     TranslationBlock *tb;
     tb = ctx->tb;
-    if ((tb->pc & TARGET_PAGE_MASK) == (dest & TARGET_PAGE_MASK) &&
-        likely(!ctx->singlestep_enabled)) {
+    if ((tb->pc & TARGET_PAGE_MASK) == (dest & TARGET_PAGE_MASK)) {
+        // we only allow direct chaining when the jump is to the same page
+        // otherwise, we could produce incorrect chains when address spaces
+        // change. see
+        // http://lists.gnu.org/archive/html/qemu-devel/2007-06/msg00213.html
         tcg_gen_goto_tb(n);
-        gen_save_pc(dest);
+        tcg_gen_movi_tl(cpu_PC, dest);
         tcg_gen_exit_tb((uintptr_t)tb + n);
     } else {
-        gen_save_pc(dest);
-        if (ctx->singlestep_enabled) {
-            gen_helper_0e0i(raise_exception, EXCP_DEBUG);
-        }
+        tcg_gen_movi_tl(cpu_PC, dest);
         tcg_gen_exit_tb(0);
     }
 }
@@ -1051,23 +1045,18 @@ static void gen_branch(DisasContext *ctx, uint32_t opc,
 
     }
 
-    // TODO: where do the frees go?
-
-    tcg_gen_movi_tl(cpu_PC, ctx->pc + 4);
 #ifdef DISABLE_CHAINING_BRANCH
+    tcg_gen_movi_tl(cpu_PC, ctx->pc + 4);
     tcg_gen_exit_tb(0);
 #else
-    tcg_gen_goto_tb(1); // 1 is not taken, try chaining
-    // TODO insn_bytes should be passed in here instead of hardcoded 4?
-    tcg_gen_exit_tb((uintptr_t)ctx->tb | 0x1);
+    gen_goto_tb(ctx, 1, ctx->pc + 4); // must use this for safety
 #endif
     gen_set_label(l); // branch taken
-    tcg_gen_movi_tl(cpu_PC, ctx->pc + ubimm);
 #ifdef DISABLE_CHAINING_BRANCH
+    tcg_gen_movi_tl(cpu_PC, ctx->pc + ubimm);
     tcg_gen_exit_tb(0);
 #else
-    tcg_gen_goto_tb(0); // 0 is taken, try chaining
-    tcg_gen_exit_tb((uintptr_t)ctx->tb | 0x0);
+    gen_goto_tb(ctx, 0, ctx->pc + ubimm); // must use this for safety
 #endif
     ctx->bstate = BS_BRANCH;
 }
@@ -2033,12 +2022,11 @@ static void decode_opc (CPURISCVState *env, DisasContext *ctx)
             tcg_gen_movi_tl(cpu_gpr[rd], 4);
             tcg_gen_addi_tl(cpu_gpr[rd], cpu_gpr[rd], ctx->pc);
         }
-        tcg_gen_movi_tl(cpu_PC, ctx->pc + ubimm);
 #ifdef DISABLE_CHAINING_JAL
+        tcg_gen_movi_tl(cpu_PC, ctx->pc + ubimm);
         tcg_gen_exit_tb(0);
 #else
-        tcg_gen_goto_tb(0);
-        tcg_gen_exit_tb((uintptr_t)ctx->tb | 0x0);
+        gen_goto_tb(ctx, 0, ctx->pc + ubimm); // must use this for safety
 #endif
         ctx->bstate = BS_BRANCH;
         break;
@@ -2234,20 +2222,9 @@ gen_intermediate_code_internal(RISCVCPU *cpu, TranslationBlock *tb,
         gen_goto_tb(&ctx, 0, ctx.pc);
         break;
     case BS_NONE:
-        /* handle end of page case, we can even chain these, I think */
-
-#ifdef DISABLE_CHAINING_END_OF_PAGE
-        /* method 1: this is safe */
+        // DO NOT CHAIN. This is for END-OF-PAGE. See gen_goto_tb.
         tcg_gen_movi_tl(cpu_PC, ctx.pc); // NOT PC+4, that was already done
         tcg_gen_exit_tb(0);
-        /* end safe */
-#else
-        /* method 2: this may be unsafe, but is an optimization */
-        tcg_gen_goto_tb(1); // try chaining
-        tcg_gen_movi_tl(cpu_PC, ctx.pc); // NOT PC+4, that was already done
-        tcg_gen_exit_tb((uintptr_t)ctx.tb | 0x1);
-        /* end unsafe */
-#endif
         break;
     case BS_EXCP: // TODO: not yet handled for riscv
         tcg_gen_exit_tb(0);
