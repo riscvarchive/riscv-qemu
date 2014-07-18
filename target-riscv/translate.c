@@ -1681,6 +1681,7 @@ static void gen_fp_fmadd(DisasContext *ctx, uint32_t opc,
         kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         break;
     }
+    tcg_temp_free(rm_reg);
 
 }
 
@@ -1702,7 +1703,7 @@ static void gen_fp_fmsub(DisasContext *ctx, uint32_t opc,
         kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         break;
     }
-
+    tcg_temp_free(rm_reg);
 }
 
 static void gen_fp_fnmsub(DisasContext *ctx, uint32_t opc,
@@ -1723,7 +1724,7 @@ static void gen_fp_fnmsub(DisasContext *ctx, uint32_t opc,
         kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         break;
     }
-
+    tcg_temp_free(rm_reg);
 }
 
 static void gen_fp_fnmadd(DisasContext *ctx, uint32_t opc,
@@ -1744,7 +1745,7 @@ static void gen_fp_fnmadd(DisasContext *ctx, uint32_t opc,
         kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         break;
     }
-
+    tcg_temp_free(rm_reg);
 }
 
 static void gen_fp_arith(DisasContext *ctx, uint32_t opc, 
@@ -1855,7 +1856,7 @@ static void gen_fp_arith(DisasContext *ctx, uint32_t opc,
 
     case OPC_RISC_FMV_S_X:
         gen_get_gpr(write_int_rd, rs1);
-        tcg_gen_mov_tl(cpu_fpr[rs1], write_int_rd);
+        tcg_gen_mov_tl(cpu_fpr[rd], write_int_rd);
         break;
 
     // double
@@ -1972,7 +1973,8 @@ static void gen_fp_arith(DisasContext *ctx, uint32_t opc,
         kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         break;
     }
-
+    tcg_temp_free(rm_reg);
+    tcg_temp_free(write_int_rd);
 }
 
 #define GET_B_IMM(inst)              ((int16_t)((((inst >> 25) & 0x3F) << 5) | ((((int32_t)inst) >> 31) << 12) | (((inst >> 8) & 0xF) << 1) | (((inst >> 7) & 0x1) << 11)))  /* THIS BUILDS 13 bit imm (implicit zero is tacked on here), also note that bit #12 is obtained in a special way to get sign extension */

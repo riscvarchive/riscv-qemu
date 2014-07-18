@@ -322,7 +322,7 @@ uint64_t helper_fadd_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2, uint64_
 uint64_t helper_fsub_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2, uint64_t rm)
 {
     softfloat_roundingMode = RISCV_RM;
-    frs1 = f64_mulAdd(frs1, 0x3f80000000000000ULL, frs2 ^ (uint64_t)INT64_MIN);
+    frs1 = f64_mulAdd(frs1, 0x3ff0000000000000ULL, frs2 ^ (uint64_t)INT64_MIN);
     set_fp_exceptions;
     return frs1;
 }
@@ -500,11 +500,7 @@ target_ulong helper_mulhsu(CPURISCVState *env, target_ulong arg1,
 }
 
 target_ulong helper_csrrw(CPURISCVState *env, target_ulong src, target_ulong csr) {
-    if (csr != CSR_COUNT && csr != CSR_COMPARE) {
-        uint64_t csr_backup = env->helper_csr[csr]; 
-        env->helper_csr[csr] = src;
-        return csr_backup;
-    } else if (csr == CSR_COUNT) {
+    if (csr == CSR_COUNT) {
         uint64_t csr_backup = cpu_riscv_get_count(env);
         cpu_riscv_store_count(env, (uint32_t)src);
         return csr_backup;
@@ -514,16 +510,21 @@ target_ulong helper_csrrw(CPURISCVState *env, target_ulong src, target_ulong csr
         return csr_backup;
     } else if (csr == CSR_CYCLE) {
         return cpu_riscv_get_cycle(env);
+    } else if (csr == CSR_FCSR) {
+        uint64_t csr_backup = env->helper_csr[CSR_FFLAGS] | (env->helper_csr[CSR_FRM] << 5);
+        uint64_t val = src;
+        env->helper_csr[CSR_FFLAGS] = val & 0x1F;
+        env->helper_csr[CSR_FRM] = val & 0x7;
+        return csr_backup;
+    } else {
+        uint64_t csr_backup = env->helper_csr[csr]; 
+        env->helper_csr[csr] = src;
+        return csr_backup;
     }
-    return 0;
 }
 
 target_ulong helper_csrrs(CPURISCVState *env, target_ulong src, target_ulong csr) {
-    if (csr != CSR_COUNT && csr != CSR_COMPARE && csr != CSR_CYCLE) {
-        uint64_t csr_backup = env->helper_csr[csr]; 
-        env->helper_csr[csr] = csr_backup | src;
-        return csr_backup;
-    } else if (csr == CSR_COUNT) {
+    if (csr == CSR_COUNT) {
         uint64_t csr_backup = cpu_riscv_get_count(env);
         cpu_riscv_store_count(env, (uint32_t)(csr_backup | src));
         return csr_backup;
@@ -533,16 +534,21 @@ target_ulong helper_csrrs(CPURISCVState *env, target_ulong src, target_ulong csr
         return csr_backup;
     } else if (csr == CSR_CYCLE) {
         return cpu_riscv_get_cycle(env);
+    } else if (csr == CSR_FCSR) {
+         uint64_t csr_backup = env->helper_csr[CSR_FFLAGS] | (env->helper_csr[CSR_FRM] << 5);
+        uint64_t val = csr_backup | src;
+        env->helper_csr[CSR_FFLAGS] = val & 0x1F;
+        env->helper_csr[CSR_FRM] = val & 0x7;
+        return csr_backup;
+    } else {
+        uint64_t csr_backup = env->helper_csr[csr]; 
+        env->helper_csr[csr] = csr_backup | src;
+        return csr_backup;
     }
-    return 0;
 }
 
 target_ulong helper_csrrc(CPURISCVState *env, target_ulong src, target_ulong csr) {
-    if (csr != CSR_COUNT && csr != CSR_COMPARE && csr != CSR_CYCLE) {
-        uint64_t csr_backup = env->helper_csr[csr]; 
-        env->helper_csr[csr] = csr_backup & (~src);
-        return csr_backup;
-    } else if (csr == CSR_COUNT) {
+    if (csr == CSR_COUNT) {
         uint64_t csr_backup = cpu_riscv_get_count(env);
         cpu_riscv_store_count(env, (uint32_t)(csr_backup & (~src)));
         return csr_backup;
@@ -552,8 +558,17 @@ target_ulong helper_csrrc(CPURISCVState *env, target_ulong src, target_ulong csr
         return csr_backup;
     } else if (csr == CSR_CYCLE) {
         return cpu_riscv_get_cycle(env);
+    } else if (csr == CSR_FCSR) {
+        uint64_t csr_backup = env->helper_csr[CSR_FFLAGS] | (env->helper_csr[CSR_FRM] << 5);
+        uint64_t val = csr_backup & (~src);
+        env->helper_csr[CSR_FFLAGS] = val & 0x1F;
+        env->helper_csr[CSR_FRM] = val & 0x7;
+        return csr_backup;
+    } else {
+        uint64_t csr_backup = env->helper_csr[csr]; 
+        env->helper_csr[csr] = csr_backup & (~src);
+        return csr_backup;
     }
-    return 0;
 }
 
 target_ulong helper_sret(CPURISCVState *env) {
