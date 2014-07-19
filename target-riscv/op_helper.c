@@ -490,7 +490,6 @@ uint64_t helper_fclass_d(CPURISCVState *env, uint64_t frs1)
     return frs1;
 }
 
-/* MODIFIED FOR RISCV*/
 target_ulong helper_mulhsu(CPURISCVState *env, target_ulong arg1,
                           target_ulong arg2)
 {
@@ -611,31 +610,6 @@ target_ulong helper_scall(CPURISCVState *env, target_ulong bad_pc) {
 
     return env->helper_csr[CSR_EVEC];
 }
-/*
-target_ulong helper_read_cycle(CPURISCVState *env) 
-{
-    uint32_t val = (int32_t)cpu_riscv_get_cycle(env);
-    return val;
-}
-*/
-target_ulong helper_read_count(CPURISCVState *env)
-{
-    uint32_t val = (int32_t)cpu_riscv_get_count(env);
-//    printf("got count val: %d\n", val);
-    return val;
-}
-
-void helper_store_compare(CPURISCVState *env, target_ulong arg1)
-{
-    cpu_riscv_store_compare(env, arg1);
-}
-
-void helper_store_count(CPURISCVState *env, target_ulong arg1)
-{
-    cpu_riscv_store_count(env, arg1);
-}
-
-
 
 #ifndef CONFIG_USER_ONLY
 /* TLB management */

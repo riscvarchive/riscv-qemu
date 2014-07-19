@@ -1039,7 +1039,6 @@ static void gen_branch(DisasContext *ctx, uint32_t opc,
         tcg_gen_brcond_tl(TCG_COND_GEU, source1, source2, l);
         break;
     default:
-        /* TODO: exception here */
         kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         break;
 
@@ -1133,7 +1132,6 @@ static void gen_store(DisasContext *ctx, uint32_t opc,
         break;
 
     default:
-        // TODO: exception
         kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         break;
     }
@@ -1167,7 +1165,6 @@ static void gen_jalr(DisasContext *ctx, uint32_t opc,
         ctx->bstate = BS_BRANCH;
         break;
     default:
-        // TODO: exception
         kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         break;
 
@@ -1198,35 +1195,34 @@ static void gen_atomic(DisasContext *ctx, uint32_t opc,
         break;
     case OPC_RISC_SC_W:
         tcg_gen_qemu_st32(source2, source1, ctx->mem_idx);
-        tcg_gen_movi_tl(source1, 0); // assume always success
+        tcg_gen_movi_tl(source1, 0);
         break;
     case OPC_RISC_AMOSWAP_W:
         tcg_gen_qemu_ld32s(dat, source1, ctx->mem_idx);
-        tcg_gen_mov_tl(source2, source2); // replace with other op using dat
         tcg_gen_qemu_st32(source2, source1, ctx->mem_idx);
         tcg_gen_mov_tl(source1, dat);
         break;
     case OPC_RISC_AMOADD_W:   
         tcg_gen_qemu_ld32s(dat, source1, ctx->mem_idx);
-        tcg_gen_add_tl(source2, dat, source2); // replace with other op using dat
+        tcg_gen_add_tl(source2, dat, source2);
         tcg_gen_qemu_st32(source2, source1, ctx->mem_idx);
         tcg_gen_mov_tl(source1, dat);
         break;
     case OPC_RISC_AMOXOR_W:
         tcg_gen_qemu_ld32s(dat, source1, ctx->mem_idx);
-        tcg_gen_xor_tl(source2, dat, source2); // replace with other op using dat
+        tcg_gen_xor_tl(source2, dat, source2);
         tcg_gen_qemu_st32(source2, source1, ctx->mem_idx);
         tcg_gen_mov_tl(source1, dat);
         break;
     case OPC_RISC_AMOAND_W:
         tcg_gen_qemu_ld32s(dat, source1, ctx->mem_idx);
-        tcg_gen_and_tl(source2, dat, source2); // replace with other op using dat
+        tcg_gen_and_tl(source2, dat, source2);
         tcg_gen_qemu_st32(source2, source1, ctx->mem_idx);
         tcg_gen_mov_tl(source1, dat);
         break;
     case OPC_RISC_AMOOR_W:
         tcg_gen_qemu_ld32s(dat, source1, ctx->mem_idx);
-        tcg_gen_or_tl(source2, dat, source2); // replace with other op using dat
+        tcg_gen_or_tl(source2, dat, source2); 
         tcg_gen_qemu_st32(source2, source1, ctx->mem_idx);
         tcg_gen_mov_tl(source1, dat);
         break;
@@ -1339,31 +1335,30 @@ static void gen_atomic(DisasContext *ctx, uint32_t opc,
         break;
     case OPC_RISC_AMOSWAP_D:
         tcg_gen_qemu_ld64(dat, source1, ctx->mem_idx);
-        tcg_gen_mov_tl(source2, source2); // replace with other op using dat
         tcg_gen_qemu_st64(source2, source1, ctx->mem_idx);
         tcg_gen_mov_tl(source1, dat);
         break;
     case OPC_RISC_AMOADD_D:
         tcg_gen_qemu_ld64(dat, source1, ctx->mem_idx);
-        tcg_gen_add_tl(source2, dat, source2); // replace with other op using dat
+        tcg_gen_add_tl(source2, dat, source2);
         tcg_gen_qemu_st64(source2, source1, ctx->mem_idx);
         tcg_gen_mov_tl(source1, dat);
         break;
     case OPC_RISC_AMOXOR_D: 
         tcg_gen_qemu_ld64(dat, source1, ctx->mem_idx);
-        tcg_gen_xor_tl(source2, dat, source2); // replace with other op using dat
+        tcg_gen_xor_tl(source2, dat, source2);
         tcg_gen_qemu_st64(source2, source1, ctx->mem_idx);
         tcg_gen_mov_tl(source1, dat);
         break;
     case OPC_RISC_AMOAND_D:
         tcg_gen_qemu_ld64(dat, source1, ctx->mem_idx);
-        tcg_gen_and_tl(source2, dat, source2); // replace with other op using dat
+        tcg_gen_and_tl(source2, dat, source2);
         tcg_gen_qemu_st64(source2, source1, ctx->mem_idx);
         tcg_gen_mov_tl(source1, dat);
         break;
     case OPC_RISC_AMOOR_D:
         tcg_gen_qemu_ld64(dat, source1, ctx->mem_idx);
-        tcg_gen_or_tl(source2, dat, source2); // replace with other op using dat
+        tcg_gen_or_tl(source2, dat, source2);
         tcg_gen_qemu_st64(source2, source1, ctx->mem_idx);
         tcg_gen_mov_tl(source1, dat);
         break;
@@ -1468,7 +1463,6 @@ static void gen_atomic(DisasContext *ctx, uint32_t opc,
         }
         break;
     default:
-        // TODO EXCEPTION
         kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         break;
 
@@ -1488,17 +1482,10 @@ static void gen_system(DisasContext *ctx, uint32_t opc,
 {
     // get index into csr array
     int backup_csr = csr;
-/*    if (csr == 0x506)  {
-        printf("touched count: %x\n", ctx->opcode);
-    } else if (csr == 0x507) {
-        printf("touched compare: %x\n", ctx->opcode);
-    } else if (csr == 0xC00) {
-        printf("touched cycle: %x\n", ctx->opcode);
-    }*/
 
     csr = csr_regno(csr);
 
-    if (backup_csr == 0x50D || backup_csr == 0x505) {
+    if (unlikely(backup_csr == 0x50D || backup_csr == 0x505)) {
         gen_helper_tlb_flush(cpu_env);
     }
 
@@ -1516,26 +1503,16 @@ static void gen_system(DisasContext *ctx, uint32_t opc,
             case 0x0: // SCALL
                 generate_exception(ctx, RISCV_EXCP_SCALL);
                 ctx->bstate = BS_STOP;
-/*                tcg_gen_movi_tl(cpu_PC, ctx->pc); // excluding this before
-                                                  // jumping into the helper
-                                                  // was previously the issue
-                gen_helper_scall(cpu_PC, cpu_env, cpu_PC);
-                tcg_gen_exit_tb(0); // no chaining
-                ctx->bstate = BS_BRANCH;
-*/
                 break;
-
             case 0x1: // SBREAK
                 kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
                 ctx->bstate = BS_STOP;
                 break;
-
             case 0x800: // SRET
                 gen_helper_sret(cpu_PC, cpu_env);
                 tcg_gen_exit_tb(0); // no chaining
                 ctx->bstate = BS_BRANCH;
                 break;
-
             default:
                 kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
                 break;
@@ -1581,7 +1558,6 @@ static void gen_system(DisasContext *ctx, uint32_t opc,
         }
         break;
     default:
-        // TODO: exception
         kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         break;
 
@@ -1595,31 +1571,27 @@ static void gen_system(DisasContext *ctx, uint32_t opc,
 static void gen_fp_load(DisasContext *ctx, uint32_t opc, 
                       int rd, int rs1, int16_t imm)
 {
-
     target_ulong uimm = (target_long)imm; /* sign ext 16->64 bits */
-
 
     TCGv t0 = tcg_temp_new();
     gen_get_gpr(t0, rs1);
-    tcg_gen_addi_tl(t0, t0, uimm); // 
+    tcg_gen_addi_tl(t0, t0, uimm);
     
     switch (opc) {
 
     case OPC_RISC_FLW:
-        // TODO: sign extend or zero extend?
-        tcg_gen_qemu_ld32u(t0, t0, ctx->mem_idx); // TODO: is ctx->mem_idx right?
+        tcg_gen_qemu_ld32u(t0, t0, ctx->mem_idx);
         break;
     case OPC_RISC_FLD:
-        tcg_gen_qemu_ld64(t0, t0, ctx->mem_idx); // TODO: is ctx->mem_idx right?
+        tcg_gen_qemu_ld64(t0, t0, ctx->mem_idx);
         break;
     default:
-        // TODO Exception
         kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         break;
 
     }
-
-    tcg_gen_mov_tl(cpu_fpr[rd], t0); // copy into fp reg
+    tcg_gen_mov_tl(cpu_fpr[rd], t0); // probably can just get rid of this and 
+                                     // store directly to cpu_fpr[rd]
     tcg_temp_free(t0);
 }
 
@@ -1631,20 +1603,19 @@ static void gen_fp_store(DisasContext *ctx, uint32_t opc,
     TCGv t0 = tcg_temp_new();
     TCGv dat = tcg_temp_new();
     gen_get_gpr(t0, rs1);
-    tcg_gen_addi_tl(t0, t0, uimm); // 
+    tcg_gen_addi_tl(t0, t0, uimm);
     tcg_gen_mov_tl(dat, cpu_fpr[rs2]);
 
     switch (opc) {
 
     case OPC_RISC_FSW:
-        tcg_gen_qemu_st32(dat, t0, ctx->mem_idx); // TODO: is ctx->mem_idx right?
+        tcg_gen_qemu_st32(dat, t0, ctx->mem_idx);
         break;
     case OPC_RISC_FSD:
-        tcg_gen_qemu_st64(dat, t0, ctx->mem_idx); // TODO: is ctx->mem_idx right?
+        tcg_gen_qemu_st64(dat, t0, ctx->mem_idx);
         break;
 
     default:
-        // TODO: exception
         kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         break;
     }
@@ -1982,7 +1953,7 @@ static void decode_opc (CPURISCVState *env, DisasContext *ctx)
     target_ulong ubimm;
 
     /* make sure instructions are on a word boundary */
-    if (ctx->pc & 0x3) { 
+    if (unlikely(ctx->pc & 0x3)) { 
         // NOT tested for RISCV
         printf("misaligned instruction, not yet implemented for riscv\n");
         exit(1);
@@ -2145,12 +2116,10 @@ gen_intermediate_code_internal(RISCVCPU *cpu, TranslationBlock *tb,
     ctx.singlestep_enabled = cs->singlestep_enabled;
     ctx.tb = tb;
     ctx.bstate = BS_NONE;
-    /* Restore delay slot state from the tb context.  */
 #ifdef CONFIG_USER_ONLY
         ctx.mem_idx = 0;
 #else
         ctx.mem_idx = env->helper_csr[CSR_STATUS] & SR_S;
-
 #endif
     num_insns = 0;
     max_insns = tb->cflags & CF_COUNT_MASK;

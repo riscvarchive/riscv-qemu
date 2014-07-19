@@ -46,25 +46,21 @@ static int get_physical_address (CPURISCVState *env, hwaddr *physical,
                                 int *prot, target_ulong address,
                                 int rw, int access_type)
 {
-    // TODO: implement permissions checking, page faults
-
-
-    // flush TLB
-//    RISCVCPU *cpu = riscv_env_get_cpu(env);
-//    tlb_flush(CPU(cpu), 1); 
-
+    /* NOTE: the env->active_tc.PC value visible here will not be
+     * correct, but the value visible to the exception handler 
+     * (riscv_cpu_do_interrupt) is correct */
 
     // first, check if VM is on:
-    int vm_on = env->helper_csr[CSR_STATUS] & SR_VM; // check if vm on
     int ret = TLBRET_MATCH; // need to change this later probably
-    if(!vm_on) { // TODO add unlikely
+    if(unlikely(!(env->helper_csr[CSR_STATUS] & SR_VM))) {
         *physical = address;
         *prot = PAGE_READ | PAGE_WRITE | PAGE_EXEC;
     } else {
         // handle translation
         if ((address >= 0x3f8) && (address < 0x400)) {
+            // TODO: fix linux so that this is not necessary
             *physical = address;
-            *prot = PAGE_READ | PAGE_WRITE /*| PAGE_EXEC*/;
+            *prot = PAGE_READ | PAGE_WRITE;
             return ret;
         }
 
@@ -74,8 +70,6 @@ static int get_physical_address (CPURISCVState *env, hwaddr *physical,
         uint64_t ptd;
         int ptshift = 20;
         int64_t i = 0;
-//        printf("input vaddress: %016lX\n", address);
-//        printf("currentPC %016lX\n", env->active_tc.PC);
 
         for (i = 0; i < 3; i++, ptshift -= 10) {
             uint64_t idx = (address >> (13+ptshift)) & ((1 << 10)-1);
@@ -83,21 +77,8 @@ static int get_physical_address (CPURISCVState *env, hwaddr *physical,
 
             ptd = load_double_phys_le_f(cs, pte_addr);
            
-            if (!(ptd & 0x1)) { /*
-//                printf("INVALID MAPPING (should really page fault)\n");
-                printf("          input vaddr: %016lX\n", address);
-//                printf("reached walk iter: %d\n", (int)i);
-                printf("          access type: %x\n", access_type);
-                printf("          access rw val: %x\n", rw);
-                printf("          currentPC %016lX\n", env->active_tc.PC);
-                printf("          ---\n");
-*/
-                /* NOTE: the env->active_tc.PC value visible here will not be
-                 * correct, but the value visible to the exception handler 
-                 * (riscv_cpu_do_interrupt) is correct */
-
+            if (!(ptd & 0x1)) { 
                 return TLBRET_NOMATCH;
-//                exit(0);
             } else if (ptd & 0x2) { 
                 base = (ptd >> 13) << 13;
             } else {
@@ -151,9 +132,6 @@ static int get_physical_address (CPURISCVState *env, hwaddr *physical,
             }
         }
         *physical = ((pte >> 13) << 13) | (address & 0x1FFF);
-//        *prot = PAGE_EXEC | PAGE_READ | PAGE_WRITE;
-
-//        asm("int3"); // trigger breakpoint in GDB
     }
     return ret;
 }
@@ -221,14 +199,7 @@ int riscv_cpu_handle_mmu_fault(CPUState *cs, vaddr address, int rw,
     qemu_log("%s pc " TARGET_FMT_lx " ad %" VADDR_PRIx " rw %d mmu_idx %d\n",
               __func__, env->active_tc.PC, address, rw, mmu_idx);
 
-//    printf("rw before: %x\n", rw);
-//    rw &= 1; // WHYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY
-//    printf("rw after: %x\n", rw);
-
-    /* data access */
 #if !defined(CONFIG_USER_ONLY)
-    /* XXX: put correct access by using cpu_restore_state()
-       correctly */
     access_type = ACCESS_INT; // TODO: huh? this was here from mips
     ret = get_physical_address(env, &physical, &prot,
                                address, rw, access_type);
@@ -246,7 +217,6 @@ int riscv_cpu_handle_mmu_fault(CPUState *cs, vaddr address, int rw,
         raise_mmu_exception(env, address, rw, ret);
         ret = 1;
     }
-
     return ret;
 }
 
@@ -266,38 +236,20 @@ static const char * const riscv_excp_names[13] = {
     "accelerator_disabled",
 };
 
-
-target_ulong exception_resume_pc (CPURISCVState *env)
-{
-    target_ulong bad_pc;
-    bad_pc = env->active_tc.PC;
-    return bad_pc;
-}
-
-inline int set_badvaddr(int excp);
-
-inline int set_badvaddr(int excp) {
-    return ((excp == RISCV_EXCP_LOAD_ACCESS_FAULT) || (excp == RISCV_EXCP_STORE_ACCESS_FAULT) || (excp == RISCV_EXCP_LOAD_ADDR_MIS) || (excp == RISCV_EXCP_STORE_ADDR_MIS));
-}
-
 void riscv_cpu_do_interrupt(CPUState *cs)
 {
     RISCVCPU *cpu = RISCV_CPU(cs);
     CPURISCVState *env = &cpu->env;
 
-//    printf("%d\n", cs->exception_index);
-
-    bool deb_inter = true;
-    if (deb_inter) {
-        if (!(cs->exception_index & (0x1 << 31))) {
-            if ((cs->exception_index == RISCV_EXCP_ILLEGAL_INST) || (cs->exception_index == RISCV_EXCP_FP_DISABLED)) {
-                printf("core   0: exception trap_%s, epc 0x%016lx\n", riscv_excp_names[cs->exception_index], env->active_tc.PC);
-            }
-        } else {
-            // printf("SERIAL INTERRUPT");
-//            printf("serial interrupt, epc 0x%016lx\n", env->active_tc.PC);
+#ifdef RISCV_DEBUG_INTERRUPT
+    if (!(cs->exception_index & (0x1 << 31))) {
+        if ((cs->exception_index == RISCV_EXCP_ILLEGAL_INST) 
+            || (cs->exception_index == RISCV_EXCP_FP_DISABLED)) {
+            printf("core   0: exception trap_%s, epc 0x%016lx\n", 
+                    riscv_excp_names[cs->exception_index], env->active_tc.PC);
         }
     }
+#endif
 
     // Store Cause in CSR_CAUSE. this comes from cs->exception_index
     if (cs->exception_index & (0x1 << 31)) {

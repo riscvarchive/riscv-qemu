@@ -229,7 +229,6 @@ int riscv_cpu_handle_mmu_fault(CPUState *cpu, vaddr address, int rw,
 hwaddr cpu_riscv_translate_address (CPURISCVState *env, target_ulong address,
 		                               int rw);
 #endif
-target_ulong exception_resume_pc (CPURISCVState *env);
 
 static inline void cpu_get_tb_cpu_state(CPURISCVState *env, target_ulong *pc,
                                         target_ulong *cs_base, int *flags)
