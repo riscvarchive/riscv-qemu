@@ -1145,12 +1145,12 @@ static void gen_jalr(DisasContext *ctx, uint32_t opc,
 {
     target_ulong uimm = (target_long)imm; /* sign ext 16->64 bits */
     TCGv t0, t1;
+    t0 = tcg_temp_new();
+    t1 = tcg_temp_new();
 
     switch (opc) {
     
     case OPC_RISC_JALR: // CANNOT HAVE CHAINING WITH JALR
-        t0 = tcg_temp_new();
-        t1 = tcg_temp_new();
         gen_get_gpr(t0, rs1);
         tcg_gen_addi_tl(t0, t0, uimm);
         tcg_gen_andi_tl(t0, t0, 0xFFFFFFFFFFFFFFFEll);

@@ -13,7 +13,7 @@ Installation
 $ git clone git@github.com:ucb-bar/riscv-qemu.git
 $ cd riscv-qemu
 $ git submodule update --init pixman
-$ ./configure --target-list=riscv-softmmu --enable-debug
+$ ./configure --target-list=riscv-softmmu
 $ make
 $ cd riscv-softmmu
 $ ./qemu-system-riscv -kernel ../hacking/vmlinux/vmlinux -nographic

@@ -235,6 +235,7 @@ static inline void cpu_get_tb_cpu_state(CPURISCVState *env, target_ulong *pc,
 {
     *pc = env->active_tc.PC;
     *cs_base = 0;
+    *flags = 0; // necessary to avoid compiler warning
 }
 
 #include "exec/exec-all.h"
