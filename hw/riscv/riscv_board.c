@@ -300,7 +300,7 @@ void riscv_board_init(QEMUMachineInitArgs *args)
 
     if (kernel_filename) {
         /* Write a small bootloader to the flash location. */
-        loaderparams.ram_size = MIN(ram_size, 256 << 20);
+        loaderparams.ram_size = ram_size;
         loaderparams.kernel_filename = kernel_filename;
         loaderparams.kernel_cmdline = kernel_cmdline;
         loaderparams.initrd_filename = initrd_filename;

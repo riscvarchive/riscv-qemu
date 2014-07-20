@@ -35,13 +35,6 @@ enum {
 
 #if !defined(CONFIG_USER_ONLY)
 
-/* helper for grabbing PTEs */
-static uint64_t load_double_phys_le_f(CPUState *cs, int64_t physaddr)
-{
-    uint64_t loadval = (uint64_t)ldl_phys(cs->as, physaddr) | (((uint64_t)ldl_phys(cs->as, physaddr+4)) << 32);
-    return loadval;
-}
-
 static int get_physical_address (CPURISCVState *env, hwaddr *physical,
                                 int *prot, target_ulong address,
                                 int rw, int access_type)
@@ -50,8 +43,8 @@ static int get_physical_address (CPURISCVState *env, hwaddr *physical,
      * correct, but the value visible to the exception handler 
      * (riscv_cpu_do_interrupt) is correct */
 
+    int ret = TLBRET_MATCH;
     // first, check if VM is on:
-    int ret = TLBRET_MATCH; // need to change this later probably
     if(unlikely(!(env->helper_csr[CSR_STATUS] & SR_VM))) {
         *physical = address;
         *prot = PAGE_READ | PAGE_WRITE | PAGE_EXEC;
@@ -73,10 +66,10 @@ static int get_physical_address (CPURISCVState *env, hwaddr *physical,
 
         for (i = 0; i < 3; i++, ptshift -= 10) {
             uint64_t idx = (address >> (13+ptshift)) & ((1 << 10)-1);
-            uint64_t pte_addr = base + idx*8;
+            uint64_t pte_addr = base + (idx << 3);
 
-            ptd = load_double_phys_le_f(cs, pte_addr);
-           
+            ptd = ldq_phys(cs->as, pte_addr);
+
             if (!(ptd & 0x1)) { 
                 return TLBRET_NOMATCH;
             } else if (ptd & 0x2) { 

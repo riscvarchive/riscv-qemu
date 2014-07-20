@@ -87,14 +87,14 @@ enum {
     OPC_RISC_LUI    = (0x37),
     OPC_RISC_AUIPC  = (0x17),
     OPC_RISC_JAL    = (0x6F),
-    OPC_RISC_JALR   = (0x67), // TODO
+    OPC_RISC_JALR   = (0x67),
     OPC_RISC_BRANCH = (0x63),
     OPC_RISC_LOAD   = (0x03),
     OPC_RISC_STORE  = (0x23),
     OPC_RISC_ARITH_IMM  = (0x13),
     OPC_RISC_ARITH      = (0x33),
     OPC_RISC_FENCE      = (0x0F),
-    OPC_RISC_SYSTEM     = (0x73), // TODO
+    OPC_RISC_SYSTEM     = (0x73),
 
     /* rv64i, rv64m */
     OPC_RISC_ARITH_IMM_W = (0x1B),
@@ -113,8 +113,6 @@ enum {
     OPC_RISC_FNMADD = (0x4F),
 
     OPC_RISC_FP_ARITH = (0x53),
-    // FP system instructions are under the normal system opcode
-
 };
 
 #define MASK_OP_ARITH(op)   (MASK_OP_MAJOR(op) | (op & ((0x7 << 12) | (0x7F << 25))))
@@ -367,14 +365,7 @@ enum {
 static TCGv_ptr cpu_env;
 static TCGv cpu_gpr[32], cpu_PC, cpu_fpr[32];
 
-
 #include "exec/gen-icount.h"
-
-#define gen_helper_0e0i(name, arg) do {                           \
-    TCGv_i32 helper_tmp = tcg_const_i32(arg);                     \
-    gen_helper_##name(cpu_env, helper_tmp);                       \
-    tcg_temp_free_i32(helper_tmp);                                \
-    } while(0)
 
 typedef struct DisasContext {
     struct TranslationBlock *tb;
@@ -386,15 +377,13 @@ typedef struct DisasContext {
     int bstate;
 } DisasContext;
 
-
 static inline void kill_unknown(DisasContext *ctx, int excp);
 
 enum {
-    BS_NONE     = 0, /* We go out of the TB without reaching a branch or an
-                      * exception condition */
-    BS_STOP     = 1, /* We want to stop translation for any reason */
-    BS_BRANCH   = 2, /* We reached a branch condition     */
-    BS_EXCP     = 3, /* We reached an exception condition */
+    BS_NONE     = 0, // When seen outside of translation while loop, indicates
+                     // need to exit tb due to end of page.
+    BS_STOP     = 1, // Need to exit tb for syscall, sret, etc.
+    BS_BRANCH   = 2, // Need to exit tb for branch, jal, etc.
 };
 
 static const char * const regnames[] = {
@@ -543,7 +532,6 @@ static void gen_arith(DisasContext *ctx, uint32_t opc,
         tcg_gen_muls2_tl(source2, source1, source1, source2);
         break;
     case OPC_RISC_MULHSU:
-        // TODO: better way to do this? currently implemented as a C helper
         gen_helper_mulhsu(source1, cpu_env, source1, source2);
         break;
     case OPC_RISC_MULHU:
@@ -680,7 +668,6 @@ static void gen_arith(DisasContext *ctx, uint32_t opc,
         }                
         break;
     default:
-        // TODO EXCEPTION
         kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         break;
 
@@ -737,7 +724,6 @@ static void gen_arith_imm(DisasContext *ctx, uint32_t opc,
         }
         break;
     default:
-        // TODO EXCEPTION
         kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         break;
 
@@ -765,7 +751,7 @@ static void gen_arith_imm_w(DisasContext *ctx, uint32_t opc,
     switch (opc) {
 
     case OPC_RISC_ADDIW:
-        tcg_gen_addi_tl(source1, source1, uimm); // TODO: check this
+        tcg_gen_addi_tl(source1, source1, uimm);
         tcg_gen_ext32s_tl(source1, source1);
         break;
     case OPC_RISC_SLLIW: // TODO: add immediate upper bits check?
@@ -790,7 +776,6 @@ static void gen_arith_imm_w(DisasContext *ctx, uint32_t opc,
         }
         break;
     default:
-        // TODO EXCEPTION
         kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         break;
 
@@ -992,7 +977,6 @@ static void gen_arith_w(DisasContext *ctx, uint32_t opc,
         }                
         break;
     default:
-        // TODO EXCEPTION
         kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         break;
 
@@ -1073,28 +1057,27 @@ static void gen_load(DisasContext *ctx, uint32_t opc,
     switch (opc) {
 
     case OPC_RISC_LB:
-        tcg_gen_qemu_ld8s(t0, t0, ctx->mem_idx); // TODO: is ctx->mem_idx right?
+        tcg_gen_qemu_ld8s(t0, t0, ctx->mem_idx);
         break;
     case OPC_RISC_LH:
-        tcg_gen_qemu_ld16s(t0, t0, ctx->mem_idx); // TODO: is ctx->mem_idx right?
+        tcg_gen_qemu_ld16s(t0, t0, ctx->mem_idx);
         break;
     case OPC_RISC_LW:
-        tcg_gen_qemu_ld32s(t0, t0, ctx->mem_idx); // TODO: is ctx->mem_idx right?
+        tcg_gen_qemu_ld32s(t0, t0, ctx->mem_idx);
         break;
     case OPC_RISC_LD:
-        tcg_gen_qemu_ld64(t0, t0, ctx->mem_idx); // TODO: is ctx->mem_idx right?
+        tcg_gen_qemu_ld64(t0, t0, ctx->mem_idx);
         break;
     case OPC_RISC_LBU:
-        tcg_gen_qemu_ld8u(t0, t0, ctx->mem_idx); // TODO: is ctx->mem_idx right?
+        tcg_gen_qemu_ld8u(t0, t0, ctx->mem_idx);
         break;
     case OPC_RISC_LHU:
-        tcg_gen_qemu_ld16u(t0, t0, ctx->mem_idx); // TODO: is ctx->mem_idx right?
+        tcg_gen_qemu_ld16u(t0, t0, ctx->mem_idx);
         break;
     case OPC_RISC_LWU:
-        tcg_gen_qemu_ld32u(t0, t0, ctx->mem_idx); // TODO: is ctx->mem_idx right?
+        tcg_gen_qemu_ld32u(t0, t0, ctx->mem_idx);
         break;
     default:
-        // TODO Exception
         kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         break;
 
@@ -1113,22 +1096,22 @@ static void gen_store(DisasContext *ctx, uint32_t opc,
     TCGv t0 = tcg_temp_new();
     TCGv dat = tcg_temp_new();
     gen_get_gpr(t0, rs1);
-    tcg_gen_addi_tl(t0, t0, uimm); // 
+    tcg_gen_addi_tl(t0, t0, uimm);
     gen_get_gpr(dat, rs2);
 
     switch (opc) {
 
     case OPC_RISC_SB:
-        tcg_gen_qemu_st8(dat, t0, ctx->mem_idx); // TODO: is ctx->mem_idx right?
+        tcg_gen_qemu_st8(dat, t0, ctx->mem_idx);
         break;
     case OPC_RISC_SH:
-        tcg_gen_qemu_st16(dat, t0, ctx->mem_idx); // TODO: is ctx->mem_idx right?
+        tcg_gen_qemu_st16(dat, t0, ctx->mem_idx);
         break;
     case OPC_RISC_SW:
-        tcg_gen_qemu_st32(dat, t0, ctx->mem_idx); // TODO: is ctx->mem_idx right?
+        tcg_gen_qemu_st32(dat, t0, ctx->mem_idx);
         break;
     case OPC_RISC_SD:
-        tcg_gen_qemu_st64(dat, t0, ctx->mem_idx); // TODO: is ctx->mem_idx right?
+        tcg_gen_qemu_st64(dat, t0, ctx->mem_idx);
         break;
 
     default:
@@ -1968,27 +1951,22 @@ static void decode_opc (CPURISCVState *env, DisasContext *ctx)
     switch (op) {
 
     case OPC_RISC_LUI:
-        // TODO: mod to use reg setters/getters
         if (rd == 0) {
             break; // NOP
         }
         tcg_gen_movi_tl(cpu_gpr[rd], (ctx->opcode & 0xFFFFF000));
         tcg_gen_ext32s_tl(cpu_gpr[rd], cpu_gpr[rd]);
         break;
-
     case OPC_RISC_AUIPC:
-        // TODO: mod to use reg setters/getters
         if (rd == 0) {
             break; // NOP
         }
         tcg_gen_movi_tl(cpu_gpr[rd], (ctx->opcode & 0xFFFFF000));
         tcg_gen_ext32s_tl(cpu_gpr[rd], cpu_gpr[rd]);
-        tcg_gen_add_tl(cpu_gpr[rd], cpu_gpr[rd], tcg_const_tl(ctx->pc)); // TODO: CHECK THIS
+        tcg_gen_add_tl(cpu_gpr[rd], cpu_gpr[rd], tcg_const_tl(ctx->pc));
         break;
-
     case OPC_RISC_JAL:
         ubimm = (target_long) (GET_JAL_IMM(ctx->opcode));
-        // TODO: mod to use reg setters/getters
         if (rd != 0) {
             tcg_gen_movi_tl(cpu_gpr[rd], 4);
             tcg_gen_addi_tl(cpu_gpr[rd], cpu_gpr[rd], ctx->pc);
@@ -2001,91 +1979,72 @@ static void decode_opc (CPURISCVState *env, DisasContext *ctx)
 #endif
         ctx->bstate = BS_BRANCH;
         break;
-
     case OPC_RISC_JALR:
         gen_jalr(ctx, MASK_OP_JALR(ctx->opcode), rd, rs1, imm);
         break;
-
     case OPC_RISC_BRANCH:
         gen_branch(ctx, MASK_OP_BRANCH(ctx->opcode), rs1, rs2, GET_B_IMM(ctx->opcode));
         break;
-
     case OPC_RISC_LOAD:
         gen_load(ctx, MASK_OP_LOAD(ctx->opcode), rd, rs1, imm);
         break;
-
     case OPC_RISC_STORE:
         gen_store(ctx, MASK_OP_STORE(ctx->opcode), rs1, rs2, GET_STORE_IMM(ctx->opcode));
         break;
-
     case OPC_RISC_ARITH_IMM:
         if (rd == 0) {
             break; // NOP
         }
         gen_arith_imm(ctx, MASK_OP_ARITH_IMM(ctx->opcode), rd, rs1, imm);
         break;
-
     case OPC_RISC_ARITH:
         if (rd == 0) {
             break; // NOP
         }
         gen_arith(ctx, MASK_OP_ARITH(ctx->opcode), rd, rs1, rs2);
         break;
-
     case OPC_RISC_ARITH_IMM_W:
         if (rd == 0) {
             break; // NOP
         }
         gen_arith_imm_w(ctx, MASK_OP_ARITH_IMM_W(ctx->opcode), rd, rs1, imm);
         break;
-
     case OPC_RISC_ARITH_W:
         if (rd == 0) {
             break; // NOP
         }
         gen_arith_w(ctx, MASK_OP_ARITH_W(ctx->opcode), rd, rs1, rs2);
         break;
-
     case OPC_RISC_FENCE:
-        /* fences are nops for us? */
+        /* fences are nops for us */
         break;
-
     case OPC_RISC_SYSTEM:
         gen_system(ctx, MASK_OP_SYSTEM(ctx->opcode), rd, rs1, (ctx->opcode & 0xFFF00000) >> 20);
         break;
-
     case OPC_RISC_ATOMIC:
         gen_atomic(ctx, MASK_OP_ATOMIC(ctx->opcode), rd, rs1, rs2);
         break;        
-
     case OPC_RISC_FP_LOAD:
         gen_fp_load(ctx, MASK_OP_FP_LOAD(ctx->opcode), rd, rs1, imm);
         break;
-
     case OPC_RISC_FP_STORE:
         gen_fp_store(ctx, MASK_OP_FP_STORE(ctx->opcode), rs1, rs2, GET_STORE_IMM(ctx->opcode));
         break;
-
     case OPC_RISC_FMADD:
         gen_fp_fmadd(ctx, MASK_OP_FP_FMADD(ctx->opcode), rd, rs1, rs2, GET_RS3(ctx->opcode), GET_RM(ctx->opcode));
         break;
-
     case OPC_RISC_FMSUB:
         gen_fp_fmsub(ctx, MASK_OP_FP_FMSUB(ctx->opcode), rd, rs1, rs2, GET_RS3(ctx->opcode), GET_RM(ctx->opcode));
         break;
-
     case OPC_RISC_FNMSUB:
         gen_fp_fnmsub(ctx, MASK_OP_FP_FNMSUB(ctx->opcode), rd, rs1, rs2, GET_RS3(ctx->opcode), GET_RM(ctx->opcode));
         break;
-
     case OPC_RISC_FNMADD:
         gen_fp_fnmadd(ctx, MASK_OP_FP_FNMADD(ctx->opcode), rd, rs1, rs2, GET_RS3(ctx->opcode), GET_RM(ctx->opcode));
         break;
-
     case OPC_RISC_FP_ARITH:
         gen_fp_arith(ctx, MASK_OP_FP_ARITH(ctx->opcode), rd, rs1, rs2, GET_RM(ctx->opcode));
         break;
-
     default:
         kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         break;
@@ -2132,7 +2091,9 @@ gen_intermediate_code_internal(RISCVCPU *cpu, TranslationBlock *tb,
                 if (bp->pc == ctx.pc) {
                     tcg_gen_movi_tl(cpu_PC, ctx.pc);
                     ctx.bstate = BS_BRANCH;
-                    gen_helper_0e0i(raise_exception, EXCP_DEBUG);
+                    TCGv_i32 helper_tmp = tcg_const_i32(EXCP_DEBUG);
+                    gen_helper_raise_exception(cpu_env, helper_tmp);
+                    tcg_temp_free_i32(helper_tmp);
                     /* Include the breakpoint location or the tb won't
                      * be flushed when it must be.  */
                     ctx.pc += 4;
@@ -2193,9 +2154,6 @@ gen_intermediate_code_internal(RISCVCPU *cpu, TranslationBlock *tb,
     case BS_NONE:
         // DO NOT CHAIN. This is for END-OF-PAGE. See gen_goto_tb.
         tcg_gen_movi_tl(cpu_PC, ctx.pc); // NOT PC+4, that was already done
-        tcg_gen_exit_tb(0);
-        break;
-    case BS_EXCP: // TODO: not yet handled for riscv
         tcg_gen_exit_tb(0);
         break;
     case BS_BRANCH:
