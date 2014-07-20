@@ -5,11 +5,8 @@ compiler:
   - gcc
   - clang
 notifications:
-  irc:
-    channels:
-      - "irc.oftc.net#qemu"
-    on_success: change
-    on_failure: always
+    email:
+        - skarandikar@berkeley.edu
 env:
   global:
     - TEST_CMD="make check"
@@ -28,7 +25,7 @@ env:
     - TARGETS=lm32-softmmu
     - TARGETS=m68k-softmmu
     - TARGETS=microblaze-softmmu,microblazeel-softmmu
-    - TARGETS=mips-softmmu,mips64-softmmu,mips64el-softmmu,mipsel-softmmu
+#    - TARGETS=mips-softmmu,mips64-softmmu,mips64el-softmmu,mipsel-softmmu
     - TARGETS=moxie-softmmu
     - TARGETS=or32-softmmu,
     - TARGETS=ppc-softmmu,ppc64-softmmu,ppcemb-softmmu
@@ -37,6 +34,7 @@ env:
     - TARGETS=sparc-softmmu,sparc64-softmmu
     - TARGETS=unicore32-softmmu
     - TARGETS=xtensa-softmmu,xtensaeb-softmmu
+    - TARGETS=riscv-softmmu
 before_install:
   - git submodule update --init --recursive
   - sudo apt-get update -qq
