@@ -33,6 +33,8 @@ float32_t
     int shiftCount;
     union ui32_f32 uZ;
 
+    uiZ = 0; // stop gcc complaining
+
     signA = signF32UI( uiA );
     expA = expF32UI( uiA );
     sigA = fracF32UI( uiA );
