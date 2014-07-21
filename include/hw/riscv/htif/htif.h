@@ -47,6 +47,16 @@ struct HTIFState {
 
 };
 
+typedef struct request_t request_t;
+
+struct request_t
+{ 
+    uint64_t addr;
+    uint64_t offset;
+    uint64_t size;
+    uint64_t tag;
+};
+
 extern const VMStateDescription vmstate_htif;
 extern const MemoryRegionOps htif_io_ops;
 

@@ -27,6 +27,7 @@
 //#include "exec/memory.h"
 #include "qemu/error-report.h"
 #include <fcntl.h>
+#include <unistd.h>
 #include <sys/stat.h>
 
 static void htif_pre_save(void *opaque)
@@ -65,6 +66,42 @@ static void dma_strcopy(HTIFState *htifstate, char *str, hwaddr phys_addr) {
     stb_p((void*)(memory_region_get_ram_ptr(htifstate->main_mem)+phys_addr+i), 0);
 }
 
+static int htif_block_device_read(HTIFState *htifstate, uint64_t payload) {
+    request_t req;
+    int i;
+    uint8_t* reqptr = (uint8_t*)&req;
+    for (i = 0; i < sizeof(req); i++) {
+        // TODO: potential endianness issues here
+//        printf("%d\n", i); 
+        *(reqptr + i) = ldub_p((void*)(memory_region_get_ram_ptr(htifstate->main_mem)+payload+i));
+    }
+
+    printf("req addr: %016lx\n", req.addr);
+    printf("req offset: %016lx\n", req.offset);
+    printf("req size: %016lx\n", req.size);
+    printf("req tag: %016lx\n", req.tag);
+
+    uint8_t copybuf[req.size];
+    if (pread(htifstate->block_fd, copybuf, req.size, req.offset) != req.size) {
+        printf("FAILED READ\n");
+        exit(1);
+    }
+
+    for (i = 0; i < req.size; i++) {
+        // TODO: potential endianness issues here
+//        printf("%d\n", i);
+        stb_p((void*)(memory_region_get_ram_ptr(htifstate->main_mem)+req.addr+i), copybuf[i]);
+    }
+    return req.tag; // TODO: replace with new fromhost val
+}
+
+static int htif_block_device_write(HTIFState *htifstate, uint64_t payload) {
+//    request_t req;
+
+    return 0; // TODO: replace with new fromhost val
+}
+
+
 
 static void htif_handle_tohost_write(HTIFState *htifstate, uint64_t val_written) {
 //    printf("cpu wrote to tohost: %016lx\n", val_written);
@@ -76,9 +113,12 @@ static void htif_handle_tohost_write(HTIFState *htifstate, uint64_t val_written)
     uint64_t addr = payload >> 8;
     hwaddr real_addr = (hwaddr)addr;
     uint8_t what = payload & 0xFF;
+    int resp;
 
+    resp = 0; // stop gcc complaining
 
-    if (device == 0x1 && htifstate->block_dev_present) { // assume device 0x0 is permanently hooked to block dev for now
+    if (device == 0x1 && htifstate->block_dev_present) { 
+        // assume device 0x1 is permanently hooked to block dev for now
 //        printf("handling: device 0x%x, cmd 0x%x, addr 0x%016lx, what 0x%x\n",
 //                device, cmd, addr, what);
         if (cmd == 0xFF) { 
@@ -91,22 +131,25 @@ static void htif_handle_tohost_write(HTIFState *htifstate, uint64_t val_written)
             } else {
                 dma_strcopy(htifstate, (char*)"", real_addr);
             }
+            resp = 0x1; // write to indicate device name placed
         } else if (cmd == 0x0) {
             // handle disk read
             printf("tried disk read\n");
+            resp = htif_block_device_read(htifstate, payload);
         } else if (cmd == 0x1) {
             // handle disk write
             printf("tried disk write\n");
+            resp = htif_block_device_write(htifstate, payload);
         } else {
             printf("INVALID HTIFBD COMMAND. exiting\n");
             exit(1);
         }
-
     } else if (cmd == 0xFF && what == 0xFF) { // all other devices
         stb_p((void*)(memory_region_get_ram_ptr(htifstate->main_mem)+real_addr), 0);
+        resp = 0x1; // write to indicate device name placed
     }
+    htifstate->fromhost = (val_written >> 48 << 48) | (resp << 16 >> 16);
     htifstate->tohost = 0; // clear to indicate we read
-    htifstate->fromhost = 0x1; // write to indicate device name placed
 }
 
 
