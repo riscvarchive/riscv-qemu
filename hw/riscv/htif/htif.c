@@ -37,7 +37,6 @@ static void htif_pre_save(void *opaque)
 
 static int htif_post_load(void *opaque, int version_id)
 {
-//    HTIFState *s = opaque;
     return 0;
 }
 
@@ -58,7 +57,6 @@ const VMStateDescription vmstate_htif = {
 
 static void dma_strcopy(HTIFState *htifstate, char *str, hwaddr phys_addr) {
     int i = 0;
-//    printf("writing %s to mem\n", str);
     while(*(str+i)) {
         stb_p((void*)(memory_region_get_ram_ptr(htifstate->main_mem)+phys_addr+i), *(str+i));
         i++;
@@ -75,11 +73,6 @@ static int htif_block_device_read(HTIFState *htifstate, uint64_t payload) {
         *(reqptr + i) = ldub_p((void*)(memory_region_get_ram_ptr(htifstate->main_mem)+payload+i));
     }
 
-//    printf("req addr: %016lx\n", req.addr);
-//    printf("req offset: %016lx\n", req.offset);
-//    printf("req size: %016lx\n", req.size);
-//    printf("req tag: %016lx\n", req.tag);
-
     uint8_t copybuf[req.size];
     if (pread(htifstate->block_fd, copybuf, req.size, req.offset) != req.size) {
         printf("FAILED READ\n");
@@ -87,7 +80,6 @@ static int htif_block_device_read(HTIFState *htifstate, uint64_t payload) {
     }
 
     for (i = 0; i < req.size; i++) {
-        // TODO: potential endianness issues here
         stb_p((void*)(memory_region_get_ram_ptr(htifstate->main_mem)+req.addr+i), copybuf[i]);
     }
     return req.tag;
@@ -102,14 +94,9 @@ static int htif_block_device_write(HTIFState *htifstate, uint64_t payload) {
         *(reqptr + i) = ldub_p((void*)(memory_region_get_ram_ptr(htifstate->main_mem)+payload+i));
     }
 
-//    printf("req addr: %016lx\n", req.addr);
-//    printf("req offset: %016lx\n", req.offset);
-//    printf("req size: %016lx\n", req.size);
-//    printf("req tag: %016lx\n", req.tag);
     uint8_t copybuf[req.size];
 
     for (i = 0; i < req.size; i++) {
-        // TODO: potential endianness issues here
         copybuf[i] = ldub_p((void*)(memory_region_get_ram_ptr(htifstate->main_mem)+req.addr+i));
     }
 
@@ -117,13 +104,13 @@ static int htif_block_device_write(HTIFState *htifstate, uint64_t payload) {
         printf("FAILED WRITE\n");
         exit(1);
     }
+//    fsync(htifstate->block_fd); // force flush to disk
     return req.tag;
 }
 
 
 
 static void htif_handle_tohost_write(HTIFState *htifstate, uint64_t val_written) {
-//    printf("cpu wrote to tohost: %016lx\n", val_written);
 
     uint8_t device = val_written >> 56;
     uint8_t cmd = val_written >> 48;
@@ -138,8 +125,6 @@ static void htif_handle_tohost_write(HTIFState *htifstate, uint64_t val_written)
 
     if (device == 0x1 && htifstate->block_dev_present) { 
         // assume device 0x1 is permanently hooked to block dev for now
-//        printf("handling: device 0x%x, cmd 0x%x, addr 0x%016lx, what 0x%x\n",
-//                device, cmd, addr, what);
         if (cmd == 0xFF) { 
             if (what == 0xFF) { // register
                 dma_strcopy(htifstate, htifstate->real_name, real_addr);
@@ -170,28 +155,12 @@ static void htif_handle_tohost_write(HTIFState *htifstate, uint64_t val_written)
 }
 
 
-/*
-static void serial_reset(void *opaque)
-{
-    HTIFState *htifstate = opaque;
-
-    htifstate->tohost = 0;
-    htifstate->fromhost = 0;
-    htifstate->tohost_addr = 0;
-    htifstate->fromhost_addr = 0;
-    
-    qemu_irq_lower(htifstate->irq);
-}
-*/
 /* Memory mapped interface */
 
 // CPU wants to read an HTIF register
 static uint64_t htif_mm_read(void *opaque, hwaddr addr, unsigned size)
 {
     HTIFState *htifstate = opaque;
-
-
-
     if (addr == 0x0) {
         return htifstate->tohost & 0xFFFFFFFF;
     } else if (addr == 0x4) {
@@ -219,7 +188,6 @@ static void htif_mm_write(void *opaque, hwaddr addr,
         htifstate->fromhost = value & 0xFFFFFFFF;
     } else if (addr == 0xc) {
         htifstate->fromhost |= value << 32;
-//        printf("cpu wrote to fromhost: %016lu\n", htifstate->fromhost);
     } else {
         printf("Invalid htif register address %016lx\n", (uint64_t)addr);
         exit(1);
@@ -274,6 +242,5 @@ HTIFState *htif_mm_init(MemoryRegion *address_space, hwaddr base, qemu_irq irq,
     strcat(rname, size_str_buf);
     htifstate->real_name = rname;
     htifstate->block_dev_present = 1;
-
     return htifstate;
 }
