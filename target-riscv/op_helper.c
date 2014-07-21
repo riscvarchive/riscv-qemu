@@ -502,6 +502,7 @@ target_ulong helper_mulhsu(CPURISCVState *env, target_ulong arg1,
 }
 
 void csr_write_helper(CPURISCVState *env, target_ulong val_to_write, target_ulong csrno) {
+
     switch (csrno) {
         case CSR_COUNT:
             cpu_riscv_store_count(env, (uint32_t)val_to_write);

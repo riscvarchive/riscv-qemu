@@ -72,12 +72,16 @@ static uint64_t htif_mm_read(void *opaque, hwaddr addr, unsigned size)
 {
     HTIFState *htifstate = opaque;
 
-    if (addr == htifstate->tohost_addr) {
-        return htifstate->tohost;
-    } else if (addr == htifstate->fromhost_addr) {
-        return htifstate->fromhost;
+    if (addr == 0x0) {
+        return htifstate->tohost & 0xFFFFFFFF;
+    } else if (addr == 0x4) {
+        return (htifstate->tohost >> 32) & 0xFFFFFFFF;
+    } else if (addr == 0x8) {
+        return htifstate->fromhost & 0xFFFFFFFF;
+    } else if (addr == 0xc) {
+        return (htifstate->fromhost >> 32) & 0xFFFFFFFF;
     } else {
-        printf("Invalid htif register address\n");
+        printf("Invalid htif register address %016lx\n", (uint64_t)addr);
         exit(1);
     }
 }
@@ -87,15 +91,21 @@ static void htif_mm_write(void *opaque, hwaddr addr,
                             uint64_t value, unsigned size)
 {
     HTIFState *htifstate = opaque;
-    if (addr == htifstate->tohost_addr) {
-        printf("cpu wrote to tohost: %016lu\n", value);
+    if (addr == 0x0) {
+        htifstate->tohost = value & 0xFFFFFFFF;// << 32);
+    } else if (addr == 0x4) {
+        printf("cpu wrote to tohost: %016lx\n", htifstate->tohost | (value << 32));
         // clear it to indicate that we read the value 
+//        uint64_t tohostval = htifstate->tohost | value;
         htifstate->tohost = 0;
-    } else if (addr == htifstate->fromhost_addr) {
-        printf("cpu wrote to fromhost: %016lu\n", value);
-        htifstate->fromhost = value;
+        htifstate->fromhost = 0x1;
+    } else if (addr == 0x8) {
+        htifstate->fromhost = value & 0xFFFFFFFF;
+    } else if (addr == 0xc) {
+        htifstate->fromhost |= value << 32;
+//        printf("cpu wrote to fromhost: %016lu\n", htifstate->fromhost);
     } else {
-        printf("Invalid htif register address\n");
+        printf("Invalid htif register address %016lx\n", (uint64_t)addr);
         exit(1);
     }
 }
@@ -123,6 +133,7 @@ HTIFState *htif_mm_init(MemoryRegion *address_space, hwaddr base, qemu_irq irq)
 
     vmstate_register(NULL, base, &vmstate_htif, htifstate);
 
+    printf("%016lx\n", base);
     memory_region_init_io(&htifstate->io, NULL, &htif_mm_ops[DEVICE_LITTLE_ENDIAN], 
             htifstate, "htif", 16 /* 2 64-bit registers */);
     memory_region_add_subregion(address_space, base, &htifstate->io);

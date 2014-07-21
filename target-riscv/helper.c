@@ -43,6 +43,7 @@ static int get_physical_address (CPURISCVState *env, hwaddr *physical,
      * correct, but the value visible to the exception handler 
      * (riscv_cpu_do_interrupt) is correct */
 
+
     int ret = TLBRET_MATCH;
     // first, check if VM is on:
     if(unlikely(!(env->helper_csr[CSR_STATUS] & SR_VM))) {
@@ -59,6 +60,7 @@ static int get_physical_address (CPURISCVState *env, hwaddr *physical,
         if ((address >= 0x400) && (address <= 0x410)) {
             *physical = address;
             *prot = PAGE_READ | PAGE_WRITE;
+            return ret;
         }
 
         CPUState *cs = CPU(riscv_env_get_cpu(env));
