@@ -26,6 +26,8 @@
 #include "exec/address-spaces.h"
 //#include "exec/memory.h"
 #include "qemu/error-report.h"
+#include <fcntl.h>
+#include <sys/stat.h>
 
 static void htif_pre_save(void *opaque)
 {
@@ -53,6 +55,17 @@ const VMStateDescription vmstate_htif = {
     },
 };
 
+static void dma_strcopy(HTIFState *htifstate, char *str, hwaddr phys_addr) {
+    int i = 0;
+    printf("writing %s to mem\n", str);
+    while(*(str+i)) {
+        stb_p((void*)(memory_region_get_ram_ptr(htifstate->main_mem)+phys_addr+i), *(str+i));
+        i++;
+    }
+    stb_p((void*)(memory_region_get_ram_ptr(htifstate->main_mem)+phys_addr+i), 0);
+}
+
+
 static void htif_handle_tohost_write(HTIFState *htifstate, uint64_t val_written) {
 //    printf("cpu wrote to tohost: %016lx\n", val_written);
 
@@ -64,23 +77,24 @@ static void htif_handle_tohost_write(HTIFState *htifstate, uint64_t val_written)
     hwaddr real_addr = (hwaddr)addr;
     uint8_t what = payload & 0xFF;
 
-//    printf("handling: device 0x%x, cmd 0x%x, addr 0x%016lx, what 0x%x\n",
+
+    if (device == 0x1) { // assume device 0x0 is permanently hooked to block dev for now
+//        printf("handling: device 0x%x, cmd 0x%x, addr 0x%016lx, what 0x%x\n",
 //                device, cmd, addr, what);
-
-
-    if (device == 0x0) {
-        if (cmd == 0xFF && what == 0xFF) { // register
-
-
+        if (cmd == 0xFF) { 
+            if (what == 0xFF) { // register
+                dma_strcopy(htifstate, htifstate->real_name, real_addr);
+            } else if (what == 0x0) {
+                dma_strcopy(htifstate, (char*)"read", real_addr);
+            } else if (what == 0x1) {
+                dma_strcopy(htifstate, (char*)"write", real_addr);
+            } else {
+                dma_strcopy(htifstate, (char*)"", real_addr);
+            }
         }
-    }
-
-
-    // for now, write "no-name" null terminator
-    if (cmd == 0xFF && what == 0xFF) {
+    } else if (cmd == 0xFF && what == 0xFF) { // all other devices
         stb_p((void*)(memory_region_get_ram_ptr(htifstate->main_mem)+real_addr), 0);
     }
-    device += 1; // this is garbage to get gcc to stop complaining about unused
     htifstate->tohost = 0; // clear to indicate we read
     htifstate->fromhost = 0x1; // write to indicate device name placed
 }
@@ -154,9 +168,12 @@ HTIFState *htif_mm_init(MemoryRegion *address_space, hwaddr base, qemu_irq irq,
                         MemoryRegion *main_mem)
 {
     HTIFState *htifstate;
+    size_t size;
+    char *rname;
+    char size_str_buf[400];
 
     htifstate = g_malloc0(sizeof(HTIFState));
-
+    rname = g_malloc0(sizeof(char)*500);
     htifstate->tohost = 0;
     htifstate->fromhost = 0;
     htifstate->tohost_addr = base;
@@ -171,6 +188,21 @@ HTIFState *htif_mm_init(MemoryRegion *address_space, hwaddr base, qemu_irq irq,
     memory_region_init_io(&htifstate->io, NULL, &htif_mm_ops[DEVICE_LITTLE_ENDIAN], 
             htifstate, "htif", 16 /* 2 64-bit registers */);
     memory_region_add_subregion(address_space, base, &htifstate->io);
+
+    /* TODO: FOR NOW, we're going to hardcode a filename to test */
+    htifstate->block_fname = "disk.img"; 
+    htifstate->block_fd = open(htifstate->block_fname, O_RDWR);
+
+    struct stat st;
+    if (fstat(htifstate->block_fd, &st) < 0) {
+        printf("BAD FILE\n");
+        exit(1);
+    }
+    size = st.st_size;
+    strcpy(rname, "disk size=");
+    snprintf(size_str_buf, sizeof(size_str_buf), "%zu", size);
+    strcat(rname, size_str_buf);
+    htifstate->real_name = rname;
 
     return htifstate;
 }

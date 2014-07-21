@@ -38,6 +38,12 @@ struct HTIFState {
     MemoryRegion io;
     MemoryRegion* address_space;
     MemoryRegion* main_mem;
+
+    // TODO: eventually move the following to a separate HTIF block device driver
+    const char *block_fname;
+    int block_fd;
+    char *real_name;
+
 };
 
 extern const VMStateDescription vmstate_htif;
