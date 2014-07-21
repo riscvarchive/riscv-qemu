@@ -316,7 +316,7 @@ void riscv_board_init(QEMUMachineInitArgs *args)
             DEVICE_NATIVE_ENDIAN);
 
     // add htif device 0x400 - 0x410
-    htif_mm_init(system_memory, 0x400, env->irq[0]);
+    htif_mm_init(system_memory, 0x400, env->irq[0], main_mem);
 
     /* Init internal devices */
     cpu_riscv_irq_init_cpu(env);

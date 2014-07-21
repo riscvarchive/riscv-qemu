@@ -24,6 +24,7 @@
 #include "hw/riscv/htif/htif.h"
 #include "qemu/timer.h"
 #include "exec/address-spaces.h"
+//#include "exec/memory.h"
 #include "qemu/error-report.h"
 
 static void htif_pre_save(void *opaque)
@@ -52,6 +53,30 @@ const VMStateDescription vmstate_htif = {
     },
 };
 
+static void htif_handle_tohost_write(HTIFState *htifstate, uint64_t val_written) {
+//    printf("cpu wrote to tohost: %016lx\n", val_written);
+
+    uint8_t device = val_written >> 56;
+    uint8_t cmd = val_written >> 48;
+    uint64_t payload = val_written & 0xFFFFFFFFFFFFULL;
+
+    uint64_t addr = payload >> 8;
+    hwaddr real_addr = (hwaddr)addr;
+    uint8_t what = payload & 0xFF;
+
+//    printf("handling: device 0x%x, cmd 0x%x, addr 0x%016lx, what 0x%x\n",
+//                device, cmd, addr, what);
+
+    // for now, write "no-name" null terminator
+    if (cmd == 0xFF && what == 0xFF) {
+        stb_p((void*)(memory_region_get_ram_ptr(htifstate->main_mem)+real_addr), 0);
+    }
+    device += 1; // this is garbage to get gcc to stop complaining about unused
+    htifstate->tohost = 0; // clear to indicate we read
+    htifstate->fromhost = 0x1; // write to indicate device name placed
+}
+
+
 /*
 static void serial_reset(void *opaque)
 {
@@ -71,6 +96,8 @@ static void serial_reset(void *opaque)
 static uint64_t htif_mm_read(void *opaque, hwaddr addr, unsigned size)
 {
     HTIFState *htifstate = opaque;
+
+
 
     if (addr == 0x0) {
         return htifstate->tohost & 0xFFFFFFFF;
@@ -94,11 +121,7 @@ static void htif_mm_write(void *opaque, hwaddr addr,
     if (addr == 0x0) {
         htifstate->tohost = value & 0xFFFFFFFF;// << 32);
     } else if (addr == 0x4) {
-        printf("cpu wrote to tohost: %016lx\n", htifstate->tohost | (value << 32));
-        // clear it to indicate that we read the value 
-//        uint64_t tohostval = htifstate->tohost | value;
-        htifstate->tohost = 0;
-        htifstate->fromhost = 0x1;
+        htif_handle_tohost_write(htifstate, htifstate->tohost | (value << 32));
     } else if (addr == 0x8) {
         htifstate->fromhost = value & 0xFFFFFFFF;
     } else if (addr == 0xc) {
@@ -118,7 +141,8 @@ static const MemoryRegionOps htif_mm_ops[3] = {
     },
 };
 
-HTIFState *htif_mm_init(MemoryRegion *address_space, hwaddr base, qemu_irq irq)
+HTIFState *htif_mm_init(MemoryRegion *address_space, hwaddr base, qemu_irq irq, 
+                        MemoryRegion *main_mem)
 {
     HTIFState *htifstate;
 
@@ -128,8 +152,9 @@ HTIFState *htif_mm_init(MemoryRegion *address_space, hwaddr base, qemu_irq irq)
     htifstate->fromhost = 0;
     htifstate->tohost_addr = base;
     htifstate->fromhost_addr = base + 0x8;
-
     htifstate->irq = irq;
+    htifstate->address_space = address_space;
+    htifstate->main_mem = main_mem;
 
     vmstate_register(NULL, base, &vmstate_htif, htifstate);
 

@@ -36,6 +36,8 @@ struct HTIFState {
     hwaddr fromhost_addr;
     qemu_irq irq; // host interrupt line
     MemoryRegion io;
+    MemoryRegion* address_space;
+    MemoryRegion* main_mem;
 };
 
 extern const VMStateDescription vmstate_htif;
@@ -47,6 +49,6 @@ void serial_set_frequency(SerialState *s, uint32_t frequency);*/
 
 /* legacy pre qom */
 HTIFState *htif_mm_init(MemoryRegion *address_space, hwaddr base, 
-                            qemu_irq irq);
+                            qemu_irq irq, MemoryRegion *main_mem);
 
 #endif
