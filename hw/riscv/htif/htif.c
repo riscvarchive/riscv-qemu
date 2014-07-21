@@ -60,6 +60,9 @@ static void htif_handle_tohost_write(HTIFState *htifstate, uint64_t val_written)
     uint8_t cmd = val_written >> 48;
     uint64_t payload = val_written & 0xFFFFFFFFFFFFULL;
 
+
+    a = 3; // DELIBERATELY BROKEN TO TEST TRAVIS
+
     uint64_t addr = payload >> 8;
     hwaddr real_addr = (hwaddr)addr;
     uint8_t what = payload & 0xFF;

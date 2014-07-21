@@ -1,4 +1,4 @@
-riscv-qemu
+riscv-qemu [![Build Status](https://travis-ci.org/ucb-bar/riscv-qemu.svg?branch=master)](https://travis-ci.org/ucb-bar/riscv-qemu)
 =========
 
 The riscv-softmmu target for full system emulation is currently supported. 
