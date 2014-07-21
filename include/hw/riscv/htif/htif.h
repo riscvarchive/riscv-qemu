@@ -39,6 +39,7 @@ struct HTIFState {
     MemoryRegion* address_space;
     MemoryRegion* main_mem;
 
+    int block_dev_present;
     // TODO: eventually move the following to a separate HTIF block device driver
     const char *block_fname;
     int block_fd;

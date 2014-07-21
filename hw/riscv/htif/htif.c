@@ -78,7 +78,7 @@ static void htif_handle_tohost_write(HTIFState *htifstate, uint64_t val_written)
     uint8_t what = payload & 0xFF;
 
 
-    if (device == 0x1) { // assume device 0x0 is permanently hooked to block dev for now
+    if (device == 0x1 && htifstate->block_dev_present) { // assume device 0x0 is permanently hooked to block dev for now
 //        printf("handling: device 0x%x, cmd 0x%x, addr 0x%016lx, what 0x%x\n",
 //                device, cmd, addr, what);
         if (cmd == 0xFF) { 
@@ -91,7 +91,17 @@ static void htif_handle_tohost_write(HTIFState *htifstate, uint64_t val_written)
             } else {
                 dma_strcopy(htifstate, (char*)"", real_addr);
             }
+        } else if (cmd == 0x0) {
+            // handle disk read
+            printf("tried disk read\n");
+        } else if (cmd == 0x1) {
+            // handle disk write
+            printf("tried disk write\n");
+        } else {
+            printf("INVALID HTIFBD COMMAND. exiting\n");
+            exit(1);
         }
+
     } else if (cmd == 0xFF && what == 0xFF) { // all other devices
         stb_p((void*)(memory_region_get_ram_ptr(htifstate->main_mem)+real_addr), 0);
     }
@@ -184,25 +194,26 @@ HTIFState *htif_mm_init(MemoryRegion *address_space, hwaddr base, qemu_irq irq,
 
     vmstate_register(NULL, base, &vmstate_htif, htifstate);
 
-    printf("%016lx\n", base);
     memory_region_init_io(&htifstate->io, NULL, &htif_mm_ops[DEVICE_LITTLE_ENDIAN], 
             htifstate, "htif", 16 /* 2 64-bit registers */);
     memory_region_add_subregion(address_space, base, &htifstate->io);
 
     /* TODO: FOR NOW, we're going to hardcode a filename to test */
-    htifstate->block_fname = "disk.img"; 
+    htifstate->block_fname = "root.bin"; 
     htifstate->block_fd = open(htifstate->block_fname, O_RDWR);
 
     struct stat st;
     if (fstat(htifstate->block_fd, &st) < 0) {
-        printf("BAD FILE\n");
-        exit(1);
+        printf("no root.bin block dev present\n");
+        htifstate->block_dev_present = 0;
+        return htifstate;
     }
     size = st.st_size;
     strcpy(rname, "disk size=");
     snprintf(size_str_buf, sizeof(size_str_buf), "%zu", size);
     strcat(rname, size_str_buf);
     htifstate->real_name = rname;
+    htifstate->block_dev_present = 1;
 
     return htifstate;
 }
