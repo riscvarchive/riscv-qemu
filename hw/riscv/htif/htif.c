@@ -67,6 +67,15 @@ static void htif_handle_tohost_write(HTIFState *htifstate, uint64_t val_written)
 //    printf("handling: device 0x%x, cmd 0x%x, addr 0x%016lx, what 0x%x\n",
 //                device, cmd, addr, what);
 
+
+    if (device == 0x0) {
+        if (cmd == 0xFF && what == 0xFF) { // register
+
+
+        }
+    }
+
+
     // for now, write "no-name" null terminator
     if (cmd == 0xFF && what == 0xFF) {
         stb_p((void*)(memory_region_get_ram_ptr(htifstate->main_mem)+real_addr), 0);
