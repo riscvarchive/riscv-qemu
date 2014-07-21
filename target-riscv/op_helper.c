@@ -34,6 +34,9 @@
 
 #ifndef CONFIG_USER_ONLY
 static inline void cpu_riscv_tlb_flush (CPURISCVState *env, int flush_global);
+void csr_write_helper(CPURISCVState *env, target_ulong val_to_write, target_ulong csrno);
+target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno);
+
 #endif
 
 #define RISCV_RM ({ if(rm == 7) rm = env->helper_csr[CSR_FRM]; \
@@ -498,76 +501,60 @@ target_ulong helper_mulhsu(CPURISCVState *env, target_ulong arg1,
     return (int64_t)((__int128_t)a*b >> 64);
 }
 
-target_ulong helper_csrrw(CPURISCVState *env, target_ulong src, target_ulong csr) {
-    if (csr == CSR_COUNT) {
-        uint64_t csr_backup = cpu_riscv_get_count(env);
-        cpu_riscv_store_count(env, (uint32_t)src);
-        return csr_backup;
-    } else if (csr == CSR_COMPARE) {
-        uint64_t csr_backup = env->helper_csr[CSR_COMPARE];
-        cpu_riscv_store_compare(env, (uint32_t)src);
-        return csr_backup;
-    } else if (csr == CSR_CYCLE) {
-        return cpu_riscv_get_cycle(env);
-    } else if (csr == CSR_FCSR) {
-        uint64_t csr_backup = env->helper_csr[CSR_FFLAGS] | (env->helper_csr[CSR_FRM] << 5);
-        uint64_t val = src;
-        env->helper_csr[CSR_FFLAGS] = val & 0x1F;
-        env->helper_csr[CSR_FRM] = val & 0x7;
-        return csr_backup;
-    } else {
-        uint64_t csr_backup = env->helper_csr[csr]; 
-        env->helper_csr[csr] = src;
-        return csr_backup;
+void csr_write_helper(CPURISCVState *env, target_ulong val_to_write, target_ulong csrno) {
+    switch (csrno) {
+        case CSR_COUNT:
+            cpu_riscv_store_count(env, (uint32_t)val_to_write);
+            break;
+        case CSR_COMPARE:
+            cpu_riscv_store_compare(env, (uint32_t)val_to_write);
+            break;
+        case CSR_CYCLE:
+            // DO NOT WRITE TO CSR_CYCLE
+            break;
+        case CSR_FCSR:
+            env->helper_csr[CSR_FFLAGS] = val_to_write & 0x1F;
+            env->helper_csr[CSR_FRM] = (val_to_write >> 5) & 0x7;
+            break;
+        default:
+            env->helper_csr[csrno] = val_to_write;
+            break;
     }
+}
+
+target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno) {
+    switch (csrno) {
+        case CSR_COUNT:
+            return cpu_riscv_get_count(env);
+            break;
+        case CSR_CYCLE:
+            return cpu_riscv_get_cycle(env);
+            break;
+        case CSR_FCSR:
+            return env->helper_csr[CSR_FFLAGS] | (env->helper_csr[CSR_FRM] << 5);
+            break;
+        default:
+            return env->helper_csr[csrno];
+            break;
+    }
+}
+
+target_ulong helper_csrrw(CPURISCVState *env, target_ulong src, target_ulong csr) {
+    uint64_t csr_backup = csr_read_helper(env, csr);
+    csr_write_helper(env, src, csr);
+    return csr_backup;
 }
 
 target_ulong helper_csrrs(CPURISCVState *env, target_ulong src, target_ulong csr) {
-    if (csr == CSR_COUNT) {
-        uint64_t csr_backup = cpu_riscv_get_count(env);
-        cpu_riscv_store_count(env, (uint32_t)(csr_backup | src));
-        return csr_backup;
-    } else if (csr == CSR_COMPARE) {
-        uint64_t csr_backup = env->helper_csr[CSR_COMPARE];
-        cpu_riscv_store_compare(env, (uint32_t)(csr_backup | src));
-        return csr_backup;
-    } else if (csr == CSR_CYCLE) {
-        return cpu_riscv_get_cycle(env);
-    } else if (csr == CSR_FCSR) {
-         uint64_t csr_backup = env->helper_csr[CSR_FFLAGS] | (env->helper_csr[CSR_FRM] << 5);
-        uint64_t val = csr_backup | src;
-        env->helper_csr[CSR_FFLAGS] = val & 0x1F;
-        env->helper_csr[CSR_FRM] = val & 0x7;
-        return csr_backup;
-    } else {
-        uint64_t csr_backup = env->helper_csr[csr]; 
-        env->helper_csr[csr] = csr_backup | src;
-        return csr_backup;
-    }
+    uint64_t csr_backup = csr_read_helper(env, csr);
+    csr_write_helper(env, src | csr_backup, csr);
+    return csr_backup;
 }
 
 target_ulong helper_csrrc(CPURISCVState *env, target_ulong src, target_ulong csr) {
-    if (csr == CSR_COUNT) {
-        uint64_t csr_backup = cpu_riscv_get_count(env);
-        cpu_riscv_store_count(env, (uint32_t)(csr_backup & (~src)));
-        return csr_backup;
-    } else if (csr == CSR_COMPARE) {
-        uint64_t csr_backup = env->helper_csr[CSR_COMPARE];
-        cpu_riscv_store_compare(env, (uint32_t)(csr_backup & (~src)));
-        return csr_backup;
-    } else if (csr == CSR_CYCLE) {
-        return cpu_riscv_get_cycle(env);
-    } else if (csr == CSR_FCSR) {
-        uint64_t csr_backup = env->helper_csr[CSR_FFLAGS] | (env->helper_csr[CSR_FRM] << 5);
-        uint64_t val = csr_backup & (~src);
-        env->helper_csr[CSR_FFLAGS] = val & 0x1F;
-        env->helper_csr[CSR_FRM] = val & 0x7;
-        return csr_backup;
-    } else {
-        uint64_t csr_backup = env->helper_csr[csr]; 
-        env->helper_csr[csr] = csr_backup & (~src);
-        return csr_backup;
-    }
+    uint64_t csr_backup = csr_read_helper(env, csr);
+    csr_write_helper(env, (~src) & csr_backup, csr);
+    return csr_backup;
 }
 
 target_ulong helper_sret(CPURISCVState *env) {
