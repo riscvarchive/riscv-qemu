@@ -58,7 +58,7 @@ const VMStateDescription vmstate_htif = {
 
 static void dma_strcopy(HTIFState *htifstate, char *str, hwaddr phys_addr) {
     int i = 0;
-    printf("writing %s to mem\n", str);
+//    printf("writing %s to mem\n", str);
     while(*(str+i)) {
         stb_p((void*)(memory_region_get_ram_ptr(htifstate->main_mem)+phys_addr+i), *(str+i));
         i++;
@@ -72,14 +72,13 @@ static int htif_block_device_read(HTIFState *htifstate, uint64_t payload) {
     uint8_t* reqptr = (uint8_t*)&req;
     for (i = 0; i < sizeof(req); i++) {
         // TODO: potential endianness issues here
-//        printf("%d\n", i); 
         *(reqptr + i) = ldub_p((void*)(memory_region_get_ram_ptr(htifstate->main_mem)+payload+i));
     }
 
-    printf("req addr: %016lx\n", req.addr);
-    printf("req offset: %016lx\n", req.offset);
-    printf("req size: %016lx\n", req.size);
-    printf("req tag: %016lx\n", req.tag);
+//    printf("req addr: %016lx\n", req.addr);
+//    printf("req offset: %016lx\n", req.offset);
+//    printf("req size: %016lx\n", req.size);
+//    printf("req tag: %016lx\n", req.tag);
 
     uint8_t copybuf[req.size];
     if (pread(htifstate->block_fd, copybuf, req.size, req.offset) != req.size) {
@@ -89,16 +88,36 @@ static int htif_block_device_read(HTIFState *htifstate, uint64_t payload) {
 
     for (i = 0; i < req.size; i++) {
         // TODO: potential endianness issues here
-//        printf("%d\n", i);
         stb_p((void*)(memory_region_get_ram_ptr(htifstate->main_mem)+req.addr+i), copybuf[i]);
     }
-    return req.tag; // TODO: replace with new fromhost val
+    return req.tag;
 }
 
 static int htif_block_device_write(HTIFState *htifstate, uint64_t payload) {
-//    request_t req;
+    request_t req;
+    int i;
+    uint8_t* reqptr = (uint8_t*)&req;
+    for (i = 0; i < sizeof(req); i++) {
+        // TODO: potential endianness issues here
+        *(reqptr + i) = ldub_p((void*)(memory_region_get_ram_ptr(htifstate->main_mem)+payload+i));
+    }
 
-    return 0; // TODO: replace with new fromhost val
+//    printf("req addr: %016lx\n", req.addr);
+//    printf("req offset: %016lx\n", req.offset);
+//    printf("req size: %016lx\n", req.size);
+//    printf("req tag: %016lx\n", req.tag);
+    uint8_t copybuf[req.size];
+
+    for (i = 0; i < req.size; i++) {
+        // TODO: potential endianness issues here
+        copybuf[i] = ldub_p((void*)(memory_region_get_ram_ptr(htifstate->main_mem)+req.addr+i));
+    }
+
+    if (pwrite(htifstate->block_fd, copybuf, req.size, req.offset) != req.size) {
+        printf("FAILED WRITE\n");
+        exit(1);
+    }
+    return req.tag;
 }
 
 
@@ -134,11 +153,9 @@ static void htif_handle_tohost_write(HTIFState *htifstate, uint64_t val_written)
             resp = 0x1; // write to indicate device name placed
         } else if (cmd == 0x0) {
             // handle disk read
-            printf("tried disk read\n");
             resp = htif_block_device_read(htifstate, payload);
         } else if (cmd == 0x1) {
             // handle disk write
-            printf("tried disk write\n");
             resp = htif_block_device_write(htifstate, payload);
         } else {
             printf("INVALID HTIFBD COMMAND. exiting\n");
