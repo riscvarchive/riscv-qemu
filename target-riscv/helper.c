@@ -56,6 +56,10 @@ static int get_physical_address (CPURISCVState *env, hwaddr *physical,
             *prot = PAGE_READ | PAGE_WRITE;
             return ret;
         }
+        if ((address >= 0x400) && (address <= 0x410)) {
+            *physical = address;
+            *prot = PAGE_READ | PAGE_WRITE;
+        }
 
         CPUState *cs = CPU(riscv_env_get_cpu(env));
         uint64_t pte = 0; 

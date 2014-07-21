@@ -25,6 +25,7 @@
 #include "hw/hw.h"
 #include "hw/i386/pc.h"
 #include "hw/char/serial.h"
+#include "hw/riscv/htif/htif.h"
 #include "hw/block/fdc.h"
 #include "net/net.h"
 #include "hw/boards.h"
@@ -313,6 +314,9 @@ void riscv_board_init(QEMUMachineInitArgs *args)
     // add serial device 0x3f8-0x3ff
     serial_mm_init(system_memory, 0x3f8, 0, env->irq[4], 1843200/16, serial_hds[0], 
             DEVICE_NATIVE_ENDIAN);
+
+    // add htif device 0x400 - 0x410
+    htif_mm_init(system_memory, 0x400, env->irq[0]);
 
     /* Init internal devices */
     cpu_riscv_irq_init_cpu(env);
