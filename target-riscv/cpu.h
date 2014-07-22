@@ -9,7 +9,7 @@
 
 #define CPUArchState struct CPURISCVState
 
-#define RISCV_START_PC 0x100000
+#define RISCV_START_PC 0x2000
 
 #include "config.h"
 #include "qemu-common.h"
