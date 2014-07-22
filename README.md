@@ -60,7 +60,7 @@ $ # now from the riscv-softmmu/ directory, start qemu
 $ ./qemu-system-riscv -kernel vmlinux -nographic
 ```
 
-**IMPORTANT**: To cleanly exit this system, you must enter `halt` at the prompt
+**IMPORTANT**: To cleanly exit this system, you must enter `halt -f` at the prompt
 and then hit `ctrl-a x`. Otherwise, the root filesystem will likely be corrupted.
 
 
