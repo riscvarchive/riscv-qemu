@@ -75,9 +75,6 @@ typedef int64_t  Elf64_Sxword;
 #define EM_486   6   /* Perhaps disused */
 #define EM_860   7
 
-/* TODO: fix this when creating actual riscv directory */
-#define EM_RISCV	243	/* MIPS R3000 (officially, big-endian only) */
-
 #define EM_MIPS		8	/* MIPS R3000 (officially, big-endian only) */
 
 #define EM_MIPS_RS4_BE 10	/* MIPS R4000 big-endian */
@@ -112,6 +109,8 @@ typedef int64_t  Elf64_Sxword;
 #define EM_OPENRISC     92        /* OpenCores OpenRISC */
 
 #define EM_UNICORE32    110     /* UniCore32 */
+
+#define EM_RISCV	243	/* RISC-V */
 
 /*
  * This is an interim value that we will use until the committee comes

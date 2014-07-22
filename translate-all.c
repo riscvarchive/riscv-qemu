@@ -1420,8 +1420,7 @@ CPUInterruptHandler cpu_interrupt_handler = tcg_handle_interrupt;
    must be at the end of the TB */
 void cpu_io_recompile(CPUState *cpu, uintptr_t retaddr)
 {
-#if defined(TARGET_RISCV) 
-#elif defined(TARGET_SH4)
+#if defined(TARGET_MIPS) || defined(TARGET_SH4)
     CPUArchState *env = cpu->env_ptr;
 #endif
     TranslationBlock *tb;
@@ -1445,7 +1444,12 @@ void cpu_io_recompile(CPUState *cpu, uintptr_t retaddr)
        they were already the first instruction in the TB.  If this is not
        the first instruction in a TB then re-execute the preceding
        branch.  */
-#if defined(TARGET_RISCV)
+#if defined(TARGET_MIPS)
+    if ((env->hflags & MIPS_HFLAG_BMASK) != 0 && n > 1) {
+        env->active_tc.PC -= 4;
+        cpu->icount_decr.u16.low++;
+        env->hflags &= ~MIPS_HFLAG_BMASK;
+    }
 #elif defined(TARGET_SH4)
     if ((env->flags & ((DELAY_SLOT | DELAY_SLOT_CONDITIONAL))) != 0
             && n > 1) {
@@ -1799,7 +1803,6 @@ int page_unprotect(target_ulong address, uintptr_t pc, void *puc)
 
     /* if the page was really writable, then we change its
        protection back to writable */
-    p->flags |= PAGE_WRITE_ORG; /// TODO: VERY BAD HACK
     if ((p->flags & PAGE_WRITE_ORG) && !(p->flags & PAGE_WRITE)) {
         host_start = address & qemu_host_page_mask;
         host_end = host_start + qemu_host_page_size;

@@ -3896,7 +3896,7 @@ int main(int argc, char **argv, char **envp)
 #endif
 #elif defined(TARGET_MIPS)
 #if defined(TARGET_ABI_MIPSN32) || defined(TARGET_ABI_MIPSN64)
-        cpu_model = "riscv-generic";
+        cpu_model = "20Kc";
 #else
         cpu_model = "24Kf";
 #endif

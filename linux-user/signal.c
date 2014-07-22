@@ -2899,9 +2899,8 @@ setup_sigcontext(CPUMIPSState *regs, struct target_sigcontext *sc)
     err |= __put_user(regs->active_tc.LO[2], &sc->sc_lo2);
     err |= __put_user(regs->active_tc.LO[3], &sc->sc_lo3);
     {
-        // NO DSP
-        //uint32_t dsp = cpu_rddsp(0x3ff, regs);
-        //err |= __put_user(dsp, &sc->sc_dsp);
+        uint32_t dsp = cpu_rddsp(0x3ff, regs);
+        err |= __put_user(dsp, &sc->sc_dsp);
     }
 
     err |= __put_user(1, &sc->sc_used_math);
@@ -2935,10 +2934,9 @@ restore_sigcontext(CPUMIPSState *regs, struct target_sigcontext *sc)
     err |= __get_user(regs->active_tc.LO[2], &sc->sc_lo2);
     err |= __get_user(regs->active_tc.LO[3], &sc->sc_lo3);
     {
-        // NO DSP
-        //uint32_t dsp;
-        //err |= __get_user(dsp, &sc->sc_dsp);
-        //cpu_wrdsp(dsp, 0x3ff, regs);
+        uint32_t dsp;
+        err |= __get_user(dsp, &sc->sc_dsp);
+        cpu_wrdsp(dsp, 0x3ff, regs);
     }
 
     for (i = 0; i < 32; ++i) {

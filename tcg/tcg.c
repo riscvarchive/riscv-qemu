@@ -2136,7 +2136,7 @@ static void tcg_reg_alloc_op(TCGContext *s,
                 s->reg_to_temp[reg] = arg;
             }
         }
-        assert(ts->val_type == TEMP_VAL_REG); // HERE
+        assert(ts->val_type == TEMP_VAL_REG);
         if (arg_ct->ct & TCG_CT_IALIAS) {
             if (ts->fixed_reg) {
                 /* if fixed register, we must allocate a new register

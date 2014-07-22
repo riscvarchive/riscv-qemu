@@ -19,7 +19,6 @@
 #ifndef TARGET_CPU_H
 #define TARGET_CPU_H
 
-// TODO what is this
 static inline void cpu_clone_regs(CPUMIPSState *env, target_ulong newsp)
 {
     if (newsp) {

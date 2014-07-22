@@ -1,5 +1,5 @@
 
-#if (defined(TARGET_MIPS) || defined(TARGET_RISCV))
+#if defined(TARGET_MIPS)
     /* MIPS special values for constants */
 
     /*
