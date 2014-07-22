@@ -29,8 +29,8 @@ To exit this system, hit `ctrl-a x`.
 
 ### Method 2 \(system with persistent storage\): 
 
-Preliminary block device support is also present in riscv-qemu. A
-more extensive guide for configuring the kernel will be available soon.
+Booting from a block device is also supported. A more extensive guide for 
+configuring the kernel/building a root fs will be available soon.
 
 ####Step 1:
 
@@ -51,23 +51,23 @@ Instructions for the following two steps are coming soon:
 
 **b)** Build the `root.bin` root filesystem.
 
-You should place both of these files (`vmlinux`, `root.bin`) in the riscv-softmmu directory. Due to a current limitation of riscv-qemu, only a file named `QEMU_DIR/riscv-softmmu/root.bin` is mounted. 
 
 ####Step 3:
 
+Now from the `riscv-softmmu/` directory, start `qemu-system-riscv`:
+
 ```sh
-$ # now from the riscv-softmmu/ directory, start qemu
-$ ./qemu-system-riscv -kernel vmlinux -nographic
+$ ./qemu-system-riscv -hda [your root.bin location] -kernel [your vmlinux location] -nographic
 ```
 
 **IMPORTANT**: To cleanly exit this system, you must enter `halt -f` at the prompt
 and then hit `ctrl-a x`. Otherwise, the root filesystem will likely be corrupted.
 
-
 Notes
 -----
 
 - Qemu also supports a "linux-user" mode, however this is currently not implemented for RISC-V.
+- Once in a while, you may see a message from qemu of the form `main-loop: WARNING: I/O thread spun for N iterations`. You may safely ignore this message without consequence.
 - Files/directories of interest:
   - target-riscv/
   - hw/riscv/

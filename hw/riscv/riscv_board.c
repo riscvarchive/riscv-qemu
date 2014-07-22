@@ -32,6 +32,7 @@
 #include "hw/i2c/smbus.h"
 #include "block/block.h"
 #include "hw/block/flash.h"
+#include "block/block_int.h" // move later
 #include "hw/riscv/riscv.h"
 #include "hw/riscv/cpudevs.h"
 #include "hw/pci/pci.h"
@@ -245,6 +246,8 @@ void riscv_board_init(QEMUMachineInitArgs *args)
     int i;
     DriveInfo *hd[MAX_IDE_BUS * MAX_IDE_DEVS];
     DriveInfo *fd[MAX_FD];
+    DriveInfo *htifbd_drive;
+    char *htifbd_fname; // htif block device filename
 
     DeviceState *dev = qdev_create(NULL, TYPE_RISCV_BOARD);
     BoardState *s = RISCV_BOARD(dev);
@@ -315,8 +318,16 @@ void riscv_board_init(QEMUMachineInitArgs *args)
     serial_mm_init(system_memory, 0x3f8, 0, env->irq[4], 1843200/16, serial_hds[0], 
             DEVICE_NATIVE_ENDIAN);
 
+    // setup HTIF Block Device if one is specified as -hda FILENAME
+    htifbd_drive = drive_get_by_index(IF_IDE, 0);
+    if (NULL == htifbd_drive) {
+        htifbd_fname = NULL;
+    } else {
+        htifbd_fname = (*(htifbd_drive->bdrv)).filename;
+    }
+
     // add htif device 0x400 - 0x410
-    htif_mm_init(system_memory, 0x400, env->irq[0], main_mem);
+    htif_mm_init(system_memory, 0x400, env->irq[0], main_mem, htifbd_fname);
 
     /* Init internal devices */
     cpu_riscv_irq_init_cpu(env);

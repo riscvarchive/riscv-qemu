@@ -203,8 +203,9 @@ static const MemoryRegionOps htif_mm_ops[3] = {
 };
 
 HTIFState *htif_mm_init(MemoryRegion *address_space, hwaddr base, qemu_irq irq, 
-                        MemoryRegion *main_mem)
+                        MemoryRegion *main_mem, char* htifbd_fname)
 {
+    // TODO: cleanup the constant buffer sizes
     HTIFState *htifstate;
     size_t size;
     char *rname;
@@ -226,13 +227,18 @@ HTIFState *htif_mm_init(MemoryRegion *address_space, hwaddr base, qemu_irq irq,
             htifstate, "htif", 16 /* 2 64-bit registers */);
     memory_region_add_subregion(address_space, base, &htifstate->io);
 
-    /* TODO: FOR NOW, we're going to hardcode a filename to test */
-    htifstate->block_fname = "root.bin"; 
+    if (NULL == htifbd_fname) { // NULL means no -hda specified
+        htifstate->block_dev_present = 0;
+        return htifstate;
+    }
+
+    htifstate->block_fname = htifbd_fname;
     htifstate->block_fd = open(htifstate->block_fname, O_RDWR);
 
     struct stat st;
     if (fstat(htifstate->block_fd, &st) < 0) {
-        printf("no root.bin block dev present\n");
+        printf("WARN: Could not stat %s, continuing without block device.\n", 
+                htifstate->block_fname);
         htifstate->block_dev_present = 0;
         return htifstate;
     }

@@ -66,6 +66,6 @@ void serial_set_frequency(SerialState *s, uint32_t frequency);*/
 
 /* legacy pre qom */
 HTIFState *htif_mm_init(MemoryRegion *address_space, hwaddr base, 
-                            qemu_irq irq, MemoryRegion *main_mem);
+                    qemu_irq irq, MemoryRegion *main_mem, char *htifbd_fname);
 
 #endif
