@@ -50,7 +50,7 @@ struct CPURISCVState;
 #define CSR_FROMHOST  0x1f
 
 // RISCV Exception Codes
-#define EXCP_NONE                       -1
+#define EXCP_NONE                       -1   // not a real RISCV exception code
 #define RISCV_EXCP_INST_ADDR_MIS        0x0
 #define RISCV_EXCP_INST_ACCESS_FAULT    0x1
 #define RISCV_EXCP_ILLEGAL_INST         0x2
@@ -63,10 +63,9 @@ struct CPURISCVState;
 #define RISCV_EXCP_LOAD_ACCESS_FAULT    0xa
 #define RISCV_EXCP_STORE_ACCESS_FAULT   0xb
 #define RISCV_EXCP_STORE_ACCEL_DISABLED 0xc
-#define RISCV_EXCP_TIMER_INTERRUPT      (0x7  | (1 << 31)) // TODO: ALSO NEEDS interruptBit
-#define RISCV_EXCP_HOST_INTERRUPT       (0x6  | (1 << 31)) // TODO: ALSO NEEDS interruptBit
-#define RISCV_EXCP_SERIAL_INTERRUPT     ((0x4) | (1 << 31))
-
+#define RISCV_EXCP_TIMER_INTERRUPT      (0x7 | (1 << 31)) 
+#define RISCV_EXCP_HOST_INTERRUPT       (0x6 | (1 << 31)) 
+#define RISCV_EXCP_SERIAL_INTERRUPT     (0x4 | (1 << 31)) // not part of ISA
 
 // RISCV Status Reg Bits
 #define SR_S           0x1
@@ -91,7 +90,6 @@ struct CPURISCVState;
 #define PTE_SR  0x40
 #define PTE_SW  0x80
 #define PTE_SX 0x100
-
 
 typedef struct riscv_def_t riscv_def_t;
 
@@ -144,7 +142,7 @@ extern uint32_t cpu_rddsp(uint32_t mask_num, CPURISCVState *env);
 
 static inline int cpu_mmu_index (CPURISCVState *env)
 {
-    return 0;
+    return env->helper_csr[CSR_STATUS] & SR_S;
 }
 
 static inline int cpu_riscv_hw_interrupts_pending(CPURISCVState *env)
@@ -182,14 +180,6 @@ enum {
     ACCESS_INT   = 0x20, /* Integer load/store access        */
     ACCESS_FLOAT = 0x30, /* floating point load/store access */
 };
-
-/*
- * This is an interrnally generated WAKE request line.
- * It is driven by the CPU itself. Raised when the MT
- * block wants to wake a VPE from an inactive state and
- * cleared when VPE goes from active to inactive.
- */
-#define CPU_INTERRUPT_WAKE CPU_INTERRUPT_TGT_INT_0
 
 int cpu_riscv_exec(CPURISCVState *s);
 void riscv_tcg_init(void);

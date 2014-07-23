@@ -23,7 +23,6 @@ struct riscv_def_t {
     uint64_t init_status_reg;
 };
 
-/*****************************************************************************/
 /* RISC-V CPU definitions */
 static const riscv_def_t riscv_defs[] =
 {
@@ -36,7 +35,6 @@ static const riscv_def_t riscv_defs[] =
 static const riscv_def_t *cpu_riscv_find_by_name (const char *name)
 {
     int i;
-
     for (i = 0; i < ARRAY_SIZE(riscv_defs); i++) {
         if (strcasecmp(name, riscv_defs[i].name) == 0) {
             return &riscv_defs[i];
@@ -48,9 +46,7 @@ static const riscv_def_t *cpu_riscv_find_by_name (const char *name)
 void riscv_cpu_list (FILE *f, fprintf_function cpu_fprintf)
 {
     int i;
-
     for (i = 0; i < ARRAY_SIZE(riscv_defs); i++) {
-        (*cpu_fprintf)(f, "RISCV '%s'\n",
-                       riscv_defs[i].name);
+        (*cpu_fprintf)(f, "RISCV '%s'\n", riscv_defs[i].name);
     }
 }

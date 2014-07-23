@@ -57,16 +57,12 @@ static inline void QEMU_NORETURN do_raise_exception_err(CPURISCVState *env,
                                                         uintptr_t pc)
 {
     CPUState *cs = CPU(riscv_env_get_cpu(env));
-
     qemu_log("%s: %d %d\n", __func__, exception, error_code);
-
     cs->exception_index = exception;
-
     if (pc) {
         /* now we have a real cpu fault */
         cpu_restore_state(cs, pc);
     }
-
     cpu_loop_exit(cs);
 }
 
@@ -502,7 +498,8 @@ target_ulong helper_mulhsu(CPURISCVState *env, target_ulong arg1,
     return (int64_t)((__int128_t)a*b >> 64);
 }
 
-void csr_write_helper(CPURISCVState *env, target_ulong val_to_write, target_ulong csrno) {
+inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write, target_ulong csrno)
+{
 
     switch (csrno) {
         case CSR_COUNT:
@@ -524,7 +521,8 @@ void csr_write_helper(CPURISCVState *env, target_ulong val_to_write, target_ulon
     }
 }
 
-target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno) {
+inline target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno)
+{
     switch (csrno) {
         case CSR_COUNT:
             return cpu_riscv_get_count(env);
@@ -541,13 +539,15 @@ target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno) {
     }
 }
 
-target_ulong helper_csrrw(CPURISCVState *env, target_ulong src, target_ulong csr) {
+target_ulong helper_csrrw(CPURISCVState *env, target_ulong src, target_ulong csr)
+{
     uint64_t csr_backup = csr_read_helper(env, csr);
     csr_write_helper(env, src, csr);
     return csr_backup;
 }
 
-target_ulong helper_csrrs(CPURISCVState *env, target_ulong src, target_ulong csr) {
+target_ulong helper_csrrs(CPURISCVState *env, target_ulong src, target_ulong csr)
+{
     uint64_t csr_backup = csr_read_helper(env, csr);
     csr_write_helper(env, src | csr_backup, csr);
     return csr_backup;
@@ -559,7 +559,8 @@ target_ulong helper_csrrc(CPURISCVState *env, target_ulong src, target_ulong csr
     return csr_backup;
 }
 
-target_ulong helper_sret(CPURISCVState *env) {
+target_ulong helper_sret(CPURISCVState *env)
+{
     // first handle S/PS stack
     if (env->helper_csr[CSR_STATUS] & SR_PS) {
         env->helper_csr[CSR_STATUS] |= SR_S;
@@ -578,9 +579,9 @@ target_ulong helper_sret(CPURISCVState *env) {
     return env->helper_csr[CSR_EPC];
 }
 
-target_ulong helper_scall(CPURISCVState *env, target_ulong bad_pc) {
+target_ulong helper_scall(CPURISCVState *env, target_ulong bad_pc)
+{
     env->helper_csr[CSR_CAUSE] = RISCV_EXCP_SCALL;
-
     if (env->helper_csr[CSR_STATUS] & SR_S) {
         env->helper_csr[CSR_STATUS] |= SR_PS;
     } else {
@@ -594,9 +595,7 @@ target_ulong helper_scall(CPURISCVState *env, target_ulong bad_pc) {
         env->helper_csr[CSR_STATUS] &= ~((uint64_t)SR_PEI);
     }
     env->helper_csr[CSR_STATUS] &= ~((uint64_t)SR_EI);
-
     env->helper_csr[CSR_EPC] = bad_pc;
-
     return env->helper_csr[CSR_EVEC];
 }
 
@@ -619,7 +618,8 @@ void helper_tlb_flush(CPURISCVState *env)
 
 #endif /* !CONFIG_USER_ONLY */
 
-void helper_wait(CPURISCVState *env)
+// todo implement for RISC-V?
+/*void helper_wait(CPURISCVState *env)
 {
     CPUState *cs = CPU(riscv_env_get_cpu(env));
 
@@ -627,7 +627,7 @@ void helper_wait(CPURISCVState *env)
     cpu_reset_interrupt(cs, CPU_INTERRUPT_WAKE);
     printf("NOT IMPLEMENTED FOR RISCV\n");
     exit(1);
-}
+}*/
 
 #if !defined(CONFIG_USER_ONLY)
 

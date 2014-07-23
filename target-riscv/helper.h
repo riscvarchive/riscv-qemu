@@ -1,15 +1,13 @@
 #include "exec/def-helper.h"
 
+// Exceptions
 DEF_HELPER_3(raise_exception_err, noreturn, env, i32, int)
 DEF_HELPER_2(raise_exception, noreturn, env, i32)
 
+// MULHSU helper
 DEF_HELPER_3(mulhsu, tl, env, tl, tl)
 
-DEF_HELPER_3(csrrw, tl, env, tl, tl)
-DEF_HELPER_3(csrrs, tl, env, tl, tl)
-DEF_HELPER_3(csrrc, tl, env, tl, tl)
-
-
+// Floating Point - fused
 DEF_HELPER_5(fmadd_s, tl, env, tl, tl, tl, tl)
 DEF_HELPER_5(fmadd_d, tl, env, tl, tl, tl, tl)
 DEF_HELPER_5(fmsub_s, tl, env, tl, tl, tl, tl)
@@ -19,6 +17,7 @@ DEF_HELPER_5(fnmsub_d, tl, env, tl, tl, tl, tl)
 DEF_HELPER_5(fnmadd_s, tl, env, tl, tl, tl, tl)
 DEF_HELPER_5(fnmadd_d, tl, env, tl, tl, tl, tl)
 
+// Floating Point - Single Precision
 DEF_HELPER_4(fadd_s, tl, env, tl, tl, tl)
 DEF_HELPER_4(fsub_s, tl, env, tl, tl, tl)
 DEF_HELPER_4(fmul_s, tl, env, tl, tl, tl)
@@ -42,6 +41,7 @@ DEF_HELPER_3(fcvt_s_l, tl, env, tl, tl)
 DEF_HELPER_3(fcvt_s_lu, tl, env, tl, tl)
 DEF_HELPER_2(fclass_s, tl, env, tl)
 
+// Floating Point - Double Precision
 DEF_HELPER_4(fadd_d, tl, env, tl, tl, tl)
 DEF_HELPER_4(fsub_d, tl, env, tl, tl, tl)
 DEF_HELPER_4(fmul_d, tl, env, tl, tl, tl)
@@ -69,11 +69,13 @@ DEF_HELPER_2(fclass_d, tl, env, tl)
 
 /* Special functions */
 #ifndef CONFIG_USER_ONLY
+DEF_HELPER_3(csrrw, tl, env, tl, tl)
+DEF_HELPER_3(csrrs, tl, env, tl, tl)
+DEF_HELPER_3(csrrc, tl, env, tl, tl)
 DEF_HELPER_1(sret, tl, env)
 DEF_HELPER_2(scall, tl, env, tl)
 DEF_HELPER_1(tlb_flush, void, env)
 #endif /* !CONFIG_USER_ONLY */
-DEF_HELPER_1(wait, void, env)
-
+//DEF_HELPER_1(wait, void, env)
 
 #include "exec/def-helper.h"

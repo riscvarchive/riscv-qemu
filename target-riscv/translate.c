@@ -31,7 +31,7 @@
 
 #define RISCV_DEBUG_DISAS 0
 
-static int csr_regno(int regno);
+inline static int csr_regno(int regno);
 
 /* Get regno in our csr reg array from actual csr regno
  * Mapping:
@@ -64,7 +64,7 @@ static int csr_regno(int regno);
  *   1F: fromhost (0x51F)
  * ]
  */
-static int csr_regno(int regno)
+inline static int csr_regno(int regno)
 {
     if (regno < 0x4 && regno > 0x0) { //0x1, 0x2, 0x3
         return regno + 0x12;
@@ -736,13 +736,9 @@ static void gen_arith_imm(DisasContext *ctx, uint32_t opc,
 static void gen_arith_imm_w(DisasContext *ctx, uint32_t opc, 
                       int rd, int rs1, int16_t imm)
 {
-
     TCGv source1;
-
     source1 = tcg_temp_new();
-
     gen_get_gpr(source1, rs1);
-
     target_ulong uimm = (target_long)imm; /* sign ext 16->64 bits */
 
     switch (opc) {
@@ -786,12 +782,9 @@ static void gen_arith_imm_w(DisasContext *ctx, uint32_t opc,
 static void gen_arith_w(DisasContext *ctx, uint32_t opc, 
                       int rd, int rs1, int rs2)
 {
-
     TCGv source1, source2;
-
     source1 = tcg_temp_new();
     source2 = tcg_temp_new();
-
     gen_get_gpr(source1, rs1);
     gen_get_gpr(source2, rs2);
 

@@ -26,11 +26,14 @@
 
 #include "cpu.h"
 
+// allow the optimized permissions checking if certain values in 
+// include/exec/cpu-all.h match what we expect
+#if (PAGE_READ == 0x1 || PAGE_WRITE == 0x2 || PAGE_EXEC == 0x4)
+    #define OPTIMIZED_PERMISSIONS_CHECK
+#endif
+
 enum {
-    TLBRET_DIRTY = -4,
-    TLBRET_INVALID = -3,
-    TLBRET_NOMATCH = -2,
-    TLBRET_BADADDR = -1,
+    TLBRET_NOMATCH = -1,
     TLBRET_MATCH = 0
 };
 
@@ -44,8 +47,6 @@ static int get_physical_address (CPURISCVState *env, hwaddr *physical,
      * correct, but the value visible to the exception handler 
      * (riscv_cpu_do_interrupt) is correct */
 
-
-    int ret = TLBRET_MATCH;
     // first, check if VM is on:
     if(unlikely(!(env->helper_csr[CSR_STATUS] & SR_VM))) {
         *physical = address;
@@ -56,12 +57,13 @@ static int get_physical_address (CPURISCVState *env, hwaddr *physical,
             // TODO: fix linux so that this is not necessary
             *physical = address;
             *prot = PAGE_READ | PAGE_WRITE;
-            return ret;
+            return TLBRET_MATCH;
         }
         if ((address >= 0x400) && (address <= 0x410)) {
+            // hacky memory hole to watch HTIF registers
             *physical = address;
             *prot = PAGE_READ | PAGE_WRITE;
-            return ret;
+            return TLBRET_MATCH;
         }
 
         CPUState *cs = CPU(riscv_env_get_cpu(env));
@@ -70,16 +72,18 @@ static int get_physical_address (CPURISCVState *env, hwaddr *physical,
         uint64_t ptd;
         int ptshift = 20;
         int64_t i = 0;
-
+#ifdef OPTIMIZED_PERMISSIONS_CHECK
+        uint8_t protcheck;
+#endif
         for (i = 0; i < 3; i++, ptshift -= 10) {
             uint64_t idx = (address >> (13+ptshift)) & ((1 << 10)-1);
             uint64_t pte_addr = base + (idx << 3);
 
             ptd = ldq_phys(cs->as, pte_addr);
 
-            if (!(ptd & 0x1)) { 
+            if (!(ptd & PTE_V)) { 
                 return TLBRET_NOMATCH;
-            } else if (ptd & 0x2) { 
+            } else if (ptd & PTE_T) { 
                 base = (ptd >> 13) << 13;
             } else {
                 uint64_t vpn = address >> 13;
@@ -91,9 +95,21 @@ static int get_physical_address (CPURISCVState *env, hwaddr *physical,
             }
         }
 
+#ifdef OPTIMIZED_PERMISSIONS_CHECK
+        // Optimized permissions checking:
+        // We explicitly check for some defines at compile time to enable this,
+        // since it basically violates an abstraction barrier.
+        // If some values we rely on are changed, we fall back to the 
+        // unoptimized version.
+        *prot = (pte >> ((env->helper_csr[CSR_STATUS] & SR_S)*3+3)) & 0x7;
+        protcheck = ((rw >> 1) << 2) | ((rw & 0x1) ? (0x2) : (0x1));
+
+        if (unlikely((*prot & protcheck) != protcheck)) {
+            return TLBRET_NOMATCH;
+        }
+#else
+        // unoptimized version. used as a fallback
         *prot = 0;
-        // TODO: needs optimization
-        // check pte access bits
         if (env->helper_csr[CSR_STATUS] & SR_S) {
             // check supervisor
             if ((rw & 0x2) & !(pte & PTE_SX)) {
@@ -131,9 +147,10 @@ static int get_physical_address (CPURISCVState *env, hwaddr *physical,
                 *prot |= PAGE_READ;
             }
         }
+#endif
         *physical = ((pte >> 13) << 13) | (address & 0x1FFF);
     }
-    return ret;
+    return TLBRET_MATCH;
 }
 #endif
 
@@ -193,9 +210,6 @@ int riscv_cpu_handle_mmu_fault(CPUState *cs, vaddr address, int rw,
 #endif
     int ret = 0;
 
-#if 0
-    log_cpu_state(cs, 0);
-#endif
     qemu_log("%s pc " TARGET_FMT_lx " ad %" VADDR_PRIx " rw %d mmu_idx %d\n",
               __func__, env->active_tc.PC, address, rw, mmu_idx);
 

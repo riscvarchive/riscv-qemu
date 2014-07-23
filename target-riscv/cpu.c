@@ -22,7 +22,6 @@
 #include "cpu.h"
 #include "qemu-common.h"
 
-
 static void riscv_cpu_set_pc(CPUState *cs, vaddr value)
 {
     RISCVCPU *cpu = RISCV_CPU(cs);
@@ -34,7 +33,6 @@ static void riscv_cpu_synchronize_from_tb(CPUState *cs, TranslationBlock *tb)
 {
     RISCVCPU *cpu = RISCV_CPU(cs);
     CPURISCVState *env = &cpu->env;
-
     env->active_tc.PC = tb->pc;
 }
 
@@ -62,9 +60,7 @@ static void riscv_cpu_reset(CPUState *s)
     CPURISCVState *env = &cpu->env;
 
     mcc->parent_reset(s);
-
     tlb_flush(s, 1);
-
     cpu_state_reset(env);
 }
 
