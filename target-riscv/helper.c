@@ -1,7 +1,8 @@
 /*
- *  RISCV emulation helpers for qemu.
+ *  RISC-V emulation helpers for qemu.
  *
- *  Copyright (c) 2004-2005 Jocelyn Mayer
+ *  Author: Sagar Karandikar, skarandikar@berkeley.edu
+ *  Based on the MIPS target
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public

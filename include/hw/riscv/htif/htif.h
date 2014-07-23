@@ -38,6 +38,7 @@ struct HTIFState {
     MemoryRegion io;
     MemoryRegion* address_space;
     MemoryRegion* main_mem;
+    void* main_mem_ram_ptr;
 
     int block_dev_present;
     // TODO: eventually move the following to a separate HTIF block device driver
@@ -59,10 +60,6 @@ struct request_t
 
 extern const VMStateDescription vmstate_htif;
 extern const MemoryRegionOps htif_io_ops;
-
-/*void serial_realize_core(SerialState *s, Error **errp);
-void serial_exit_core(SerialState *s);
-void serial_set_frequency(SerialState *s, uint32_t frequency);*/
 
 /* legacy pre qom */
 HTIFState *htif_mm_init(MemoryRegion *address_space, hwaddr base, 

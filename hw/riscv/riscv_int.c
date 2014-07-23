@@ -1,5 +1,8 @@
 /*
- * QEMU RISCV interrupt support
+ *  QEMU RISC-V interrupt support
+ *
+ *  Author: Sagar Karandikar, skarandikar@berkeley.edu
+ *  Based on the MIPS target interrupt support
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -24,19 +27,6 @@
 #include "hw/riscv/cpudevs.h"
 #include "cpu.h"
 
-
-// just for testing
-#define BTBPat "%d%d%d%d%d%d%d%d"
-#define BTBMac(byte)  \
-      (byte & 0x80 ? 1 : 0), \
-  (byte & 0x40 ? 1 : 0), \
-  (byte & 0x20 ? 1 : 0), \
-  (byte & 0x10 ? 1 : 0), \
-  (byte & 0x08 ? 1 : 0), \
-  (byte & 0x04 ? 1 : 0), \
-  (byte & 0x02 ? 1 : 0), \
-  (byte & 0x01 ? 1 : 0) 
-
 // TODO: move constants to cpu.h
 
 /* irq request function, called in hw/irq.h by qemu_irq_raise (level = 1), 
@@ -52,18 +42,9 @@ static void cpu_riscv_irq_request(void *opaque, int irq, int level)
     CPURISCVState *env = &cpu->env;
     CPUState *cs = CPU(cpu);
 
-    if (irq < 0 || irq > 7) {
+    if (unlikely(irq < 0 || irq > 7)) {
         return;
     }
-
-    // TODO: remove this: currently disable all irqs that are not 4
-    if ((irq != 4) && (irq != 7)) {
-        return;
-    }
-
-/*    if (irq == 7) {
-        printf("timer interrupt\n");
-    }*/
 
     if (level) {
         // level high, set the interrupt in CSR_STATUS
@@ -84,7 +65,6 @@ static void cpu_riscv_irq_request(void *opaque, int irq, int level)
         // in cpu->interrupt_request
         cpu_reset_interrupt(cs, CPU_INTERRUPT_HARD);
     }
-
 }
 
 void cpu_riscv_irq_init_cpu(CPURISCVState *env)
@@ -100,10 +80,8 @@ void cpu_riscv_irq_init_cpu(CPURISCVState *env)
 
 void cpu_riscv_soft_irq(CPURISCVState *env, int irq, int level)
 {
-    printf("softirq called...?\n");
     if (irq < 0 || irq > 2) {
         return;
     }
-
     qemu_set_irq(env->irq[irq], level);
 }

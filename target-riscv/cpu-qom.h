@@ -1,7 +1,5 @@
 /*
- * QEMU RISCV CPU
- *
- * Copyright (c) 2012 SUSE LINUX Products GmbH
+ * QEMU RISC-V CPU
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public

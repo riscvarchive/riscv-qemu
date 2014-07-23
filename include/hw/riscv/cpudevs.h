@@ -2,14 +2,13 @@
 #define HW_RISCV_CPUDEVS_H
 /* Definitions for RISCV CPU internal devices.  */
 
-/* mips_addr.c */
-uint64_t cpu_riscv_kseg0_to_phys(void *opaque, uint64_t addr);
-uint64_t cpu_riscv_phys_to_kseg0(void *opaque, uint64_t addr);
+/* riscv_board.c */
+uint64_t identity_translate(void *opaque, uint64_t addr);
 
-/* mips_int.c */
+/* riscv_int.c */
 void cpu_riscv_irq_init_cpu(CPURISCVState *env);
 
-/* mips_timer.c */
+/* cputimer.c */
 void cpu_riscv_clock_init(CPURISCVState *);
 
 #endif

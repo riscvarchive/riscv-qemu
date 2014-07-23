@@ -1,7 +1,8 @@
 /*
- * QEMU RISCV CPU
+ *  QEMU RISC-V CPU
  *
- * Copyright (c) 2012 SUSE LINUX Products GmbH
+ *  Author: Sagar Karandikar, skarandikar@berkeley.edu
+ *  Based on the MIPS target
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -54,14 +55,12 @@ static bool riscv_cpu_has_work(CPUState *cs)
     return has_work;
 }
 
-/* CPUClass::reset() */
 static void riscv_cpu_reset(CPUState *s)
 {
     RISCVCPU *cpu = RISCV_CPU(s);
     RISCVCPUClass *mcc = RISCV_CPU_GET_CLASS(cpu);
     CPURISCVState *env = &cpu->env;
 
-    // TODO WHAT IS THIS
     mcc->parent_reset(s);
 
     tlb_flush(s, 1);

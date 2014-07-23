@@ -1,5 +1,11 @@
 /*
- * QEMU RISCV Host Target Interface (HTIF) Emulation
+ *  QEMU RISC-V Host Target Interface (HTIF) Emulation
+ *
+ *  Author: Sagar Karandikar, skarandikar@berkeley.edu
+ *
+ * Since directly accessing CPU registers is not ideal, we map reads and writes 
+ * to the tohost/fromhost registers onto memory addresses 0x400 and 0x408 
+ * respectively (see the csr instructions in target-riscv/translate.c).
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -20,11 +26,9 @@
  * THE SOFTWARE.
  */
 
-
 #include "hw/riscv/htif/htif.h"
 #include "qemu/timer.h"
 #include "exec/address-spaces.h"
-//#include "exec/memory.h"
 #include "qemu/error-report.h"
 #include <fcntl.h>
 #include <unistd.h>
@@ -57,20 +61,22 @@ const VMStateDescription vmstate_htif = {
 
 static void dma_strcopy(HTIFState *htifstate, char *str, hwaddr phys_addr) {
     int i = 0;
+    void* base_copy_addr = htifstate->main_mem_ram_ptr+phys_addr;
     while(*(str+i)) {
-        stb_p((void*)(memory_region_get_ram_ptr(htifstate->main_mem)+phys_addr+i), *(str+i));
+        stb_p((void*)(base_copy_addr + i), *(str + i));
         i++;
     }
-    stb_p((void*)(memory_region_get_ram_ptr(htifstate->main_mem)+phys_addr+i), 0);
+    stb_p((void*)(base_copy_addr + i), 0); // store null term
 }
 
 static int htif_block_device_read(HTIFState *htifstate, uint64_t payload) {
     request_t req;
     int i;
     uint8_t* reqptr = (uint8_t*)&req;
+    void *base = htifstate->main_mem_ram_ptr+payload;
     for (i = 0; i < sizeof(req); i++) {
         // TODO: potential endianness issues here
-        *(reqptr + i) = ldub_p((void*)(memory_region_get_ram_ptr(htifstate->main_mem)+payload+i));
+        *(reqptr + i) = ldub_p((void*)(base + i));
     }
 
     uint8_t copybuf[req.size];
@@ -79,8 +85,9 @@ static int htif_block_device_read(HTIFState *htifstate, uint64_t payload) {
         exit(1);
     }
 
+    base = htifstate->main_mem_ram_ptr + req.addr;
     for (i = 0; i < req.size; i++) {
-        stb_p((void*)(memory_region_get_ram_ptr(htifstate->main_mem)+req.addr+i), copybuf[i]);
+        stb_p((void*)(base + i), copybuf[i]);
     }
     return req.tag;
 }
@@ -89,26 +96,25 @@ static int htif_block_device_write(HTIFState *htifstate, uint64_t payload) {
     request_t req;
     int i;
     uint8_t* reqptr = (uint8_t*)&req;
+    void* base = htifstate->main_mem_ram_ptr + payload;
     for (i = 0; i < sizeof(req); i++) {
         // TODO: potential endianness issues here
-        *(reqptr + i) = ldub_p((void*)(memory_region_get_ram_ptr(htifstate->main_mem)+payload+i));
+        *(reqptr + i) = ldub_p((void*)(base + i));
     }
 
     uint8_t copybuf[req.size];
 
+    base = htifstate->main_mem_ram_ptr + req.addr;
     for (i = 0; i < req.size; i++) {
-        copybuf[i] = ldub_p((void*)(memory_region_get_ram_ptr(htifstate->main_mem)+req.addr+i));
+        copybuf[i] = ldub_p((void*)(base + i));
     }
 
     if (pwrite(htifstate->block_fd, copybuf, req.size, req.offset) != req.size) {
         printf("FAILED WRITE\n");
         exit(1);
     }
-//    fsync(htifstate->block_fd); // force flush to disk
     return req.tag;
 }
-
-
 
 static void htif_handle_tohost_write(HTIFState *htifstate, uint64_t val_written) {
 
@@ -123,9 +129,9 @@ static void htif_handle_tohost_write(HTIFState *htifstate, uint64_t val_written)
 
     resp = 0; // stop gcc complaining
 
-    if (device == 0x1 && htifstate->block_dev_present) { 
+    if (likely(device == 0x1 && htifstate->block_dev_present)) { 
         // assume device 0x1 is permanently hooked to block dev for now
-        if (cmd == 0xFF) { 
+        if (unlikely(cmd == 0xFF)) { 
             if (what == 0xFF) { // register
                 dma_strcopy(htifstate, htifstate->real_name, real_addr);
             } else if (what == 0x0) {
@@ -147,15 +153,12 @@ static void htif_handle_tohost_write(HTIFState *htifstate, uint64_t val_written)
             exit(1);
         }
     } else if (cmd == 0xFF && what == 0xFF) { // all other devices
-        stb_p((void*)(memory_region_get_ram_ptr(htifstate->main_mem)+real_addr), 0);
+        stb_p((void*)(htifstate->main_mem_ram_ptr+real_addr), 0);
         resp = 0x1; // write to indicate device name placed
     }
     htifstate->fromhost = (val_written >> 48 << 48) | (resp << 16 >> 16);
     htifstate->tohost = 0; // clear to indicate we read
 }
-
-
-/* Memory mapped interface */
 
 // CPU wants to read an HTIF register
 static uint64_t htif_mm_read(void *opaque, hwaddr addr, unsigned size)
@@ -181,7 +184,7 @@ static void htif_mm_write(void *opaque, hwaddr addr,
 {
     HTIFState *htifstate = opaque;
     if (addr == 0x0) {
-        htifstate->tohost = value & 0xFFFFFFFF;// << 32);
+        htifstate->tohost = value & 0xFFFFFFFF;
     } else if (addr == 0x4) {
         htif_handle_tohost_write(htifstate, htifstate->tohost | (value << 32));
     } else if (addr == 0x8) {
@@ -220,6 +223,7 @@ HTIFState *htif_mm_init(MemoryRegion *address_space, hwaddr base, qemu_irq irq,
     htifstate->irq = irq;
     htifstate->address_space = address_space;
     htifstate->main_mem = main_mem;
+    htifstate->main_mem_ram_ptr = memory_region_get_ram_ptr(main_mem);
 
     vmstate_register(NULL, base, &vmstate_htif, htifstate);
 

@@ -1,11 +1,8 @@
 /*
- *  RISCV emulation for qemu: main translation routines.
+ *  RISC-V emulation for qemu: main translation routines.
  *
- *  Copyright (c) 2004-2005 Jocelyn Mayer
- *  Copyright (c) 2006 Marius Groeger (FPU operations)
- *  Copyright (c) 2006 Thiemo Seufer (MIPS32R2 support)
- *  Copyright (c) 2009 CodeSourcery (MIPS16 and microMIPS support)
- *  Copyright (c) 2012 Jia Liu & Dongxue Zhang (MIPS ASE DSP support)
+ *  Author: Sagar Karandikar, skarandikar@berkeley.edu
+ *  Based on the MIPS target
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public

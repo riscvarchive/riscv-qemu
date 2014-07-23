@@ -1,5 +1,8 @@
 /*
- * QEMU MIPS timer support
+ *  QEMU RISC-V timer support
+ *
+ *  Author: Sagar Karandikar, skarandikar@berkeley.edu
+ *  Based on the MIPS target timer support
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -24,29 +27,10 @@
 #include "hw/riscv/cpudevs.h"
 #include "qemu/timer.h"
 
-
 static uint64_t last_count_update;
-//static uint64_t last_compare_update;
-
 
 // should be the cpu freq
 #define TIMER_FREQ	500 * 1000 * 1000
-
-/* XXX: do not use a global */
-// note this doesn't work, just leftover
-uint32_t cpu_riscv_get_random (CPURISCVState *env)
-{
-    static uint32_t lfsr = 1;
-    static uint32_t prev_idx = 0;
-    uint32_t idx;
-    /* Don't return same value twice, so get another value */
-    do {
-        lfsr = (lfsr >> 1) ^ (-(lfsr & 1u) & 0xd0000001u);
-        idx = lfsr % 7;
-    } while (idx == prev_idx);
-    prev_idx = idx;
-    return idx;
-}
 
 uint64_t cpu_riscv_get_cycle (CPURISCVState *env) {
     uint64_t now;
@@ -56,7 +40,6 @@ uint64_t cpu_riscv_get_cycle (CPURISCVState *env) {
     return muldiv64(now, TIMER_FREQ, get_ticks_per_sec());
 }
 
-/* updated */
 static void cpu_riscv_timer_update(CPURISCVState *env)
 {
     uint64_t now, next;
@@ -68,7 +51,6 @@ static void cpu_riscv_timer_update(CPURISCVState *env)
     timer_mod(env->timer, next);
 }
 
-/* updated */
 static void cpu_riscv_timer_expire(CPURISCVState *env)
 {
     cpu_riscv_timer_update(env);
@@ -80,11 +62,6 @@ uint32_t cpu_riscv_get_count (CPURISCVState *env)
     uint64_t diff;
 
     diff = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) - last_count_update;
-//    if (timer_pending(env->timer) && timer_expired(env->timer, now)) {
-        /* The timer has already expired.  */
-//        cpu_riscv_timer_expire(env);
-//    }
-
     return env->helper_csr[CSR_COUNT] +
         (uint32_t)muldiv64(diff, TIMER_FREQ, get_ticks_per_sec());
 }

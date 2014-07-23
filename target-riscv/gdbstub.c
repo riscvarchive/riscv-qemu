@@ -1,8 +1,8 @@
 /*
- * RISCV gdb server stub
+ *  RISC-V gdb server stub
  *
- * Copyright (c) 2003-2005 Fabrice Bellard
- * Copyright (c) 2013 SUSE LINUX Products GmbH
+ *  Author: Sagar Karandikar, skarandikar@berkeley.edu
+ *  Based on the MIPS target
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -17,6 +17,7 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
+
 #include "config.h"
 #include "qemu-common.h"
 #include "exec/gdbstub.h"

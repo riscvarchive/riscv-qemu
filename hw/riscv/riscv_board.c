@@ -1,7 +1,8 @@
 /* 
- * QEMU RISCV sample-board support
+ *  QEMU RISC-V sample-board support
  *
- * Originally based on hw/mips/mips_malta.c
+ *  Author: Sagar Karandikar, skarandikar@berkeley.edu
+ *  Originally based on hw/mips/mips_malta.c
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -54,29 +55,11 @@
 #include "qemu/error-report.h"
 #include "hw/empty_slot.h"
 
-typedef struct {
-    MemoryRegion iomem;
-    MemoryRegion iomem_lo; /* 0 - 0x900 */
-    MemoryRegion iomem_hi; /* 0xa00 - 0x100000 */
-    uint32_t leds;
-    uint32_t brk;
-    uint32_t gpout;
-    uint32_t i2cin;
-    uint32_t i2coe;
-    uint32_t i2cout;
-    uint32_t i2csel;
-    CharDriverState *display;
-    char display_text[9];
-    SerialState *uart;
-} BoardFPGAState;
-
 #define TYPE_RISCV_BOARD "riscv-board"
 #define RISCV_BOARD(obj) OBJECT_CHECK(BoardState, (obj), TYPE_RISCV_BOARD)
 
 typedef struct {
     SysBusDevice parent_obj;
-
-    qemu_irq *i8259;
 } BoardState;
 
 static struct _loaderparams {
@@ -86,13 +69,18 @@ static struct _loaderparams {
     const char *initrd_filename;
 } loaderparams;
 
+uint64_t identity_translate(void *opaque, uint64_t addr)
+{
+    return addr;
+}
+
 static int64_t load_kernel (void)
 {
     int64_t kernel_entry, kernel_high;
     int big_endian;
     big_endian = 0;
 
-    if (load_elf(loaderparams.kernel_filename, cpu_riscv_kseg0_to_phys, NULL,
+    if (load_elf(loaderparams.kernel_filename, identity_translate, NULL,
                  (uint64_t *)&kernel_entry, NULL, (uint64_t *)&kernel_high,
                  big_endian, ELF_MACHINE, 1) < 0) {
         fprintf(stderr, "qemu: could not load kernel '%s'\n",
@@ -156,14 +144,6 @@ static void riscv_board_init(QEMUMachineInitArgs *args)
     }
     cpu = RISCV_CPU(first_cpu);
     env = &cpu->env;
-
-    /* allocate RAM */
-    if (ram_size > (2048u << 20)) {
-        fprintf(stderr,
-                "qemu: Too much memory for this machine: %d MB, maximum 2048 MB\n",
-                ((unsigned int)ram_size / (1 << 20)));
-        exit(1);
-    }
 
     /* register system main memory (actual RAM) */
     memory_region_init_ram(main_mem, NULL, "riscv_board.ram", ram_size);

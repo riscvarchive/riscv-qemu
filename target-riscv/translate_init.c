@@ -1,8 +1,8 @@
 /*
- *  RISCV emulation for qemu: CPU initialisation routines.
+ *  RISC-V emulation for qemu: CPU initialisation routines.
  *
- *  Copyright (c) 2004-2005 Jocelyn Mayer
- *  Copyright (c) 2007 Herve Poussineau
+ *  Author: Sagar Karandikar, skarandikar@berkeley.edu
+ *  Based on the MIPS target
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -24,7 +24,7 @@ struct riscv_def_t {
 };
 
 /*****************************************************************************/
-/* RISCV CPU definitions */
+/* RISC-V CPU definitions */
 static const riscv_def_t riscv_defs[] =
 {
     {  

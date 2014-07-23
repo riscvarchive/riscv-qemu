@@ -16,7 +16,6 @@
 #include "riscv-defs.h"
 #include "exec/cpu-defs.h"
 
-// TODO: figure out what's up with this
 #define NB_MMU_MODES 2
 
 struct CPURISCVState;
@@ -163,8 +162,6 @@ static inline int cpu_riscv_hw_interrupts_pending(CPURISCVState *env)
     pending = (env->helper_csr[CSR_STATUS] >> 24) & 0xFF;
     status = (env->helper_csr[CSR_STATUS] >> 16) & 0xFF;
 
-    // TODO handle priority here?
-
     r = pending & status;
     return r;
 }
@@ -211,7 +208,7 @@ static inline CPURISCVState *cpu_init(const char *cpu_model)
 /* TODO QOM'ify CPU reset and remove */
 void cpu_state_reset(CPURISCVState *s);
 
-/* mips_timer.c */
+/* hw/riscv/cputimer.c */
 uint64_t cpu_riscv_get_cycle (CPURISCVState *env);
 uint32_t cpu_riscv_get_random (CPURISCVState *env);
 uint32_t cpu_riscv_get_count (CPURISCVState *env);
@@ -219,7 +216,7 @@ void cpu_riscv_store_count (CPURISCVState *env, uint32_t value);
 void cpu_riscv_store_compare (CPURISCVState *env, uint32_t value);
 void cpu_riscv_start_count(CPURISCVState *env);
 
-/* mips_int.c */
+/* hw/riscv/riscv_int.c */
 void cpu_riscv_soft_irq(CPURISCVState *env, int irq, int level);
 
 /* helper.c */
