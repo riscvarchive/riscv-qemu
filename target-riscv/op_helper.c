@@ -53,11 +53,10 @@ target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno);
 
 static inline void QEMU_NORETURN do_raise_exception_err(CPURISCVState *env,
                                                         uint32_t exception,
-                                                        int error_code,
                                                         uintptr_t pc)
 {
     CPUState *cs = CPU(riscv_env_get_cpu(env));
-    qemu_log("%s: %d %d\n", __func__, exception, error_code);
+    qemu_log("%s: %d\n", __func__, exception);
     cs->exception_index = exception;
     if (pc) {
         /* now we have a real cpu fault */
@@ -66,22 +65,9 @@ static inline void QEMU_NORETURN do_raise_exception_err(CPURISCVState *env,
     cpu_loop_exit(cs);
 }
 
-static inline void QEMU_NORETURN do_raise_exception(CPURISCVState *env,
-                                                    uint32_t exception,
-                                                    uintptr_t pc)
-{
-    do_raise_exception_err(env, exception, 0, pc);
-}
-
-void helper_raise_exception_err(CPURISCVState *env, uint32_t exception,
-                                int error_code)
-{
-    do_raise_exception_err(env, exception, error_code, 0);
-}
-
 void helper_raise_exception(CPURISCVState *env, uint32_t exception)
 {
-    do_raise_exception(env, exception, 0);
+    do_raise_exception_err(env, exception, 0);
 }
 
 uint64_t helper_fmadd_s(CPURISCVState *env, uint64_t frs1, uint64_t frs2, uint64_t frs3, uint64_t rm)
@@ -601,7 +587,7 @@ target_ulong helper_scall(CPURISCVState *env, target_ulong bad_pc)
 
 #ifndef CONFIG_USER_ONLY
 /* TLB management */
-static void cpu_riscv_tlb_flush (CPURISCVState *env, int flush_global)
+inline static void cpu_riscv_tlb_flush (CPURISCVState *env, int flush_global)
 {
     RISCVCPU *cpu = riscv_env_get_cpu(env);
 
@@ -663,14 +649,11 @@ void tlb_fill(CPUState *cs, target_ulong addr, int is_write, int mmu_idx,
               uintptr_t retaddr)
 {
     int ret;
-
     ret = riscv_cpu_handle_mmu_fault(cs, addr, is_write, mmu_idx);
     if (ret) {
         RISCVCPU *cpu = RISCV_CPU(cs);
         CPURISCVState *env = &cpu->env;
-
-        do_raise_exception_err(env, cs->exception_index,
-                               0, retaddr);
+        do_raise_exception_err(env, cs->exception_index, retaddr);
     }
 }
 
