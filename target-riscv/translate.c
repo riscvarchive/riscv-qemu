@@ -1507,7 +1507,7 @@ inline static void gen_system(DisasContext *ctx, uint32_t opc,
                 ctx->bstate = BS_STOP;
                 break;
             case 0x1: // SBREAK
-                kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
+                kill_unknown(ctx, RISCV_EXCP_BREAK);
                 ctx->bstate = BS_STOP;
                 break;
             case 0x800: // SRET
