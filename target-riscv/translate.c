@@ -476,7 +476,7 @@ static inline void gen_set_gpr (int reg_num_dst, TCGv t)
     }
 }
 
-static void gen_arith(DisasContext *ctx, uint32_t opc, 
+inline static void gen_arith(DisasContext *ctx, uint32_t opc, 
                       int rd, int rs1, int rs2)
 {
     TCGv source1, source2;
@@ -677,19 +677,15 @@ static void gen_arith(DisasContext *ctx, uint32_t opc,
 }
 
 /* lower 12 bits of imm are valid */
-static void gen_arith_imm(DisasContext *ctx, uint32_t opc, 
+inline static void gen_arith_imm(DisasContext *ctx, uint32_t opc, 
                       int rd, int rs1, int16_t imm)
 {
     TCGv source1;
-
     source1 = tcg_temp_new();
-
     gen_get_gpr(source1, rs1);
-
     target_ulong uimm = (target_long)imm; /* sign ext 16->64 bits */
 
     switch (opc) {
-
     case OPC_RISC_ADDI:
         tcg_gen_addi_tl(source1, source1, uimm);
         break;
@@ -723,7 +719,6 @@ static void gen_arith_imm(DisasContext *ctx, uint32_t opc,
     default:
         kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         break;
-
     }
 
     gen_set_gpr(rd, source1);
@@ -733,7 +728,7 @@ static void gen_arith_imm(DisasContext *ctx, uint32_t opc,
 
 
 /* lower 12 bits of imm are valid */
-static void gen_arith_imm_w(DisasContext *ctx, uint32_t opc, 
+inline static void gen_arith_imm_w(DisasContext *ctx, uint32_t opc, 
                       int rd, int rs1, int16_t imm)
 {
     TCGv source1;
@@ -742,7 +737,6 @@ static void gen_arith_imm_w(DisasContext *ctx, uint32_t opc,
     target_ulong uimm = (target_long)imm; /* sign ext 16->64 bits */
 
     switch (opc) {
-
     case OPC_RISC_ADDIW:
         tcg_gen_addi_tl(source1, source1, uimm);
         tcg_gen_ext32s_tl(source1, source1);
@@ -757,13 +751,16 @@ static void gen_arith_imm_w(DisasContext *ctx, uint32_t opc,
             // SRAI
             // first, trick to get it to act like working on 32 bits:
             tcg_gen_shli_tl(source1, source1, 32);
-            // now shift back to the right by shamt + 32 to get proper upper bits filling
+            // now shift back to the right by shamt + 32 to get proper upper 
+            // bits filling
             tcg_gen_sari_tl(source1, source1, (uimm ^ 0x400) + 32);
             tcg_gen_ext32s_tl(source1, source1);
         } else {
-            // first, trick to get it to act like working on 32 bits (get rid of upper 32):
+            // first, trick to get it to act like working on 32 bits (get rid 
+            // of upper 32):
             tcg_gen_shli_tl(source1, source1, 32);
-            // now shift back to the right by shamt + 32 to get proper upper bits filling
+            // now shift back to the right by shamt + 32 to get proper upper 
+            // bits filling
             tcg_gen_shri_tl(source1, source1, uimm + 32);
             tcg_gen_ext32s_tl(source1, source1);
         }
@@ -771,15 +768,12 @@ static void gen_arith_imm_w(DisasContext *ctx, uint32_t opc,
     default:
         kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         break;
-
     }
-
     gen_set_gpr(rd, source1);
     tcg_temp_free(source1);
-
 }
 
-static void gen_arith_w(DisasContext *ctx, uint32_t opc, 
+inline static void gen_arith_w(DisasContext *ctx, uint32_t opc, 
                       int rd, int rs1, int rs2)
 {
     TCGv source1, source2;
@@ -789,7 +783,6 @@ static void gen_arith_w(DisasContext *ctx, uint32_t opc,
     gen_get_gpr(source2, rs2);
 
     switch (opc) {
-
     case OPC_RISC_ADDW:
         tcg_gen_add_tl(source1, source1, source2);
         tcg_gen_ext32s_tl(source1, source1);
@@ -810,7 +803,8 @@ static void gen_arith_w(DisasContext *ctx, uint32_t opc,
         tcg_gen_ext32s_tl(source1, source1); // sign ext
         break;
     case OPC_RISC_SRAW:
-        // first, trick to get it to act like working on 32 bits (get rid of upper 32)
+        // first, trick to get it to act like working on 32 bits (get rid of 
+        // upper 32)
         tcg_gen_shli_tl(source1, source1, 32); // clear upper 32
         tcg_gen_sari_tl(source1, source1, 32); // smear the sign bit into upper 32
         tcg_gen_andi_tl(source2, source2, 0x1F);
@@ -969,31 +963,24 @@ static void gen_arith_w(DisasContext *ctx, uint32_t opc,
     default:
         kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         break;
-
     }
-
     gen_set_gpr(rd, source1);
     tcg_temp_free(source1);
     tcg_temp_free(source2);
 }
 
-static void gen_branch(DisasContext *ctx, uint32_t opc, 
+inline static void gen_branch(DisasContext *ctx, uint32_t opc, 
                        int rs1, int rs2, int16_t bimm) {
 
     int l = gen_new_label();
-
     TCGv source1, source2;
-
     source1 = tcg_temp_new();
     source2 = tcg_temp_new();
-
     gen_get_gpr(source1, rs1);
     gen_get_gpr(source2, rs2);
-
     target_ulong ubimm = (target_long)bimm; /* sign ext 16->64 bits */
 
     switch (opc) {
-
     case OPC_RISC_BEQ:
         tcg_gen_brcond_tl(TCG_COND_EQ, source1, source2, l);
         break;
@@ -1015,7 +1002,6 @@ static void gen_branch(DisasContext *ctx, uint32_t opc,
     default:
         kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         break;
-
     }
 
 #ifdef DISABLE_CHAINING_BRANCH
@@ -1034,7 +1020,7 @@ static void gen_branch(DisasContext *ctx, uint32_t opc,
     ctx->bstate = BS_BRANCH;
 }
 
-static void gen_load(DisasContext *ctx, uint32_t opc, 
+inline static void gen_load(DisasContext *ctx, uint32_t opc, 
                       int rd, int rs1, int16_t imm)
 {
 
@@ -1078,7 +1064,7 @@ static void gen_load(DisasContext *ctx, uint32_t opc,
 }
 
 
-static void gen_store(DisasContext *ctx, uint32_t opc, 
+inline static void gen_store(DisasContext *ctx, uint32_t opc, 
                       int rs1, int rs2, int16_t imm)
 {
     target_ulong uimm = (target_long)imm; /* sign ext 16->64 bits */
@@ -1113,7 +1099,7 @@ static void gen_store(DisasContext *ctx, uint32_t opc,
     tcg_temp_free(dat);
 }
 
-static void gen_jalr(DisasContext *ctx, uint32_t opc, 
+inline static void gen_jalr(DisasContext *ctx, uint32_t opc, 
                       int rd, int rs1, int16_t imm)
 {
     target_ulong uimm = (target_long)imm; /* sign ext 16->64 bits */
@@ -1146,7 +1132,7 @@ static void gen_jalr(DisasContext *ctx, uint32_t opc,
     tcg_temp_free(t1);
 }
 
-static void gen_atomic(DisasContext *ctx, uint32_t opc, 
+inline static void gen_atomic(DisasContext *ctx, uint32_t opc, 
                       int rd, int rs1, int rs2)
 {
     // TODO: handle aq, rl bits? - for now just get rid of them:
@@ -1449,7 +1435,7 @@ static void gen_atomic(DisasContext *ctx, uint32_t opc,
 }
 
 
-static inline void gen_csr_htif(DisasContext *ctx, uint32_t opc, int addr, int rd, int rs1) {
+inline static void gen_csr_htif(DisasContext *ctx, uint32_t opc, int addr, int rd, int rs1) {
     TCGv source1, csr_store, htif_addr;
     source1 = tcg_temp_new();
     csr_store = tcg_temp_new();
@@ -1487,9 +1473,7 @@ static inline void gen_csr_htif(DisasContext *ctx, uint32_t opc, int addr, int r
     gen_set_gpr(rd, csr_store);
 }
 
-
-
-static void gen_system(DisasContext *ctx, uint32_t opc, 
+inline static void gen_system(DisasContext *ctx, uint32_t opc, 
                       int rd, int rs1, int csr)
 {
     // get index into csr array
@@ -1586,7 +1570,7 @@ static void gen_system(DisasContext *ctx, uint32_t opc,
 }
 
 
-static void gen_fp_load(DisasContext *ctx, uint32_t opc, 
+inline static void gen_fp_load(DisasContext *ctx, uint32_t opc, 
                       int rd, int rs1, int16_t imm)
 {
     target_ulong uimm = (target_long)imm; /* sign ext 16->64 bits */
@@ -1613,7 +1597,7 @@ static void gen_fp_load(DisasContext *ctx, uint32_t opc,
     tcg_temp_free(t0);
 }
 
-static void gen_fp_store(DisasContext *ctx, uint32_t opc, 
+inline static void gen_fp_store(DisasContext *ctx, uint32_t opc, 
                       int rs1, int rs2, int16_t imm)
 {
     target_ulong uimm = (target_long)imm; /* sign ext 16->64 bits */
@@ -1642,7 +1626,7 @@ static void gen_fp_store(DisasContext *ctx, uint32_t opc,
     tcg_temp_free(dat);
 }
 
-static void gen_fp_fmadd(DisasContext *ctx, uint32_t opc,
+inline static void gen_fp_fmadd(DisasContext *ctx, uint32_t opc,
                     int rd, int rs1, int rs2, int rs3, int rm)
 {
     TCGv rm_reg = tcg_temp_new();
@@ -1664,7 +1648,7 @@ static void gen_fp_fmadd(DisasContext *ctx, uint32_t opc,
 
 }
 
-static void gen_fp_fmsub(DisasContext *ctx, uint32_t opc,
+inline static void gen_fp_fmsub(DisasContext *ctx, uint32_t opc,
                     int rd, int rs1, int rs2, int rs3, int rm)
 {
     TCGv rm_reg = tcg_temp_new();
@@ -1685,7 +1669,7 @@ static void gen_fp_fmsub(DisasContext *ctx, uint32_t opc,
     tcg_temp_free(rm_reg);
 }
 
-static void gen_fp_fnmsub(DisasContext *ctx, uint32_t opc,
+inline static void gen_fp_fnmsub(DisasContext *ctx, uint32_t opc,
                     int rd, int rs1, int rs2, int rs3, int rm)
 {
     TCGv rm_reg = tcg_temp_new();
@@ -1706,7 +1690,7 @@ static void gen_fp_fnmsub(DisasContext *ctx, uint32_t opc,
     tcg_temp_free(rm_reg);
 }
 
-static void gen_fp_fnmadd(DisasContext *ctx, uint32_t opc,
+inline static void gen_fp_fnmadd(DisasContext *ctx, uint32_t opc,
                     int rd, int rs1, int rs2, int rs3, int rm)
 {
     TCGv rm_reg = tcg_temp_new();
@@ -1727,7 +1711,7 @@ static void gen_fp_fnmadd(DisasContext *ctx, uint32_t opc,
     tcg_temp_free(rm_reg);
 }
 
-static void gen_fp_arith(DisasContext *ctx, uint32_t opc, 
+inline static void gen_fp_arith(DisasContext *ctx, uint32_t opc, 
                     int rd, int rs1, int rs2, int rm) 
 {
     TCGv rm_reg = tcg_temp_new();
@@ -2099,11 +2083,9 @@ gen_intermediate_code_internal(RISCVCPU *cpu, TranslationBlock *tb,
     int j, lj = -1;
     int num_insns;
     int max_insns;
-    int insn_bytes;
-
-    if (search_pc)
+    if (search_pc) {
         qemu_log("search pc %d\n", search_pc);
-
+    }
     pc_start = tb->pc;
     gen_opc_end = tcg_ctx.gen_opc_buf + OPC_MAX_SIZE;
     ctx.pc = pc_start;
@@ -2117,8 +2099,9 @@ gen_intermediate_code_internal(RISCVCPU *cpu, TranslationBlock *tb,
 #endif
     num_insns = 0;
     max_insns = tb->cflags & CF_COUNT_MASK;
-    if (max_insns == 0)
+    if (max_insns == 0) {
         max_insns = CF_COUNT_MASK;
+    }
     gen_tb_start();
     while (ctx.bstate == BS_NONE) {
         if (unlikely(!QTAILQ_EMPTY(&cs->breakpoints))) {
@@ -2129,8 +2112,6 @@ gen_intermediate_code_internal(RISCVCPU *cpu, TranslationBlock *tb,
                     TCGv_i32 helper_tmp = tcg_const_i32(EXCP_DEBUG);
                     gen_helper_raise_exception(cpu_env, helper_tmp);
                     tcg_temp_free_i32(helper_tmp);
-                    /* Include the breakpoint location or the tb won't
-                     * be flushed when it must be.  */
                     ctx.pc += 4;
                     goto done_generating;
                 }
@@ -2153,31 +2134,25 @@ gen_intermediate_code_internal(RISCVCPU *cpu, TranslationBlock *tb,
         }
 
         ctx.opcode = cpu_ldl_code(env, ctx.pc);
-        insn_bytes = 4;
         decode_opc(env, &ctx);
-
-        ctx.pc += insn_bytes;
-
+        ctx.pc += 4;
         num_insns++;
 
-        if ((ctx.pc & (TARGET_PAGE_SIZE - 1)) == 0) { 
+        if (unlikely((ctx.pc & (TARGET_PAGE_SIZE - 1)) == 0)) { 
             // handle tb at the end of a page
             break;
         }
-        if (tcg_ctx.gen_opc_ptr >= gen_opc_end) {
+        if (unlikely(tcg_ctx.gen_opc_ptr >= gen_opc_end)) {
             break;
         }
-
-        if (num_insns >= max_insns) {
+        if (unlikely(num_insns >= max_insns)) {
             break;
         }
-
-        if (singlestep) {
+        if (unlikely(singlestep)) {
             printf("singlestep is not currently supported for riscv\n");
             exit(1);
             break;
         }
-
     }
     if (tb->cflags & CF_LAST_IO) {
         gen_io_end();
@@ -2272,8 +2247,6 @@ void riscv_cpu_dump_state(CPUState *cs, FILE *f, fprintf_function cpu_fprintf,
             cpu_fprintf(f, "\n");
         }
     }
-
-
 }
 
 void riscv_tcg_init(void)

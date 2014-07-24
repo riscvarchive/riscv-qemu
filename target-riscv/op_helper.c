@@ -47,10 +47,7 @@ target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno);
 #define set_fp_exceptions ({ env->helper_csr[CSR_FFLAGS] |= softfloat_exceptionFlags;\
                              softfloat_exceptionFlags = 0; })
 
-
-/*****************************************************************************/
 /* Exceptions processing helpers */
-
 static inline void QEMU_NORETURN do_raise_exception_err(CPURISCVState *env,
                                                         uint32_t exception,
                                                         uintptr_t pc)
@@ -70,6 +67,7 @@ void helper_raise_exception(CPURISCVState *env, uint32_t exception)
     do_raise_exception_err(env, exception, 0);
 }
 
+/* floating point */
 uint64_t helper_fmadd_s(CPURISCVState *env, uint64_t frs1, uint64_t frs2, uint64_t frs3, uint64_t rm)
 {
     softfloat_roundingMode = RISCV_RM;
