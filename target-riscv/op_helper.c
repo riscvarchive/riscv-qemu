@@ -616,7 +616,7 @@ void helper_tlb_flush(CPURISCVState *env)
 #if !defined(CONFIG_USER_ONLY)
 
 static void /*QEMU_NORETURN*/ do_unaligned_access(CPURISCVState *env,
-                                              target_ulong addr, int is_write,
+                                              target_ulong addr, int rw,
                                               int is_user, uintptr_t retaddr);
 
 #define MMUSUFFIX _mmu
@@ -635,11 +635,19 @@ static void /*QEMU_NORETURN*/ do_unaligned_access(CPURISCVState *env,
 #include "exec/softmmu_template.h"
 
 static void do_unaligned_access(CPURISCVState *env, target_ulong addr,
-                                int is_write, int is_user, uintptr_t retaddr)
+                                int rw, int is_user, uintptr_t retaddr)
 {
-    printf("REACHED DO UNALIGNED ACCESS\n");
-    printf("%016lX\n", (uint64_t)addr);
-    exit(1);
+    CPUState *cs = CPU(riscv_env_get_cpu(env));
+    if (rw & 0x2) {
+        cs->exception_index = RISCV_EXCP_INST_ADDR_MIS;
+    } else if (rw == 0x1) {
+        cs->exception_index = RISCV_EXCP_STORE_ADDR_MIS;
+        env->helper_csr[CSR_BADVADDR] = addr;
+    } else {
+        cs->exception_index = RISCV_EXCP_LOAD_ADDR_MIS;
+        env->helper_csr[CSR_BADVADDR] = addr;
+    }
+    do_raise_exception_err(env, cs->exception_index, 0);
 }
 
 /* called by qemu's softmmu to fill the qemu tlb */
