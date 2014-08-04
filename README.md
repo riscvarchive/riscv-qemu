@@ -14,16 +14,14 @@ Installation
 A sample kernel with an initramfs is included in the "hacking"
 directory. You can easily test out riscv-qemu this way:
 
-```sh
-$ git clone git@github.com:ucb-bar/riscv-qemu.git
-$ cd riscv-qemu
-$ git submodule update --init pixman
-$ ./configure --target-list=riscv-softmmu
-$ make
-$ cd riscv-softmmu
-$ # now, start qemu
-$ ./qemu-system-riscv -kernel ../hacking/vmlinux/vmlinux -nographic
-```
+    $ git clone git@github.com:ucb-bar/riscv-qemu.git
+    $ cd riscv-qemu
+    $ git submodule update --init pixman
+    $ ./configure --target-list=riscv-softmmu
+    $ make
+    $ cd riscv-softmmu
+    $ # now, start qemu
+    $ ./qemu-system-riscv -kernel ../hacking/vmlinux/vmlinux -nographic
 
 To exit this system, hit `ctrl-a x`.
 
@@ -34,14 +32,12 @@ configuring the kernel/building a root fs will be available soon.
 
 ####Step 1:
 
-```sh
-$ git clone git@github.com:ucb-bar/riscv-qemu.git
-$ cd riscv-qemu
-$ git submodule update --init pixman
-$ ./configure --target-list=riscv-softmmu
-$ make
-$ cd riscv-softmmu
-```
+    $ git clone git@github.com:ucb-bar/riscv-qemu.git
+    $ cd riscv-qemu
+    $ git submodule update --init pixman
+    $ ./configure --target-list=riscv-softmmu
+    $ make
+    $ cd riscv-softmmu
 
 ####Step 2:
 
@@ -56,9 +52,7 @@ Instructions for the following two steps are coming soon:
 
 Now from the `riscv-softmmu/` directory, start `qemu-system-riscv`:
 
-```sh
-$ ./qemu-system-riscv -hda [your root.bin location] -kernel [your vmlinux location] -nographic
-```
+    $ ./qemu-system-riscv -hda [your root.bin location] -kernel [your vmlinux location] -nographic
 
 **IMPORTANT**: To cleanly exit this system, you must enter `halt -f` at the prompt
 and then hit `ctrl-a x`. Otherwise, the root filesystem will likely be corrupted.
