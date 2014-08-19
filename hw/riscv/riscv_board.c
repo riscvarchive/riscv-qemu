@@ -108,8 +108,6 @@ static void riscv_board_init(QEMUMachineInitArgs *args)
     RISCVCPU *cpu;
     CPURISCVState *env;
     int i;
-    DriveInfo *htifbd_drive;
-    char *htifbd_fname; // htif block device filename
 
     DeviceState *dev = qdev_create(NULL, TYPE_RISCV_BOARD);
 
@@ -163,19 +161,17 @@ static void riscv_board_init(QEMUMachineInitArgs *args)
     stl_p(memory_region_get_ram_ptr(main_mem), loaderparams.ram_size >> 20);
 
     // add serial device 0x3f8-0x3ff
-    serial_mm_init(system_memory, 0x3f8, 0, env->irq[4], 1843200/16, serial_hds[0], 
-            DEVICE_NATIVE_ENDIAN);
+    serial_mm_init(system_memory, 0x3f8, 0, env->irq[1], 1843200/16, serial_hds[0],
+        DEVICE_NATIVE_ENDIAN);
 
-    // setup HTIF Block Device if one is specified as -hda FILENAME
-    htifbd_drive = drive_get_by_index(IF_IDE, 0);
-    if (NULL == htifbd_drive) {
-        htifbd_fname = NULL;
-    } else {
-        htifbd_fname = (*(htifbd_drive->bdrv)).filename;
-    }
-
-    // add htif device 0x400 - 0x410
-    htif_mm_init(system_memory, 0x400, env->irq[0], main_mem, htifbd_fname);
+    /* Create MMIO transports, to which virtio backends created by the
+     * user are automatically connected as needed.  If no backend is
+     * present, the transport simply remains harmlessly idle.
+     * Each memory-mapped region is 0x200 bytes in size.
+     */
+    sysbus_create_simple("virtio-mmio", 0x400, env->irq[2]);
+    sysbus_create_simple("virtio-mmio", 0x600, env->irq[3]);
+    sysbus_create_simple("virtio-mmio", 0x800, env->irq[4]);
 
     /* Init internal devices */
     cpu_riscv_irq_init_cpu(env);

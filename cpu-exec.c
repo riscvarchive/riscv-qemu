@@ -446,14 +446,31 @@ int cpu_exec(CPUArchState *env)
                     if ((interrupt_request & CPU_INTERRUPT_HARD) &&
                         cpu_riscv_hw_interrupts_pending(env)) {
                         /* Raise it */
-                        if (((env->helper_csr[CSR_STATUS] >> 24) & 0x10) & (env->helper_csr[CSR_STATUS] >> 16)) {
-                            cpu->exception_index = RISCV_EXCP_SERIAL_INTERRUPT;
-                        } else {
-                            if (qemu_loglevel_mask(CPU_LOG_EXEC)) {
-                                qemu_log("timer interrupt\n");
-                            }
-                            cpu->exception_index = RISCV_EXCP_TIMER_INTERRUPT;
-                        }
+#ifndef __GNUC__
+                        /* Lookup table indexed by the hash function
+                         * h(x) = (x * y) >> (n - log2(n)), where
+                         * x contains the least significant 1 bit,
+                         * y is the the De Bruijn sequence 00011101b,
+                         * and n is the number of bit positions (8).
+                         */
+                        static const unsigned char pos[8] = { 0, 1, 6, 2, 7, 5, 4, 3 };
+#endif
+                        uint32_t status, irq;
+                        status = env->helper_csr[CSR_STATUS];
+                        status = (status >> 24) & (status >> 16) & 0xFF;
+#ifdef __GNUC__
+                        irq = __builtin_ctz(status);
+#else
+                        /* Count the consecutive zero bits (trailing)
+                         * with multiply and lookup.
+                         * Refer to "Using de Bruijn Sequences to Index a 1
+                         * in a Computer Word" (1998) by Charles Leiserson,
+                         * Harald Prokop, and Keith Randall.
+                         * (v & -v) extracts the least significant 1 bit.
+                         */
+                        irq = pos[(((status & -status) * 0x1DU) >> 5) & 0x7];
+#endif
+                        cpu->exception_index = 0x80000000U | irq;
                         cc->do_interrupt(cpu);
                         next_tb = 0;
                     }

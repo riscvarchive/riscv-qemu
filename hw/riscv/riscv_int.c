@@ -80,7 +80,7 @@ void cpu_riscv_irq_init_cpu(CPURISCVState *env)
 
 void cpu_riscv_soft_irq(CPURISCVState *env, int irq, int level)
 {
-    if (irq < 0 || irq > 2) {
+    if (irq != 0) {
         return;
     }
     qemu_set_irq(env->irq[irq], level);
