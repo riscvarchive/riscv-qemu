@@ -324,6 +324,7 @@ tpm="no"
 libssh2=""
 vhdx=""
 quorum="no"
+riscv_htif="yes"
 
 # parse CC options first
 for opt do
@@ -1063,6 +1064,10 @@ for opt do
   --disable-virtio-blk-data-plane) virtio_blk_data_plane="no"
   ;;
   --enable-virtio-blk-data-plane) virtio_blk_data_plane="yes"
+  ;;
+  --disable-riscv-htif) riscv_htif="no"
+  ;;
+  --enable-riscv-htif) riscv_htif="yes"
   ;;
   --disable-gtk) gtk="no"
   ;;
@@ -4627,6 +4632,10 @@ fi
 
 if test "$vhdx" = "yes" ; then
   echo "CONFIG_VHDX=y" >> $config_host_mak
+fi
+
+if test "$riscv_htif" = "yes" ; then
+  echo 'CONFIG_RISCV_HTIF=y' >> $config_host_mak
 fi
 
 # USB host support
