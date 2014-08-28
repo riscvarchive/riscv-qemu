@@ -3,15 +3,15 @@ riscv-qemu [![Build Status](https://travis-ci.org/ucb-bar/riscv-qemu.svg?branch=
 
 The riscv-softmmu target for full system emulation is currently supported. 
 It supports booting [riscv-linux] \(currently requires building from the 
-[qemu branch]\). A precompiled copy of the kernel is included in the "hacking" 
-directory for convenience (see Method 1 under installation).
+[qemu branch]\). A precompiled copy of the kernel is included in the 
+"hacking_files" directory for convenience (see Method 1 under installation).
 
 Installation 
 --------------
 
 ### Method 1 \(the quick way\):
 
-A sample kernel with an initramfs is included in the "hacking"
+A sample kernel with an initramfs is included in the "hacking_files"
 directory. You can easily test out riscv-qemu this way:
 
     $ git clone git@github.com:ucb-bar/riscv-qemu.git
@@ -21,7 +21,7 @@ directory. You can easily test out riscv-qemu this way:
     $ make
     $ cd riscv-softmmu
     $ # now, start qemu
-    $ ./qemu-system-riscv -kernel ../hacking/vmlinux/vmlinux -nographic
+    $ ./qemu-system-riscv -kernel ../hacking_files/vmlinux/vmlinux -nographic
 
 To exit this system, hit `ctrl-a x`.
 
