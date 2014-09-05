@@ -117,3 +117,4 @@ cscope.*
 tags
 TAGS
 *~
+/build/*
