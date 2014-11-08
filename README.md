@@ -14,7 +14,7 @@ Installation
 A sample kernel with an initramfs is included in the "hacking_files"
 directory. You can easily test out riscv-qemu this way:
 
-    $ git clone git@github.com:ucb-bar/riscv-qemu.git
+    $ git clone https://github.com/ucb-bar/riscv-qemu
     $ cd riscv-qemu
     $ git submodule update --init pixman
     $ ./configure --target-list=riscv-softmmu
@@ -32,7 +32,7 @@ configuring the kernel/building a root fs will be available soon.
 
 ####Step 1:
 
-    $ git clone git@github.com:ucb-bar/riscv-qemu.git
+    $ git clone https://github.com/ucb-bar/riscv-qemu
     $ cd riscv-qemu
     $ git submodule update --init pixman
     $ ./configure --target-list=riscv-softmmu
