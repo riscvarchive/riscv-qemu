@@ -6,6 +6,10 @@ It supports booting [riscv-linux] \(currently requires building from the
 [qemu branch]\). A precompiled copy of the kernel is included in the 
 "hacking_files" directory for convenience (see Method 1 under installation).
 
+Prereqs:
+
+    $ sudo apt-get install gcc libc6-dev pkg-config bridge-utils uml-utilities zlib1g-dev libglib2.0-dev autoconf automake libtool libsdl1.2-dev
+
 Installation 
 --------------
 
