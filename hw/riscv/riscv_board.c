@@ -165,7 +165,7 @@ static void riscv_board_init(QEMUMachineInitArgs *args)
     stl_p(memory_region_get_ram_ptr(main_mem), loaderparams.ram_size >> 20);
 
 #ifdef CONFIG_RISCV_HTIF
-    serial_mm_init(system_memory, 0x3f8, 0, env->irq[1], 1843200/16, serial_hds[0],
+    serial_mm_init(system_memory, 0x3f8, 0, env->irq[4], 1843200/16, serial_hds[0],
         DEVICE_NATIVE_ENDIAN);
 
     // setup HTIF Block Device if one is specified as -hda FILENAME
