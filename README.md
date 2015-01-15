@@ -13,43 +13,25 @@ Prereqs:
 Installation 
 --------------
 
-### Method 1 \(the quick way\):
+### Method 1 \(Devices: 8250 UART + HTIF Disk\): 
 
-A sample kernel with an initramfs is included in the "hacking_files"
-directory. You can easily test out riscv-qemu this way:
-
-    $ git clone https://github.com/ucb-bar/riscv-qemu
-    $ cd riscv-qemu
-    $ git submodule update --init pixman
-    $ ./configure --target-list=riscv-softmmu
-    $ make
-    $ cd riscv-softmmu
-    $ # now, start qemu
-    $ ./qemu-system-riscv -kernel ../hacking_files/vmlinux/vmlinux -nographic
-
-To exit this system, hit `ctrl-a x`.
-
-### Method 2 \(system with persistent storage\): 
-
-Booting from a block device is also supported. A more extensive guide for 
-configuring the kernel/building a root fs will be available soon.
-
-####Step 1:
+####Step 1: Build QEMU
 
     $ git clone https://github.com/ucb-bar/riscv-qemu
     $ cd riscv-qemu
     $ git submodule update --init pixman
-    $ ./configure --target-list=riscv-softmmu
+    $ ./configure --target-list=riscv-softmmu [--prefix=INSTALL_LOCATION]
     $ make
+    $ [make install] # if you supplied prefix above
     $ cd riscv-softmmu
 
 ####Step 2:
 
-Instructions for the following two steps are coming soon:
+To get started, you may download the following kernel image and disk images:
 
-**a)** Build linux kernel from the qemu branch of riscv-linux with htif block device support.
+**a)** [vmlinux](http://riscv.org/qemu/vmlinux)
 
-**b)** Build the `root.bin` root filesystem.
+**b)** [root.bin](http://riscv.org/qemu/root.bin)
 
 
 ####Step 3:
