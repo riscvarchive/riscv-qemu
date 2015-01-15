@@ -25,16 +25,17 @@ Installation
     $ [make install] # if you supplied prefix above
     $ cd riscv-softmmu
 
-####Step 2:
+####Step 2: Obtain Images
 
-To get started, you may download the following kernel image and disk images:
+To get started, you may download the following kernel image and disk images from
+the [RISC-V Getting Started Guide](http://riscv.org/getting-started.html).
 
 **a)** [vmlinux](http://riscv.org/qemu/vmlinux)
 
 **b)** [root.bin](http://riscv.org/qemu/root.bin)
 
 
-####Step 3:
+####Step 3: Run QEMU
 
 Now from the `riscv-softmmu/` directory, start `qemu-system-riscv`:
 
