@@ -30,7 +30,7 @@
 static uint64_t last_count_update;
 
 // should be the cpu freq
-#define TIMER_FREQ	500 * 1000 * 1000
+#define TIMER_FREQ	100 * 1000 * 1000
 
 uint64_t cpu_riscv_get_cycle (CPURISCVState *env) {
     uint64_t now;
