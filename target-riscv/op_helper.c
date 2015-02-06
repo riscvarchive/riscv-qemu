@@ -486,6 +486,9 @@ inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write, targ
 {
 
     switch (csrno) {
+        case CSR_STATUS:
+            env->helper_csr[CSR_STATUS] = (val_to_write & ~(SR_IP)) | (env->helper_csr[CSR_STATUS] & SR_IP);
+            break;
         case CSR_COUNT:
             cpu_riscv_store_count(env, (uint32_t)val_to_write);
             break;
