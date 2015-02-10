@@ -1,4 +1,4 @@
-riscv-qemu [![Build Status](https://travis-ci.org/ucb-bar/riscv-qemu.svg?branch=master)](https://travis-ci.org/ucb-bar/riscv-qemu)
+riscv-qemu [![Build Status](https://travis-ci.org/riscv/riscv-qemu.svg?branch=master)](https://travis-ci.org/riscv/riscv-qemu)
 =========
 
 The riscv-softmmu target for full system emulation is currently supported. 
@@ -17,7 +17,7 @@ Installation
 
 ####Step 1: Build QEMU
 
-    $ git clone https://github.com/ucb-bar/riscv-qemu
+    $ git clone https://github.com/riscv/riscv-qemu
     $ cd riscv-qemu
     $ git submodule update --init pixman
     $ ./configure --target-list=riscv-softmmu [--prefix=INSTALL_LOCATION]
@@ -53,5 +53,5 @@ Notes
   - target-riscv/
   - hw/riscv/
 
-[riscv-linux]:https://github.com/ucb-bar/riscv-linux
-[qemu branch]:https://github.com/ucb-bar/riscv-linux/tree/qemu
+[riscv-linux]:https://github.com/riscv/riscv-linux
+[qemu branch]:https://github.com/riscv/riscv-linux/tree/qemu
