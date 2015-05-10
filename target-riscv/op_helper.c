@@ -502,6 +502,9 @@ inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write, targ
             env->helper_csr[CSR_FFLAGS] = val_to_write & 0x1F;
             env->helper_csr[CSR_FRM] = (val_to_write >> 5) & 0x7;
             break;
+        case CSR_HARTID:
+            // Hardwired I would guess, so make it read-only
+            break;
         default:
             env->helper_csr[csrno] = val_to_write;
             break;

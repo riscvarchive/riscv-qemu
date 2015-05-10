@@ -85,3 +85,8 @@ void cpu_riscv_soft_irq(CPURISCVState *env, int irq, int level)
     }
     qemu_set_irq(env->irq[irq], level);
 }
+
+void cpu_riscv_hartid_init_cpu(CPURISCVState *env, unsigned int id)
+{
+    env->helper_csr[CSR_HARTID] = id;
+}

@@ -90,10 +90,31 @@ static int64_t load_kernel (void)
     return kernel_entry;
 }
 
-static void main_cpu_reset(void *opaque)
+/* Changed the name as all CPU are born and remain free and equal in rights */
+static void riscv_cpu_reset(void *opaque)
 {
     RISCVCPU *cpu = opaque;
     cpu_reset(CPU(cpu));
+}
+
+static void cpu_riscv_init_smp(const char *cpu_model, unsigned int id)
+{
+    RISCVCPU *cpu;
+    CPURISCVState *env;
+
+    cpu = cpu_riscv_init(cpu_model);
+    if (cpu == NULL) {
+        fprintf(stderr, "Unable to find CPU definition\n");
+        exit(1);
+    }
+    env = &cpu->env;
+
+    /* Assign id */
+    cpu_riscv_hartid_init_cpu(env, id);
+    /* Init internal devices */
+    cpu_riscv_irq_init_cpu(env);
+    cpu_riscv_clock_init(env);
+    qemu_register_reset(riscv_cpu_reset, cpu);
 }
 
 static void riscv_board_init(QEMUMachineInitArgs *args)
@@ -132,17 +153,7 @@ static void riscv_board_init(QEMUMachineInitArgs *args)
     }
 
     for (i = 0; i < smp_cpus; i++) {
-        cpu = cpu_riscv_init(cpu_model);
-        if (cpu == NULL) {
-            fprintf(stderr, "Unable to find CPU definition\n");
-            exit(1);
-        }
-        env = &cpu->env;
-
-        /* Init internal devices */
-        cpu_riscv_irq_init_cpu(env);
-        cpu_riscv_clock_init(env);
-        qemu_register_reset(main_cpu_reset, cpu);
+        cpu_riscv_init_smp(cpu_model, i);
     }
     cpu = RISCV_CPU(first_cpu);
     env = &cpu->env;
@@ -205,10 +216,6 @@ static void riscv_board_init(QEMUMachineInitArgs *args)
     sysbus_create_simple("virtio-mmio", 0x600, env->irq[2]);
     sysbus_create_simple("virtio-mmio", 0x800, env->irq[3]);
 #endif
-
-    /* Init internal devices */
-    cpu_riscv_irq_init_cpu(env);
-    cpu_riscv_clock_init(env);
 }
 
 static int riscv_board_sysbus_device_init(SysBusDevice *sysbusdev)
@@ -233,7 +240,7 @@ static QEMUMachine riscv_board_machine = {
     .name = "board",
     .desc = "RISCV Board",
     .init = riscv_board_init,
-    .max_cpus = 1,
+    .max_cpus = 8, // Wild guess for now
     .is_default = 1,
 };
 
