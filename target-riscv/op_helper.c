@@ -502,6 +502,20 @@ inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write, targ
             env->helper_csr[CSR_FFLAGS] = val_to_write & 0x1F;
             env->helper_csr[CSR_FRM] = (val_to_write >> 5) & 0x7;
             break;
+        case CSR_SEND_IPI:
+            // val_to_write contains the target processor id according to riscv-isa-sim/riscv/sim.cc
+            // IRQ_IPI is connected to irq 5 according to riscv-isa-sim/riscv/processor.cc
+            env->helper_csr[CSR_SEND_IPI] = val_to_write;
+            CPUState *fcpu = qemu_get_cpu(val_to_write);
+            // Just do nothing when the target cpu doesn't exist
+            if (fcpu) {
+               qemu_irq_raise(RISCV_CPU(fcpu)->env.irq[5]);
+            }
+            break;
+        case CSR_CLEAR_IPI:
+            env->helper_csr[CSR_SEND_IPI] = val_to_write;
+            qemu_irq_lower(env->irq[5]);
+            break;
         case CSR_HARTID:
             // Hardwired I would guess, so make it read-only
             break;
