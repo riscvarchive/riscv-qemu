@@ -2149,8 +2149,7 @@ gen_intermediate_code_internal(RISCVCPU *cpu, TranslationBlock *tb,
             break;
         }
         if (unlikely(singlestep)) {
-            printf("singlestep is not currently supported for riscv\n");
-            exit(1);
+            // exit after each instruction, triggers BS_NONE cond below
             break;
         }
     }
@@ -2158,17 +2157,18 @@ gen_intermediate_code_internal(RISCVCPU *cpu, TranslationBlock *tb,
         gen_io_end();
     }
     switch (ctx.bstate) {
-    case BS_STOP:
-        gen_goto_tb(&ctx, 0, ctx.pc);
-        break;
-    case BS_NONE:
-        // DO NOT CHAIN. This is for END-OF-PAGE. See gen_goto_tb.
-        tcg_gen_movi_tl(cpu_PC, ctx.pc); // NOT PC+4, that was already done
-        tcg_gen_exit_tb(0);
-        break;
-    case BS_BRANCH:
-    default:
-        break;
+        case BS_STOP:
+            gen_goto_tb(&ctx, 0, ctx.pc);
+            break;
+        case BS_NONE:
+            // DO NOT CHAIN. This is for END-OF-PAGE. See gen_goto_tb.
+            tcg_gen_movi_tl(cpu_PC, ctx.pc); // NOT PC+4, that was already done
+            tcg_gen_exit_tb(0);
+            break;
+        case BS_BRANCH:
+            // anything using BS_BRANCH will have generated it's own exit seq
+        default:
+            break;
     }
 done_generating:
     gen_tb_end(tb, num_insns);
