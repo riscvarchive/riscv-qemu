@@ -2840,26 +2840,6 @@ static const QEMUOption *lookup_opt(int argc, char **argv,
     return popt;
 }
 
-static gpointer malloc_and_trace(gsize n_bytes)
-{
-    void *ptr = malloc(n_bytes);
-    trace_g_malloc(n_bytes, ptr);
-    return ptr;
-}
-
-static gpointer realloc_and_trace(gpointer mem, gsize n_bytes)
-{
-    void *ptr = realloc(mem, n_bytes);
-    trace_g_realloc(mem, n_bytes, ptr);
-    return ptr;
-}
-
-static void free_and_trace(gpointer mem)
-{
-    trace_g_free(mem);
-    free(mem);
-}
-
 static int object_set_property(const char *name, const char *value, void *opaque)
 {
     Object *obj = OBJECT(opaque);
@@ -2957,20 +2937,12 @@ int main(int argc, char **argv, char **envp)
     bool userconfig = true;
     const char *log_mask = NULL;
     const char *log_file = NULL;
-    GMemVTable mem_trace = {
-        .malloc = malloc_and_trace,
-        .realloc = realloc_and_trace,
-        .free = free_and_trace,
-    };
     const char *trace_events = NULL;
     const char *trace_file = NULL;
 
     atexit(qemu_run_exit_notifiers);
     error_set_progname(argv[0]);
     qemu_init_exec_dir(argv[0]);
-
-    g_mem_set_vtable(&mem_trace);
-
     module_call_init(MODULE_INIT_QOM);
 
     qemu_add_opts(&qemu_drive_opts);
