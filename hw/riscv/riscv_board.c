@@ -316,7 +316,7 @@ static const TypeInfo riscv_board_device = {
 };
 
 static QEMUMachine riscv_board_machine = {
-    .name = "RISC-V Generic",
+    .name = "RISC-V_Generic",
     .desc = "RISC-V Generic Board",
     .init = riscv_board_init,
     .max_cpus = 1,
