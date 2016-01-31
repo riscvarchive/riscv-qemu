@@ -33,8 +33,6 @@ float32_t
     int shiftCount;
     union ui32_f32 uZ;
 
-    uiZ = 0; // stop gcc complaining
-
     signA = signF32UI( uiA );
     expA = expF32UI( uiA );
     sigA = fracF32UI( uiA );
@@ -153,8 +151,8 @@ float32_t
         if ( signProd == signC ) goto uiZ;
     }
 // invalid:
-//    softfloat_raiseFlags( softfloat_flag_invalid );
-//    uiZ = defaultNaNF32UI;
+    softfloat_raiseFlags( softfloat_flag_invalid );
+    uiZ = defaultNaNF32UI;
  propagateNaN_ZC:
     uiZ = softfloat_propagateNaNF32UI( uiZ, uiC );
     goto uiZ;

@@ -1,8 +1,8 @@
 /*
- *  RISC-V emulation for qemu: main translation routines.
+ * RISC-V emulation for qemu: main translation routines.
  *
- *  Author: Sagar Karandikar, skarandikar@berkeley.edu
- *  Based on the MIPS target
+ * Author: Sagar Karandikar, sagark@eecs.berkeley.edu
+ *
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -30,53 +30,6 @@
 //#define DISABLE_CHAINING_JAL
 
 #define RISCV_DEBUG_DISAS 0
-
-inline static int csr_regno(int regno);
-
-/* Get regno in our csr reg array from actual csr regno
- * Mapping:
- * [
- *  pos_in_array: regname (real reg number, input as int regno)
- *    0: sup0 (0x500),
- *    1: sup1 (0x501),
- *    2: epc (0x502),
- *    3: badvaddr (0x503),
- *    4: ptbr (0x504),
- *    5: asid (0x505),
- *    6: count (0x506),
- *    7: compare (0x507),
- *    8: evec (0x508),
- *    9: cause (0x509),
- *    A: status (0x50A),
- *    B: hartid (0x50B),
- *    C: impl (0x50C),
- *    D: fatc (0x50D),
- *    E: send_ipi (0x50E),
- *    F: clear_ipi (0x50F),
- *   10: cycle (0xC00),
- *   11: time (0xC01),
- *   12: instret (0xC02),
- *   13: fflags (0x1),
- *   14: frm (0x2),
- *   15: fcsr (0x3),
- *   ...
- *   1E: tohost (0x51E),
- *   1F: fromhost (0x51F)
- * ]
- */
-inline static int csr_regno(int regno)
-{
-    if (regno < 0x4 && regno > 0x0) { //0x1, 0x2, 0x3
-        return regno + 0x12;
-    }
-    if (regno < 0xC00) {
-        // 0x5xx registers
-        return 0xFF & regno;
-    }
-    // 0xC0x registers
-    return (0xF & regno) + 0x10;
-}
-
 
 #define MASK_OP_MAJOR(op)  (op & 0x7F)
 enum {
@@ -235,9 +188,15 @@ enum {
 
 #define MASK_OP_SYSTEM(op)   (MASK_OP_MAJOR(op) | (op & (0x7 << 12)))
 enum {
-    OPC_RISC_SCALL       = OPC_RISC_SYSTEM | (0x0 << 12),
-    OPC_RISC_SBREAK      = OPC_RISC_SYSTEM | (0x0 << 12),
-    OPC_RISC_SRET        = OPC_RISC_SYSTEM | (0x0 << 12),
+    OPC_RISC_ECALL       = OPC_RISC_SYSTEM | (0x0 << 12),
+    OPC_RISC_EBREAK      = OPC_RISC_SYSTEM | (0x0 << 12),
+    OPC_RISC_ERET        = OPC_RISC_SYSTEM | (0x0 << 12),
+    OPC_RISC_MRTS        = OPC_RISC_SYSTEM | (0x0 << 12),
+    OPC_RISC_MRTH        = OPC_RISC_SYSTEM | (0x0 << 12),
+    OPC_RISC_HRTS        = OPC_RISC_SYSTEM | (0x0 << 12),
+    OPC_RISC_WFI         = OPC_RISC_SYSTEM | (0x0 << 12),
+    OPC_RISC_SFENCEVM    = OPC_RISC_SYSTEM | (0x0 << 12),
+
     OPC_RISC_CSRRW       = OPC_RISC_SYSTEM | (0x1 << 12),
     OPC_RISC_CSRRS       = OPC_RISC_SYSTEM | (0x2 << 12),
     OPC_RISC_CSRRC       = OPC_RISC_SYSTEM | (0x3 << 12),
@@ -361,6 +320,7 @@ enum {
 /* global register indices */
 static TCGv_ptr cpu_env;
 static TCGv cpu_gpr[32], cpu_PC, cpu_fpr[32];
+static TCGv load_reservation;
 
 #include "exec/gen-icount.h"
 
@@ -384,24 +344,17 @@ enum {
 };
 
 static const char * const regnames[] = {
-    "zero", "ra", "s0", "s1",  "s2",  "s3",  "s4",  "s5",
-    "s6",   "s7", "s8", "s9", "s10", "s11",  "sp",  "tp",
-    "v0",   "v1", "a0", "a1",  "a2",  "a3",  "a4",  "a5",
-    "a6",   "a7", "t0", "t1",  "t2",  "t3",  "t4",  "gp"
-};
-
-static const char * const cs_regnames[] = {
-    "sup0", "sup1", "epc", "badvaddr", "ptbr", "asid", "count", "compare",
-    "evec", "cause", "status", "hartid", "impl", "fatc", "send_ipi", "clear_ipi",
-    "cycle", "time", "instret", "fflags", "frm", "fcsr", "junk", "junk",
-    "junk", "junk", "junk", "junk", "junk", "junk", "tohost", "fromhost"
+  "zero", "ra  ", "sp  ", "gp  ", "tp  ", "t0  ",  "t1  ",  "t2  ",
+  "s0  ", "s1  ", "a0  ", "a1  ", "a2  ", "a3  ",  "a4  ",  "a5  ",
+  "a6  ", "a7  ", "s2  ", "s3  ", "s4  ", "s5  ",  "s6  ",  "s7  ",
+  "s8  ", "s9  ", "s10 ", "s11 ", "t3  ", "t4  ",  "t5  ",  "t6  "
 };
 
 static const char * const fpr_regnames[] = {
-    "f0", "f1", "f2", "f3", "f4", "f5", "f6", "f7",
-    "f8", "f9", "f10", "f11", "f12", "f13", "f14", "f15",
-    "f16", "f17", "f18", "f19", "f20", "f21", "f22", "f23",
-    "f24", "f25", "f26", "f27", "f28", "f29", "f30", "f31",
+  "ft0", "ft1", "ft2",  "ft3",  "ft4", "ft5", "ft6",  "ft7",
+  "fs0", "fs1", "fa0",  "fa1",  "fa2", "fa3", "fa4",  "fa5",
+  "fa6", "fa7", "fs2",  "fs3",  "fs4", "fs5", "fs6",  "fs7",
+  "fs8", "fs9", "fs10", "fs11", "ft8", "ft9", "ft10", "ft11"
 };
 
 #define RISCV_DEBUG(fmt, ...)                                                  \
@@ -428,6 +381,23 @@ static inline void generate_exception (DisasContext *ctx, int excp)
     tcg_temp_free_i32(helper_tmp);
 }
 
+static inline void generate_exception_mbadaddr(DisasContext *ctx, int excp)
+{
+    tcg_gen_movi_tl(cpu_PC, ctx->pc);
+    TCGv_i32 helper_tmp = tcg_const_i32(excp);
+    gen_helper_raise_exception_mbadaddr(cpu_env, helper_tmp, cpu_PC);
+    tcg_temp_free_i32(helper_tmp);
+}
+
+static inline void generate_exception_err (DisasContext *ctx, int excp)
+{
+    tcg_gen_movi_tl(cpu_PC, ctx->pc);
+    TCGv_i32 helper_tmp = tcg_const_i32(excp);
+    gen_helper_raise_exception_err(cpu_env, helper_tmp, cpu_PC);
+    tcg_temp_free_i32(helper_tmp);
+}
+
+
 // unknown instruction / fp disabled
 static inline void kill_unknown(DisasContext *ctx, int excp) {
     generate_exception(ctx, excp);
@@ -438,7 +408,8 @@ static inline void gen_goto_tb(DisasContext *ctx, int n, target_ulong dest)
 {
     TranslationBlock *tb;
     tb = ctx->tb;
-    if ((tb->pc & TARGET_PAGE_MASK) == (dest & TARGET_PAGE_MASK)) {
+    if ((tb->pc & TARGET_PAGE_MASK) == (dest & TARGET_PAGE_MASK) && 
+        likely(!ctx->singlestep_enabled)) {
         // we only allow direct chaining when the jump is to the same page
         // otherwise, we could produce incorrect chains when address spaces
         // change. see
@@ -448,6 +419,9 @@ static inline void gen_goto_tb(DisasContext *ctx, int n, target_ulong dest)
         tcg_gen_exit_tb((uintptr_t)tb + n);
     } else {
         tcg_gen_movi_tl(cpu_PC, dest);
+        if (ctx->singlestep_enabled) {
+            generate_exception(ctx, EXCP_DEBUG);
+        }
         tcg_gen_exit_tb(0);
     }
 }
@@ -571,6 +545,8 @@ inline static void gen_arith(DisasContext *ctx, uint32_t opc,
             tcg_gen_mov_tl(source1, spec_source1);
             tcg_temp_free(spec_source1);
             tcg_temp_free(spec_source2);
+            tcg_temp_free(cond1);
+            tcg_temp_free(cond2);
         }                
         break;
     case OPC_RISC_DIVU:
@@ -636,6 +612,8 @@ inline static void gen_arith(DisasContext *ctx, uint32_t opc,
             tcg_gen_mov_tl(source1, spec_source1);
             tcg_temp_free(spec_source1);
             tcg_temp_free(spec_source2);
+            tcg_temp_free(cond1);
+            tcg_temp_free(cond2);
         }                
         break;
     case OPC_RISC_REMU:
@@ -665,7 +643,7 @@ inline static void gen_arith(DisasContext *ctx, uint32_t opc,
         }                
         break;
     default:
-        kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
+        kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
         break;
 
     }
@@ -683,7 +661,7 @@ inline static void gen_arith_imm(DisasContext *ctx, uint32_t opc,
     TCGv source1;
     source1 = tcg_temp_new();
     gen_get_gpr(source1, rs1);
-    target_ulong uimm = (target_long)imm; /* sign ext 16->64 bits */
+    target_long uimm = (target_long)imm; /* sign ext 16->64 bits */
 
     switch (opc) {
     case OPC_RISC_ADDI:
@@ -717,7 +695,7 @@ inline static void gen_arith_imm(DisasContext *ctx, uint32_t opc,
         }
         break;
     default:
-        kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
+        kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
         break;
     }
 
@@ -734,7 +712,7 @@ inline static void gen_arith_imm_w(DisasContext *ctx, uint32_t opc,
     TCGv source1;
     source1 = tcg_temp_new();
     gen_get_gpr(source1, rs1);
-    target_ulong uimm = (target_long)imm; /* sign ext 16->64 bits */
+    target_long uimm = (target_long)imm; /* sign ext 16->64 bits */
 
     switch (opc) {
     case OPC_RISC_ADDIW:
@@ -766,7 +744,7 @@ inline static void gen_arith_imm_w(DisasContext *ctx, uint32_t opc,
         }
         break;
     default:
-        kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
+        kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
         break;
     }
     gen_set_gpr(rd, source1);
@@ -855,6 +833,8 @@ inline static void gen_arith_w(DisasContext *ctx, uint32_t opc,
             tcg_gen_mov_tl(source1, spec_source1);
             tcg_temp_free(spec_source1);
             tcg_temp_free(spec_source2);
+            tcg_temp_free(cond1);
+            tcg_temp_free(cond2);
             tcg_gen_ext32s_tl(source1, source1);
         }                
         break;
@@ -928,6 +908,8 @@ inline static void gen_arith_w(DisasContext *ctx, uint32_t opc,
             tcg_gen_mov_tl(source1, spec_source1);
             tcg_temp_free(spec_source1);
             tcg_temp_free(spec_source2);
+            tcg_temp_free(cond1);
+            tcg_temp_free(cond2);
             tcg_gen_ext32s_tl(source1, source1);
         }                
         break;
@@ -961,7 +943,7 @@ inline static void gen_arith_w(DisasContext *ctx, uint32_t opc,
         }                
         break;
     default:
-        kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
+        kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
         break;
     }
     gen_set_gpr(rd, source1);
@@ -972,6 +954,7 @@ inline static void gen_arith_w(DisasContext *ctx, uint32_t opc,
 inline static void gen_branch(DisasContext *ctx, uint32_t opc, 
                        int rs1, int rs2, int16_t bimm) {
 
+    // TODO: misaligned insn (see jalr)
     int l = gen_new_label();
     TCGv source1, source2;
     source1 = tcg_temp_new();
@@ -1000,7 +983,7 @@ inline static void gen_branch(DisasContext *ctx, uint32_t opc,
         tcg_gen_brcond_tl(TCG_COND_GEU, source1, source2, l);
         break;
     default:
-        kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
+        kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
         break;
     }
 
@@ -1017,6 +1000,8 @@ inline static void gen_branch(DisasContext *ctx, uint32_t opc,
 #else
     gen_goto_tb(ctx, 0, ctx->pc + ubimm); // must use this for safety
 #endif
+    tcg_temp_free(source1);
+    tcg_temp_free(source2);
     ctx->bstate = BS_BRANCH;
 }
 
@@ -1024,50 +1009,53 @@ inline static void gen_load(DisasContext *ctx, uint32_t opc,
                       int rd, int rs1, int16_t imm)
 {
 
-    target_ulong uimm = (target_long)imm; /* sign ext 16->64 bits */
+    target_long uimm = (target_long)imm; /* sign ext 16->64 bits */
 
     TCGv t0 = tcg_temp_new();
+    TCGv t1 = tcg_temp_new();
+
     gen_get_gpr(t0, rs1);
     tcg_gen_addi_tl(t0, t0, uimm); // 
     
     switch (opc) {
 
     case OPC_RISC_LB:
-        tcg_gen_qemu_ld8s(t0, t0, ctx->mem_idx);
+        tcg_gen_qemu_ld8s(t1, t0, ctx->mem_idx);
         break;
     case OPC_RISC_LH:
-        tcg_gen_qemu_ld16s(t0, t0, ctx->mem_idx);
+        tcg_gen_qemu_ld16s(t1, t0, ctx->mem_idx);
         break;
     case OPC_RISC_LW:
-        tcg_gen_qemu_ld32s(t0, t0, ctx->mem_idx);
+        tcg_gen_qemu_ld32s(t1, t0, ctx->mem_idx);
         break;
     case OPC_RISC_LD:
-        tcg_gen_qemu_ld64(t0, t0, ctx->mem_idx);
+        tcg_gen_qemu_ld64(t1, t0, ctx->mem_idx);
         break;
     case OPC_RISC_LBU:
-        tcg_gen_qemu_ld8u(t0, t0, ctx->mem_idx);
+        tcg_gen_qemu_ld8u(t1, t0, ctx->mem_idx);
         break;
     case OPC_RISC_LHU:
-        tcg_gen_qemu_ld16u(t0, t0, ctx->mem_idx);
+        tcg_gen_qemu_ld16u(t1, t0, ctx->mem_idx);
         break;
     case OPC_RISC_LWU:
-        tcg_gen_qemu_ld32u(t0, t0, ctx->mem_idx);
+        tcg_gen_qemu_ld32u(t1, t0, ctx->mem_idx);
         break;
     default:
-        kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
+        kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
         break;
 
     }
 
-    gen_set_gpr(rd, t0);
+    gen_set_gpr(rd, t1);
     tcg_temp_free(t0);
+    tcg_temp_free(t1);
 }
 
 
 inline static void gen_store(DisasContext *ctx, uint32_t opc, 
                       int rs1, int rs2, int16_t imm)
 {
-    target_ulong uimm = (target_long)imm; /* sign ext 16->64 bits */
+    target_long uimm = (target_long)imm; /* sign ext 16->64 bits */
 
     TCGv t0 = tcg_temp_new();
     TCGv dat = tcg_temp_new();
@@ -1088,10 +1076,12 @@ inline static void gen_store(DisasContext *ctx, uint32_t opc,
         break;
     case OPC_RISC_SD:
         tcg_gen_qemu_st64(dat, t0, ctx->mem_idx);
+//        gen_helper_ldbreak(cpu_env, cpu_PC, t0, dat);
+
         break;
 
     default:
-        kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
+        kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
         break;
     }
 
@@ -1102,10 +1092,14 @@ inline static void gen_store(DisasContext *ctx, uint32_t opc,
 inline static void gen_jalr(DisasContext *ctx, uint32_t opc, 
                       int rd, int rs1, int16_t imm)
 {
-    target_ulong uimm = (target_long)imm; /* sign ext 16->64 bits */
-    TCGv t0, t1;
-    t0 = tcg_temp_new();
-    t1 = tcg_temp_new();
+    int misaligned = gen_new_label();
+    int done = gen_new_label();
+    target_long uimm = (target_long)imm; /* sign ext 16->64 bits */
+    TCGv t0, t1, t2, t3;
+    t0 = tcg_temp_local_new();
+    t1 = tcg_temp_local_new();
+    t2 = tcg_temp_local_new(); // old_pc
+    t3 = tcg_temp_local_new();
 
     switch (opc) {
     
@@ -1114,22 +1108,33 @@ inline static void gen_jalr(DisasContext *ctx, uint32_t opc,
         tcg_gen_addi_tl(t0, t0, uimm);
         tcg_gen_andi_tl(t0, t0, 0xFFFFFFFFFFFFFFFEll);
 
-        // store pc+4 to rd as necessary
-        tcg_gen_movi_tl(t1, 4);
-        tcg_gen_addi_tl(t1, t1, ctx->pc);
-        gen_set_gpr(rd, t1);
+        tcg_gen_andi_tl(t3, t0, 0x2);
+        tcg_gen_movi_tl(t2, ctx->pc);
 
+        tcg_gen_brcondi_tl(TCG_COND_NE, t3, 0x0, misaligned);
         tcg_gen_mov_tl(cpu_PC, t0);
-        tcg_gen_exit_tb(0); // NO CHAINING FOR JALR
+        tcg_gen_addi_tl(t1, t2, 4);
+        gen_set_gpr(rd, t1);
+        tcg_gen_br(done);
+
+
+        gen_set_label(misaligned);
+        generate_exception_mbadaddr(ctx, NEW_RISCV_EXCP_INST_ADDR_MIS);
+
+        gen_set_label(done);
+        tcg_gen_exit_tb(0); // exception or not, NO CHAINING FOR JALR
         ctx->bstate = BS_BRANCH;
         break;
     default:
-        kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
+        kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
         break;
 
     }
     tcg_temp_free(t0);
     tcg_temp_free(t1);
+    tcg_temp_free(t2);
+    tcg_temp_free(t3);
+
 }
 
 inline static void gen_atomic(DisasContext *ctx, uint32_t opc, 
@@ -1140,8 +1145,8 @@ inline static void gen_atomic(DisasContext *ctx, uint32_t opc,
 
     TCGv source1, source2, dat;
 
-    source1 = tcg_temp_new();
-    source2 = tcg_temp_new();
+    source1 = tcg_temp_local_new();
+    source2 = tcg_temp_local_new();
     dat = tcg_temp_new();
 
     gen_get_gpr(source1, rs1);
@@ -1150,11 +1155,21 @@ inline static void gen_atomic(DisasContext *ctx, uint32_t opc,
     switch (opc) {
         // all currently implemented as non-atomics
     case OPC_RISC_LR_W:
+        // put addr in load_reservation
+        tcg_gen_mov_tl(load_reservation, source1);
         tcg_gen_qemu_ld32s(source1, source1, ctx->mem_idx);
         break;
-    case OPC_RISC_SC_W:
+    case OPC_RISC_SC_W: {
+        int fail = gen_new_label(); 
+        int done = gen_new_label(); 
+        tcg_gen_brcond_tl(TCG_COND_NE, load_reservation, source1, fail);
         tcg_gen_qemu_st32(source2, source1, ctx->mem_idx);
-        tcg_gen_movi_tl(source1, 0);
+        tcg_gen_movi_tl(source1, 0); //success
+        tcg_gen_br(done);
+        gen_set_label(fail);
+        tcg_gen_movi_tl(source1, 1); //fail
+        gen_set_label(done);
+        }
         break;
     case OPC_RISC_AMOSWAP_W:
         tcg_gen_qemu_ld32s(dat, source1, ctx->mem_idx);
@@ -1286,12 +1301,22 @@ inline static void gen_atomic(DisasContext *ctx, uint32_t opc,
         }
         break;
     case OPC_RISC_LR_D:
+        // put addr in load_reservation
+        tcg_gen_mov_tl(load_reservation, source1);
         tcg_gen_qemu_ld64(source1, source1, ctx->mem_idx);
         break;
-    case OPC_RISC_SC_D:       
+    case OPC_RISC_SC_D: {
+        int fail = gen_new_label(); 
+        int done = gen_new_label(); 
+        tcg_gen_brcond_tl(TCG_COND_NE, load_reservation, source1, fail);
         tcg_gen_qemu_st64(source2, source1, ctx->mem_idx);
-        tcg_gen_movi_tl(source1, 0); // assume always success
+        tcg_gen_movi_tl(source1, 0); //success
+        tcg_gen_br(done);
+        gen_set_label(fail);
+        tcg_gen_movi_tl(source1, 1); //fail
+        gen_set_label(done);
         break;
+        }
     case OPC_RISC_AMOSWAP_D:
         tcg_gen_qemu_ld64(dat, source1, ctx->mem_idx);
         tcg_gen_qemu_st64(source2, source1, ctx->mem_idx);
@@ -1422,7 +1447,7 @@ inline static void gen_atomic(DisasContext *ctx, uint32_t opc,
         }
         break;
     default:
-        kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
+        kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
         break;
 
     }
@@ -1435,7 +1460,7 @@ inline static void gen_atomic(DisasContext *ctx, uint32_t opc,
 }
 
 
-inline static void gen_csr_htif(DisasContext *ctx, uint32_t opc, int addr, int rd, int rs1) {
+inline static void gen_csr_htif(DisasContext *ctx, uint32_t opc, uint64_t addr, int rd, int rs1) {
     TCGv source1, csr_store, htif_addr;
     source1 = tcg_temp_new();
     csr_store = tcg_temp_new();
@@ -1465,12 +1490,15 @@ inline static void gen_csr_htif(DisasContext *ctx, uint32_t opc, int addr, int r
         tcg_gen_andi_tl(source1, csr_store, ~((uint64_t)rs1));
         break;
     default:
-        kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
+        kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
         break;
 
     }
     tcg_gen_qemu_st64(source1, htif_addr, ctx->mem_idx);
     gen_set_gpr(rd, csr_store);
+    tcg_temp_free(source1);
+    tcg_temp_free(csr_store);
+    tcg_temp_free(htif_addr);
 }
 
 inline static void gen_system(DisasContext *ctx, uint32_t opc, 
@@ -1479,15 +1507,11 @@ inline static void gen_system(DisasContext *ctx, uint32_t opc,
     // get index into csr array
     int backup_csr = csr;
 
-    csr = csr_regno(csr);
-
-    if (unlikely(backup_csr == 0x50D || backup_csr == 0x505)) {
-        gen_helper_tlb_flush(cpu_env);
-    } else if (unlikely(csr == CSR_TOHOST)) {
-        gen_csr_htif(ctx, opc, 0x400, rd, rs1);
+    if (csr == NEW_CSR_MTOHOST) {
+        gen_csr_htif(ctx, opc, 0xFFFFFFFFF0000000L, rd, rs1);
         return;
-    } else if (unlikely(csr == CSR_FROMHOST)) {
-        gen_csr_htif(ctx, opc, 0x408, rd, rs1);
+    } else if (csr == NEW_CSR_MFROMHOST) {
+        gen_csr_htif(ctx, opc, 0xFFFFFFFFF0000008L, rd, rs1);
         return;
     }
 
@@ -1500,67 +1524,122 @@ inline static void gen_system(DisasContext *ctx, uint32_t opc,
 
     switch (opc) {
 
-    case OPC_RISC_SCALL:
+    case OPC_RISC_ECALL:
         switch (backup_csr) {
-            case 0x0: // SCALL
-                generate_exception(ctx, RISCV_EXCP_SCALL);
-                ctx->bstate = BS_STOP;
-                break;
-            case 0x1: // SBREAK
-                kill_unknown(ctx, RISCV_EXCP_BREAK);
-                ctx->bstate = BS_STOP;
-                break;
-            case 0x800: // SRET
-                gen_helper_sret(cpu_PC, cpu_env);
+            case 0x0: // ECALL
+                // always generates U-level ECALL, fixed in do_interrupt handler
+                generate_exception(ctx, NEW_RISCV_EXCP_U_ECALL);
                 tcg_gen_exit_tb(0); // no chaining
                 ctx->bstate = BS_BRANCH;
                 break;
+            case 0x1: // EBREAK
+                generate_exception(ctx, NEW_RISCV_EXCP_BREAKPOINT);
+                tcg_gen_exit_tb(0); // no chaining
+                ctx->bstate = BS_BRANCH;
+                break;
+            case 0x100: // ERET
+                // temporarily added second cpu_PC for debug
+                tcg_gen_movi_tl(cpu_PC, ctx->pc);
+                gen_helper_sret(cpu_PC, cpu_env, cpu_PC);
+                tcg_gen_exit_tb(0); // no chaining
+                ctx->bstate = BS_BRANCH;
+                break;
+            case 0x305: // MRTS
+                tcg_gen_movi_tl(cpu_PC, ctx->pc); // mrts helper may cause misaligned exception
+                gen_helper_mrts(cpu_PC, cpu_env, cpu_PC);
+                tcg_gen_exit_tb(0); // no chaining
+                ctx->bstate = BS_BRANCH;
+                break;
+            case 0x306: // MRTH
+                printf("SYSTEM INST NOT YET IMPLEMENTED 0x%x\n", backup_csr);
+                exit(1);
+                break;
+            case 0x205: // HRTS
+                printf("SYSTEM INST NOT YET IMPLEMENTED 0x%x\n", backup_csr);
+                exit(1);
+                break;
+            case 0x102: // WFI
+                // nop for now, as in spike
+                break;
+            case 0x101: // SFENCE.VM
+                gen_helper_tlb_flush(cpu_env);
+                break;
             default:
-                kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
+                kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
                 break;
         }
         break;
     case OPC_RISC_CSRRW:
-        gen_helper_csrrw(dest, cpu_env, source1, csr_store);
+        tcg_gen_movi_tl(cpu_PC, ctx->pc);
+        gen_helper_csrrw(dest, cpu_env, source1, csr_store, cpu_PC);
         gen_set_gpr(rd, dest);
+        // end tb since we may be changing priv modes
+        tcg_gen_movi_tl(cpu_PC, ctx->pc + 4);
+        tcg_gen_exit_tb(0); // no chaining
+        ctx->bstate = BS_BRANCH;
         break;
     case OPC_RISC_CSRRS:
-        gen_helper_csrrs(dest, cpu_env, source1, csr_store);
+        tcg_gen_movi_tl(cpu_PC, ctx->pc);
+        gen_helper_csrrs(dest, cpu_env, source1, csr_store, cpu_PC);
         gen_set_gpr(rd, dest);
+        // end tb since we may be changing priv modes
+        tcg_gen_movi_tl(cpu_PC, ctx->pc + 4);
+        tcg_gen_exit_tb(0); // no chaining
+        ctx->bstate = BS_BRANCH;
         break;
     case OPC_RISC_CSRRC:
-        gen_helper_csrrc(dest, cpu_env, source1, csr_store);
+        tcg_gen_movi_tl(cpu_PC, ctx->pc);
+        gen_helper_csrrc(dest, cpu_env, source1, csr_store, cpu_PC);
         gen_set_gpr(rd, dest);
+        // end tb since we may be changing priv modes
+        tcg_gen_movi_tl(cpu_PC, ctx->pc + 4);
+        tcg_gen_exit_tb(0); // no chaining
+        ctx->bstate = BS_BRANCH;
         break;
     case OPC_RISC_CSRRWI:
         {
+            tcg_gen_movi_tl(cpu_PC, ctx->pc);
             TCGv imm_rs1 = tcg_temp_new();
             tcg_gen_movi_tl(imm_rs1, rs1);
-            gen_helper_csrrw(dest, cpu_env, imm_rs1, csr_store);
+            gen_helper_csrrw(dest, cpu_env, imm_rs1, csr_store, cpu_PC);
             gen_set_gpr(rd, dest);
             tcg_temp_free(imm_rs1);
+            // end tb since we may be changing priv modes
+            tcg_gen_movi_tl(cpu_PC, ctx->pc + 4);
+            tcg_gen_exit_tb(0); // no chaining
+            ctx->bstate = BS_BRANCH;
         }
         break;
     case OPC_RISC_CSRRSI:
         {
+            tcg_gen_movi_tl(cpu_PC, ctx->pc);
             TCGv imm_rs1 = tcg_temp_new();
             tcg_gen_movi_tl(imm_rs1, rs1);
-            gen_helper_csrrs(dest, cpu_env, imm_rs1, csr_store);
+            gen_helper_csrrsi(dest, cpu_env, imm_rs1, csr_store, cpu_PC);
             gen_set_gpr(rd, dest);
             tcg_temp_free(imm_rs1);
+            // end tb since we may be changing priv modes
+            tcg_gen_movi_tl(cpu_PC, ctx->pc + 4);
+            tcg_gen_exit_tb(0); // no chaining
+            ctx->bstate = BS_BRANCH;
         }
         break;
     case OPC_RISC_CSRRCI:
         {
+            tcg_gen_movi_tl(cpu_PC, ctx->pc);
             TCGv imm_rs1 = tcg_temp_new();
             tcg_gen_movi_tl(imm_rs1, rs1);
-            gen_helper_csrrc(dest, cpu_env, imm_rs1, csr_store);
+            gen_helper_csrrc(dest, cpu_env, imm_rs1, csr_store, cpu_PC);
             gen_set_gpr(rd, dest);
             tcg_temp_free(imm_rs1);
+            // end tb since we may be changing priv modes
+            tcg_gen_movi_tl(cpu_PC, ctx->pc + 4);
+            tcg_gen_exit_tb(0); // no chaining
+            ctx->bstate = BS_BRANCH;
         }
         break;
     default:
-        kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
+        kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
         break;
 
     }
@@ -1573,7 +1652,7 @@ inline static void gen_system(DisasContext *ctx, uint32_t opc,
 inline static void gen_fp_load(DisasContext *ctx, uint32_t opc, 
                       int rd, int rs1, int16_t imm)
 {
-    target_ulong uimm = (target_long)imm; /* sign ext 16->64 bits */
+    target_long uimm = (target_long)imm; /* sign ext 16->64 bits */
 
     TCGv t0 = tcg_temp_new();
     gen_get_gpr(t0, rs1);
@@ -1588,7 +1667,7 @@ inline static void gen_fp_load(DisasContext *ctx, uint32_t opc,
         tcg_gen_qemu_ld64(t0, t0, ctx->mem_idx);
         break;
     default:
-        kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
+        kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
         break;
 
     }
@@ -1600,7 +1679,7 @@ inline static void gen_fp_load(DisasContext *ctx, uint32_t opc,
 inline static void gen_fp_store(DisasContext *ctx, uint32_t opc, 
                       int rs1, int rs2, int16_t imm)
 {
-    target_ulong uimm = (target_long)imm; /* sign ext 16->64 bits */
+    target_long uimm = (target_long)imm; /* sign ext 16->64 bits */
 
     TCGv t0 = tcg_temp_new();
     TCGv dat = tcg_temp_new();
@@ -1618,7 +1697,7 @@ inline static void gen_fp_store(DisasContext *ctx, uint32_t opc,
         break;
 
     default:
-        kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
+        kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
         break;
     }
 
@@ -1641,7 +1720,7 @@ inline static void gen_fp_fmadd(DisasContext *ctx, uint32_t opc,
         gen_helper_fmadd_d(cpu_fpr[rd], cpu_env, cpu_fpr[rs1], cpu_fpr[rs2], cpu_fpr[rs3], rm_reg);
         break;
     default:
-        kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
+        kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
         break;
     }
     tcg_temp_free(rm_reg);
@@ -1663,7 +1742,7 @@ inline static void gen_fp_fmsub(DisasContext *ctx, uint32_t opc,
         gen_helper_fmsub_d(cpu_fpr[rd], cpu_env, cpu_fpr[rs1], cpu_fpr[rs2], cpu_fpr[rs3], rm_reg);
         break;
     default:
-        kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
+        kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
         break;
     }
     tcg_temp_free(rm_reg);
@@ -1684,7 +1763,7 @@ inline static void gen_fp_fnmsub(DisasContext *ctx, uint32_t opc,
         gen_helper_fnmsub_d(cpu_fpr[rd], cpu_env, cpu_fpr[rs1], cpu_fpr[rs2], cpu_fpr[rs3], rm_reg);
         break;
     default:
-        kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
+        kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
         break;
     }
     tcg_temp_free(rm_reg);
@@ -1705,7 +1784,7 @@ inline static void gen_fp_fnmadd(DisasContext *ctx, uint32_t opc,
         gen_helper_fnmadd_d(cpu_fpr[rd], cpu_env, cpu_fpr[rs1], cpu_fpr[rs2], cpu_fpr[rs3], rm_reg);
         break;
     default:
-        kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
+        kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
         break;
     }
     tcg_temp_free(rm_reg);
@@ -1741,7 +1820,7 @@ inline static void gen_fp_arith(DisasContext *ctx, uint32_t opc,
         } else if (rm == 0x2) {
             gen_helper_fsgnjx_s(cpu_fpr[rd], cpu_env, cpu_fpr[rs1], cpu_fpr[rs2]);  
         } else {
-            kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
+            kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
         }
         break;
     case OPC_RISC_FMIN_S:
@@ -1751,7 +1830,7 @@ inline static void gen_fp_arith(DisasContext *ctx, uint32_t opc,
         } else if (rm == 0x1) {
             gen_helper_fmax_s(cpu_fpr[rd], cpu_env, cpu_fpr[rs1], cpu_fpr[rs2]);
         } else {
-            kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
+            kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
         }
         break;
 
@@ -1768,7 +1847,7 @@ inline static void gen_fp_arith(DisasContext *ctx, uint32_t opc,
         } else if (rm == 0x2) {
             gen_helper_feq_s(write_int_rd, cpu_env, cpu_fpr[rs1], cpu_fpr[rs2]);
         } else {
-            kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
+            kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
         }
         gen_set_gpr(rd, write_int_rd);
         break;
@@ -1784,7 +1863,7 @@ inline static void gen_fp_arith(DisasContext *ctx, uint32_t opc,
         } else if (rs2 == 0x3) { // FCVT_LU_S
             gen_helper_fcvt_lu_s(write_int_rd, cpu_env, cpu_fpr[rs1], rm_reg);
         } else {
-            kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
+            kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
         }
         gen_set_gpr(rd, write_int_rd);
         break;
@@ -1801,7 +1880,7 @@ inline static void gen_fp_arith(DisasContext *ctx, uint32_t opc,
         } else if (rs2 == 0x3) { // FCVT_S_LU
             gen_helper_fcvt_s_lu(cpu_fpr[rd], cpu_env, write_int_rd, rm_reg);
         } else {
-            kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
+            kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
         }
         break;
 
@@ -1812,7 +1891,7 @@ inline static void gen_fp_arith(DisasContext *ctx, uint32_t opc,
         } else if (rm == 0x1) {
             gen_helper_fclass_s(write_int_rd, cpu_env, cpu_fpr[rs1]);
         } else {
-            kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
+            kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
         }
         gen_set_gpr(rd, write_int_rd);
         break;
@@ -1844,7 +1923,7 @@ inline static void gen_fp_arith(DisasContext *ctx, uint32_t opc,
         } else if (rm == 0x2) {
             gen_helper_fsgnjx_d(cpu_fpr[rd], cpu_env, cpu_fpr[rs1], cpu_fpr[rs2]);  
         } else {
-            kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
+            kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
         }
         break;
     case OPC_RISC_FMIN_D:
@@ -1854,21 +1933,21 @@ inline static void gen_fp_arith(DisasContext *ctx, uint32_t opc,
         } else if (rm == 0x1) {
             gen_helper_fmax_d(cpu_fpr[rd], cpu_env, cpu_fpr[rs1], cpu_fpr[rs2]);
         } else {
-            kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
+            kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
         }
         break;
     case OPC_RISC_FCVT_S_D:
         if (rs2 == 0x1) {
             gen_helper_fcvt_s_d(cpu_fpr[rd], cpu_env, cpu_fpr[rs1], rm_reg);
         } else {
-            kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
+            kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
         }
         break;
     case OPC_RISC_FCVT_D_S:
         if (rs2 == 0x0) {
             gen_helper_fcvt_d_s(cpu_fpr[rd], cpu_env, cpu_fpr[rs1], rm_reg);
         } else {
-            kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
+            kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
         }
         break;
     case OPC_RISC_FSQRT_D:
@@ -1883,7 +1962,7 @@ inline static void gen_fp_arith(DisasContext *ctx, uint32_t opc,
         } else if (rm == 0x2) {
             gen_helper_feq_d(write_int_rd, cpu_env, cpu_fpr[rs1], cpu_fpr[rs2]);
         } else {
-            kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
+            kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
         }
         gen_set_gpr(rd, write_int_rd);
         break;
@@ -1898,7 +1977,7 @@ inline static void gen_fp_arith(DisasContext *ctx, uint32_t opc,
         } else if (rs2 == 0x3) {
             gen_helper_fcvt_lu_d(write_int_rd, cpu_env, cpu_fpr[rs1], rm_reg);
         } else {
-            kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
+            kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
         }
         gen_set_gpr(rd, write_int_rd);
         break;
@@ -1914,7 +1993,7 @@ inline static void gen_fp_arith(DisasContext *ctx, uint32_t opc,
         } else if (rs2 == 0x3) {
             gen_helper_fcvt_d_lu(cpu_fpr[rd], cpu_env, write_int_rd, rm_reg);
         } else {
-            kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
+            kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
         }
         break;
     case OPC_RISC_FMV_X_D:
@@ -1924,7 +2003,7 @@ inline static void gen_fp_arith(DisasContext *ctx, uint32_t opc,
         } else if (rm == 0x1) {
             gen_helper_fclass_d(write_int_rd, cpu_env, cpu_fpr[rs1]);
         } else {
-            kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
+            kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
         }
         gen_set_gpr(rd, write_int_rd);
         break;
@@ -1933,7 +2012,7 @@ inline static void gen_fp_arith(DisasContext *ctx, uint32_t opc,
         tcg_gen_mov_tl(cpu_fpr[rd], write_int_rd);
         break;
     default:
-        kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
+        kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
         break;
     }
     tcg_temp_free(rm_reg);
@@ -1945,19 +2024,36 @@ inline static void gen_fp_arith(DisasContext *ctx, uint32_t opc,
 #define GET_JAL_IMM(inst)             ((int32_t)((inst & 0xFF000) | (((inst >> 20) & 0x1) << 11) | (((inst >> 21) & 0x3FF) << 1) | ((((int32_t)inst) >> 31) << 20)))
 #define GET_RM(inst)                  ((inst >> 12) & 0x7)
 #define GET_RS3(inst)                 ((inst >> 27) & 0x1F)
+
+#ifdef RISCV_DEBUG_PRINT
+int monitor_region = 0;
+#endif
+
 static void decode_opc (CPURISCVState *env, DisasContext *ctx)
 {
+
     int rs1;
     int rs2;
     int rd;
     uint32_t op;
     int16_t imm;
-    target_ulong ubimm;
+    target_long ubimm;
+
+    // do not do misaligned address check here, address should never be 
+    // misaligned
+    //
+    // instead, all control flow instructions check for themselves
+    //
+    // this is because epc must be the address of the control flow instruction
+    // that "caused" to the misaligned instruction access
+    //
+    // we leave this check here for now, since not all control flow 
+    // instructions have been updated yet
 
     /* make sure instructions are on a word boundary */
     if (unlikely(ctx->pc & 0x3)) { 
-        // NOT tested for RISCV
-        printf("misaligned instruction, not yet implemented for riscv\n");
+        printf("addr misaligned\n");
+        printf("misaligned instruction, not completely implemented for riscv\n");
         exit(1);
         return;
     }
@@ -1967,6 +2063,24 @@ static void decode_opc (CPURISCVState *env, DisasContext *ctx)
     rs2 = (ctx->opcode >> 20) & 0x1f;
     rd = (ctx->opcode >> 7) & 0x1f;
     imm = (int16_t)(((int32_t)ctx->opcode) >> 20); /* sign extends */
+
+#ifdef RISCV_DEBUG_PRINT
+    // this will print a log similar to spike, should be left off unless
+    // you're debugging QEMU
+    int start = 0 && ctx->pc == 0x8ccac;
+    TCGv print_helper_tmp = tcg_temp_local_new(); 
+    TCGv printpc = tcg_temp_local_new();
+    tcg_gen_movi_tl(print_helper_tmp, ctx->opcode);
+    tcg_gen_movi_tl(printpc, ctx->pc);
+
+    if (monitor_region || start) {
+        gen_helper_debug_print(cpu_env, printpc, print_helper_tmp);
+        monitor_region = 1;
+    }
+    tcg_temp_free(print_helper_tmp);
+    tcg_temp_free(printpc);
+#endif
+
     switch (op) {
 
     case OPC_RISC_LUI:
@@ -1984,19 +2098,36 @@ static void decode_opc (CPURISCVState *env, DisasContext *ctx)
         tcg_gen_ext32s_tl(cpu_gpr[rd], cpu_gpr[rd]);
         tcg_gen_add_tl(cpu_gpr[rd], cpu_gpr[rd], tcg_const_tl(ctx->pc));
         break;
-    case OPC_RISC_JAL:
-        ubimm = (target_long) (GET_JAL_IMM(ctx->opcode));
-        if (rd != 0) {
-            tcg_gen_movi_tl(cpu_gpr[rd], 4);
-            tcg_gen_addi_tl(cpu_gpr[rd], cpu_gpr[rd], ctx->pc);
-        }
+    case OPC_RISC_JAL: {
+            TCGv nextpc = tcg_temp_local_new();
+            TCGv testpc = tcg_temp_local_new();
+            int misaligned = gen_new_label();
+            int done = gen_new_label();
+            ubimm = (target_long) (GET_JAL_IMM(ctx->opcode));
+            tcg_gen_movi_tl(nextpc, ctx->pc + ubimm);
+            // check misaligned:
+            tcg_gen_andi_tl(testpc, nextpc, 0x3);
+            tcg_gen_brcondi_tl(TCG_COND_NE, testpc, 0x0, misaligned);
+            if (rd != 0) {
+                tcg_gen_movi_tl(cpu_gpr[rd], 4);
+                tcg_gen_addi_tl(cpu_gpr[rd], cpu_gpr[rd], ctx->pc);
+            }
+
 #ifdef DISABLE_CHAINING_JAL
-        tcg_gen_movi_tl(cpu_PC, ctx->pc + ubimm);
-        tcg_gen_exit_tb(0);
+            tcg_gen_movi_tl(cpu_PC, ctx->pc + ubimm);
+            tcg_gen_exit_tb(0);
 #else
-        gen_goto_tb(ctx, 0, ctx->pc + ubimm); // must use this for safety
+            gen_goto_tb(ctx, 0, ctx->pc + ubimm); // must use this for safety
 #endif
-        ctx->bstate = BS_BRANCH;
+            tcg_gen_br(done);
+            gen_set_label(misaligned);
+            // throw exception for misaligned case
+            generate_exception_mbadaddr(ctx, NEW_RISCV_EXCP_INST_ADDR_MIS);
+            gen_set_label(done);
+            ctx->bstate = BS_BRANCH;
+            tcg_temp_free(nextpc);
+            tcg_temp_free(testpc);
+        }
         break;
     case OPC_RISC_JALR:
         gen_jalr(ctx, MASK_OP_JALR(ctx->opcode), rd, rs1, imm);
@@ -2035,7 +2166,14 @@ static void decode_opc (CPURISCVState *env, DisasContext *ctx)
         gen_arith_w(ctx, MASK_OP_ARITH_W(ctx->opcode), rd, rs1, rs2);
         break;
     case OPC_RISC_FENCE:
-        /* fences are nops for us */
+        // standard fence is nop
+        // fence_i flushes TB (like an icache):
+        if (ctx->opcode & 0x1000) { // FENCE_I
+            gen_helper_fence_i(cpu_env);
+            tcg_gen_movi_tl(cpu_PC, ctx->pc + 4);
+            tcg_gen_exit_tb(0); // no chaining
+            ctx->bstate = BS_BRANCH;
+        }
         break;
     case OPC_RISC_SYSTEM:
         gen_system(ctx, MASK_OP_SYSTEM(ctx->opcode), rd, rs1, (ctx->opcode & 0xFFF00000) >> 20);
@@ -2065,7 +2203,7 @@ static void decode_opc (CPURISCVState *env, DisasContext *ctx)
         gen_fp_arith(ctx, MASK_OP_FP_ARITH(ctx->opcode), rd, rs1, rs2, GET_RM(ctx->opcode));
         break;
     default:
-        kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
+        kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
         break;
     }
 }
@@ -2089,13 +2227,17 @@ gen_intermediate_code_internal(RISCVCPU *cpu, TranslationBlock *tb,
     pc_start = tb->pc;
     gen_opc_end = tcg_ctx.gen_opc_buf + OPC_MAX_SIZE;
     ctx.pc = pc_start;
+
+    // once we have GDB, the rest of the translate.c implementation should be 
+    // ready for singlestep
     ctx.singlestep_enabled = cs->singlestep_enabled;
+    
     ctx.tb = tb;
     ctx.bstate = BS_NONE;
 #ifdef CONFIG_USER_ONLY
         ctx.mem_idx = 0;
 #else
-        ctx.mem_idx = env->helper_csr[CSR_STATUS] & SR_S;
+        ctx.mem_idx = cpu_mmu_index(env);
 #endif
     num_insns = 0;
     max_insns = tb->cflags & CF_COUNT_MASK;
@@ -2156,19 +2298,26 @@ gen_intermediate_code_internal(RISCVCPU *cpu, TranslationBlock *tb,
     if (tb->cflags & CF_LAST_IO) {
         gen_io_end();
     }
-    switch (ctx.bstate) {
-        case BS_STOP:
-            gen_goto_tb(&ctx, 0, ctx.pc);
-            break;
-        case BS_NONE:
-            // DO NOT CHAIN. This is for END-OF-PAGE. See gen_goto_tb.
+    if (cs->singlestep_enabled && ctx.bstate != BS_BRANCH) {
+        if (ctx.bstate == BS_NONE) {
             tcg_gen_movi_tl(cpu_PC, ctx.pc); // NOT PC+4, that was already done
-            tcg_gen_exit_tb(0);
-            break;
-        case BS_BRANCH:
-            // anything using BS_BRANCH will have generated it's own exit seq
-        default:
-            break;
+        }
+        generate_exception(&ctx, EXCP_DEBUG);
+    } else {
+        switch (ctx.bstate) {
+            case BS_STOP:
+                gen_goto_tb(&ctx, 0, ctx.pc);
+                break;
+            case BS_NONE:
+                // DO NOT CHAIN. This is for END-OF-PAGE. See gen_goto_tb.
+                tcg_gen_movi_tl(cpu_PC, ctx.pc); // NOT PC+4, that was already done
+                tcg_gen_exit_tb(0);
+                break;
+            case BS_BRANCH:
+                // anything using BS_BRANCH will have generated it's own exit seq
+            default:
+                break;
+        }
     }
 done_generating:
     gen_tb_end(tb, num_insns);
@@ -2182,6 +2331,8 @@ done_generating:
         tb->size = ctx.pc - pc_start;
         tb->icount = num_insns;
     }
+
+
 #ifdef DEBUG_DISAS // TODO: riscv disassembly
     LOG_DISAS("\n");
     if (qemu_loglevel_mask(CPU_LOG_TB_IN_ASM)) {
@@ -2211,32 +2362,20 @@ void riscv_cpu_dump_state(CPUState *cs, FILE *f, fprintf_function cpu_fprintf,
 
     cpu_fprintf(f, "pc=0x" TARGET_FMT_lx "\n", env->active_tc.PC);
     for (i = 0; i < 32; i++) {
-        if ((i & 3) == 0) {
-            cpu_fprintf(f, "GPR%02d:", i);
-        }
         cpu_fprintf(f, " %s " TARGET_FMT_lx, regnames[i], env->active_tc.gpr[i]);
         if ((i & 3) == 3) {
             cpu_fprintf(f, "\n");
         }
     }
-    for (i = 0; i < 32; i++) {
-        if ((i & 3) == 0) {
-            cpu_fprintf(f, "CSR%02d:", i);
-        }
-        if (i == CSR_COUNT) {
-            cpu_fprintf(f, " %s " TARGET_FMT_lx, cs_regnames[i], (target_ulong)cpu_riscv_get_count(env));
 
-        } else if (i == CSR_CYCLE) {
-            cpu_fprintf(f, " %s " TARGET_FMT_lx, cs_regnames[i], cpu_riscv_get_cycle(env));
-        } else if (i == CSR_FCSR) {
-             cpu_fprintf(f, " %s " TARGET_FMT_lx, cs_regnames[i], env->helper_csr[CSR_FFLAGS] | (env->helper_csr[CSR_FRM] << 5));
-        } else {
-            cpu_fprintf(f, " %s " TARGET_FMT_lx, cs_regnames[i], env->helper_csr[i]);
-        }
-        if ((i & 3) == 3) {
-            cpu_fprintf(f, "\n");
-        }
-    }
+    cpu_fprintf(f, " %s " TARGET_FMT_lx "\n", "MSTATUS ", env->csr[NEW_CSR_MSTATUS]);
+    cpu_fprintf(f, " %s " TARGET_FMT_lx "\n", "MTIMECMP", env->csr[NEW_CSR_MTIMECMP]);
+    cpu_fprintf(f, " %s " TARGET_FMT_lx "\n", "MTIME   ", cpu_riscv_read_mtime(env));
+    cpu_fprintf(f, " %s " TARGET_FMT_lx "\n", "TIME    ", cpu_riscv_read_time(env));
+
+    cpu_fprintf(f, " %s " TARGET_FMT_lx "\n", "MIP     ", env->csr[NEW_CSR_MIP]);
+
+    cpu_fprintf(f, " %s " TARGET_FMT_lx "\n", "MIE     ", env->csr[NEW_CSR_MIE]);
 
     for (i = 0; i < 32; i++) {
         if ((i & 3) == 0) {
@@ -2279,6 +2418,11 @@ void riscv_tcg_init(void)
 
     cpu_PC = tcg_global_mem_new(TCG_AREG0,
                                 offsetof(CPURISCVState, active_tc.PC), "PC");
+
+    // TODO: not initialized
+    load_reservation = tcg_global_mem_new(TCG_AREG0,
+                     offsetof(CPURISCVState, active_tc.load_reservation),
+                     "load_reservation");
     inited = 1;
 }
 
@@ -2297,9 +2441,17 @@ RISCVCPU *cpu_riscv_init(const char *cpu_model)
     env = &cpu->env;
     env->cpu_model = def;
 
-    // set status register from def 
-    env->helper_csr[CSR_STATUS] = def->init_status_reg;
+    memset(env->csr, 0, 4096*sizeof(uint64_t));
 
+    // init mstatus
+    target_ulong start_mstatus = 0;
+    start_mstatus = set_field(start_mstatus, MSTATUS_PRV, PRV_M);
+    start_mstatus = set_field(start_mstatus, MSTATUS_PRV1, PRV_U);
+    start_mstatus = set_field(start_mstatus, MSTATUS_PRV2, PRV_U);
+    env->csr[NEW_CSR_MSTATUS] = start_mstatus;
+
+    // set mcpuid from def
+    env->csr[NEW_CSR_MCPUID] = def->init_mcpuid_reg;
     object_property_set_bool(OBJECT(cpu), true, "realized", NULL);
 
     return cpu;

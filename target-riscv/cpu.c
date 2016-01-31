@@ -1,8 +1,7 @@
 /*
- *  QEMU RISC-V CPU
+ * QEMU RISC-V CPU
  *
- *  Author: Sagar Karandikar, skarandikar@berkeley.edu
- *  Based on the MIPS target
+ * Author: Sagar Karandikar, sagark@eecs.berkeley.edu
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public

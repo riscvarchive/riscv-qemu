@@ -1,8 +1,27 @@
 /* 
- *  QEMU RISC-V sample-board support
+ * QEMU RISC-V Generic Board Support
  *
- *  Author: Sagar Karandikar, skarandikar@berkeley.edu
- *  Originally based on hw/mips/mips_malta.c
+ * Author: Sagar Karandikar, sagark@eecs.berkeley.edu
+ *
+ * This provides a RISC-V Board with the following devices:
+ *
+ * 0) HTIF Syscall Proxy
+ * 1) HTIF Console
+ * 2) HTIF Block Device
+ *
+ * These are created by htif_mm_init below.
+ *
+ * The following "Shim" devices allow support for interrupts triggered by the
+ * processor itself (writes to the MIP/SIP CSRs):
+ *
+ * softint0 - SSIP
+ * softint1 - STIP
+ * softint2 - MSIP
+ *
+ * These are created by softint_mm_init below.
+ *
+ * This board currently uses a hardcoded devicetree that indicates one hart
+ * and 2048 MB of memory.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -26,7 +45,9 @@
 #include "hw/hw.h"
 #include "hw/i386/pc.h"
 #include "hw/char/serial.h"
+#include "hw/riscv/softint.h"
 #include "hw/riscv/htif/htif.h"
+#include "hw/riscv/htif/frontend.h"
 #include "hw/block/fdc.h"
 #include "net/net.h"
 #include "hw/boards.h"
@@ -57,6 +78,55 @@
 
 #define TYPE_RISCV_BOARD "riscv-board"
 #define RISCV_BOARD(obj) OBJECT_CHECK(BoardState, (obj), TYPE_RISCV_BOARD)
+
+// TODO: don't hardcode, don't rely on items past 0x408 to be init zero
+#define DEVTREE_LEN 65944
+const char devtree[DEVTREE_LEN] = {
+0xd0,
+0x0d, 0xfe, 0xed, 0x00, 0x00, 0x01, 0x98, 0x00, 0x00, 0x00,
+0x38, 0x00, 0x00, 0x01, 0x58, 0x00, 0x00, 0x00, 0x28, 0x00,
+0x00, 0x00, 0x11, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00,
+0x00, 0x00, 0x00, 0x00, 0x40, 0x00, 0x00, 0x01, 0x20, 0x00,
+0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00,
+0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00,
+0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00,
+0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00,
+0x0f, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x03, 0x00,
+0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x1b, 0x53, 0x70, 0x69,
+0x6b, 0x65, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x6d,
+0x65, 0x6d, 0x6f, 0x72, 0x79, 0x40, 0x30, 0x00, 0x00, 0x00,
+0x00, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x07, 0x00,
+0x00, 0x00, 0x21, 0x6d, 0x65, 0x6d, 0x6f, 0x72, 0x79, 0x00,
+0x00, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x10, 0x00,
+0x00, 0x00, 0x2d, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+0x00, 0x00, 0x00, 0x00, 0x00, 0x80, 0x00, 0x00, 0x00, 0x00,
+0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x01, 0x63, 0x70, 0x75,
+0x73, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x00,
+0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+0x02, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x04, 0x00,
+0x00, 0x00, 0x0f, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00,
+0x01, 0x63, 0x70, 0x75, 0x40, 0x38, 0x30, 0x30, 0x30, 0x31,
+0x30, 0x30, 0x30, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+0x03, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x21, 0x63,
+0x70, 0x75, 0x00, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00,
+0x06, 0x00, 0x00, 0x00, 0x31, 0x72, 0x69, 0x73, 0x63, 0x76,
+0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00,
+0x0b, 0x00, 0x00, 0x00, 0x3c, 0x72, 0x76, 0x36, 0x34, 0x69,
+0x6d, 0x61, 0x66, 0x64, 0x63, 0x00, 0x00, 0x00, 0x00, 0x00,
+0x03, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00, 0x2d, 0x00,
+0x00, 0x00, 0x00, 0x80, 0x00, 0x10, 0x00, 0x00, 0x00, 0x00,
+0x02, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x02, 0x00,
+0x00, 0x00, 0x09, 0x23, 0x61, 0x64, 0x64, 0x72, 0x65, 0x73,
+0x73, 0x2d, 0x63, 0x65, 0x6c, 0x6c, 0x73, 0x00, 0x23, 0x73,
+0x69, 0x7a, 0x65, 0x2d, 0x63, 0x65, 0x6c, 0x6c, 0x73, 0x00,
+0x6d, 0x6f, 0x64, 0x65, 0x6c, 0x00, 0x64, 0x65, 0x76, 0x69,
+0x63, 0x65, 0x5f, 0x74, 0x79, 0x70, 0x65, 0x00, 0x72, 0x65,
+0x67, 0x00, 0x63, 0x6f, 0x6d, 0x70, 0x61, 0x74, 0x69, 0x62,
+0x6c, 0x65, 0x00, 0x69, 0x73, 0x61, 0x00,
+};
+
+
 
 typedef struct {
     SysBusDevice parent_obj;
@@ -108,6 +178,7 @@ static void riscv_board_init(QEMUMachineInitArgs *args)
     RISCVCPU *cpu;
     CPURISCVState *env;
     int i;
+
 #ifdef CONFIG_RISCV_HTIF
     DriveInfo *htifbd_drive;
     char *htifbd_fname; // htif block device filename
@@ -148,7 +219,9 @@ static void riscv_board_init(QEMUMachineInitArgs *args)
     env = &cpu->env;
 
     /* register system main memory (actual RAM) */
-    memory_region_init_ram(main_mem, NULL, "riscv_board.ram", ram_size);
+    memory_region_init_ram(main_mem, NULL, "riscv_board.ram", ram_size + DEVTREE_LEN);
+    // for CSR_MIOBASE
+    env->memsize = ram_size;
     vmstate_register_ram_global(main_mem);
     memory_region_add_subregion(system_memory, 0x0, main_mem);
 
@@ -156,7 +229,7 @@ static void riscv_board_init(QEMUMachineInitArgs *args)
         int bios_size;
         MemoryRegion *bios;
         bios_size = get_image_size(bios_name);
-	if (bios_size > 0) {
+        if (bios_size > 0) {
             bios = g_malloc(sizeof(*bios));
             memory_region_init_ram(bios, NULL, "riscv.fw", bios_size);
             vmstate_register_ram_global(bios);
@@ -165,11 +238,10 @@ static void riscv_board_init(QEMUMachineInitArgs *args)
                 fprintf(stderr, "qemu: could not load RISC-V firmware '%s'\n", bios_name);
                 exit(1);
             }
-	}
+        }
     }
 
     if (kernel_filename) {
-        /* Write a small bootloader to the flash location. */
         loaderparams.ram_size = ram_size;
         loaderparams.kernel_filename = kernel_filename;
         loaderparams.kernel_cmdline = kernel_cmdline;
@@ -177,12 +249,19 @@ static void riscv_board_init(QEMUMachineInitArgs *args)
         load_kernel();
     }
 
+    // TODO: still necessary?
     // write memory amount in MiB to 0x0
-    stl_p(memory_region_get_ram_ptr(main_mem), loaderparams.ram_size >> 20);
+    // stl_p(memory_region_get_ram_ptr(main_mem), loaderparams.ram_size >> 20);
+
+    // copy in the devtree
+    int q;
+    for (q = 0; q < DEVTREE_LEN; q++) {
+        stb_p(memory_region_get_ram_ptr(main_mem)+ram_size+q, devtree[q]);
+    }
 
     // add serial device 0x3f8-0x3ff
-    serial_mm_init(system_memory, 0x3f8, 0, env->irq[4], 1843200/16, serial_hds[0],
-        DEVICE_NATIVE_ENDIAN);
+    // serial_mm_init(system_memory, 0xF0000400, 0, env->irq[5], 1843200/16, 
+    //         serial_hds[0], DEVICE_NATIVE_ENDIAN);
 
 #ifdef CONFIG_RISCV_HTIF
     // setup HTIF Block Device if one is specified as -hda FILENAME
@@ -193,22 +272,29 @@ static void riscv_board_init(QEMUMachineInitArgs *args)
         htifbd_fname = (*(htifbd_drive->bdrv)).filename;
     }
 
-    // add htif device 0x400 - 0x410
-    htif_mm_init(system_memory, 0x400, env->irq[0], main_mem, htifbd_fname);
-#else
+    // add htif device at 0xFFFFFFFFF0000000
+    htif_mm_init(system_memory, 0xFFFFFFFFF0000000L, env->irq[4], main_mem, 
+            htifbd_fname, kernel_cmdline, env, serial_hds[0]);
+
+    // Softint "devices" for cleaner handling of CPU-triggered interrupts
+    softint_mm_init(system_memory, 0xFFFFFFFFF0000020L, env->irq[1], main_mem, 
+            env, "SSIP");
+    softint_mm_init(system_memory, 0xFFFFFFFFF0000040L, env->irq[2], main_mem, 
+            env, "STIP");
+    softint_mm_init(system_memory, 0xFFFFFFFFF0000060L, env->irq[3], main_mem, 
+            env, "MSIP");
+
+    //#else
     /* Create MMIO transports, to which virtio backends created by the
      * user are automatically connected as needed.  If no backend is
      * present, the transport simply remains harmlessly idle.
-     * Each memory-mapped region is 0x200 bytes in size.
+     * 
+     * These are currently not supported.
      */
-    sysbus_create_simple("virtio-mmio", 0x400, env->irq[1]);
-    sysbus_create_simple("virtio-mmio", 0x600, env->irq[2]);
-    sysbus_create_simple("virtio-mmio", 0x800, env->irq[3]);
+    // sysbus_create_simple("virtio-mmio", 0xfffff400, env->irq[5]);
+    // sysbus_create_simple("virtio-mmio", 0xfffff1100200, env->irq[2]);
+    // sysbus_create_simple("virtio-mmio", 0xfffff1100400, env->irq[3]);
 #endif
-
-    /* Init internal devices */
-    cpu_riscv_irq_init_cpu(env);
-    cpu_riscv_clock_init(env);
 }
 
 static int riscv_board_sysbus_device_init(SysBusDevice *sysbusdev)
@@ -230,8 +316,8 @@ static const TypeInfo riscv_board_device = {
 };
 
 static QEMUMachine riscv_board_machine = {
-    .name = "board",
-    .desc = "RISCV Board",
+    .name = "RISC-V Generic",
+    .desc = "RISC-V Generic Board",
     .init = riscv_board_init,
     .max_cpus = 1,
     .is_default = 1,

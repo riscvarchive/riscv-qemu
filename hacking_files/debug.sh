@@ -1,3 +1,3 @@
 #!/bin/bash
 
-cgdb qemu-system-riscv -x startqemu
+cgdb ../riscv-softmmu/qemu-system-riscv -x startqemu

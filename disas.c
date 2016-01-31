@@ -300,6 +300,8 @@ void target_disas(FILE *out, CPUArchState *env, target_ulong code,
 #elif defined(TARGET_LM32)
     s.info.mach = bfd_mach_lm32;
     print_insn = print_insn_lm32;
+#elif defined(TARGET_RISCV)
+    print_insn = print_insn_riscv;
 #endif
     if (print_insn == NULL) {
         print_insn = print_insn_od_target;
@@ -385,6 +387,8 @@ void disas(FILE *out, void *code, unsigned long size)
     print_insn = print_insn_hppa;
 #elif defined(__ia64__)
     print_insn = print_insn_ia64;
+#elif defined(__riscv__)
+    print_insn = print_insn_riscv;
 #endif
     if (print_insn == NULL) {
         print_insn = print_insn_od_host;

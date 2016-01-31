@@ -1,8 +1,8 @@
 /*
- *  RISC-V CPU machine state helpers
+ * RISC-V CPU Machine State Helpers
  *
- *  Author: Sagar Karandikar, skarandikar@berkeley.edu
- *  Based on the MIPS target
+ * Author: Sagar Karandikar, sagark@eecs.berkeley.edu
+ *
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -34,6 +34,8 @@ static void save_tc(QEMUFile *f, TCState *tc)
         qemu_put_betls(f, &tc->fpr[i]);
     }
     qemu_put_betls(f, &tc->PC);
+    qemu_put_betls(f, &tc->load_reservation);
+
 }
 
 void cpu_save(QEMUFile *f, void *opaque)
@@ -47,8 +49,8 @@ void cpu_save(QEMUFile *f, void *opaque)
     /* Save CPU metastate */
     qemu_put_be32s(f, &env->current_tc);
 
-    for (i = 0; i < 32; i++) {
-        qemu_put_betls(f, &env->helper_csr[i]);
+    for (i = 0; i < 4096; i++) {
+        qemu_put_betls(f, &env->csr[i]);
     }
 }
 
@@ -63,6 +65,7 @@ static void load_tc(QEMUFile *f, TCState *tc)
         qemu_get_betls(f, &tc->fpr[i]);
     }
     qemu_get_betls(f, &tc->PC);
+    qemu_get_betls(f, &tc->load_reservation);
 }
 
 int cpu_load(QEMUFile *f, void *opaque, int version_id)
@@ -80,8 +83,8 @@ int cpu_load(QEMUFile *f, void *opaque, int version_id)
     /* Load CPU metastate */
     qemu_get_be32s(f, &env->current_tc);
 
-    for (i = 0; i < 32; i++) {
-        qemu_get_betls(f, &env->helper_csr[i]);
+    for (i = 0; i < 4096; i++) {
+        qemu_get_betls(f, &env->csr[i]);
     }
 
     tlb_flush(CPU(cpu), 1);

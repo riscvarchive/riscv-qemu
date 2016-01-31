@@ -1,8 +1,7 @@
 /*
- *  QEMU RISC-V interrupt support
+ * QEMU RISC-V - QEMU IRQ Support
  *
- *  Author: Sagar Karandikar, skarandikar@berkeley.edu
- *  Based on the MIPS target interrupt support
+ * Author: Sagar Karandikar, sagark@eecs.berkeley.edu
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -27,8 +26,6 @@
 #include "hw/riscv/cpudevs.h"
 #include "cpu.h"
 
-// TODO: move constants to cpu.h
-
 /* irq request function, called in hw/irq.h by qemu_irq_raise (level = 1), 
  * qemu_irq_lower (level = 0), qemu_irq_pulse (level = 1, then 0) 
  *
@@ -38,8 +35,10 @@
  */
 static void cpu_riscv_irq_request(void *opaque, int irq, int level)
 {
+    // This "irq" number is not a real irq number, just some set of numbers
+    // we choose. These are not the same irq numbers visible to the processor.
+
     RISCVCPU *cpu = opaque;
-    CPURISCVState *env = &cpu->env;
     CPUState *cs = CPU(cpu);
 
     if (unlikely(irq < 0 || irq > 7)) {
@@ -47,24 +46,34 @@ static void cpu_riscv_irq_request(void *opaque, int irq, int level)
     }
 
     if (level) {
-        // level high, set the interrupt in CSR_STATUS
-        env->helper_csr[CSR_STATUS] |= (1 << (irq + 24));
-    } else {
-        // level low, turn off the interrupt in CSR_STATUS
-        env->helper_csr[CSR_STATUS] &= ~(1 << (irq + 24));
+        if (irq == 7) {
+            // TIMER
+            cpu_interrupt(cs, CPU_INTERRUPT_HARD);
+        } else if (irq == 4) {
+            // HTIF
+            cpu_interrupt(cs, CPU_INTERRUPT_HARD);
+        } else if (irq == 1 || irq == 2 || irq == 3) {
+            // Interrupts triggered by CPU
+            cpu_interrupt(cs, CPU_INTERRUPT_HARD);
+        } else {
+            fprintf(stderr, "Unused IRQ was raised.\n");
+            exit(1);  
+        }
     }
+    // TODO: lowering IRQs 
 
-    if (env->helper_csr[CSR_STATUS] & (0xFF << (24))) {
-        // call cpu_interrupt from include/qom/cpu.h
-        // this will call cpu_interrupt_handler aka
-        // tcg_handle_interrupt from translate-all.c
-        cpu_interrupt(cs, CPU_INTERRUPT_HARD);
-    } else {
-        // call cpu_reset_interrupt from qom/cpu.c
-        // this just turns off the relevant bits
-        // in cpu->interrupt_request
-        cpu_reset_interrupt(cs, CPU_INTERRUPT_HARD);
-    }
+    /*else {
+        if (irq == 7) {
+            cpu_reset_interrupt(cs, CPU_INTERRUPT_HARD);
+        } else if (irq == 4) {
+            cpu_reset_interrupt(cs, CPU_INTERRUPT_HARD);
+        } else if (irq == 1 || irq == 2 || irq == 3) {
+            cpu_reset_interrupt(cs, CPU_INTERRUPT_HARD);
+        } else {
+            printf("FAIL\n");
+          exit(1);  
+        }
+    }*/
 }
 
 void cpu_riscv_irq_init_cpu(CPURISCVState *env)
@@ -80,6 +89,8 @@ void cpu_riscv_irq_init_cpu(CPURISCVState *env)
 
 void cpu_riscv_soft_irq(CPURISCVState *env, int irq, int level)
 {
+    printf("NOT USED for RISC-V\n");
+    exit(1);
     if (irq != 0) {
         return;
     }

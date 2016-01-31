@@ -1,8 +1,7 @@
 /*
- *  QEMU RISC-V timer support
+ * QEMU RISC-V timer support
  *
- *  Author: Sagar Karandikar, skarandikar@berkeley.edu
- *  Based on the MIPS target timer support
+ * Author: Sagar Karandikar, sagark@eecs.berkeley.edu
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -25,78 +24,121 @@
 
 #include "hw/hw.h"
 #include "hw/riscv/cpudevs.h"
+#include "hw/riscv/cputimer.h"
 #include "qemu/timer.h"
 
-static uint64_t last_count_update;
+//#define TIMER_DEBUGGING_RISCV
 
-// should be the cpu freq
-#define TIMER_FREQ	100 * 1000 * 1000
+static uint64_t written_delta;
 
-uint64_t cpu_riscv_get_cycle (CPURISCVState *env) {
-    uint64_t now;
-    now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
-    // first, convert _now_ to seconds by dividing by get_ticks_per_sec
-    // and then multiply by the timer freq.
-    return muldiv64(now, TIMER_FREQ, get_ticks_per_sec());
+// this is the "right value" for defaults in pk/linux
+// see pk/sbi_entry.S and arch/riscv/kernel/time.c call to 
+// clockevents_config_and_register
+#define TIMER_FREQ	10 * 1000 * 1000
+
+uint64_t rtc_read(CPURISCVState *env) {
+    return muldiv64(qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL), TIMER_FREQ, get_ticks_per_sec());
 }
 
+uint64_t rtc_read_with_delta(CPURISCVState *env) {
+    return rtc_read(env) + written_delta;
+}
+
+/*
+ * Called when mtimecmp is written to update the QEMU timer or immediately 
+ * trigger timer interrupt if mtimecmp <= current timer value.
+ */
 static void cpu_riscv_timer_update(CPURISCVState *env)
 {
-    uint64_t now, next;
-    uint32_t diff;
+    uint64_t next;
+    uint64_t diff;
 
-    now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
-    diff = (uint32_t)(env->helper_csr[CSR_COMPARE] - env->helper_csr[CSR_COUNT]);
-    next = now + muldiv64(diff, get_ticks_per_sec(), TIMER_FREQ);
+    uint64_t rtc_r = rtc_read_with_delta(env);
+
+    #ifdef TIMER_DEBUGGING_RISCV
+    printf("timer update: mtimecmp %016lx, timew %016lx\n", 
+            env->csr[NEW_CSR_MTIMECMP], rtc_r);
+    #endif
+
+    if (env->csr[NEW_CSR_MTIMECMP] <= rtc_r) {
+        // if we're setting an MTIMECMP value in the "past", immediately raise
+        // the timer interrupt
+        env->csr[NEW_CSR_MIP] |= MIP_MTIP;
+        qemu_irq_raise(env->irq[7]);
+        return;
+    }
+
+    // otherwise, set up the future timer interrupt
+    diff = env->csr[NEW_CSR_MTIMECMP] - rtc_r;
+    // back to ns (note args switched in muldiv64)
+    next = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) + 
+        muldiv64(diff, get_ticks_per_sec(), TIMER_FREQ);
     timer_mod(env->timer, next);
 }
 
+/* 
+ * Called by the callback used when the timer set using timer_mod expires.
+ * Should raise the timer interrupt line
+ */
 static void cpu_riscv_timer_expire(CPURISCVState *env)
 {
-    cpu_riscv_timer_update(env);
+    // do not call update here
+    env->csr[NEW_CSR_MIP] |= MIP_MTIP;
     qemu_irq_raise(env->irq[7]);
 }
 
-uint32_t cpu_riscv_get_count (CPURISCVState *env)
-{
-    uint64_t diff;
 
-    diff = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) - last_count_update;
-    return env->helper_csr[CSR_COUNT] +
-        (uint32_t)muldiv64(diff, TIMER_FREQ, get_ticks_per_sec());
+void cpu_riscv_store_timew(CPURISCVState *env, uint64_t val_to_write) {
+    #ifdef TIMER_DEBUGGING_RISCV
+    printf("write timew: 0x%016lx\n", val_to_write);
+    #endif
+
+    written_delta = val_to_write - rtc_read(env);
 }
 
-void cpu_riscv_store_count (CPURISCVState *env, uint32_t count)
-{
-    /* Store new count register */
-    env->helper_csr[CSR_COUNT] = count;
-    last_count_update = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
+uint64_t cpu_riscv_read_mtime(CPURISCVState *env) {
+    uint64_t retval = rtc_read(env);
+    return retval;
+}
 
-    /* Update timer timer */
+uint64_t cpu_riscv_read_stime(CPURISCVState *env) {
+    uint64_t retval = rtc_read(env);
+    return retval;
+}
+
+uint64_t cpu_riscv_read_time(CPURISCVState *env) {
+    uint64_t retval = rtc_read_with_delta(env);
+    return retval;
+}
+
+void cpu_riscv_store_compare (CPURISCVState *env, uint64_t value)
+{
+    #ifdef TIMER_DEBUGGING_RISCV
+    uint64_t rtc_r = rtc_read_with_delta(env);
+    printf("wrote mtimecmp %016lx, timew %016lx\n", value, rtc_r);
+    #endif
+
+    env->csr[NEW_CSR_MTIMECMP] = value;
+    env->csr[NEW_CSR_MIP] &= ~MIP_MTIP;
     cpu_riscv_timer_update(env);
 }
 
-void cpu_riscv_store_compare (CPURISCVState *env, uint32_t value)
-{
-    env->helper_csr[CSR_COMPARE] = value;
-    qemu_irq_lower(env->irq[7]);
-    // according to RISCV spec, any write to compare clears timer interrupt
-    cpu_riscv_timer_update(env);
-}
-
+/*
+ * Callback used when the timer set using timer_mod expires.
+ */
 static void riscv_timer_cb (void *opaque)
 {
     CPURISCVState *env;
     env = opaque;
-
-    env->helper_csr[CSR_COUNT]++;
     cpu_riscv_timer_expire(env);
-    env->helper_csr[CSR_COUNT]--;
 }
 
+/*
+ * Initialize clock mechanism.
+ */
 void cpu_riscv_clock_init (CPURISCVState *env)
 {
     env->timer = timer_new_ns(QEMU_CLOCK_VIRTUAL, &riscv_timer_cb, env);
-    env->helper_csr[CSR_COMPARE] = 0;
-    cpu_riscv_store_count(env, 1);
+    env->csr[NEW_CSR_MTIMECMP] = 0;
+    cpu_riscv_store_timew(env, 1);
 }
