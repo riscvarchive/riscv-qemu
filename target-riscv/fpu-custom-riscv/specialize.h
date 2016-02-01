@@ -50,7 +50,7 @@ struct commonNaN {
 /*----------------------------------------------------------------------------
 | The pattern for a default generated single-precision NaN.
 *----------------------------------------------------------------------------*/
-#define defaultNaNF32UI 0xFFFFFFFF
+#define defaultNaNF32UI 0x7FC00000
 
 /*----------------------------------------------------------------------------
 | Returns 1 if the single-precision floating-point value `a' is a signaling
@@ -68,7 +68,7 @@ bool softfloat_isSigNaNF32UI( uint_fast32_t );
 struct commonNaN softfloat_f32UIToCommonNaN( uint_fast32_t );
 #if defined INLINE_LEVEL && ( 1 <= INLINE_LEVEL )
 INLINE uint_fast32_t softfloat_commonNaNToF32UI( struct commonNaN a )
-    { return (uint_fast32_t) a.sign<<31 | 0x7FFFFFFF; }
+    { return defaultNaNF32UI; }
 #else
 uint_fast32_t softfloat_commonNaNToF32UI( struct commonNaN );
 #endif
@@ -83,7 +83,7 @@ uint_fast32_t softfloat_propagateNaNF32UI( uint_fast32_t, uint_fast32_t );
 /*----------------------------------------------------------------------------
 | The pattern for a default generated double-precision NaN.
 *----------------------------------------------------------------------------*/
-#define defaultNaNF64UI UINT64_C(0xFFFFFFFFFFFFFFFF)
+#define defaultNaNF64UI UINT64_C(0x7FF8000000000000)
 
 /*----------------------------------------------------------------------------
 *----------------------------------------------------------------------------*/

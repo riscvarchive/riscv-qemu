@@ -4,22 +4,8 @@ Notes for RISCV, updated priv spec version
 General
 -------
 - fpu-custom-riscv aka softfloat is taken directly from spike (riscv-isa-sim)
-  the current version is from 0f622f0e89ff62022b59ac0124fcdf8198da020d of
+  the current version is from 853391c2bb814451ad88b8dbff2aec8616fc6a12 of
   spike
-
-- update softfloat further when updating toolchain
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 OLD, left as notes:
@@ -27,6 +13,5 @@ OLD, left as notes:
 - In include/exec/cpu-defs.h, CPU_TLB_BITS has been set to zero for
   debugging purposes, increase for performance
     - this sets the TLBs to only hold one entry
-
 
 
