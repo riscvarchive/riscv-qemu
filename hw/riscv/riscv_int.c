@@ -39,41 +39,27 @@ static void cpu_riscv_irq_request(void *opaque, int irq, int level)
     // we choose. These are not the same irq numbers visible to the processor.
 
     RISCVCPU *cpu = opaque;
+    CPURISCVState *env = &cpu->env;
     CPUState *cs = CPU(cpu);
 
-    if (unlikely(irq < 0 || irq > 7)) {
-        return;
+    // current irqs:
+    // 7: Machine Timer. MIP_MTIP should have already been set
+    // 4: Host Interrupt. mfromhost should have a nonzero value
+    // 3, 2, 1: Interrupts triggered by the CPU. At least one of 
+    //    MIP_STIP, MIP_SSIP, MIP_MSIP should already be set
+    if (unlikely(irq != 7 && !(irq < 5 && irq > 0))) {
+        fprintf(stderr, "Unused IRQ was raised.\n");
+        exit(1);
     }
 
     if (level) {
-        if (irq == 7) {
-            // TIMER
-            cpu_interrupt(cs, CPU_INTERRUPT_HARD);
-        } else if (irq == 4) {
-            // HTIF
-            cpu_interrupt(cs, CPU_INTERRUPT_HARD);
-        } else if (irq == 1 || irq == 2 || irq == 3) {
-            // Interrupts triggered by CPU
-            cpu_interrupt(cs, CPU_INTERRUPT_HARD);
-        } else {
-            fprintf(stderr, "Unused IRQ was raised.\n");
-            exit(1);  
+        cpu_interrupt(cs, CPU_INTERRUPT_HARD);
+    } else {
+        if (!env->csr[NEW_CSR_MIP] && !env->csr[NEW_CSR_MFROMHOST]) {
+            // no interrupts pending, no host interrupt for HTIF, reset
+            cpu_reset_interrupt(cs, CPU_INTERRUPT_HARD);
         }
     }
-    // TODO: lowering IRQs 
-
-    /*else {
-        if (irq == 7) {
-            cpu_reset_interrupt(cs, CPU_INTERRUPT_HARD);
-        } else if (irq == 4) {
-            cpu_reset_interrupt(cs, CPU_INTERRUPT_HARD);
-        } else if (irq == 1 || irq == 2 || irq == 3) {
-            cpu_reset_interrupt(cs, CPU_INTERRUPT_HARD);
-        } else {
-            printf("FAIL\n");
-          exit(1);  
-        }
-    }*/
 }
 
 void cpu_riscv_irq_init_cpu(CPURISCVState *env)
