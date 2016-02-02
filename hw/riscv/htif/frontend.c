@@ -38,6 +38,8 @@
 // only supports one fd right now, for the kernel we load
 int real_kernelfd = -1;
 
+#define BBL_AT_FDCWD (-100)
+
 uint64_t sys_openat(HTIFState *htifstate, uint64_t dirfd, uint64_t pname,
         uint64_t len, uint64_t flags, uint64_t mode) {
 
@@ -48,6 +50,9 @@ uint64_t sys_openat(HTIFState *htifstate, uint64_t dirfd, uint64_t pname,
     for (i = 0; i < len; i++) {
         name[i] = ldub_p((void*)(base + i));
     }
+
+    // in case host OS has different val for AT_FDCWD, e.g. OS X
+    dirfd = dirfd == BBL_AT_FDCWD ? AT_FDCWD : dirfd;
 
     #ifdef DEBUG_FRONTEND_RISCV
     fprintf(stderr, "openat: %s\n"
