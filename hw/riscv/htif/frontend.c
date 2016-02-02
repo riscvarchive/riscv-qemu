@@ -93,7 +93,7 @@ uint64_t sys_close(HTIFState *htifstate, uint64_t fd) {
 uint64_t sys_write(HTIFState *htifstate, uint64_t fd, uint64_t pbuf, uint64_t len) {
 
     int i;
-    char printbuf[len+1];
+    char * printbuf = malloc(sizeof(char)*(len+1));
     printbuf[len] = '\0'; // null term for easy printing
     void * base = htifstate->main_mem_ram_ptr + (uintptr_t)pbuf;
     for (i = 0; i < len; i++) {
@@ -109,6 +109,7 @@ uint64_t sys_write(HTIFState *htifstate, uint64_t fd, uint64_t pbuf, uint64_t le
             fprintf(stderr, "INVALID SYS_WRITE\n");
             exit(1);
     }
+    free(printbuf);
     return len;
 }
 
@@ -120,14 +121,16 @@ uint64_t sys_pread(HTIFState *htifstate, uint64_t fd, uint64_t pbuf, uint64_t le
         fprintf(stderr, "INVALID pread fd: %ld. only 3 allowed\n", fd);
         exit(1);
     }
-    char buf[len];
+
+    char * buf = malloc(sizeof(char)*len);
     size_t bytes_read = pread(real_kernelfd, buf, len, off);
 
     void * base = htifstate->main_mem_ram_ptr + (uintptr_t)pbuf;
     int i;
     for (i = 0; i < bytes_read; i++) {
       stb_p((void*)(base + i), buf[i]);
-    }  
+    }
+    free(buf);  
     return bytes_read;
 }
 
