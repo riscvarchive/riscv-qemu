@@ -314,6 +314,8 @@ void disas(FILE *out, void *code, unsigned long size)
     print_insn = print_insn_hppa;
 #elif defined(__ia64__)
     print_insn = print_insn_ia64;
+#elif defined(__riscv__)
+    print_insn = print_insn_riscv;
 #endif
     if (print_insn == NULL) {
         print_insn = print_insn_od_host;
