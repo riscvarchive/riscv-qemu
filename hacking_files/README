@@ -1,0 +1,5 @@
+python run-rv-tests.py runs appropriate for rv64 riscv-tests
+
+
+
+./riscv-softmmu/qemu-system-riscv -m 2048M -kernel /home/vagrant/riscv-inst/riscv64-unknown-elf/bin/bbl -hda rootfs.ext2 -append "asdf" -nographic 2> /dev/null
