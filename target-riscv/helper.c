@@ -116,8 +116,6 @@ static int get_physical_address (CPURISCVState *env, hwaddr *physical,
           ptesize = 8; 
           break;
       case VM_SV48: 
-          printf("currently unsupported SV48\n"); 
-          exit(1); 
           levels = 4; 
           ptidxbits = 9; 
           ptesize = 8; 
