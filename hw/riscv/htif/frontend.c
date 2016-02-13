@@ -4,7 +4,7 @@
  * Author: Sagar Karandikar, sagark@eecs.berkeley.edu
  *
  * This provides a set of functions used by the HTIF Syscall Proxy device.
- * This is used by bbl and pk. Currently, only syscalls needed by bbl to 
+ * This is used by bbl and pk. Currently, only syscalls needed by bbl to
  * boot Linux are supported.
  *
  *
@@ -68,7 +68,7 @@ uint64_t sys_openat(HTIFState *htifstate, uint64_t dirfd, uint64_t pname,
     if (real_kernelfd != -1) {
         // always give fd 3 to bbl, until we have a better tracking mechanism
         return 3;
-    } 
+    }
     return -1;
 }
 
@@ -87,7 +87,7 @@ uint64_t sys_close(HTIFState *htifstate, uint64_t fd) {
     return 0;
 }
 
-/* 
+/*
  * Used by bbl to print.
  */
 uint64_t sys_write(HTIFState *htifstate, uint64_t fd, uint64_t pbuf, uint64_t len) {
@@ -130,7 +130,7 @@ uint64_t sys_pread(HTIFState *htifstate, uint64_t fd, uint64_t pbuf, uint64_t le
     for (i = 0; i < bytes_read; i++) {
       stb_p((void*)(base + i), buf[i]);
     }
-    free(buf);  
+    free(buf);
     return bytes_read;
 }
 
