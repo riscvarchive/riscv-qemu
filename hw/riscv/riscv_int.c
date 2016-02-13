@@ -26,10 +26,10 @@
 #include "hw/riscv/cpudevs.h"
 #include "cpu.h"
 
-/* irq request function, called in hw/irq.h by qemu_irq_raise (level = 1), 
- * qemu_irq_lower (level = 0), qemu_irq_pulse (level = 1, then 0) 
+/* irq request function, called in hw/irq.h by qemu_irq_raise (level = 1),
+ * qemu_irq_lower (level = 0), qemu_irq_pulse (level = 1, then 0)
  *
- * The device will call this once to raise the interrupt line and once to 
+ * The device will call this once to raise the interrupt line and once to
  * lower the interrupt line for level-trigerring
  *
  */
@@ -45,7 +45,7 @@ static void cpu_riscv_irq_request(void *opaque, int irq, int level)
     // current irqs:
     // 7: Machine Timer. MIP_MTIP should have already been set
     // 4: Host Interrupt. mfromhost should have a nonzero value
-    // 3, 2, 1: Interrupts triggered by the CPU. At least one of 
+    // 3, 2, 1: Interrupts triggered by the CPU. At least one of
     //    MIP_STIP, MIP_SSIP, MIP_MSIP should already be set
     if (unlikely(irq != 7 && !(irq < 5 && irq > 0))) {
         fprintf(stderr, "Unused IRQ was raised.\n");

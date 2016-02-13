@@ -123,7 +123,7 @@ static inline void gen_goto_tb(DisasContext *ctx, int n, target_ulong dest)
 {
     TranslationBlock *tb;
     tb = ctx->tb;
-    if ((tb->pc & TARGET_PAGE_MASK) == (dest & TARGET_PAGE_MASK) && 
+    if ((tb->pc & TARGET_PAGE_MASK) == (dest & TARGET_PAGE_MASK) &&
         likely(!ctx->singlestep_enabled)) {
         // we only allow direct chaining when the jump is to the same page
         // otherwise, we could produce incorrect chains when address spaces
@@ -141,8 +141,8 @@ static inline void gen_goto_tb(DisasContext *ctx, int n, target_ulong dest)
     }
 }
 
-/* Wrapper for getting reg values - need to check of reg is zero since 
- * cpu_gpr[0] is not actually allocated 
+/* Wrapper for getting reg values - need to check of reg is zero since
+ * cpu_gpr[0] is not actually allocated
  */
 static inline void gen_get_gpr (TCGv t, int reg_num)
 {
@@ -153,9 +153,9 @@ static inline void gen_get_gpr (TCGv t, int reg_num)
     }
 }
 
-/* Wrapper for setting reg values - need to check of reg is zero since 
+/* Wrapper for setting reg values - need to check of reg is zero since
  * cpu_gpr[0] is not actually allocated. this is more for safety purposes,
- * since we usually avoid calling the OP_TYPE_gen function if we see a write to 
+ * since we usually avoid calling the OP_TYPE_gen function if we see a write to
  * $zero
  */
 static inline void gen_set_gpr (int reg_num_dst, TCGv t)
@@ -165,7 +165,7 @@ static inline void gen_set_gpr (int reg_num_dst, TCGv t)
     }
 }
 
-inline static void gen_arith(DisasContext *ctx, uint32_t opc, 
+inline static void gen_arith(DisasContext *ctx, uint32_t opc,
                       int rd, int rs1, int rs2)
 {
     TCGv source1, source2;
@@ -254,7 +254,7 @@ inline static void gen_arith(DisasContext *ctx, uint32_t opc,
             tcg_gen_br(done);
             // special overflow case
             gen_set_label(handle_overflow);
-            tcg_gen_movi_tl(spec_source1, 0x8000000000000000); 
+            tcg_gen_movi_tl(spec_source1, 0x8000000000000000);
             // done
             gen_set_label(done);
             tcg_gen_mov_tl(source1, spec_source1);
@@ -262,7 +262,7 @@ inline static void gen_arith(DisasContext *ctx, uint32_t opc,
             tcg_temp_free(spec_source2);
             tcg_temp_free(cond1);
             tcg_temp_free(cond2);
-        }                
+        }
         break;
     case OPC_RISC_DIVU:
         {
@@ -288,7 +288,7 @@ inline static void gen_arith(DisasContext *ctx, uint32_t opc,
             tcg_gen_mov_tl(source1, spec_source1);
             tcg_temp_free(spec_source1);
             tcg_temp_free(spec_source2);
-        }                
+        }
         break;
     case OPC_RISC_REM:
         {
@@ -321,7 +321,7 @@ inline static void gen_arith(DisasContext *ctx, uint32_t opc,
             tcg_gen_br(done);
             // special overflow case
             gen_set_label(handle_overflow);
-            tcg_gen_movi_tl(spec_source1, 0); 
+            tcg_gen_movi_tl(spec_source1, 0);
             // done
             gen_set_label(done);
             tcg_gen_mov_tl(source1, spec_source1);
@@ -329,7 +329,7 @@ inline static void gen_arith(DisasContext *ctx, uint32_t opc,
             tcg_temp_free(spec_source2);
             tcg_temp_free(cond1);
             tcg_temp_free(cond2);
-        }                
+        }
         break;
     case OPC_RISC_REMU:
         {
@@ -355,7 +355,7 @@ inline static void gen_arith(DisasContext *ctx, uint32_t opc,
             tcg_gen_mov_tl(source1, spec_source1);
             tcg_temp_free(spec_source1);
             tcg_temp_free(spec_source2);
-        }                
+        }
         break;
     default:
         kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
@@ -370,7 +370,7 @@ inline static void gen_arith(DisasContext *ctx, uint32_t opc,
 }
 
 /* lower 12 bits of imm are valid */
-inline static void gen_arith_imm(DisasContext *ctx, uint32_t opc, 
+inline static void gen_arith_imm(DisasContext *ctx, uint32_t opc,
                       int rd, int rs1, int16_t imm)
 {
     TCGv source1;
@@ -419,7 +419,7 @@ inline static void gen_arith_imm(DisasContext *ctx, uint32_t opc,
 }
 
 /* lower 12 bits of imm are valid */
-inline static void gen_arith_imm_w(DisasContext *ctx, uint32_t opc, 
+inline static void gen_arith_imm_w(DisasContext *ctx, uint32_t opc,
                       int rd, int rs1, int16_t imm)
 {
     TCGv source1;
@@ -442,15 +442,15 @@ inline static void gen_arith_imm_w(DisasContext *ctx, uint32_t opc,
             // SRAI
             // first, trick to get it to act like working on 32 bits:
             tcg_gen_shli_tl(source1, source1, 32);
-            // now shift back to the right by shamt + 32 to get proper upper 
+            // now shift back to the right by shamt + 32 to get proper upper
             // bits filling
             tcg_gen_sari_tl(source1, source1, (uimm ^ 0x400) + 32);
             tcg_gen_ext32s_tl(source1, source1);
         } else {
-            // first, trick to get it to act like working on 32 bits (get rid 
+            // first, trick to get it to act like working on 32 bits (get rid
             // of upper 32):
             tcg_gen_shli_tl(source1, source1, 32);
-            // now shift back to the right by shamt + 32 to get proper upper 
+            // now shift back to the right by shamt + 32 to get proper upper
             // bits filling
             tcg_gen_shri_tl(source1, source1, uimm + 32);
             tcg_gen_ext32s_tl(source1, source1);
@@ -464,7 +464,7 @@ inline static void gen_arith_imm_w(DisasContext *ctx, uint32_t opc,
     tcg_temp_free(source1);
 }
 
-inline static void gen_arith_w(DisasContext *ctx, uint32_t opc, 
+inline static void gen_arith_w(DisasContext *ctx, uint32_t opc,
                       int rd, int rs1, int rs2)
 {
     TCGv source1, source2;
@@ -494,7 +494,7 @@ inline static void gen_arith_w(DisasContext *ctx, uint32_t opc,
         tcg_gen_ext32s_tl(source1, source1); // sign ext
         break;
     case OPC_RISC_SRAW:
-        // first, trick to get it to act like working on 32 bits (get rid of 
+        // first, trick to get it to act like working on 32 bits (get rid of
         // upper 32)
         tcg_gen_shli_tl(source1, source1, 32); // clear upper 32
         tcg_gen_sari_tl(source1, source1, 32); // smear the sign bit into upper 32
@@ -540,7 +540,7 @@ inline static void gen_arith_w(DisasContext *ctx, uint32_t opc,
             tcg_gen_br(done);
             // special overflow case
             gen_set_label(handle_overflow);
-            tcg_gen_movi_tl(spec_source1, 0x8000000000000000); 
+            tcg_gen_movi_tl(spec_source1, 0x8000000000000000);
             // done
             gen_set_label(done);
             tcg_gen_mov_tl(source1, spec_source1);
@@ -549,7 +549,7 @@ inline static void gen_arith_w(DisasContext *ctx, uint32_t opc,
             tcg_temp_free(cond1);
             tcg_temp_free(cond2);
             tcg_gen_ext32s_tl(source1, source1);
-        }                
+        }
         break;
     case OPC_RISC_DIVUW:
         {
@@ -579,7 +579,7 @@ inline static void gen_arith_w(DisasContext *ctx, uint32_t opc,
             tcg_temp_free(spec_source1);
             tcg_temp_free(spec_source2);
             tcg_gen_ext32s_tl(source1, source1);
-        }                
+        }
         break;
     case OPC_RISC_REMW:
         {
@@ -615,7 +615,7 @@ inline static void gen_arith_w(DisasContext *ctx, uint32_t opc,
             tcg_gen_br(done);
             // special overflow case
             gen_set_label(handle_overflow);
-            tcg_gen_movi_tl(spec_source1, 0); 
+            tcg_gen_movi_tl(spec_source1, 0);
             // done
             gen_set_label(done);
             tcg_gen_mov_tl(source1, spec_source1);
@@ -624,7 +624,7 @@ inline static void gen_arith_w(DisasContext *ctx, uint32_t opc,
             tcg_temp_free(cond1);
             tcg_temp_free(cond2);
             tcg_gen_ext32s_tl(source1, source1);
-        }                
+        }
         break;
     case OPC_RISC_REMUW:
         {
@@ -653,7 +653,7 @@ inline static void gen_arith_w(DisasContext *ctx, uint32_t opc,
             tcg_temp_free(spec_source1);
             tcg_temp_free(spec_source2);
             tcg_gen_ext32s_tl(source1, source1);
-        }                
+        }
         break;
     default:
         kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
@@ -664,7 +664,7 @@ inline static void gen_arith_w(DisasContext *ctx, uint32_t opc,
     tcg_temp_free(source2);
 }
 
-inline static void gen_branch(DisasContext *ctx, uint32_t opc, 
+inline static void gen_branch(DisasContext *ctx, uint32_t opc,
                        int rs1, int rs2, int16_t bimm) {
 
     // TODO: misaligned insn (see jalr)
@@ -718,7 +718,7 @@ inline static void gen_branch(DisasContext *ctx, uint32_t opc,
     ctx->bstate = BS_BRANCH;
 }
 
-inline static void gen_load(DisasContext *ctx, uint32_t opc, 
+inline static void gen_load(DisasContext *ctx, uint32_t opc,
                       int rd, int rs1, int16_t imm)
 {
 
@@ -728,8 +728,8 @@ inline static void gen_load(DisasContext *ctx, uint32_t opc,
     TCGv t1 = tcg_temp_new();
 
     gen_get_gpr(t0, rs1);
-    tcg_gen_addi_tl(t0, t0, uimm); // 
-    
+    tcg_gen_addi_tl(t0, t0, uimm); //
+
     switch (opc) {
 
     case OPC_RISC_LB:
@@ -765,7 +765,7 @@ inline static void gen_load(DisasContext *ctx, uint32_t opc,
 }
 
 
-inline static void gen_store(DisasContext *ctx, uint32_t opc, 
+inline static void gen_store(DisasContext *ctx, uint32_t opc,
                       int rs1, int rs2, int16_t imm)
 {
     target_long uimm = (target_long)imm; /* sign ext 16->64 bits */
@@ -800,7 +800,7 @@ inline static void gen_store(DisasContext *ctx, uint32_t opc,
     tcg_temp_free(dat);
 }
 
-inline static void gen_jalr(DisasContext *ctx, uint32_t opc, 
+inline static void gen_jalr(DisasContext *ctx, uint32_t opc,
                       int rd, int rs1, int16_t imm)
 {
     TCGLabel* misaligned = gen_new_label();
@@ -813,7 +813,7 @@ inline static void gen_jalr(DisasContext *ctx, uint32_t opc,
     t3 = tcg_temp_local_new();
 
     switch (opc) {
-    
+
     case OPC_RISC_JALR: // CANNOT HAVE CHAINING WITH JALR
         gen_get_gpr(t0, rs1);
         tcg_gen_addi_tl(t0, t0, uimm);
@@ -847,7 +847,7 @@ inline static void gen_jalr(DisasContext *ctx, uint32_t opc,
 
 }
 
-inline static void gen_atomic(DisasContext *ctx, uint32_t opc, 
+inline static void gen_atomic(DisasContext *ctx, uint32_t opc,
                       int rd, int rs1, int rs2)
 {
     // TODO: handle aq, rl bits? - for now just get rid of them:
@@ -870,8 +870,8 @@ inline static void gen_atomic(DisasContext *ctx, uint32_t opc,
         tcg_gen_qemu_ld32s(source1, source1, ctx->mem_idx);
         break;
     case OPC_RISC_SC_W: {
-        TCGLabel* fail = gen_new_label(); 
-        TCGLabel* done = gen_new_label(); 
+        TCGLabel* fail = gen_new_label();
+        TCGLabel* done = gen_new_label();
         tcg_gen_brcond_tl(TCG_COND_NE, load_reservation, source1, fail);
         tcg_gen_qemu_st32(source2, source1, ctx->mem_idx);
         tcg_gen_movi_tl(source1, 0); //success
@@ -886,7 +886,7 @@ inline static void gen_atomic(DisasContext *ctx, uint32_t opc,
         tcg_gen_qemu_st32(source2, source1, ctx->mem_idx);
         tcg_gen_mov_tl(source1, dat);
         break;
-    case OPC_RISC_AMOADD_W:   
+    case OPC_RISC_AMOADD_W:
         tcg_gen_qemu_ld32s(dat, source1, ctx->mem_idx);
         tcg_gen_add_tl(source2, dat, source2);
         tcg_gen_qemu_st32(source2, source1, ctx->mem_idx);
@@ -906,7 +906,7 @@ inline static void gen_atomic(DisasContext *ctx, uint32_t opc,
         break;
     case OPC_RISC_AMOOR_W:
         tcg_gen_qemu_ld32s(dat, source1, ctx->mem_idx);
-        tcg_gen_or_tl(source2, dat, source2); 
+        tcg_gen_or_tl(source2, dat, source2);
         tcg_gen_qemu_st32(source2, source1, ctx->mem_idx);
         tcg_gen_mov_tl(source1, dat);
         break;
@@ -1016,8 +1016,8 @@ inline static void gen_atomic(DisasContext *ctx, uint32_t opc,
         tcg_gen_qemu_ld64(source1, source1, ctx->mem_idx);
         break;
     case OPC_RISC_SC_D: {
-        TCGLabel* fail = gen_new_label(); 
-        TCGLabel* done = gen_new_label(); 
+        TCGLabel* fail = gen_new_label();
+        TCGLabel* done = gen_new_label();
         tcg_gen_brcond_tl(TCG_COND_NE, load_reservation, source1, fail);
         tcg_gen_qemu_st64(source2, source1, ctx->mem_idx);
         tcg_gen_movi_tl(source1, 0); //success
@@ -1038,7 +1038,7 @@ inline static void gen_atomic(DisasContext *ctx, uint32_t opc,
         tcg_gen_qemu_st64(source2, source1, ctx->mem_idx);
         tcg_gen_mov_tl(source1, dat);
         break;
-    case OPC_RISC_AMOXOR_D: 
+    case OPC_RISC_AMOXOR_D:
         tcg_gen_qemu_ld64(dat, source1, ctx->mem_idx);
         tcg_gen_xor_tl(source2, dat, source2);
         tcg_gen_qemu_st64(source2, source1, ctx->mem_idx);
@@ -1211,7 +1211,7 @@ inline static void gen_csr_htif(DisasContext *ctx, uint32_t opc, uint64_t addr, 
     tcg_temp_free(htif_addr);
 }
 
-inline static void gen_system(DisasContext *ctx, uint32_t opc, 
+inline static void gen_system(DisasContext *ctx, uint32_t opc,
                       int rd, int rs1, int csr)
 {
     // get index into csr array
@@ -1359,7 +1359,7 @@ inline static void gen_system(DisasContext *ctx, uint32_t opc,
 }
 
 
-inline static void gen_fp_load(DisasContext *ctx, uint32_t opc, 
+inline static void gen_fp_load(DisasContext *ctx, uint32_t opc,
                       int rd, int rs1, int16_t imm)
 {
     target_long uimm = (target_long)imm; /* sign ext 16->64 bits */
@@ -1367,7 +1367,7 @@ inline static void gen_fp_load(DisasContext *ctx, uint32_t opc,
     TCGv t0 = tcg_temp_new();
     gen_get_gpr(t0, rs1);
     tcg_gen_addi_tl(t0, t0, uimm);
-    
+
     switch (opc) {
 
     case OPC_RISC_FLW:
@@ -1381,12 +1381,12 @@ inline static void gen_fp_load(DisasContext *ctx, uint32_t opc,
         break;
 
     }
-    tcg_gen_mov_tl(cpu_fpr[rd], t0); // probably can just get rid of this and 
+    tcg_gen_mov_tl(cpu_fpr[rd], t0); // probably can just get rid of this and
                                      // store directly to cpu_fpr[rd]
     tcg_temp_free(t0);
 }
 
-inline static void gen_fp_store(DisasContext *ctx, uint32_t opc, 
+inline static void gen_fp_store(DisasContext *ctx, uint32_t opc,
                       int rs1, int rs2, int16_t imm)
 {
     target_long uimm = (target_long)imm; /* sign ext 16->64 bits */
@@ -1500,8 +1500,8 @@ inline static void gen_fp_fnmadd(DisasContext *ctx, uint32_t opc,
     tcg_temp_free(rm_reg);
 }
 
-inline static void gen_fp_arith(DisasContext *ctx, uint32_t opc, 
-                    int rd, int rs1, int rs2, int rm) 
+inline static void gen_fp_arith(DisasContext *ctx, uint32_t opc,
+                    int rd, int rs1, int rs2, int rm)
 {
     TCGv rm_reg = tcg_temp_new();
     TCGv write_int_rd = tcg_temp_new();
@@ -1521,14 +1521,14 @@ inline static void gen_fp_arith(DisasContext *ctx, uint32_t opc,
         gen_helper_fdiv_s(cpu_fpr[rd], cpu_env, cpu_fpr[rs1], cpu_fpr[rs2], rm_reg);
         break;
     case OPC_RISC_FSGNJ_S:
-        // also handles: OPC_RISC_FSGNJN_S, OPC_RISC_FSGNJX_S  
+        // also handles: OPC_RISC_FSGNJN_S, OPC_RISC_FSGNJX_S
         // TODO: probably don't need to use helpers here
         if (rm == 0x0) {
-            gen_helper_fsgnj_s(cpu_fpr[rd], cpu_env, cpu_fpr[rs1], cpu_fpr[rs2]);  
+            gen_helper_fsgnj_s(cpu_fpr[rd], cpu_env, cpu_fpr[rs1], cpu_fpr[rs2]);
         } else if (rm == 0x1) {
-            gen_helper_fsgnjn_s(cpu_fpr[rd], cpu_env, cpu_fpr[rs1], cpu_fpr[rs2]);  
+            gen_helper_fsgnjn_s(cpu_fpr[rd], cpu_env, cpu_fpr[rs1], cpu_fpr[rs2]);
         } else if (rm == 0x2) {
-            gen_helper_fsgnjx_s(cpu_fpr[rd], cpu_env, cpu_fpr[rs1], cpu_fpr[rs2]);  
+            gen_helper_fsgnjx_s(cpu_fpr[rd], cpu_env, cpu_fpr[rs1], cpu_fpr[rs2]);
         } else {
             kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
         }
@@ -1625,19 +1625,19 @@ inline static void gen_fp_arith(DisasContext *ctx, uint32_t opc,
         gen_helper_fdiv_d(cpu_fpr[rd], cpu_env, cpu_fpr[rs1], cpu_fpr[rs2], rm_reg);
         break;
     case OPC_RISC_FSGNJ_D:
-        // also OPC_RISC_FSGNJN_D, OPC_RISC_FSGNJX_D  
+        // also OPC_RISC_FSGNJN_D, OPC_RISC_FSGNJX_D
         if (rm == 0x0) {
-            gen_helper_fsgnj_d(cpu_fpr[rd], cpu_env, cpu_fpr[rs1], cpu_fpr[rs2]);  
+            gen_helper_fsgnj_d(cpu_fpr[rd], cpu_env, cpu_fpr[rs1], cpu_fpr[rs2]);
         } else if (rm == 0x1) {
-            gen_helper_fsgnjn_d(cpu_fpr[rd], cpu_env, cpu_fpr[rs1], cpu_fpr[rs2]);  
+            gen_helper_fsgnjn_d(cpu_fpr[rd], cpu_env, cpu_fpr[rs1], cpu_fpr[rs2]);
         } else if (rm == 0x2) {
-            gen_helper_fsgnjx_d(cpu_fpr[rd], cpu_env, cpu_fpr[rs1], cpu_fpr[rs2]);  
+            gen_helper_fsgnjx_d(cpu_fpr[rd], cpu_env, cpu_fpr[rs1], cpu_fpr[rs2]);
         } else {
             kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
         }
         break;
     case OPC_RISC_FMIN_D:
-        // also OPC_RISC_FMAX_D    
+        // also OPC_RISC_FMAX_D
         if (rm == 0x0) {
             gen_helper_fmin_d(cpu_fpr[rd], cpu_env, cpu_fpr[rs1], cpu_fpr[rs2]);
         } else if (rm == 0x1) {
@@ -1664,7 +1664,7 @@ inline static void gen_fp_arith(DisasContext *ctx, uint32_t opc,
         gen_helper_fsqrt_d(cpu_fpr[rd], cpu_env, cpu_fpr[rs1], rm_reg);
         break;
     case OPC_RISC_FEQ_D:
-        // also OPC_RISC_FLT_D, OPC_RISC_FLE_D     
+        // also OPC_RISC_FLT_D, OPC_RISC_FLE_D
         if (rm == 0x0) {
             gen_helper_fle_d(write_int_rd, cpu_env, cpu_fpr[rs1], cpu_fpr[rs2]);
         } else if (rm == 0x1) {
@@ -1677,7 +1677,7 @@ inline static void gen_fp_arith(DisasContext *ctx, uint32_t opc,
         gen_set_gpr(rd, write_int_rd);
         break;
     case OPC_RISC_FCVT_W_D:
-        // also OPC_RISC_FCVT_WU_D, OPC_RISC_FCVT_L_D, OPC_RISC_FCVT_LU_D 
+        // also OPC_RISC_FCVT_WU_D, OPC_RISC_FCVT_L_D, OPC_RISC_FCVT_LU_D
         if (rs2 == 0x0) {
             gen_helper_fcvt_w_d(write_int_rd, cpu_env, cpu_fpr[rs1], rm_reg);
         } else if (rs2 == 0x1) {
@@ -1707,7 +1707,7 @@ inline static void gen_fp_arith(DisasContext *ctx, uint32_t opc,
         }
         break;
     case OPC_RISC_FMV_X_D:
-        // also OPC_RISC_FCLASS_D  
+        // also OPC_RISC_FCLASS_D
         if (rm == 0x0) { // FMV
             tcg_gen_mov_tl(write_int_rd, cpu_fpr[rs1]);
         } else if (rm == 0x1) {
@@ -1743,7 +1743,7 @@ static void decode_opc (CPURISCVState *env, DisasContext *ctx)
     int16_t imm;
     target_long ubimm;
 
-    // do not do misaligned address check here, address should never be 
+    // do not do misaligned address check here, address should never be
     // misaligned
     //
     // instead, all control flow instructions check for themselves
@@ -1751,11 +1751,11 @@ static void decode_opc (CPURISCVState *env, DisasContext *ctx)
     // this is because epc must be the address of the control flow instruction
     // that "caused" to the misaligned instruction access
     //
-    // we leave this check here for now, since not all control flow 
+    // we leave this check here for now, since not all control flow
     // instructions have been updated yet
 
     /* make sure instructions are on a word boundary */
-    if (unlikely(ctx->pc & 0x3)) { 
+    if (unlikely(ctx->pc & 0x3)) {
         printf("addr misaligned\n");
         printf("misaligned instruction, not completely implemented for riscv\n");
         exit(1);
@@ -1772,7 +1772,7 @@ static void decode_opc (CPURISCVState *env, DisasContext *ctx)
     // this will print a log similar to spike, should be left off unless
     // you're debugging QEMU
     int start = 1; //0 && ctx->pc == 0x8ccac;
-    TCGv print_helper_tmp = tcg_temp_local_new(); 
+    TCGv print_helper_tmp = tcg_temp_local_new();
     TCGv printpc = tcg_temp_local_new();
     tcg_gen_movi_tl(print_helper_tmp, ctx->opcode);
     tcg_gen_movi_tl(printpc, ctx->pc);
@@ -1888,7 +1888,7 @@ static void decode_opc (CPURISCVState *env, DisasContext *ctx)
         break;
     case OPC_RISC_ATOMIC:
         gen_atomic(ctx, MASK_OP_ATOMIC(ctx->opcode), rd, rs1, rs2);
-        break;        
+        break;
     case OPC_RISC_FP_LOAD:
         gen_fp_load(ctx, MASK_OP_FP_LOAD(ctx->opcode), rd, rs1, imm);
         break;
@@ -1931,10 +1931,10 @@ gen_intermediate_code_internal(CPURISCVState *env, TranslationBlock *tb,
     next_page_start = (pc_start & TARGET_PAGE_MASK) + TARGET_PAGE_SIZE;
     ctx.pc = pc_start;
 
-    // once we have GDB, the rest of the translate.c implementation should be 
+    // once we have GDB, the rest of the translate.c implementation should be
     // ready for singlestep
     ctx.singlestep_enabled = cs->singlestep_enabled;
-    
+
     ctx.tb = tb;
     ctx.bstate = BS_NONE;
 
