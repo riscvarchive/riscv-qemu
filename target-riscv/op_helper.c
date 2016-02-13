@@ -54,6 +54,12 @@ void helper_raise_exception(CPURISCVState *env, uint32_t exception)
 //    do_raise_exception_err(env, exception, GETPC());
 }
 
+void helper_raise_exception_debug(CPURISCVState *env)
+{
+    do_raise_exception_err(env, EXCP_DEBUG, 0);
+}
+
+
 void helper_raise_exception_err(CPURISCVState *env, uint32_t exception, target_ulong pc)
 {
     do_raise_exception_err(env, exception, pc);

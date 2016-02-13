@@ -207,9 +207,15 @@ static void raise_mmu_exception(CPURISCVState *env, target_ulong address,
 #if !defined(CONFIG_USER_ONLY)
 hwaddr riscv_cpu_get_phys_page_debug(CPUState *cs, vaddr addr)
 {
-    printf("get_phys_page_debug unimplemented for RISC-V\n");
-    exit(1);
-    return 0;
+    RISCVCPU *cpu = RISCV_CPU(cs);
+    hwaddr phys_addr;
+    int prot;
+    int mem_idx = cpu_mmu_index(&cpu->env, false);
+
+    if (get_physical_address(&cpu->env, &phys_addr, &prot, addr, 0, mem_idx)) {
+        return -1;
+    }
+    return phys_addr;
 }
 #endif
 

@@ -3,8 +3,6 @@
  *
  * Author: Sagar Karandikar, sagark@eecs.berkeley.edu
  *
- * NOTE: GDB functionality has not been completely implemented/tested.
- *
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -31,9 +29,7 @@ int riscv_cpu_gdb_read_register(CPUState *cs, uint8_t *mem_buf, int n)
 
     if (n < 32) {
         return gdb_get_regl(mem_buf, env->active_tc.gpr[n]);
-    } else if (n < 4128) {
-        return gdb_get_regl(mem_buf, env->csr[n-32]);
-    } else if (n == 4128) {
+    } else if (n == 32) {
         return gdb_get_regl(mem_buf, env->active_tc.PC);
     }
     return 0;
@@ -50,12 +46,9 @@ int riscv_cpu_gdb_write_register(CPUState *cs, uint8_t *mem_buf, int n)
     if (n < 32) {
         env->active_tc.gpr[n] = tmp;
         return sizeof(target_ulong);
-    } else if (n < 4128) {
-        env->csr[n-32] = tmp;
-        return sizeof(target_ulong);
-    } else if (n == 4128) {
+    } else if (n == 32) {
         env->active_tc.PC = tmp;
         return sizeof(target_ulong);
     }
-    return sizeof(target_ulong);
+    return 0;
 }

@@ -135,7 +135,7 @@ static inline void gen_goto_tb(DisasContext *ctx, int n, target_ulong dest)
     } else {
         tcg_gen_movi_tl(cpu_PC, dest);
         if (ctx->singlestep_enabled) {
-            generate_exception(ctx, EXCP_DEBUG);
+            gen_helper_raise_exception_debug(cpu_env);
         }
         tcg_gen_exit_tb(0);
     }
@@ -1955,19 +1955,17 @@ gen_intermediate_code_internal(CPURISCVState *env, TranslationBlock *tb,
         tcg_gen_insn_start(ctx.pc);
         num_insns++;
 
-/*        if (unlikely(!QTAILQ_EMPTY(&cs->breakpoints))) {
-            QTAILQ_FOREACH(bp, &cs->breakpoints, entry) {
-                if (bp->pc == ctx.pc) {
-                    tcg_gen_movi_tl(cpu_PC, ctx.pc);
-                    ctx.bstate = BS_BRANCH;
-                    TCGv_i32 helper_tmp = tcg_const_i32(EXCP_DEBUG);
-                    gen_helper_raise_exception(cpu_env, helper_tmp);
-                    tcg_temp_free_i32(helper_tmp);
-                    ctx.pc += 4;
-                    goto done_generating;
-                }
-            }
-        }*/
+        if (unlikely(cpu_breakpoint_test(cs, ctx.pc, BP_ANY))) {
+            tcg_gen_movi_tl(cpu_PC, ctx.pc);
+            ctx.bstate = BS_BRANCH;
+            gen_helper_raise_exception_debug(cpu_env);
+            /* The address covered by the breakpoint must be included in
+               [tb->pc, tb->pc + tb->size) in order to for it to be
+               properly cleared -- thus we increment the PC here so that
+               the logic setting tb->size below does the right thing.  */
+            ctx.pc += 4;
+            goto done_generating;
+        }
 
         if (num_insns == max_insns && (tb->cflags & CF_LAST_IO)) {
             gen_io_start();
@@ -1977,7 +1975,9 @@ gen_intermediate_code_internal(CPURISCVState *env, TranslationBlock *tb,
         decode_opc(env, &ctx);
         ctx.pc += 4;
 
-
+        if (cs->singlestep_enabled) {
+            break;
+        }
         if (ctx.pc >= next_page_start) {
             break;
         }
@@ -1999,7 +1999,7 @@ gen_intermediate_code_internal(CPURISCVState *env, TranslationBlock *tb,
         if (ctx.bstate == BS_NONE) {
             tcg_gen_movi_tl(cpu_PC, ctx.pc); // NOT PC+4, that was already done
         }
-        generate_exception(&ctx, EXCP_DEBUG);
+        gen_helper_raise_exception_debug(cpu_env);
     } else {
         switch (ctx.bstate) {
             case BS_STOP:
@@ -2016,7 +2016,7 @@ gen_intermediate_code_internal(CPURISCVState *env, TranslationBlock *tb,
                 break;
         }
     }
-//done_generating:
+done_generating:
     gen_tb_end(tb, num_insns);
     tb->size = ctx.pc - pc_start;
     tb->icount = num_insns;
