@@ -33,11 +33,11 @@ static uint64_t written_delta;
 static uint64_t instret_delta;
 
 // this is the "right value" for defaults in pk/linux
-// see pk/sbi_entry.S and arch/riscv/kernel/time.c call to 
+// see pk/sbi_entry.S and arch/riscv/kernel/time.c call to
 // clockevents_config_and_register
 #define TIMER_FREQ	10 * 1000 * 1000
 // CPU_FREQ is for instret approximation - say we're running at 1 BIPS
-#define CPU_FREQ    1000 * 1000 * 1000 
+#define CPU_FREQ    1000 * 1000 * 1000
 
 inline uint64_t rtc_read(CPURISCVState *env) {
     return muldiv64(qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL), TIMER_FREQ, get_ticks_per_sec());
@@ -56,7 +56,7 @@ inline uint64_t instret_read_with_delta(CPURISCVState *env) {
 }
 
 /*
- * Called when mtimecmp is written to update the QEMU timer or immediately 
+ * Called when mtimecmp is written to update the QEMU timer or immediately
  * trigger timer interrupt if mtimecmp <= current timer value.
  */
 static inline void cpu_riscv_timer_update(CPURISCVState *env)
@@ -67,7 +67,7 @@ static inline void cpu_riscv_timer_update(CPURISCVState *env)
     uint64_t rtc_r = rtc_read_with_delta(env);
 
     #ifdef TIMER_DEBUGGING_RISCV
-    printf("timer update: mtimecmp %016lx, timew %016lx\n", 
+    printf("timer update: mtimecmp %016lx, timew %016lx\n",
             env->csr[NEW_CSR_MTIMECMP], rtc_r);
     #endif
 
@@ -82,12 +82,12 @@ static inline void cpu_riscv_timer_update(CPURISCVState *env)
     // otherwise, set up the future timer interrupt
     diff = env->csr[NEW_CSR_MTIMECMP] - rtc_r;
     // back to ns (note args switched in muldiv64)
-    next = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) + 
+    next = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) +
         muldiv64(diff, get_ticks_per_sec(), TIMER_FREQ);
     timer_mod(env->timer, next);
 }
 
-/* 
+/*
  * Called by the callback used when the timer set using timer_mod expires.
  * Should raise the timer interrupt line
  */

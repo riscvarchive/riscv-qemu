@@ -1,4 +1,4 @@
-/* 
+/*
  * QEMU RISC-V Generic Board Support
  *
  * Author: Sagar Karandikar, sagark@eecs.berkeley.edu
@@ -266,7 +266,7 @@ static void riscv_board_init(MachineState *args)
     }
 
     // add serial device 0x3f8-0x3ff
-    // serial_mm_init(system_memory, 0xF0000400, 0, env->irq[5], 1843200/16, 
+    // serial_mm_init(system_memory, 0xF0000400, 0, env->irq[5], 1843200/16,
     //         serial_hds[0], DEVICE_NATIVE_ENDIAN);
 
     // setup HTIF Block Device if one is specified as -hda FILENAME
@@ -280,15 +280,15 @@ static void riscv_board_init(MachineState *args)
     }
 
     // add htif device at 0xFFFFFFFFF0000000
-    htif_mm_init(system_memory, 0xFFFFFFFFF0000000L, env->irq[4], main_mem, 
+    htif_mm_init(system_memory, 0xFFFFFFFFF0000000L, env->irq[4], main_mem,
             htifbd_fname, kernel_cmdline, env, serial_hds[0]);
 
     // Softint "devices" for cleaner handling of CPU-triggered interrupts
-    softint_mm_init(system_memory, 0xFFFFFFFFF0000020L, env->irq[1], main_mem, 
+    softint_mm_init(system_memory, 0xFFFFFFFFF0000020L, env->irq[1], main_mem,
             env, "SSIP");
-    softint_mm_init(system_memory, 0xFFFFFFFFF0000040L, env->irq[2], main_mem, 
+    softint_mm_init(system_memory, 0xFFFFFFFFF0000040L, env->irq[2], main_mem,
             env, "STIP");
-    softint_mm_init(system_memory, 0xFFFFFFFFF0000060L, env->irq[3], main_mem, 
+    softint_mm_init(system_memory, 0xFFFFFFFFF0000060L, env->irq[3], main_mem,
             env, "MSIP");
 
     // TODO: VIRTIO

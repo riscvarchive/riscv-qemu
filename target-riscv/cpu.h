@@ -277,7 +277,7 @@ struct CPURISCVState {
 #include "cpu-qom.h"
 
 #if !defined(CONFIG_USER_ONLY)
-void riscv_cpu_unassigned_access(CPUState *cpu, hwaddr addr, bool is_write, 
+void riscv_cpu_unassigned_access(CPUState *cpu, hwaddr addr, bool is_write,
         bool is_exec, int unused, unsigned size);
 #endif
 
@@ -310,9 +310,9 @@ static inline int cpu_mmu_index (CPURISCVState *env, bool ifetch)
     return mode;
 }
 
-/* 
+/*
  * Return RISC-V IRQ number if an interrupt should be taken, else -1.
- * Used in cpu-exec.c 
+ * Used in cpu-exec.c
  */
 static inline int cpu_riscv_hw_interrupts_pending(CPURISCVState *env)
 {
@@ -322,7 +322,7 @@ static inline int cpu_riscv_hw_interrupts_pending(CPURISCVState *env)
     target_ulong interrupts = env->csr[NEW_CSR_MIE] & env->csr[NEW_CSR_MIP];
 
     #ifdef RISCV_DEBUG_PRINT
-    printf("checking interrupts: ie %d, priv %d, interrupts %ld\n", ie, priv, 
+    printf("checking interrupts: ie %d, priv %d, interrupts %ld\n", ie, priv,
             interrupts);
     #endif
 
@@ -378,7 +378,7 @@ static inline int cpu_riscv_hw_interrupts_pending(CPURISCVState *env)
         }
     }
 
-    // indicates no pending interrupt to handler in cpu-exec.c               
+    // indicates no pending interrupt to handler in cpu-exec.c
     return -1;
 }
 
@@ -432,7 +432,7 @@ target_ulong push_priv_stack(target_ulong start_mstatus);
 target_ulong pop_priv_stack(target_ulong start_mstatus);
 
 #ifndef CONFIG_USER_ONLY
-void csr_write_helper(CPURISCVState *env, target_ulong val_to_write, 
+void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
         target_ulong csrno);
 target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno);
 inline void cpu_riscv_tlb_flush (CPURISCVState *env, int flush_global);
@@ -441,7 +441,7 @@ inline void cpu_riscv_tlb_flush (CPURISCVState *env, int flush_global);
 #define RISCV_RM ({ if(rm == 7) rm = env->csr[NEW_CSR_FRM]; \
                     /* TODO: throw trap for rm > 4 */ \
                     rm; })
-                    
+
 #define set_fp_exceptions ({ env->csr[NEW_CSR_FFLAGS] |= softfloat_exceptionFlags;\
                              softfloat_exceptionFlags = 0; })
 

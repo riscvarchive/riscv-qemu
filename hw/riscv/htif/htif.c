@@ -46,15 +46,15 @@
 
 
 #ifdef ENABLE_CHARDEV
-/* 
- * Called by the char dev to see if HTIF is ready to accept input. 
+/*
+ * Called by the char dev to see if HTIF is ready to accept input.
  */
 static int htif_can_recv(void *opaque)
 {
     return 1;
 }
 
-/* 
+/*
  * Called by the char dev to supply input to HTIF console.
  * We assume that we will receive one character at a time.
  */
@@ -86,7 +86,7 @@ static void htif_recv(void *opaque, const uint8_t *buf, int size)
  * Called by the char dev to supply special events to the HTIF console.
  * Not used for HTIF.
  */
-static void htif_event(void *opaque, int event) 
+static void htif_event(void *opaque, int event)
 {
     #ifdef DEBUG_CHARDEV
     fprintf(stderr, "GOT EVENT: %d\n", event);
@@ -292,9 +292,9 @@ static void htif_handle_tohost_write(HTIFState *htifstate, uint64_t val_written)
             fprintf(stderr, "HTIF device %d: UNKNOWN COMMAND\n", device);
             exit(1);
         }
-    } else if (device == 0x2 && htifstate->block_dev_present) { 
+    } else if (device == 0x2 && htifstate->block_dev_present) {
         // HTIF Block Device
-        if (unlikely(cmd == 0xFF)) { 
+        if (unlikely(cmd == 0xFF)) {
             if (what == 0xFF) { // register
                 dma_strcopy(htifstate, htifstate->real_name, real_addr);
             } else if (what == 0x0) {
@@ -402,7 +402,7 @@ static const MemoryRegionOps htif_mm_ops[3] = {
     },
 };
 
-HTIFState *htif_mm_init(MemoryRegion *address_space, hwaddr base, qemu_irq irq, 
+HTIFState *htif_mm_init(MemoryRegion *address_space, hwaddr base, qemu_irq irq,
                         MemoryRegion *main_mem, const char* htifbd_fname,
                                             const char *kernel_cmdline,
                                             CPURISCVState *env,
@@ -436,7 +436,7 @@ HTIFState *htif_mm_init(MemoryRegion *address_space, hwaddr base, qemu_irq irq,
 
     vmstate_register(NULL, base, &vmstate_htif, htifstate);
 
-    memory_region_init_io(&htifstate->io, NULL, &htif_mm_ops[DEVICE_LITTLE_ENDIAN], 
+    memory_region_init_io(&htifstate->io, NULL, &htif_mm_ops[DEVICE_LITTLE_ENDIAN],
             htifstate, "htif", 16 /* 2 64-bit registers */);
     memory_region_add_subregion(address_space, base, &htifstate->io);
 
@@ -454,7 +454,7 @@ HTIFState *htif_mm_init(MemoryRegion *address_space, hwaddr base, qemu_irq irq,
 
     struct stat st;
     if (fstat(htifstate->block_fd, &st) < 0) {
-        fprintf(stderr, "WARN: Could not stat %s, continuing without block device.\n", 
+        fprintf(stderr, "WARN: Could not stat %s, continuing without block device.\n",
                 htifstate->block_fname);
         htifstate->block_dev_present = 0;
         return htifstate;

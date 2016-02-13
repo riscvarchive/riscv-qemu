@@ -25,8 +25,6 @@
 #include <signal.h>
 #include "cpu.h"
 
-// these magic numbers are redef'd here because QEMU doesn't really make the 
-// ones defined elsewhere usable
 #define QEMU_IN_FETCH 0x2
 #define QEMU_IN_WRITE 0x1
 #define QEMU_IN_READ  0x0
@@ -49,7 +47,7 @@ bool riscv_cpu_exec_interrupt(CPUState *cs, int interrupt_request) {
 
 /* get_physical_address - get the physical address for this virtual address
  *
- * Do a page table walk to obtain the physical address corresponding to a 
+ * Do a page table walk to obtain the physical address corresponding to a
  * virtual address.
  *
  * Returns 0 if the translation was successful
@@ -59,22 +57,12 @@ static int get_physical_address (CPURISCVState *env, hwaddr *physical,
                                 int rw, int mmu_idx)
 {
     /* NOTE: the env->active_tc.PC value visible here will not be
-     * correct, but the value visible to the exception handler 
+     * correct, but the value visible to the exception handler
      * (riscv_cpu_do_interrupt) is correct */
 
     // rw is either QEMU_IN_FETCH, QEMU_IN_WRITE, or QEMU_IN_READ
     *prot = 0;
     CPUState *cs = CPU(riscv_env_get_cpu(env));
-
-/* 
-    if (address >= 0xf0000400 && address < 0xf0000600) {
-        // hole in virt address space for serial device since linux is not 
-        // translating
-        *physical = address;
-        *prot = PAGE_READ | PAGE_WRITE | PAGE_EXEC;
-        return TRANSLATE_SUCCESS;
-    }
-*/
 
     target_ulong mode = get_field(env->csr[NEW_CSR_MSTATUS], MSTATUS_PRV);
     if (rw != QEMU_IN_FETCH && get_field(env->csr[NEW_CSR_MSTATUS], MSTATUS_MPRV)) {
@@ -99,28 +87,28 @@ static int get_physical_address (CPURISCVState *env, hwaddr *physical,
 
     target_ulong addr = address;
     int supervisor = mode > PRV_U;
- 
+
     int levels, ptidxbits, ptesize;
     switch (get_field(env->csr[NEW_CSR_MSTATUS], MSTATUS_VM))
     {
-      case VM_SV32: 
-          printf("currently unsupported SV32\n"); 
-          exit(1); 
-          levels = 2; 
-          ptidxbits = 10; 
-          ptesize = 4; 
+      case VM_SV32:
+          printf("currently unsupported SV32\n");
+          exit(1);
+          levels = 2;
+          ptidxbits = 10;
+          ptesize = 4;
           break;
-      case VM_SV39: 
-          levels = 3; 
-          ptidxbits = 9; 
-          ptesize = 8; 
+      case VM_SV39:
+          levels = 3;
+          ptidxbits = 9;
+          ptesize = 8;
           break;
-      case VM_SV48: 
-          levels = 4; 
-          ptidxbits = 9; 
-          ptesize = 8; 
+      case VM_SV48:
+          levels = 4;
+          ptidxbits = 9;
+          ptesize = 8;
           break;
-      default: 
+      default:
           printf("unsupported MSTATUS_VM value\n");
           exit(1);
     }
@@ -131,39 +119,39 @@ static int get_physical_address (CPURISCVState *env, hwaddr *physical,
     if (masked_msbs != 0 && masked_msbs != mask) {
         return TRANSLATE_FAIL;
     }
-  
+
     target_ulong base = env->csr[NEW_CSR_SPTBR];
     int ptshift = (levels - 1) * ptidxbits;
     int i;
     for (i = 0; i < levels; i++, ptshift -= ptidxbits) {
         target_ulong idx = (addr >> (PGSHIFT + ptshift)) & ((1 << ptidxbits) - 1);
-    
+
         // check that physical address of PTE is legal
         target_ulong pte_addr = base + idx * ptesize;
         if (pte_addr >= env->memsize) {
             break;
         }
-    
+
         target_ulong pte = ldq_phys(cs->as, pte_addr);
         target_ulong ppn = pte >> PTE_PPN_SHIFT;
-    
+
         if (PTE_TABLE(pte)) { // next level of page table
             base = ppn << PGSHIFT;
-        } else if (!PTE_CHECK_PERM(pte, supervisor, rw == QEMU_IN_WRITE, 
+        } else if (!PTE_CHECK_PERM(pte, supervisor, rw == QEMU_IN_WRITE,
                     rw == QEMU_IN_FETCH)) {
             break;
         } else {
             // set referenced and possibly dirty bits.
             // we only put it in the TLB if it has the right stuff
-            stq_phys(cs->as, pte_addr, ldq_phys(cs->as, pte_addr) | PTE_R | 
+            stq_phys(cs->as, pte_addr, ldq_phys(cs->as, pte_addr) | PTE_R |
                     ((rw == QEMU_IN_WRITE) * PTE_D));
-    
+
             // for superpage mappings, make a fake leaf PTE for the TLB's benefit.
             target_ulong vpn = addr >> PGSHIFT;
             *physical = (ppn | (vpn & ((1L << ptshift) - 1))) << PGSHIFT;
-      
+
             // we do not give all prots indicated by the PTE
-            // this is because future accesses need to do things like set the 
+            // this is because future accesses need to do things like set the
             // dirty bit on the PTE
             if (supervisor) {
                 if (PTE_SX(pte) && rw == QEMU_IN_FETCH) {
@@ -172,7 +160,7 @@ static int get_physical_address (CPURISCVState *env, hwaddr *physical,
                     *prot |= PAGE_WRITE;
                 } else if (PTE_SR(pte) && rw == QEMU_IN_READ) {
                     *prot |= PAGE_READ;
-                } else { 
+                } else {
                     printf("err in translation prots");
                     exit(1);
                 }
@@ -227,8 +215,6 @@ hwaddr riscv_cpu_get_phys_page_debug(CPUState *cs, vaddr addr)
 
 /* This is called when there is no QEMU "TLB" match
  *
- * Really "handle_tlb_nomatch"
- *
  * Assuming system mode, only called in target-riscv/op_helper:tlb_fill
  */
 int riscv_cpu_handle_mmu_fault(CPUState *cs, vaddr address, int rw, int mmu_idx)
@@ -248,7 +234,7 @@ int riscv_cpu_handle_mmu_fault(CPUState *cs, vaddr address, int rw, int mmu_idx)
              " prot %d\n",
              __func__, address, ret, physical, prot);
     if (ret == TRANSLATE_SUCCESS) {
-        tlb_set_page(cs, address & TARGET_PAGE_MASK, physical & TARGET_PAGE_MASK, 
+        tlb_set_page(cs, address & TARGET_PAGE_MASK, physical & TARGET_PAGE_MASK,
                 prot, mmu_idx, TARGET_PAGE_SIZE);
     } else if (ret == TRANSLATE_FAIL) {
         raise_mmu_exception(env, address, rw);
@@ -307,16 +293,16 @@ void riscv_cpu_do_interrupt(CPUState *cs)
 
     #ifdef RISCV_DEBUG_INTERRUPT
     if (cs->exception_index & 0x70000000) {
-        fprintf(stderr, "core   0: exception trap_%s, epc 0x%016lx\n", 
+        fprintf(stderr, "core   0: exception trap_%s, epc 0x%016lx\n",
                 riscv_interrupt_names[cs->exception_index & 0x0fffffff], env->active_tc.PC);
     } else {
-        fprintf(stderr, "core   0: exception trap_%s, epc 0x%016lx\n", 
+        fprintf(stderr, "core   0: exception trap_%s, epc 0x%016lx\n",
                 riscv_excp_names[cs->exception_index], env->active_tc.PC);
     }
     #endif
 
     // Store original PC to epc reg
-    // This is correct because the env->active_tc.PC value visible here is 
+    // This is correct because the env->active_tc.PC value visible here is
     // actually the correct value, unlike other places where env->active_tc.PC
     // may be used.
     env->csr[NEW_CSR_MEPC] = env->active_tc.PC;
@@ -327,11 +313,11 @@ void riscv_cpu_do_interrupt(CPUState *cs)
 
     // Store Cause in CSR_CAUSE. this comes from cs->exception_index
     if (cs->exception_index & (0x70000000)) {
-        // hacky for now. the MSB (bit 63) indicates interrupt but cs->exception 
+        // hacky for now. the MSB (bit 63) indicates interrupt but cs->exception
         // index is only 32 bits wide
         env->csr[NEW_CSR_MCAUSE] = cs->exception_index & 0x0FFFFFFF;
         env->csr[NEW_CSR_MCAUSE] |= (1L << 63);
-       
+
     } else {
         // fixup User ECALL -> correct priv ECALL
         if (cs->exception_index == NEW_RISCV_EXCP_U_ECALL) {
@@ -361,6 +347,6 @@ void riscv_cpu_do_interrupt(CPUState *cs)
     // TODO: yield load reservation
 
     // NOTE: CSR_BADVADDR should be set from the handler that raises the exception
- 
+
     cs->exception_index = EXCP_NONE; // mark handled to qemu
 }

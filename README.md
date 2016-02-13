@@ -4,7 +4,7 @@ riscv-qemu [![Build Status](https://travis-ci.org/riscv/riscv-qemu.svg?branch=ma
 **About:**
 
 The `riscv-softmmu` target for full system RV64G emulation is currently supported.
-It supports booting [riscv-linux]. `riscv-qemu` now provides support for 
+It supports booting [riscv-linux]. `riscv-qemu` now provides support for
 the updated privileged spec.
 
 **RISC-V Port Authors:**
@@ -17,19 +17,19 @@ the updated privileged spec.
 
 **Notes:**
 
-* The pre-rebase version of QEMU has been moved to a different repo. Going 
+* The pre-rebase version of QEMU has been moved to a different repo. Going
 forward, only this repo will be updated and the old version will be removed.
-You can temporarily find the old version 
+You can temporarily find the old version
 [here](https://github.com/ucb-bar/riscv-qemu-deprecated).
 
-Installation 
+Installation
 --------------
 
 Prerequisites:
 
     $ sudo apt-get install gcc libc6-dev pkg-config bridge-utils uml-utilities zlib1g-dev libglib2.0-dev autoconf automake libtool libsdl1.2-dev
 
-### Method 1 \(HTIF Devices\): 
+### Method 1 \(HTIF Devices\):
 
 ####Step 1: Build QEMU
 
@@ -69,12 +69,12 @@ and then hit `ctrl-a x`. Otherwise, the root filesystem will likely be corrupted
 
 ####Current limitations:
 
-* The current RISC-V board definition provides only HTIF devices (syscall 
-proxy for `bbl`, console, block device). These devices are experimental and will 
+* The current RISC-V board definition provides only HTIF devices (syscall
+proxy for `bbl`, console, block device). These devices are experimental and will
 be replaced with standard devices. The console especially can fall behind under
 heavy use.
 
-### Method 2 \(Standard Devices\): 
+### Method 2 \(Standard Devices\):
 
 Coming soon!
 
@@ -82,9 +82,9 @@ Coming soon!
 Running RISC-V Tests:
 ---------------------
 
-A script (`run-rv-tests.py`) for running the RV64 tests from [riscv-tests] is 
-included in the `hacking_files` directory. All RV64 tests are expected to pass, 
-however you will likely need to increase  `TIMER_INTERVAL` in 
+A script (`run-rv-tests.py`) for running the RV64 tests from [riscv-tests] is
+included in the `hacking_files` directory. All RV64 tests are expected to pass,
+however you will likely need to increase  `TIMER_INTERVAL` in
 `riscv-tests/env/pt/riscv_test.h`.
 
 TODOs:

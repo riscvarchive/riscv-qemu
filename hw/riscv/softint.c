@@ -3,7 +3,7 @@
  *
  * Author: Sagar Karandikar, sagark@eecs.berkeley.edu
  *
- * This module provides shim devices that allow support for interrupts 
+ * This module provides shim devices that allow support for interrupts
  * triggered by the RISC-V processor itself (writes to the MIP/SIP CSRs):
  *
  * The following instantiations are enabled by default in riscv_board:
@@ -57,7 +57,7 @@ const VMStateDescription vmstate_softint = {
     .minimum_version_id = 1,
     .pre_save = softint_pre_save,
     .post_load = softint_post_load,
-    .fields      = (VMStateField []) { 
+    .fields      = (VMStateField []) {
         VMSTATE_END_OF_LIST()
     },
 };
@@ -95,8 +95,8 @@ static const MemoryRegionOps softint_mm_ops[3] = {
     },
 };
 
-SoftintState *softint_mm_init(MemoryRegion *address_space, hwaddr base, qemu_irq irq, 
-                        MemoryRegion *main_mem, CPURISCVState *env, const char * name) 
+SoftintState *softint_mm_init(MemoryRegion *address_space, hwaddr base, qemu_irq irq,
+                        MemoryRegion *main_mem, CPURISCVState *env, const char * name)
 {
     // TODO: cleanup the constant buffer sizes
     SoftintState *softintstate;
@@ -112,8 +112,8 @@ SoftintState *softint_mm_init(MemoryRegion *address_space, hwaddr base, qemu_irq
 
     vmstate_register(NULL, base, &vmstate_softint, softintstate);
 
-    memory_region_init_io(&softintstate->io, NULL, 
-            &softint_mm_ops[DEVICE_LITTLE_ENDIAN], 
+    memory_region_init_io(&softintstate->io, NULL,
+            &softint_mm_ops[DEVICE_LITTLE_ENDIAN],
             softintstate, badbuf, 4 /* 1 32-bit register */);
     memory_region_add_subregion(address_space, base, &softintstate->io);
 
