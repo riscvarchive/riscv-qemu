@@ -23,8 +23,8 @@
 #include "qemu/host-utils.h"
 #include "exec/helper-proto.h"
 
-// custom floating point includes. use this instead of qemu's included 
-// fpu/softmmu since we know it already works exactly as desired for riscv 
+// custom floating point includes. use this instead of qemu's included
+// fpu/softmmu since we know it already works exactly as desired for riscv
 #include "fpu-custom-riscv/softfloat.h"
 #include "fpu-custom-riscv/platform.h"
 #include "fpu-custom-riscv/internals.h"
@@ -59,7 +59,7 @@ void helper_raise_exception_err(CPURISCVState *env, uint32_t exception, target_u
     do_raise_exception_err(env, exception, pc);
 }
 
-void helper_raise_exception_mbadaddr(CPURISCVState *env, uint32_t exception, 
+void helper_raise_exception_mbadaddr(CPURISCVState *env, uint32_t exception,
         target_ulong bad_pc) {
     env->csr[NEW_CSR_MBADADDR] = bad_pc;
     do_raise_exception_err(env, exception, 0);
@@ -485,7 +485,7 @@ target_ulong helper_mulhsu(CPURISCVState *env, target_ulong arg1,
  *
  * Note: mtohost and mfromhost are not handled here
  */
-inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write, 
+inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
         target_ulong csrno)
 {
     #ifdef RISCV_DEBUG_PRINT
@@ -537,7 +537,7 @@ inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
         #ifdef RISCV_DEBUG_PRINT
         target_ulong debug_mstatus = mstatus;
         #endif
-        if ((val_to_write ^ mstatus) & 
+        if ((val_to_write ^ mstatus) &
                 (MSTATUS_VM | MSTATUS_PRV | MSTATUS_PRV1 | MSTATUS_MPRV)) {
             #ifdef RISCV_DEBUG_PRINT
             fprintf(stderr, "flushing TLB\n");
@@ -546,7 +546,7 @@ inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
         }
 
         // no extension support
-        target_ulong mask = MSTATUS_IE | MSTATUS_IE1 | MSTATUS_IE2 
+        target_ulong mask = MSTATUS_IE | MSTATUS_IE1 | MSTATUS_IE2
             | MSTATUS_MPRV | MSTATUS_FS;
 
         if (validate_vm(get_field(val_to_write, MSTATUS_VM))) {
@@ -572,7 +572,7 @@ inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
     }
     case NEW_CSR_MIP: {
         target_ulong mask = MIP_SSIP | MIP_MSIP | MIP_STIP;
-        env->csr[NEW_CSR_MIP] = (env->csr[NEW_CSR_MIP] & ~mask) | 
+        env->csr[NEW_CSR_MIP] = (env->csr[NEW_CSR_MIP] & ~mask) |
             (val_to_write & mask);
         CPUState *cs = CPU(riscv_env_get_cpu(env));
         if (env->csr[NEW_CSR_MIP] & MIP_SSIP) {
@@ -604,7 +604,7 @@ inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
     }
     case NEW_CSR_MIE: {
         target_ulong mask = MIP_SSIP | MIP_MSIP | MIP_STIP | MIP_MTIP;
-        env->csr[NEW_CSR_MIE] = (env->csr[NEW_CSR_MIE] & ~mask) | 
+        env->csr[NEW_CSR_MIE] = (env->csr[NEW_CSR_MIE] & ~mask) |
             (val_to_write & mask);
         break;
     }
@@ -621,7 +621,7 @@ inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
     }
     case NEW_CSR_SIP: {
         target_ulong mask = MIP_SSIP;
-        env->csr[NEW_CSR_MIP] = (env->csr[NEW_CSR_MIP] & ~mask) | 
+        env->csr[NEW_CSR_MIP] = (env->csr[NEW_CSR_MIP] & ~mask) |
             (val_to_write & mask);
         CPUState *cs = CPU(riscv_env_get_cpu(env));
         if (env->csr[NEW_CSR_MIP] & MIP_SSIP) {
@@ -633,32 +633,32 @@ inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
     }
     case NEW_CSR_SIE: {
         target_ulong mask = MIP_SSIP | MIP_STIP;
-        env->csr[NEW_CSR_MIE] = (env->csr[NEW_CSR_MIE] & ~mask) | 
+        env->csr[NEW_CSR_MIE] = (env->csr[NEW_CSR_MIE] & ~mask) |
             (val_to_write & mask);
         break;
     }
-    case NEW_CSR_SEPC: 
+    case NEW_CSR_SEPC:
         env->csr[NEW_CSR_SEPC] = val_to_write;
         break;
-    case NEW_CSR_STVEC: 
-        env->csr[NEW_CSR_STVEC] = val_to_write >> 2 << 2; 
+    case NEW_CSR_STVEC:
+        env->csr[NEW_CSR_STVEC] = val_to_write >> 2 << 2;
         break;
-    case NEW_CSR_SPTBR: 
-        env->csr[NEW_CSR_SPTBR] = val_to_write & -(1L << PGSHIFT); 
+    case NEW_CSR_SPTBR:
+        env->csr[NEW_CSR_SPTBR] = val_to_write & -(1L << PGSHIFT);
         break;
-    case NEW_CSR_SSCRATCH: 
+    case NEW_CSR_SSCRATCH:
         env->csr[NEW_CSR_SSCRATCH] = val_to_write;
         break;
-    case NEW_CSR_MEPC: 
+    case NEW_CSR_MEPC:
         env->csr[NEW_CSR_MEPC] = val_to_write;
         break;
-    case NEW_CSR_MSCRATCH: 
+    case NEW_CSR_MSCRATCH:
         env->csr[NEW_CSR_MSCRATCH] = val_to_write;
         break;
-    case NEW_CSR_MCAUSE: 
+    case NEW_CSR_MCAUSE:
         env->csr[NEW_CSR_MCAUSE] = val_to_write;
         break;
-    case NEW_CSR_MBADADDR: 
+    case NEW_CSR_MBADADDR:
         env->csr[NEW_CSR_MBADADDR] = val_to_write;
         break;
     case NEW_CSR_MTIMECMP:
@@ -669,7 +669,7 @@ inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
         fprintf(stderr, "Write to mtohost should not be handled here\n");
         exit(1);
         break;
-    case NEW_CSR_MFROMHOST: 
+    case NEW_CSR_MFROMHOST:
         fprintf(stderr, "Write to mfromhost should not be handled here\n");
         exit(1);
         break;
@@ -683,7 +683,7 @@ inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
  */
 inline target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno)
 {
-    int csrno2 = (int)csrno; 
+    int csrno2 = (int)csrno;
     #ifdef RISCV_DEBUG_PRINT
     fprintf(stderr, "READ CSR 0x%x\n", csrno2);
     #endif
@@ -695,7 +695,7 @@ inline target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno)
     case NEW_CSR_FRM:
         return env->csr[NEW_CSR_FRM];
     case NEW_CSR_FCSR:
-        return (env->csr[NEW_CSR_FFLAGS] << FSR_AEXC_SHIFT) | 
+        return (env->csr[NEW_CSR_FFLAGS] << FSR_AEXC_SHIFT) |
             (env->csr[NEW_CSR_FRM] << FSR_RD_SHIFT);
     case NEW_CSR_MTIME:
         return cpu_riscv_read_mtime(env);
@@ -727,69 +727,69 @@ inline target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno)
         exit(1);
     case NEW_CSR_SSTATUS: {
         target_ulong ss = 0;
-        ss = set_field(ss, SSTATUS_IE, get_field(env->csr[NEW_CSR_MSTATUS], 
+        ss = set_field(ss, SSTATUS_IE, get_field(env->csr[NEW_CSR_MSTATUS],
                     MSTATUS_IE));
-        ss = set_field(ss, SSTATUS_PIE, get_field(env->csr[NEW_CSR_MSTATUS], 
+        ss = set_field(ss, SSTATUS_PIE, get_field(env->csr[NEW_CSR_MSTATUS],
                     MSTATUS_IE1));
-        ss = set_field(ss, SSTATUS_PS, get_field(env->csr[NEW_CSR_MSTATUS], 
+        ss = set_field(ss, SSTATUS_PS, get_field(env->csr[NEW_CSR_MSTATUS],
                     MSTATUS_PRV1));
-        ss = set_field(ss, SSTATUS_FS, get_field(env->csr[NEW_CSR_MSTATUS], 
+        ss = set_field(ss, SSTATUS_FS, get_field(env->csr[NEW_CSR_MSTATUS],
                     MSTATUS_FS));
-        ss = set_field(ss, SSTATUS_XS, get_field(env->csr[NEW_CSR_MSTATUS], 
+        ss = set_field(ss, SSTATUS_XS, get_field(env->csr[NEW_CSR_MSTATUS],
                     MSTATUS_XS));
-        ss = set_field(ss, SSTATUS_MPRV, get_field(env->csr[NEW_CSR_MSTATUS], 
+        ss = set_field(ss, SSTATUS_MPRV, get_field(env->csr[NEW_CSR_MSTATUS],
                     MSTATUS_MPRV));
         if (get_field(env->csr[NEW_CSR_MSTATUS], MSTATUS64_SD)) {
             ss = set_field(ss, SSTATUS64_SD, 1);
         }
         return ss;
     }
-    case NEW_CSR_SIP: 
+    case NEW_CSR_SIP:
         return env->csr[NEW_CSR_MIP] & (MIP_SSIP | MIP_STIP);
-    case NEW_CSR_SIE: 
+    case NEW_CSR_SIE:
         return env->csr[NEW_CSR_MIE] & (MIP_SSIP | MIP_STIP);
-    case NEW_CSR_SEPC: 
+    case NEW_CSR_SEPC:
         return env->csr[NEW_CSR_SEPC];
-    case NEW_CSR_SBADADDR: 
+    case NEW_CSR_SBADADDR:
         return env->csr[NEW_CSR_SBADADDR];
-    case NEW_CSR_STVEC: 
+    case NEW_CSR_STVEC:
         return env->csr[NEW_CSR_STVEC];
     case NEW_CSR_SCAUSE:
         return env->csr[NEW_CSR_SCAUSE];
-    case NEW_CSR_SPTBR: 
+    case NEW_CSR_SPTBR:
         return env->csr[NEW_CSR_SPTBR];
-    case NEW_CSR_SASID: 
+    case NEW_CSR_SASID:
         return 0;
-    case NEW_CSR_SSCRATCH: 
+    case NEW_CSR_SSCRATCH:
         return env->csr[NEW_CSR_SSCRATCH];
-    case NEW_CSR_MSTATUS: 
+    case NEW_CSR_MSTATUS:
         return env->csr[NEW_CSR_MSTATUS];
-    case NEW_CSR_MIP: 
+    case NEW_CSR_MIP:
         return env->csr[NEW_CSR_MIP];
-    case NEW_CSR_MIPI: 
+    case NEW_CSR_MIPI:
         return 0;
-    case NEW_CSR_MIE: 
+    case NEW_CSR_MIE:
         return env->csr[NEW_CSR_MIE];
-    case NEW_CSR_MEPC: 
+    case NEW_CSR_MEPC:
         return env->csr[NEW_CSR_MEPC];
-    case NEW_CSR_MSCRATCH: 
+    case NEW_CSR_MSCRATCH:
         return env->csr[NEW_CSR_MSCRATCH];
-    case NEW_CSR_MCAUSE: 
+    case NEW_CSR_MCAUSE:
         return env->csr[NEW_CSR_MCAUSE];
-    case NEW_CSR_MBADADDR: 
+    case NEW_CSR_MBADADDR:
         return env->csr[NEW_CSR_MBADADDR];
-    case NEW_CSR_MTIMECMP: 
+    case NEW_CSR_MTIMECMP:
         return env->csr[NEW_CSR_MTIMECMP];
-    case NEW_CSR_MCPUID: 
+    case NEW_CSR_MCPUID:
         return env->csr[NEW_CSR_MCPUID];
-    case NEW_CSR_MIMPID: 
+    case NEW_CSR_MIMPID:
         return 0x1; // "Rocket"
-    case NEW_CSR_MHARTID: 
+    case NEW_CSR_MHARTID:
         // TODO: multi-hart
         return 0;
-    case NEW_CSR_MTVEC: 
+    case NEW_CSR_MTVEC:
         return DEFAULT_MTVEC;
-    case NEW_CSR_MTDELEG: 
+    case NEW_CSR_MTDELEG:
         return 0;
     case NEW_CSR_MTOHOST:
         fprintf(stderr, "Read from mtohost should not be handled here\n");
@@ -797,7 +797,7 @@ inline target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno)
     case NEW_CSR_MFROMHOST:
         fprintf(stderr, "Read from mfromhost should not be handled here\n");
         exit(1);
-    case NEW_CSR_MIOBASE: 
+    case NEW_CSR_MIOBASE:
         return env->memsize;
     case NEW_CSR_UARCH0:
     case NEW_CSR_UARCH1:
@@ -821,7 +821,7 @@ inline target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno)
     exit(1);
 }
 
-void validate_csr(CPURISCVState *env, uint64_t which, uint64_t write, 
+void validate_csr(CPURISCVState *env, uint64_t which, uint64_t write,
         uint64_t new_pc) {
     unsigned my_priv = get_field(env->csr[NEW_CSR_MSTATUS], MSTATUS_PRV);
     unsigned csr_priv = get_field((which), 0x300);
@@ -832,7 +832,7 @@ void validate_csr(CPURISCVState *env, uint64_t which, uint64_t write,
     return;
 }
 
-target_ulong helper_csrrw(CPURISCVState *env, target_ulong src, 
+target_ulong helper_csrrw(CPURISCVState *env, target_ulong src,
         target_ulong csr, target_ulong new_pc)
 {
     validate_csr(env, csr, 1, new_pc);
@@ -841,7 +841,7 @@ target_ulong helper_csrrw(CPURISCVState *env, target_ulong src,
     return csr_backup;
 }
 
-target_ulong helper_csrrs(CPURISCVState *env, target_ulong src, 
+target_ulong helper_csrrs(CPURISCVState *env, target_ulong src,
         target_ulong csr, target_ulong new_pc)
 {
     validate_csr(env, csr, src != 0, new_pc);
@@ -851,7 +851,7 @@ target_ulong helper_csrrs(CPURISCVState *env, target_ulong src,
 }
 
 // match spike behavior for validate_csr write flag
-target_ulong helper_csrrsi(CPURISCVState *env, target_ulong src, 
+target_ulong helper_csrrsi(CPURISCVState *env, target_ulong src,
         target_ulong csr, target_ulong new_pc)
 {
     validate_csr(env, csr, 1, new_pc);
@@ -860,7 +860,7 @@ target_ulong helper_csrrsi(CPURISCVState *env, target_ulong src,
     return csr_backup;
 }
 
-target_ulong helper_csrrc(CPURISCVState *env, target_ulong src, 
+target_ulong helper_csrrc(CPURISCVState *env, target_ulong src,
         target_ulong csr, target_ulong new_pc) {
     validate_csr(env, csr, 1, new_pc);
     uint64_t csr_backup = csr_read_helper(env, csr);
@@ -868,7 +868,7 @@ target_ulong helper_csrrc(CPURISCVState *env, target_ulong src,
     return csr_backup;
 }
 
-/* 
+/*
  * This is a debug print helper for printing trace.
  * Currently calls spike-dasm, so very slow.
  * Probably not useful unless you're debugging riscv-qemu
@@ -889,10 +889,10 @@ void helper_debug_print(CPURISCVState *env, target_ulong cpu_pc_deb,
         exit(1);
     }
     if (fgets(path, sizeof(path)-1, fp) != NULL) {
-        fprintf(stderr, ": core   0: 0x" TARGET_FMT_lx " (0x%08lx) %s", 
+        fprintf(stderr, ": core   0: 0x" TARGET_FMT_lx " (0x%08lx) %s",
                 cpu_pc_deb, instruction, path);
     } else {*/
-        fprintf(stderr, ": core   0: 0x" TARGET_FMT_lx " (0x%08lx) %s", 
+        fprintf(stderr, ": core   0: 0x" TARGET_FMT_lx " (0x%08lx) %s",
                 cpu_pc_deb, instruction, "DASM BAD RESULT\n");
 /*    }
     pclose(fp);*/
@@ -925,7 +925,7 @@ target_ulong helper_sret(CPURISCVState *env, target_ulong cpu_pc_deb)
     }
     if (retpc & 0x3) {
         // check for misaligned fetch
-        helper_raise_exception_mbadaddr(env, NEW_RISCV_EXCP_INST_ADDR_MIS, 
+        helper_raise_exception_mbadaddr(env, NEW_RISCV_EXCP_INST_ADDR_MIS,
                 cpu_pc_deb);
         return cpu_pc_deb;
     }
@@ -944,14 +944,14 @@ target_ulong helper_mrts(CPURISCVState *env, target_ulong curr_pc)
         exit(1);
     }
 
-    csr_write_helper(env, set_field(mstatus, MSTATUS_PRV, PRV_S), 
+    csr_write_helper(env, set_field(mstatus, MSTATUS_PRV, PRV_S),
             NEW_CSR_MSTATUS);
     env->csr[NEW_CSR_SBADADDR] = env->csr[NEW_CSR_MBADADDR];
     env->csr[NEW_CSR_SCAUSE] = env->csr[NEW_CSR_MCAUSE];
     env->csr[NEW_CSR_SEPC] = env->csr[NEW_CSR_MEPC];
 
     if (env->csr[NEW_CSR_STVEC] & 0x3) {
-        helper_raise_exception_mbadaddr(env, NEW_RISCV_EXCP_INST_ADDR_MIS, 
+        helper_raise_exception_mbadaddr(env, NEW_RISCV_EXCP_INST_ADDR_MIS,
                 curr_pc);
         return curr_pc;
     }
@@ -1034,7 +1034,7 @@ void tlb_fill(CPUState *cs, target_ulong addr, int is_write, int mmu_idx,
     }
 }
 
-void riscv_cpu_unassigned_access(CPUState *cs, hwaddr addr, bool is_write, 
+void riscv_cpu_unassigned_access(CPUState *cs, hwaddr addr, bool is_write,
         bool is_exec, int unused, unsigned size)
 {
     printf("unassigned address not implemented for riscv\n");
