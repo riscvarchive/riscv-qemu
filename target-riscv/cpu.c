@@ -117,14 +117,13 @@ static void riscv_cpu_class_init(ObjectClass *c, void *data)
     cc->do_unassigned_access = riscv_cpu_unassigned_access;
     cc->do_unaligned_access = riscv_cpu_do_unaligned_access;
     cc->get_phys_page_debug = riscv_cpu_get_phys_page_debug;
-    // MAYBE TODO:
-//    cc->vmsd = &vmstate_riscv_cpu;
+    // TODO to support migration:
+    // cc->vmsd = &vmstate_riscv_cpu;
 #endif
 
     cc->disas_set_info = riscv_cpu_disas_set_info;
-    cc->gdb_num_core_regs = 73;
-    //TODO: see MIPS for gdb_stop_before_watchpoint
-
+    cc->gdb_num_core_regs = 33;
+    cc->gdb_stop_before_watchpoint = true;
 }
 
 static const TypeInfo riscv_cpu_type_info = {
