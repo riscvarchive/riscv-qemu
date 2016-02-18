@@ -67,18 +67,16 @@ static void htif_recv(void *opaque, const uint8_t *buf, int size)
     HTIFState *htifstate = opaque;
 
     #ifdef DEBUG_CHARDEV
-    if (htifstate->fromhost != 0x0) {
+    if (htifstate->env->csr[NEW_CSR_MFROMHOST] != 0x0) {
         fprintf(stderr, "recv handler: fromhost was not ready to accept input\n");
-        fprintf(stderr, "recv handler: prev value was: %016lx\n", htifstate->fromhost);
+        fprintf(stderr, "recv handler: prev value was: %016lx\n", htifstate->env->csr[NEW_CSR_MFROMHOST]);
     }
     #endif
 
     uint64_t val_written = htifstate->pending_read;
     uint64_t resp = 0x100 | *buf;
 
-    htifstate->fromhost = (val_written >> 48 << 48) | (resp << 16 >> 16);
-    htifstate->env->csr[NEW_CSR_MFROMHOST] = htifstate->fromhost;
-
+    htifstate->env->csr[NEW_CSR_MFROMHOST] = (val_written >> 48 << 48) | (resp << 16 >> 16);
     qemu_irq_raise(htifstate->irq);
 }
 
@@ -111,8 +109,6 @@ const VMStateDescription vmstate_htif = {
     .pre_save = htif_pre_save,
     .post_load = htif_post_load,
     .fields      = (VMStateField []) { // TODO what
-        VMSTATE_UINT64(tohost, HTIFState),
-        VMSTATE_UINT64(fromhost, HTIFState),
         VMSTATE_UINT64(tohost_addr, HTIFState),
         VMSTATE_UINT64(fromhost_addr, HTIFState),
         VMSTATE_END_OF_LIST()
@@ -206,7 +202,6 @@ static void htif_handle_tohost_write(HTIFState *htifstate, uint64_t val_written)
     fprintf(stderr, "mtohost write:\n-device: %d\n-cmd: %d\n-what: %02lx\n-payload: %016lx\n", device, cmd, payload & 0xFF, payload);
     #endif
 
-
     /*
      * Currently, there is a fixed mapping of devices:
      * 0: Syscall Proxy
@@ -257,7 +252,7 @@ static void htif_handle_tohost_write(HTIFState *htifstate, uint64_t val_written)
         if (cmd == 0x0) {
             // this should be a queue, but not yet implemented as such
             htifstate->pending_read = val_written;
-            htifstate->tohost = 0; // clear to indicate we read
+            htifstate->env->csr[NEW_CSR_MTOHOST] = 0; // clear to indicate we read
             return;
         } else if (cmd == 0x1) {
             #ifdef ENABLE_CHARDEV
@@ -330,13 +325,12 @@ static void htif_handle_tohost_write(HTIFState *htifstate, uint64_t val_written)
         fprintf(stderr, "-device: %d\n-cmd: %d\n-what: %02lx\n-payload: %016lx\n", device, cmd, payload & 0xFF, payload);
         exit(1);
     }
-    while (!htifstate->fromhost_inprogress && htifstate->fromhost != 0x0) {
+    while (!htifstate->fromhost_inprogress && htifstate->env->csr[NEW_CSR_MFROMHOST] != 0x0) {
         // wait
     }
-    htifstate->fromhost = (val_written >> 48 << 48) | (resp << 16 >> 16);
-    htifstate->env->csr[NEW_CSR_MFROMHOST] = htifstate->fromhost;
-    htifstate->tohost = 0; // clear to indicate we read
-    if (htifstate->fromhost != 0) {
+    htifstate->env->csr[NEW_CSR_MFROMHOST] = (val_written >> 48 << 48) | (resp << 16 >> 16);
+    htifstate->env->csr[NEW_CSR_MTOHOST] = 0; // clear to indicate we read
+    if (htifstate->env->csr[NEW_CSR_MFROMHOST] != 0) {
         // raise HTIF interrupt
         qemu_irq_raise(htifstate->irq);
     }
@@ -347,13 +341,13 @@ static uint64_t htif_mm_read(void *opaque, hwaddr addr, unsigned size)
 {
     HTIFState *htifstate = opaque;
     if (addr == 0x0) {
-        return htifstate->tohost & 0xFFFFFFFF;
+        return htifstate->env->csr[NEW_CSR_MTOHOST] & 0xFFFFFFFF;
     } else if (addr == 0x4) {
-        return (htifstate->tohost >> 32) & 0xFFFFFFFF;
+        return (htifstate->env->csr[NEW_CSR_MTOHOST] >> 32) & 0xFFFFFFFF;
     } else if (addr == 0x8) {
-        return htifstate->fromhost & 0xFFFFFFFF;
+        return htifstate->env->csr[NEW_CSR_MFROMHOST] & 0xFFFFFFFF;
     } else if (addr == 0xc) {
-        return (htifstate->fromhost >> 32) & 0xFFFFFFFF;
+        return (htifstate->env->csr[NEW_CSR_MFROMHOST] >> 32) & 0xFFFFFFFF;
     } else {
         printf("Invalid htif register address %016lx\n", (uint64_t)addr);
         exit(1);
@@ -366,25 +360,23 @@ static void htif_mm_write(void *opaque, hwaddr addr,
 {
     HTIFState *htifstate = opaque;
     if (addr == 0x0) {
-        if (htifstate->tohost == 0x0) {
+        if (htifstate->env->csr[NEW_CSR_MTOHOST] == 0x0) {
             htifstate->allow_tohost = 1;
-            htifstate->tohost = value & 0xFFFFFFFF;
+            htifstate->env->csr[NEW_CSR_MTOHOST] = value & 0xFFFFFFFF;
         } else {
             htifstate->allow_tohost = 0;
         }
     } else if (addr == 0x4) {
         if (htifstate->allow_tohost) {
-            htifstate->tohost |= value << 32;
-            htif_handle_tohost_write(htifstate, htifstate->tohost);
+            htifstate->env->csr[NEW_CSR_MTOHOST] |= value << 32;
+            htif_handle_tohost_write(htifstate, htifstate->env->csr[NEW_CSR_MTOHOST]);
         }
     } else if (addr == 0x8) {
         htifstate->fromhost_inprogress = 1;
-        htifstate->fromhost = value & 0xFFFFFFFF;
-        htifstate->env->csr[NEW_CSR_MFROMHOST] = htifstate->fromhost;
+        htifstate->env->csr[NEW_CSR_MFROMHOST] = value & 0xFFFFFFFF;
     } else if (addr == 0xc) {
-        htifstate->fromhost |= value << 32;
-        htifstate->env->csr[NEW_CSR_MFROMHOST] = htifstate->fromhost;
-        if (htifstate->fromhost == 0x0) {
+        htifstate->env->csr[NEW_CSR_MFROMHOST] |= value << 32;
+        if (htifstate->env->csr[NEW_CSR_MFROMHOST] == 0x0) {
             qemu_irq_lower(htifstate->irq);
         }
         htifstate->fromhost_inprogress = 0;
@@ -416,8 +408,6 @@ HTIFState *htif_mm_init(MemoryRegion *address_space, hwaddr base, qemu_irq irq,
 
     htifstate = g_malloc0(sizeof(HTIFState));
     rname = g_malloc0(sizeof(char)*500);
-    htifstate->tohost = 0;
-    htifstate->fromhost = 0;
     htifstate->tohost_addr = base;
     htifstate->fromhost_addr = base + 0x8;
     htifstate->irq = irq;

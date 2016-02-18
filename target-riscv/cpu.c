@@ -122,7 +122,7 @@ static void riscv_cpu_class_init(ObjectClass *c, void *data)
 #endif
 
     cc->disas_set_info = riscv_cpu_disas_set_info;
-    cc->gdb_num_core_regs = 33;
+    cc->gdb_num_core_regs = 132;
     cc->gdb_stop_before_watchpoint = true;
 }
 
