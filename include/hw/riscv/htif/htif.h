@@ -30,9 +30,6 @@
 typedef struct HTIFState HTIFState;
 
 struct HTIFState {
-    uint64_t tohost; // mapped to address base passed into htif_mm_init
-    uint64_t fromhost; // mapped to address base + 0x8 passed into htif_mm_init
-    
     int allow_tohost;
     int fromhost_inprogress;
 
