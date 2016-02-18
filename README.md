@@ -4,8 +4,8 @@ riscv-qemu [![Build Status](https://travis-ci.org/riscv/riscv-qemu.svg?branch=ma
 **About:**
 
 The `riscv-softmmu` target for full system RV64G emulation is currently supported.
-It supports booting [riscv-linux]. `riscv-qemu` now provides support for
-the updated privileged spec.
+It supports booting [riscv-linux]. Remote GDB debugging is also supported (see the 
+section below).
 
 **RISC-V Port Authors:**
 
@@ -86,6 +86,31 @@ A script (`run-rv-tests.py`) for running the RV64 tests from [riscv-tests] is
 included in the `hacking_files` directory. All RV64 tests are expected to pass,
 however you will likely need to increase  `TIMER_INTERVAL` in
 `riscv-tests/env/pt/riscv_test.h`.
+
+Using QEMU to Debug RISC-V Code:
+--------------------------------
+
+QEMU works with riscv-gdb to enable remote debugging. This currently requires
+building `gdb` from a special version of `riscv-gnu-toolchain`, available 
+[here](https://github.com/riscv/riscv-gnu-toolchain/tree/binutils-submodule).
+
+To use this, start QEMU with the additional flags `-S -s`:
+
+    $ ./riscv-softmmu/qemu-system-riscv -S -s -kernel bbl -append vmlinux -drive file=rootfs.ext2,format=raw -nographic
+
+This will start QEMU, but immediately pause and wait for a gdb connection.
+
+Separately, start `riscv64-unknown-elf-gdb`:
+
+    $ riscv64-unknown-elf-gdb [optional binary, e.g. vmlinux]
+
+At the prompt, connect to QEMU:
+
+    (gdb) target remote localhost:1234
+
+At this point, you can use regular gdb commands to singlestep, set breakpoints, 
+read/write registers, etc. If you type `continue` in gdb, you can return to QEMU 
+and interact with the machine as if you were using it without GDB attached.
 
 TODOs:
 ------
