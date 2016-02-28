@@ -296,11 +296,7 @@ static inline int cpu_mmu_index (CPURISCVState *env, bool ifetch)
 {
     int mode = get_field(env->csr[NEW_CSR_MSTATUS], MSTATUS_PRV);
 
-    // TODO: this should only apply to non-instruction fetches
-    // FIXED, but untested, so leave the print/exit
     if (!ifetch && get_field(env->csr[NEW_CSR_MSTATUS], MSTATUS_MPRV)) {
-        printf("USED 0 cpu_mmu_index\n");
-        exit(1);
         mode = get_field(env->csr[NEW_CSR_MSTATUS], MSTATUS_PRV1);
     }
     if (get_field(env->csr[NEW_CSR_MSTATUS], MSTATUS_VM) == VM_MBARE) {
