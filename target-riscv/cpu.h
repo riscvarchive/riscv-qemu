@@ -431,7 +431,6 @@ target_ulong pop_priv_stack(target_ulong start_mstatus);
 void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
         target_ulong csrno);
 target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno);
-inline void cpu_riscv_tlb_flush (CPURISCVState *env, int flush_global);
 #endif
 
 #define RISCV_RM ({ if(rm == 7) rm = env->csr[NEW_CSR_FRM]; \

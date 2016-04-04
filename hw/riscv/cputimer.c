@@ -51,7 +51,7 @@ inline uint64_t instret_read(CPURISCVState *env) {
     return muldiv64(qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL), CPU_FREQ, get_ticks_per_sec());
 }
 
-inline uint64_t instret_read_with_delta(CPURISCVState *env) {
+static inline uint64_t instret_read_with_delta(CPURISCVState *env) {
     return instret_read(env) + instret_delta;
 }
 

@@ -967,15 +967,6 @@ target_ulong helper_mrts(CPURISCVState *env, target_ulong curr_pc)
 
 #ifndef CONFIG_USER_ONLY
 
-/* TLB and translation cache management functions */
-
-inline void cpu_riscv_tlb_flush (CPURISCVState *env, int flush_global)
-{
-    RISCVCPU *cpu = riscv_env_get_cpu(env);
-    // Flush QEMU's TLB
-    tlb_flush(CPU(cpu), flush_global);
-}
-
 void helper_fence_i(CPURISCVState *env) {
     RISCVCPU *cpu = riscv_env_get_cpu(env);
     CPUState *cs = CPU(cpu);
@@ -988,7 +979,8 @@ void helper_fence_i(CPURISCVState *env) {
 
 void helper_tlb_flush(CPURISCVState *env)
 {
-    cpu_riscv_tlb_flush(env, 1);
+    RISCVCPU *cpu = riscv_env_get_cpu(env);
+    tlb_flush(CPU(cpu), 1);
 }
 
 #endif /* !CONFIG_USER_ONLY */
