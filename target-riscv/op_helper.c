@@ -25,9 +25,10 @@
 
 // custom floating point includes. use this instead of qemu's included
 // fpu/softmmu since we know it already works exactly as desired for riscv
-#include "fpu-custom-riscv/softfloat.h"
-#include "fpu-custom-riscv/platform.h"
-#include "fpu-custom-riscv/internals.h"
+// #include "fpu-custom-riscv/softfloat.h"
+// #include "fpu-custom-riscv/platform.h"
+// #include "fpu-custom-riscv/internals.h"
+#include "fpu/softfloat.h"
 
 static int validate_vm(target_ulong vm) {
     return vm == VM_SV39 || vm == VM_SV48 || vm == VM_MBARE;
@@ -74,96 +75,96 @@ void helper_raise_exception_mbadaddr(CPURISCVState *env, uint32_t exception,
 /* floating point */
 uint64_t helper_fmadd_s(CPURISCVState *env, uint64_t frs1, uint64_t frs2, uint64_t frs3, uint64_t rm)
 {
-    softfloat_roundingMode = RISCV_RM;
-    frs1 = f32_mulAdd(frs1, frs2, frs3);
+    //softfloat_roundingMode = RISCV_RM;
+    frs1 = float32_muladd(frs1, frs2, frs3);
     set_fp_exceptions;
     return frs1;
 }
 
 uint64_t helper_fmadd_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2, uint64_t frs3, uint64_t rm)
 {
-    softfloat_roundingMode = RISCV_RM;
-    frs1 = f64_mulAdd(frs1, frs2, frs3);
+    //softfloat_roundingMode = RISCV_RM;
+    frs1 = float64_muladd(frs1, frs2, frs3);
     set_fp_exceptions;
     return frs1;
 }
 
 uint64_t helper_fmsub_s(CPURISCVState *env, uint64_t frs1, uint64_t frs2, uint64_t frs3, uint64_t rm)
 {
-    softfloat_roundingMode = RISCV_RM;
-    frs1 = f32_mulAdd(frs1, frs2, frs3 ^ (uint32_t)INT32_MIN);
+    //softfloat_roundingMode = RISCV_RM;
+    frs1 = float32_muladd(frs1, frs2, frs3 ^ (uint32_t)INT32_MIN);
     set_fp_exceptions;
     return frs1;
 }
 
 uint64_t helper_fmsub_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2, uint64_t frs3, uint64_t rm)
 {
-    softfloat_roundingMode = RISCV_RM;
-    frs1 = f64_mulAdd(frs1, frs2, frs3 ^ (uint64_t)INT64_MIN);
+    //softfloat_roundingMode = RISCV_RM;
+    frs1 = float64_muladd(frs1, frs2, frs3 ^ (uint64_t)INT64_MIN);
     set_fp_exceptions;
     return frs1;
 }
 
 uint64_t helper_fnmsub_s(CPURISCVState *env, uint64_t frs1, uint64_t frs2, uint64_t frs3, uint64_t rm)
 {
-    softfloat_roundingMode = RISCV_RM;
-    frs1 = f32_mulAdd(frs1 ^ (uint32_t)INT32_MIN, frs2, frs3);
+    //softfloat_roundingMode = RISCV_RM;
+    frs1 = float32_muladd(frs1 ^ (uint32_t)INT32_MIN, frs2, frs3);
     set_fp_exceptions;
     return frs1;
 }
 
 uint64_t helper_fnmsub_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2, uint64_t frs3, uint64_t rm)
 {
-    softfloat_roundingMode = RISCV_RM;
-    frs1 = f64_mulAdd(frs1 ^ (uint64_t)INT64_MIN, frs2, frs3);
+    //softfloat_roundingMode = RISCV_RM;
+    frs1 = float64_muladd(frs1 ^ (uint64_t)INT64_MIN, frs2, frs3);
     set_fp_exceptions;
     return frs1;
 }
 
 uint64_t helper_fnmadd_s(CPURISCVState *env, uint64_t frs1, uint64_t frs2, uint64_t frs3, uint64_t rm)
 {
-    softfloat_roundingMode = RISCV_RM;
-    frs1 = f32_mulAdd(frs1 ^ (uint32_t)INT32_MIN, frs2, frs3 ^ (uint32_t)INT32_MIN);
+    //softfloat_roundingMode = RISCV_RM;
+    frs1 = float32_muladd(frs1 ^ (uint32_t)INT32_MIN, frs2, frs3 ^ (uint32_t)INT32_MIN);
     set_fp_exceptions;
     return frs1;
 }
 
 uint64_t helper_fnmadd_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2, uint64_t frs3, uint64_t rm)
 {
-    softfloat_roundingMode = RISCV_RM;
-    frs1 = f64_mulAdd(frs1 ^ (uint64_t)INT64_MIN, frs2, frs3 ^ (uint64_t)INT64_MIN);
+    //softfloat_roundingMode = RISCV_RM;
+    frs1 = float64_muladd(frs1 ^ (uint64_t)INT64_MIN, frs2, frs3 ^ (uint64_t)INT64_MIN);
     set_fp_exceptions;
     return frs1;
 }
 
 uint64_t helper_fadd_s(CPURISCVState *env, uint64_t frs1, uint64_t frs2, uint64_t rm)
 {
-    softfloat_roundingMode = RISCV_RM;
-    frs1 = f32_mulAdd(frs1, 0x3f800000, frs2);
+    //softfloat_roundingMode = RISCV_RM;
+    frs1 = float32_muladd(frs1, 0x3f800000, frs2);
     set_fp_exceptions;
     return frs1;
 }
 
 uint64_t helper_fsub_s(CPURISCVState *env, uint64_t frs1, uint64_t frs2, uint64_t rm)
 {
-    softfloat_roundingMode = RISCV_RM;
-    frs1 = f32_mulAdd(frs1, 0x3f800000, frs2 ^ (uint32_t)INT32_MIN);
+    //softfloat_roundingMode = RISCV_RM;
+    frs1 = float32_muladd(frs1, 0x3f800000, frs2 ^ (uint32_t)INT32_MIN);
     set_fp_exceptions;
     return frs1;
 }
 
 uint64_t helper_fmul_s(CPURISCVState *env, uint64_t frs1, uint64_t frs2, uint64_t rm)
 {
-    softfloat_roundingMode = RISCV_RM;
-    frs1 = f32_mulAdd(frs1, frs2, (frs1 ^ frs2) & (uint32_t)INT32_MIN);
+    //softfloat_roundingMode = RISCV_RM;
+    frs1 = float32_muladd(frs1, frs2, (frs1 ^ frs2) & (uint32_t)INT32_MIN);
     set_fp_exceptions;
     return frs1;
 }
 
 uint64_t helper_fdiv_s(CPURISCVState *env, uint64_t frs1, uint64_t frs2, uint64_t rm)
 {
-    softfloat_roundingMode = RISCV_RM;
-    frs1 = f32_div(frs1, frs2);
+    //softfloat_roundingMode = RISCV_RM;
+    frs1 = float32_div(frs1, frs2);
     set_fp_exceptions;
     return frs1;
 }
@@ -188,145 +189,145 @@ uint64_t helper_fsgnjx_s(CPURISCVState *env, uint64_t frs1, uint64_t frs2)
 
 uint64_t helper_fmin_s(CPURISCVState *env, uint64_t frs1, uint64_t frs2)
 {
-    frs1 = isNaNF32UI(frs2) || f32_lt_quiet(frs1, frs2) ? frs1 : frs2;
+    frs1 = float32_is_any_nan(frs2) || float32_lt_quiet(frs1, frs2) ? frs1 : frs2;
     set_fp_exceptions;
     return frs1;
 }
 
 uint64_t helper_fmax_s(CPURISCVState *env, uint64_t frs1, uint64_t frs2)
 {
-    frs1 = isNaNF32UI(frs2) || f32_le_quiet(frs2, frs1) ? frs1 : frs2;
+    frs1 = float32_is_any_nan(frs2) || float32_le_quiet(frs2, frs1) ? frs1 : frs2;
     set_fp_exceptions;
     return frs1;
 }
 
 uint64_t helper_fsqrt_s(CPURISCVState *env, uint64_t frs1, uint64_t rm)
 {
-    softfloat_roundingMode = RISCV_RM;
-    frs1 = f32_sqrt(frs1);
+    //softfloat_roundingMode = RISCV_RM;
+    frs1 = float32_sqrt(frs1);
     set_fp_exceptions;
     return frs1;
 }
 
 uint64_t helper_fle_s(CPURISCVState *env, uint64_t frs1, uint64_t frs2)
 {
-    frs1 = f32_le(frs1, frs2);
+    frs1 = float32_le(frs1, frs2);
     set_fp_exceptions;
     return frs1;
 }
 
 uint64_t helper_flt_s(CPURISCVState *env, uint64_t frs1, uint64_t frs2)
 {
-    frs1 = f32_lt(frs1, frs2);
+    frs1 = float32_lt(frs1, frs2);
     set_fp_exceptions;
     return frs1;
 }
 
 uint64_t helper_feq_s(CPURISCVState *env, uint64_t frs1, uint64_t frs2)
 {
-    frs1 = f32_eq(frs1, frs2);
+    frs1 = float32_eq(frs1, frs2);
     set_fp_exceptions;
     return frs1;
 }
 
 uint64_t helper_fcvt_w_s(CPURISCVState *env, uint64_t frs1, uint64_t rm)
 {
-    softfloat_roundingMode = RISCV_RM;
-    frs1 = (int64_t)((int32_t)f32_to_i32(frs1, RISCV_RM, true));
+    //softfloat_roundingMode = RISCV_RM;
+    frs1 = (int64_t)((int32_t)float32_to_int32(frs1, RISCV_RM, true));
     set_fp_exceptions;
     return frs1;
 }
 
 uint64_t helper_fcvt_wu_s(CPURISCVState *env, uint64_t frs1, uint64_t rm)
 {
-    softfloat_roundingMode = RISCV_RM;
-    frs1 = (int64_t)((int32_t)f32_to_ui32(frs1, RISCV_RM, true));
+    //softfloat_roundingMode = RISCV_RM;
+    frs1 = (int64_t)((int32_t)float32_to_uint32(frs1, RISCV_RM, true));
     set_fp_exceptions;
     return frs1;
 }
 
 uint64_t helper_fcvt_l_s(CPURISCVState *env, uint64_t frs1, uint64_t rm)
 {
-    softfloat_roundingMode = RISCV_RM;
-    frs1 = f32_to_i64(frs1, RISCV_RM, true);
+    //softfloat_roundingMode = RISCV_RM;
+    frs1 = float32_to_int64(frs1, RISCV_RM, true);
     set_fp_exceptions;
     return frs1;
 }
 
 uint64_t helper_fcvt_lu_s(CPURISCVState *env, uint64_t frs1, uint64_t rm)
 {
-    softfloat_roundingMode = RISCV_RM;
-    frs1 = f32_to_ui64(frs1, RISCV_RM, true);
+    //softfloat_roundingMode = RISCV_RM;
+    frs1 = float32_to_uint64(frs1, RISCV_RM, true);
     set_fp_exceptions;
     return frs1;
 }
 
 uint64_t helper_fcvt_s_w(CPURISCVState *env, uint64_t rs1, uint64_t rm)
 {
-    softfloat_roundingMode = RISCV_RM;
-    rs1 = i32_to_f32((int32_t)rs1);
+    //softfloat_roundingMode = RISCV_RM;
+    rs1 = int32_to_float32((int32_t)rs1);
     set_fp_exceptions;
     return rs1;
 }
 
 uint64_t helper_fcvt_s_wu(CPURISCVState *env, uint64_t rs1, uint64_t rm)
 {
-    softfloat_roundingMode = RISCV_RM;
-    rs1 = ui32_to_f32((uint32_t)rs1);
+    //softfloat_roundingMode = RISCV_RM;
+    rs1 = uint32_to_float32((uint32_t)rs1);
     set_fp_exceptions;
     return rs1;
 }
 
 uint64_t helper_fcvt_s_l(CPURISCVState *env, uint64_t rs1, uint64_t rm)
 {
-    softfloat_roundingMode = RISCV_RM;
-    rs1 = i64_to_f32(rs1);
+    //softfloat_roundingMode = RISCV_RM;
+    rs1 = int64_to_float32(rs1);
     set_fp_exceptions;
     return rs1;
 }
 
 uint64_t helper_fcvt_s_lu(CPURISCVState *env, uint64_t rs1, uint64_t rm)
 {
-    softfloat_roundingMode = RISCV_RM;
-    rs1 = ui64_to_f32(rs1);
+    //softfloat_roundingMode = RISCV_RM;
+    rs1 = uint64_to_float32(rs1);
     set_fp_exceptions;
     return rs1;
 }
 
 uint64_t helper_fclass_s(CPURISCVState *env, uint64_t frs1)
 {
-    frs1 = f32_classify(frs1);
+    frs1 = float32_classify(frs1);
     return frs1;
 }
 
 uint64_t helper_fadd_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2, uint64_t rm)
 {
-    softfloat_roundingMode = RISCV_RM;
-    frs1 = f64_mulAdd(frs1, 0x3ff0000000000000ULL, frs2);
+    //softfloat_roundingMode = RISCV_RM;
+    frs1 = float64_muladd(frs1, 0x3ff0000000000000ULL, frs2);
     set_fp_exceptions;
     return frs1;
 }
 
 uint64_t helper_fsub_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2, uint64_t rm)
 {
-    softfloat_roundingMode = RISCV_RM;
-    frs1 = f64_mulAdd(frs1, 0x3ff0000000000000ULL, frs2 ^ (uint64_t)INT64_MIN);
+    //softfloat_roundingMode = RISCV_RM;
+    frs1 = float64_muladd(frs1, 0x3ff0000000000000ULL, frs2 ^ (uint64_t)INT64_MIN);
     set_fp_exceptions;
     return frs1;
 }
 
 uint64_t helper_fmul_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2, uint64_t rm)
 {
-    softfloat_roundingMode = RISCV_RM;
-    frs1 = f64_mulAdd(frs1, frs2, (frs1 ^ frs2) & (uint64_t)INT64_MIN);
+    //softfloat_roundingMode = RISCV_RM;
+    frs1 = float64_muladd(frs1, frs2, (frs1 ^ frs2) & (uint64_t)INT64_MIN);
     set_fp_exceptions;
     return frs1;
 }
 
 uint64_t helper_fdiv_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2, uint64_t rm)
 {
-    softfloat_roundingMode = RISCV_RM;
-    frs1 = f64_div(frs1, frs2);
+    //softfloat_roundingMode = RISCV_RM;
+    frs1 = float64_div(frs1, frs2);
     set_fp_exceptions;
     return frs1;
 }
@@ -351,130 +352,130 @@ uint64_t helper_fsgnjx_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2)
 
 uint64_t helper_fmin_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2)
 {
-    frs1 = isNaNF64UI(frs2) || f64_lt_quiet(frs1, frs2) ? frs1 : frs2;
+    frs1 = float64_is_any_nan(frs2) || float64_lt_quiet(frs1, frs2) ? frs1 : frs2;
     set_fp_exceptions;
     return frs1;
 }
 
 uint64_t helper_fmax_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2)
 {
-    frs1 = isNaNF64UI(frs2) || f64_le_quiet(frs2, frs1) ? frs1 : frs2;
+    frs1 = float64_is_any_nan(frs2) || float64_le_quiet(frs2, frs1) ? frs1 : frs2;
     set_fp_exceptions;
     return frs1;
 }
 
 uint64_t helper_fcvt_s_d(CPURISCVState *env, uint64_t rs1, uint64_t rm)
 {
-    softfloat_roundingMode = RISCV_RM;
-    rs1 = f64_to_f32(rs1);
+    //softfloat_roundingMode = RISCV_RM;
+    rs1 = float64_to_float32(rs1);
     set_fp_exceptions;
     return rs1;
 }
 
 uint64_t helper_fcvt_d_s(CPURISCVState *env, uint64_t rs1, uint64_t rm)
 {
-    softfloat_roundingMode = RISCV_RM;
-    rs1 = f32_to_f64(rs1);
+    //softfloat_roundingMode = RISCV_RM;
+    rs1 = float32_to_float64(rs1);
     set_fp_exceptions;
     return rs1;
 }
 
 uint64_t helper_fsqrt_d(CPURISCVState *env, uint64_t frs1, uint64_t rm)
 {
-    softfloat_roundingMode = RISCV_RM;
-    frs1 = f64_sqrt(frs1);
+    //softfloat_roundingMode = RISCV_RM;
+    frs1 = float64_sqrt(frs1);
     set_fp_exceptions;
     return frs1;
 }
 
 uint64_t helper_fle_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2)
 {
-    frs1 = f64_le(frs1, frs2);
+    frs1 = float64_le(frs1, frs2);
     set_fp_exceptions;
     return frs1;
 }
 
 uint64_t helper_flt_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2)
 {
-    frs1 = f64_lt(frs1, frs2);
+    frs1 = float64_lt(frs1, frs2);
     set_fp_exceptions;
     return frs1;
 }
 
 uint64_t helper_feq_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2)
 {
-    frs1 = f64_eq(frs1, frs2);
+    frs1 = float64_eq(frs1, frs2);
     set_fp_exceptions;
     return frs1;
 }
 
 uint64_t helper_fcvt_w_d(CPURISCVState *env, uint64_t frs1, uint64_t rm)
 {
-    softfloat_roundingMode = RISCV_RM;
-    frs1 = (int64_t)((int32_t)f64_to_i32(frs1, RISCV_RM, true));
+    //softfloat_roundingMode = RISCV_RM;
+    frs1 = (int64_t)((int32_t)float64_to_int32(frs1, RISCV_RM, true));
     set_fp_exceptions;
     return frs1;
 }
 
 uint64_t helper_fcvt_wu_d(CPURISCVState *env, uint64_t frs1, uint64_t rm)
 {
-    softfloat_roundingMode = RISCV_RM;
-    frs1 = (int64_t)((int32_t)f64_to_ui32(frs1, RISCV_RM, true));
+    //softfloat_roundingMode = RISCV_RM;
+    frs1 = (int64_t)((int32_t)float64_to_uint32(frs1, RISCV_RM, true));
     set_fp_exceptions;
     return frs1;
 }
 
 uint64_t helper_fcvt_l_d(CPURISCVState *env, uint64_t frs1, uint64_t rm)
 {
-    softfloat_roundingMode = RISCV_RM;
-    frs1 = f64_to_i64(frs1, RISCV_RM, true);
+    //softfloat_roundingMode = RISCV_RM;
+    frs1 = float64_to_int64(frs1, RISCV_RM, true);
     set_fp_exceptions;
     return frs1;
 }
 
 uint64_t helper_fcvt_lu_d(CPURISCVState *env, uint64_t frs1, uint64_t rm)
 {
-    softfloat_roundingMode = RISCV_RM;
-    frs1 = f64_to_ui64(frs1, RISCV_RM, true);
+    //softfloat_roundingMode = RISCV_RM;
+    frs1 = float64_to_uint64(frs1, RISCV_RM, true);
     set_fp_exceptions;
     return frs1;
 }
 
 uint64_t helper_fcvt_d_w(CPURISCVState *env, uint64_t frs1, uint64_t rm)
 {
-    softfloat_roundingMode = RISCV_RM;
-    frs1 = i32_to_f64((int32_t)frs1);
+    //softfloat_roundingMode = RISCV_RM;
+    frs1 = int32_to_float64((int32_t)frs1);
     set_fp_exceptions;
     return frs1;
 }
 
 uint64_t helper_fcvt_d_wu(CPURISCVState *env, uint64_t frs1, uint64_t rm)
 {
-    softfloat_roundingMode = RISCV_RM;
-    frs1 = ui32_to_f64((uint32_t)frs1);
+    //softfloat_roundingMode = RISCV_RM;
+    frs1 = uint32_to_float64((uint32_t)frs1);
     set_fp_exceptions;
     return frs1;
 }
 
 uint64_t helper_fcvt_d_l(CPURISCVState *env, uint64_t frs1, uint64_t rm)
 {
-    softfloat_roundingMode = RISCV_RM;
-    frs1 = i64_to_f64(frs1);
+    //softfloat_roundingMode = RISCV_RM;
+    frs1 = int64_to_float64(frs1);
     set_fp_exceptions;
     return frs1;
 }
 
 uint64_t helper_fcvt_d_lu(CPURISCVState *env, uint64_t frs1, uint64_t rm)
 {
-    softfloat_roundingMode = RISCV_RM;
-    frs1 = ui64_to_f64(frs1);
+    //softfloat_roundingMode = RISCV_RM;
+    frs1 = uint64_to_float64(frs1);
     set_fp_exceptions;
     return frs1;
 }
 
 uint64_t helper_fclass_d(CPURISCVState *env, uint64_t frs1)
 {
-    frs1 = f64_classify(frs1);
+    frs1 = float64_classify(frs1);
     return frs1;
 }
 
