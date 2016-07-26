@@ -438,11 +438,6 @@ target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno);
 #endif
 
 // TODO fix:
-#define RISCV_RM ({ if(rm == 7) rm = env->csr[NEW_CSR_FRM]; \
-                    /* TODO: throw trap for rm > 4 */ \
-                    rm; })
-
-// TODO fix:
 #define set_fp_exceptions
         
         /*{ env->csr[NEW_CSR_FFLAGS] |= softfloat_exceptionFlags;\
