@@ -17,6 +17,7 @@
 #include "qemu-common.h"
 #include "riscv-defs.h"
 #include "exec/cpu-defs.h"
+#include "fpu/softfloat.h"
 
 #define TRANSLATE_FAIL -1
 #define TRANSLATE_SUCCESS 0
@@ -264,6 +265,9 @@ struct CPURISCVState {
 
     uint64_t csr[4096]; // RISCV CSR registers
 
+    // TODO set defaults
+    float_status fp_status;
+
     /* QEMU */
     CPU_COMMON
 
@@ -433,12 +437,16 @@ void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
 target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno);
 #endif
 
+// TODO fix:
 #define RISCV_RM ({ if(rm == 7) rm = env->csr[NEW_CSR_FRM]; \
                     /* TODO: throw trap for rm > 4 */ \
                     rm; })
 
-#define set_fp_exceptions ({ env->csr[NEW_CSR_FFLAGS] |= softfloat_exceptionFlags;\
-                             softfloat_exceptionFlags = 0; })
+// TODO fix:
+#define set_fp_exceptions
+        
+        /*{ env->csr[NEW_CSR_FFLAGS] |= softfloat_exceptionFlags;\
+                             softfloat_exceptionFlags = 0; })*/
 
 void validate_csr(CPURISCVState *env, uint64_t which, uint64_t write, uint64_t
         new_pc);
