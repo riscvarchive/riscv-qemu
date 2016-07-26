@@ -114,7 +114,7 @@ float32 float32_default_nan(float_status *status)
 #if defined(TARGET_SPARC)
     return const_float32(0x7FFFFFFF);
 #elif defined(TARGET_PPC) || defined(TARGET_ARM) || defined(TARGET_ALPHA) || \
-      defined(TARGET_XTENSA) || defined(TARGET_S390X) || defined(TARGET_TRICORE)
+      defined(TARGET_XTENSA) || defined(TARGET_S390X) || defined(TARGET_TRICORE) || defined(TARGET_RISCV)
     return const_float32(0x7FC00000);
 #else
     if (status->snan_bit_is_one) {
@@ -137,7 +137,7 @@ float64 float64_default_nan(float_status *status)
 #if defined(TARGET_SPARC)
     return const_float64(LIT64(0x7FFFFFFFFFFFFFFF));
 #elif defined(TARGET_PPC) || defined(TARGET_ARM) || defined(TARGET_ALPHA) || \
-      defined(TARGET_S390X)
+      defined(TARGET_S390X) || defined(TARGET_RISCV)
     return const_float64(LIT64(0x7FF8000000000000));
 #else
     if (status->snan_bit_is_one) {
@@ -181,7 +181,7 @@ float128 float128_default_nan(float_status *status)
         r.high = LIT64(0x7FFF7FFFFFFFFFFF);
     } else {
         r.low = LIT64(0x0000000000000000);
-#if defined(TARGET_S390X)
+#if defined(TARGET_S390X) || defined(TARGET_RISCV)
         r.high = LIT64(0x7FFF800000000000);
 #else
         r.high = LIT64(0xFFFF800000000000);
