@@ -89,6 +89,30 @@ unsigned int ieee_rm[] = {
               if (rm > 4) { /* TODO throw trap*/ }; \
               ieee_rm[rm]; })
 
+unsigned int softfloat_flags_to_riscv(unsigned int flag);
+
+/* convert softfloat library flag numbers to RISC-V 
+ * TODO better way...
+ */
+unsigned int softfloat_flags_to_riscv(unsigned int flag) {
+    switch (flag) {
+        case float_flag_inexact:
+            return 1;
+        case float_flag_underflow:
+            return 2;
+        case float_flag_overflow:
+            return 4;
+        case float_flag_divbyzero:
+            return 8;
+        case float_flag_invalid:
+            return 16;
+        default:
+            return 0;
+    }
+}
+
+#define set_fp_exceptions ({ env->csr[NEW_CSR_FFLAGS] |= softfloat_flags_to_riscv(get_float_exception_flags(&env->fp_status)); \
+                             set_float_exception_flags(0, &env->fp_status); })
 
 uint64_t helper_fmadd_s(CPURISCVState *env, uint64_t frs1, uint64_t frs2, uint64_t frs3, uint64_t rm)
 {
@@ -157,7 +181,7 @@ uint64_t helper_fnmadd_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2, uint6
 uint64_t helper_fadd_s(CPURISCVState *env, uint64_t frs1, uint64_t frs2, uint64_t rm)
 {
     set_float_rounding_mode(RM, &env->fp_status);
-    frs1 = float32_muladd(frs1, 0x3f800000, frs2, 0, &env->fp_status);
+    frs1 = float32_add(frs1, frs2, &env->fp_status);
     set_fp_exceptions;
     return frs1;
 }
@@ -165,7 +189,7 @@ uint64_t helper_fadd_s(CPURISCVState *env, uint64_t frs1, uint64_t frs2, uint64_
 uint64_t helper_fsub_s(CPURISCVState *env, uint64_t frs1, uint64_t frs2, uint64_t rm)
 {
     set_float_rounding_mode(RM, &env->fp_status);
-    frs1 = float32_muladd(frs1, 0x3f800000, frs2 ^ (uint32_t)INT32_MIN, 0, &env->fp_status);
+    frs1 = float32_sub(frs1, frs2, &env->fp_status);
     set_fp_exceptions;
     return frs1;
 }
@@ -173,7 +197,7 @@ uint64_t helper_fsub_s(CPURISCVState *env, uint64_t frs1, uint64_t frs2, uint64_
 uint64_t helper_fmul_s(CPURISCVState *env, uint64_t frs1, uint64_t frs2, uint64_t rm)
 {
     set_float_rounding_mode(RM, &env->fp_status);
-    frs1 = float32_muladd(frs1, frs2, (frs1 ^ frs2) & (uint32_t)INT32_MIN, 0, &env->fp_status);
+    frs1 = float32_mul(frs1, frs2, &env->fp_status);
     set_fp_exceptions;
     return frs1;
 }
@@ -355,7 +379,7 @@ uint64_t helper_fclass_s(CPURISCVState *env, uint64_t frs1)
 uint64_t helper_fadd_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2, uint64_t rm)
 {
     set_float_rounding_mode(RM, &env->fp_status);
-    frs1 = float64_muladd(frs1, 0x3ff0000000000000ULL, frs2, 0, &env->fp_status);
+    frs1 = float64_add(frs1, frs2, &env->fp_status);
     set_fp_exceptions;
     return frs1;
 }
@@ -363,7 +387,7 @@ uint64_t helper_fadd_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2, uint64_
 uint64_t helper_fsub_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2, uint64_t rm)
 {
     set_float_rounding_mode(RM, &env->fp_status);
-    frs1 = float64_muladd(frs1, 0x3ff0000000000000ULL, frs2 ^ (uint64_t)INT64_MIN, 0, &env->fp_status);
+    frs1 = float64_sub(frs1, frs2, &env->fp_status);
     set_fp_exceptions;
     return frs1;
 }
@@ -371,7 +395,7 @@ uint64_t helper_fsub_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2, uint64_
 uint64_t helper_fmul_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2, uint64_t rm)
 {
     set_float_rounding_mode(RM, &env->fp_status);
-    frs1 = float64_muladd(frs1, frs2, (frs1 ^ frs2) & (uint64_t)INT64_MIN, 0, &env->fp_status);
+    frs1 = float64_mul(frs1, frs2, &env->fp_status);
     set_fp_exceptions;
     return frs1;
 }
@@ -421,6 +445,7 @@ uint64_t helper_fcvt_s_d(CPURISCVState *env, uint64_t rs1, uint64_t rm)
     set_float_rounding_mode(RM, &env->fp_status);
     rs1 = float64_to_float32(rs1, &env->fp_status);
     set_fp_exceptions;
+    //printf("%016lx\n", rs1);
     return rs1;
 }
 
@@ -429,6 +454,7 @@ uint64_t helper_fcvt_d_s(CPURISCVState *env, uint64_t rs1, uint64_t rm)
     set_float_rounding_mode(RM, &env->fp_status);
     rs1 = float32_to_float64(rs1, &env->fp_status);
     set_fp_exceptions;
+    //printf("%016lx\n", rs1);
     return rs1;
 }
 
