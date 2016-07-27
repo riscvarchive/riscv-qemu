@@ -437,12 +437,6 @@ void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
 target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno);
 #endif
 
-// TODO fix:
-#define set_fp_exceptions
-        
-        /*{ env->csr[NEW_CSR_FFLAGS] |= softfloat_exceptionFlags;\
-                             softfloat_exceptionFlags = 0; })*/
-
 void validate_csr(CPURISCVState *env, uint64_t which, uint64_t write, uint64_t
         new_pc);
 
