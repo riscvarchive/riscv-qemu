@@ -445,7 +445,6 @@ uint64_t helper_fcvt_s_d(CPURISCVState *env, uint64_t rs1, uint64_t rm)
     set_float_rounding_mode(RM, &env->fp_status);
     rs1 = float64_to_float32(rs1, &env->fp_status);
     set_fp_exceptions;
-    //printf("%016lx\n", rs1);
     return rs1;
 }
 
@@ -454,7 +453,6 @@ uint64_t helper_fcvt_d_s(CPURISCVState *env, uint64_t rs1, uint64_t rm)
     set_float_rounding_mode(RM, &env->fp_status);
     rs1 = float32_to_float64(rs1, &env->fp_status);
     set_fp_exceptions;
-    //printf("%016lx\n", rs1);
     return rs1;
 }
 
