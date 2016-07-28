@@ -2138,6 +2138,10 @@ RISCVCPU *cpu_riscv_init(const char *cpu_model)
     env->csr[NEW_CSR_MCPUID] = def->init_mcpuid_reg;
     object_property_set_bool(OBJECT(cpu), true, "realized", NULL);
 
+    // fpu flags:
+    // TODO any more?
+    set_default_nan_mode(1, &env->fp_status);
+
     return cpu;
 }
 
