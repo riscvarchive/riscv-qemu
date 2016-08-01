@@ -278,7 +278,72 @@ struct CPURISCVState {
     QEMUTimer *timer; /* Internal timer */
 };
 
-#include "cpu-qom.h"
+#ifndef QEMU_RISCV_CPU_QOM_H
+#define QEMU_RISCV_CPU_QOM_H
+
+#include "qom/cpu.h"
+
+#define TYPE_RISCV_CPU "riscv-cpu"
+
+#define RISCV_CPU_CLASS(klass) \
+    OBJECT_CLASS_CHECK(RISCVCPUClass, (klass), TYPE_RISCV_CPU)
+#define RISCV_CPU(obj) \
+    OBJECT_CHECK(RISCVCPU, (obj), TYPE_RISCV_CPU)
+#define RISCV_CPU_GET_CLASS(obj) \
+    OBJECT_GET_CLASS(RISCVCPUClass, (obj), TYPE_RISCV_CPU)
+
+/**
+ * RISCVCPUClass:
+ * @parent_realize: The parent class' realize handler.
+ * @parent_reset: The parent class' reset handler.
+ *
+ * A RISCV CPU model.
+ */
+typedef struct RISCVCPUClass {
+    /*< private >*/
+    CPUClass parent_class;
+    /*< public >*/
+
+    DeviceRealize parent_realize;
+    void (*parent_reset)(CPUState *cpu);
+} RISCVCPUClass;
+
+/**
+ * RISCVCPU:
+ * @env: #CPURISCVState
+ *
+ * A RISCV CPU.
+ */
+typedef struct RISCVCPU {
+    /*< private >*/
+    CPUState parent_obj;
+    /*< public >*/
+
+    CPURISCVState env;
+} RISCVCPU;
+
+static inline RISCVCPU *riscv_env_get_cpu(CPURISCVState *env)
+{
+    return container_of(env, RISCVCPU, env);
+}
+
+#define ENV_GET_CPU(e) CPU(riscv_env_get_cpu(e))
+
+#define ENV_OFFSET offsetof(RISCVCPU, env)
+
+void riscv_cpu_do_interrupt(CPUState *cpu);
+void riscv_cpu_dump_state(CPUState *cpu, FILE *f, fprintf_function cpu_fprintf,
+                         int flags);
+hwaddr riscv_cpu_get_phys_page_debug(CPUState *cpu, vaddr addr);
+int riscv_cpu_gdb_read_register(CPUState *cpu, uint8_t *buf, int reg);
+int riscv_cpu_gdb_write_register(CPUState *cpu, uint8_t *buf, int reg);
+bool riscv_cpu_exec_interrupt(CPUState *cs, int interrupt_request);
+void  riscv_cpu_do_unaligned_access(CPUState *cs,
+                                              target_ulong addr, int rw,
+                                              int is_user, uintptr_t retaddr);
+
+
+#endif
 
 #if !defined(CONFIG_USER_ONLY)
 void riscv_cpu_unassigned_access(CPUState *cpu, hwaddr addr, bool is_write,
