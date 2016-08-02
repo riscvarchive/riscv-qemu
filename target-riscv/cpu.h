@@ -11,8 +11,6 @@
 
 #define RISCV_START_PC 0x200
 
-#define ALIGNED_ONLY
-
 #include "config.h"
 #include "qemu-common.h"
 #include "riscv-defs.h"

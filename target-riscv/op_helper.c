@@ -1110,27 +1110,6 @@ void helper_tlb_flush(CPURISCVState *env)
 
 #if !defined(CONFIG_USER_ONLY)
 
-void riscv_cpu_do_unaligned_access(CPUState *cs, target_ulong addr,
-                                int rw, int is_user, uintptr_t retaddr)
-{
-    RISCVCPU *cpu = RISCV_CPU(cs);
-    CPURISCVState *env = &cpu->env;
-    printf("addr: %016lx\n", addr);
-    if (rw & 0x2) {
-        fprintf(stderr, "unaligned inst fetch not handled here\n");
-        exit(1);
-    } else if (rw == 0x1) {
-        printf("Store\n");
-        cs->exception_index = NEW_RISCV_EXCP_STORE_AMO_ADDR_MIS;
-        env->csr[NEW_CSR_MBADADDR] = addr;
-    } else {
-        printf("Load\n");
-        cs->exception_index = NEW_RISCV_EXCP_LOAD_ADDR_MIS;
-        env->csr[NEW_CSR_MBADADDR] = addr;
-    }
-    do_raise_exception_err(env, cs->exception_index, retaddr);
-}
-
 /* called by qemu's softmmu to fill the qemu tlb */
 void tlb_fill(CPUState *cs, target_ulong addr, int is_write, int mmu_idx,
               uintptr_t retaddr)
