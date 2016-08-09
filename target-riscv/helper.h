@@ -70,13 +70,13 @@ DEF_HELPER_2(fclass_d, tl, env, tl)
 /* Special functions */
 #ifndef CONFIG_USER_ONLY
 DEF_HELPER_4(csrrw, tl, env, tl, tl, tl)
-DEF_HELPER_4(csrrs, tl, env, tl, tl, tl)
-DEF_HELPER_4(csrrsi, tl, env, tl, tl, tl)
-DEF_HELPER_4(csrrc, tl, env, tl, tl, tl)
+DEF_HELPER_5(csrrs, tl, env, tl, tl, tl, tl)
+DEF_HELPER_5(csrrc, tl, env, tl, tl, tl, tl)
 DEF_HELPER_2(sret, tl, env, tl)
+DEF_HELPER_2(mret, tl, env, tl)
 DEF_HELPER_3(debug_print, void, env, tl, tl)
-DEF_HELPER_2(mrts, tl, env, tl)
+DEF_HELPER_2(debug_print_reg1, void, env, tl)
+DEF_HELPER_3(debug_print_reg2, void, env, tl, tl)
 DEF_HELPER_1(tlb_flush, void, env)
 DEF_HELPER_1(fence_i, void, env)
 #endif /* !CONFIG_USER_ONLY */
-//DEF_HELPER_1(wait, void, env)

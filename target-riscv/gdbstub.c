@@ -23,8 +23,10 @@
 #include "exec/gdbstub.h"
 #include "cpu.h"
 
+// TODO: fix after priv 1.9 bump
+
 // map to CSR NOs for GDB
-int indexed_csrs[] = {
+/*int indexed_csrs[] = {
     NEW_CSR_FFLAGS,
     NEW_CSR_FRM,
     NEW_CSR_FCSR,
@@ -92,10 +94,11 @@ int indexed_csrs[] = {
     NEW_CSR_STIMEHW,
     NEW_CSR_MTIMECMPH,
     NEW_CSR_MTIMEH
-};
+};*/
 
 int riscv_cpu_gdb_read_register(CPUState *cs, uint8_t *mem_buf, int n)
 {
+    /*
     RISCVCPU *cpu = RISCV_CPU(cs);
     CPURISCVState *env = &cpu->env;
     int target_csrno;
@@ -142,11 +145,13 @@ int riscv_cpu_gdb_read_register(CPUState *cs, uint8_t *mem_buf, int n)
             return gdb_get_regl(mem_buf, csr_read_helper(env, target_csrno));
         }
     }
+    */
     return 0;
 }
 
 int riscv_cpu_gdb_write_register(CPUState *cs, uint8_t *mem_buf, int n)
 {
+    /*
     RISCVCPU *cpu = RISCV_CPU(cs);
     CPURISCVState *env = &cpu->env;
     target_ulong tmp;
@@ -173,5 +178,6 @@ int riscv_cpu_gdb_write_register(CPUState *cs, uint8_t *mem_buf, int n)
             return sizeof(target_ulong);
         }
     }
+    */
     return 0;
 }

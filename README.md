@@ -4,8 +4,8 @@ riscv-qemu [![Build Status](https://travis-ci.org/riscv/riscv-qemu.svg?branch=ma
 **About:**
 
 The `riscv-softmmu` target for full system RV64G emulation is currently supported.
-It supports booting [riscv-linux]. Remote GDB debugging is also supported (see the 
-section below).
+It supports booting Linux from the `priv-1.9` branch of [riscv-linux] and 
+passes the compatibility tests from [riscv-tests].
 
 **RISC-V Port Authors:**
 
@@ -15,12 +15,10 @@ section below).
 
 * v2.5.0
 
-**Notes:**
+**Privileged Specification Version:**
 
-* The pre-rebase version of QEMU has been moved to a different repo. Going
-forward, only this repo will be updated and the old version will be removed.
-You can temporarily find the old version
-[here](https://github.com/ucb-bar/riscv-qemu-deprecated).
+This version of QEMU adheres to the RISC-V v1.9 Privileged Specification as 
+described in [Technical Report No. UCB/EECS-2016-129](https://www2.eecs.berkeley.edu/Pubs/TechRpts/2016/EECS-2016-129.pdf) and commit 65da94f84a2ba5a61a8bcf3ebdd8ca57f6d899ca of riscv-tools.
 
 Installation
 --------------
@@ -42,53 +40,52 @@ Prerequisites:
 
 ####Step 2: Obtain Images
 
-You can build vmlinux from the [riscv-linux] repo and a root filesystem using [Buildroot] or download the prebuilt copies below. You'll also need a copy of `bbl`.
+You can build `vmlinux` from the `priv-1.9` branch of the [riscv-linux] repo and 
+create an initramfs for your root filesystem, then supply the resulting vmlinux
+as a payload for bbl. Alternatively, you can use the prebuilt copy linked 
+below. This single file contains bbl with the Linux kernel as a payload. The
+included copy of the Linux kernel also has an initramfs with busybox.
 
-**a)** [vmlinux](https://www.eecs.berkeley.edu/~skarandikar/host/qemu/vmlinux)
-
-**b)** [rootfs.ext2](https://www.eecs.berkeley.edu/~skarandikar/host/qemu/rootfs.ext2)
-
-**c)** [bbl](https://www.eecs.berkeley.edu/~skarandikar/host/qemu/bbl)
+**a)** [bblvmlinuxinitramfs_dynamic](https://www.eecs.berkeley.edu/~skarandikar/host/qemu/1.9/bblvmlinuxinitramfs_dynamic)
 
 ####Step 3: Run QEMU
 
 To boot Linux (assuming you are in the `riscv-qemu` directory):
 
-    $ ./riscv-softmmu/qemu-system-riscv -kernel bbl -append vmlinux -drive file=rootfs.ext2,format=raw -nographic
+    $ ./riscv-softmmu/qemu-system-riscv -kernel bblvmlinuxinitramfs_dynamic -nographic
 
 Notes about arguments:
-* `-kernel bbl`: This is the path to the bbl bootloader, included when riscv-tools is built.
-* `-append vmlinux`: The path to the linux kernel image.
-* `-drive file=rootfs.ext2,format=raw`: Your root filesystem. You can build one using [Buildroot] or download one above.
+* `-kernel bblvmlinuxinitramfs_dynamic`: This is the path to the binary to run. In this case, it contains the bbl bootloader, vmlinux, and an initramfs containing busybox.
 
 Useful optional arguments:
-* `-m 128M`: Set size of memory, in this example, 128 MB
+* `-m 2048M`: Set size of memory, in this example, 2048 MB
 
-**IMPORTANT**: To cleanly exit this system, you must enter `halt` at the prompt
-and then hit `ctrl-a x`. Otherwise, the root filesystem will likely be corrupted.
+<!--**IMPORTANT**: To cleanly exit this system, you must enter `halt` at the prompt
+and then hit `ctrl-a x`. Otherwise, the root filesystem will likely be corrupted.-->
 
 ####Current limitations:
 
-* The current RISC-V board definition provides only HTIF devices (syscall
-proxy for `bbl`, console, block device). These devices are experimental and will
-be replaced with standard devices. The console especially can fall behind under
-heavy use.
+* The current RISC-V board definition provides only an HTIF console device.
+Support for other HTIF-based devices has been removed from [riscv-linux]; as a 
+result, QEMU no longer supports them either.
 
 ### Method 2 \(Standard Devices\):
 
 Coming soon!
 
-
 Running RISC-V Tests:
 ---------------------
 
 A script (`run-rv-tests.py`) for running the RV64 tests from [riscv-tests] is
-included in the `hacking_files` directory. All RV64 tests are expected to pass,
-however you will likely need to increase  `TIMER_INTERVAL` in
-`riscv-tests/env/pt/riscv_test.h`.
+included in the `hacking_files` directory. All RV64 tests (listed in 
+`hacking_files/rv-tests-list`) are expected to pass, however you may need to 
+increase  `TIMER_INTERVAL` in `riscv-tests/env/pt/riscv_test.h`. Also, see
+the note in `target-riscv/TODO` about HTIF compatibility with tests.
 
 Using QEMU to Debug RISC-V Code:
 --------------------------------
+
+**NOTE:** Support for QEMU + GDB is still under development for the v1.9 spec. See `target-riscv/TODO`.
 
 QEMU works with riscv-gdb to enable remote debugging. This currently requires
 building `gdb` from a special version of `riscv-gnu-toolchain`, available 
@@ -115,7 +112,7 @@ and interact with the machine as if you were using it without GDB attached.
 TODOs:
 ------
 
-* Additional device support
+* See target-riscv/TODO
 
 Notes
 -----
@@ -125,7 +122,7 @@ Notes
   - target-riscv/
   - hw/riscv/
 
-[riscv-linux]:https://github.com/riscv/riscv-linux
+[riscv-linux]:https://github.com/riscv/riscv-linux/tree/priv-1.9
 [Buildroot]:https://github.com/a0u/buildroot
 [riscv-tests]:https://github.com/riscv/riscv-tests
 [proxy kernel]:https://github.com/riscv/riscv-pk

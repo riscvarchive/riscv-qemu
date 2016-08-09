@@ -1169,67 +1169,19 @@ inline static void gen_atomic(DisasContext *ctx, uint32_t opc,
     tcg_temp_free(dat);
 }
 
-
-inline static void gen_csr_htif(DisasContext *ctx, uint32_t opc, uint64_t addr, int rd, int rs1) {
-    TCGv source1, csr_store, htif_addr;
-    source1 = tcg_temp_new();
-    csr_store = tcg_temp_new();
-    htif_addr = tcg_temp_new();
-    gen_get_gpr(source1, rs1); // load rs1 val
-    tcg_gen_movi_tl(htif_addr, addr);
-    tcg_gen_qemu_ld64(csr_store, htif_addr, ctx->mem_idx); // get htif "reg" val
-
-    switch (opc) {
-
-    case OPC_RISC_CSRRW:
-        break;
-    case OPC_RISC_CSRRS:
-        tcg_gen_or_tl(source1, csr_store, source1);
-        break;
-    case OPC_RISC_CSRRC:
-        tcg_gen_not_tl(source1, source1);
-        tcg_gen_and_tl(source1, csr_store, source1);
-        break;
-    case OPC_RISC_CSRRWI:
-        tcg_gen_movi_tl(source1, rs1);
-        break;
-    case OPC_RISC_CSRRSI:
-        tcg_gen_ori_tl(source1, csr_store, rs1);
-        break;
-    case OPC_RISC_CSRRCI:
-        tcg_gen_andi_tl(source1, csr_store, ~((uint64_t)rs1));
-        break;
-    default:
-        kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
-        break;
-
-    }
-    tcg_gen_qemu_st64(source1, htif_addr, ctx->mem_idx);
-    gen_set_gpr(rd, csr_store);
-    tcg_temp_free(source1);
-    tcg_temp_free(csr_store);
-    tcg_temp_free(htif_addr);
-}
-
 inline static void gen_system(DisasContext *ctx, uint32_t opc,
                       int rd, int rs1, int csr)
 {
     // get index into csr array
     int backup_csr = csr;
 
-    if (csr == NEW_CSR_MTOHOST) {
-        gen_csr_htif(ctx, opc, 0xFFFFFFFFF0000000L, rd, rs1);
-        return;
-    } else if (csr == NEW_CSR_MFROMHOST) {
-        gen_csr_htif(ctx, opc, 0xFFFFFFFFF0000008L, rd, rs1);
-        return;
-    }
-
-    TCGv source1, csr_store, dest;
+    TCGv source1, csr_store, dest, rs1_pass;
     source1 = tcg_temp_new();
     csr_store = tcg_temp_new();
     dest = tcg_temp_new();
+    rs1_pass = tcg_temp_new();
     gen_get_gpr(source1, rs1);
+    tcg_gen_movi_tl(rs1_pass, rs1);
     tcg_gen_movi_tl(csr_store, csr); // copy into temp reg to feed to helper
 
     switch (opc) {
@@ -1247,31 +1199,34 @@ inline static void gen_system(DisasContext *ctx, uint32_t opc,
                 tcg_gen_exit_tb(0); // no chaining
                 ctx->bstate = BS_BRANCH;
                 break;
-            case 0x100: // ERET
-                // temporarily added second cpu_PC for debug
+            case 0x002: // URET
+                printf("URET unimplemented\n");
+                exit(1);
+                break;
+            case 0x102: // SRET
                 tcg_gen_movi_tl(cpu_PC, ctx->pc);
                 gen_helper_sret(cpu_PC, cpu_env, cpu_PC);
                 tcg_gen_exit_tb(0); // no chaining
                 ctx->bstate = BS_BRANCH;
                 break;
-            case 0x305: // MRTS
-                tcg_gen_movi_tl(cpu_PC, ctx->pc); // mrts helper may cause misaligned exception
-                gen_helper_mrts(cpu_PC, cpu_env, cpu_PC);
+            case 0x202: // HRET
+                printf("HRET unimplemented\n");
+                exit(1);
+                break;
+            case 0x302: // MRET
+                tcg_gen_movi_tl(cpu_PC, ctx->pc);
+                gen_helper_mret(cpu_PC, cpu_env, cpu_PC);
                 tcg_gen_exit_tb(0); // no chaining
                 ctx->bstate = BS_BRANCH;
                 break;
-            case 0x306: // MRTH
-                printf("SYSTEM INST NOT YET IMPLEMENTED 0x%x\n", backup_csr);
+            case 0x7b2: // DRET
+                printf("DRET unimplemented\n");
                 exit(1);
                 break;
-            case 0x205: // HRTS
-                printf("SYSTEM INST NOT YET IMPLEMENTED 0x%x\n", backup_csr);
-                exit(1);
-                break;
-            case 0x102: // WFI
+            case 0x105: // WFI
                 // nop for now, as in spike
                 break;
-            case 0x101: // SFENCE.VM
+            case 0x104: // SFENCE.VM
                 gen_helper_tlb_flush(cpu_env);
                 break;
             default:
@@ -1283,14 +1238,14 @@ inline static void gen_system(DisasContext *ctx, uint32_t opc,
         tcg_gen_movi_tl(cpu_PC, ctx->pc);
         gen_helper_csrrw(dest, cpu_env, source1, csr_store, cpu_PC);
         gen_set_gpr(rd, dest);
-        // end tb since we may be changing priv modes
+        // TODO needed? end tb since we may be changing priv modes
         tcg_gen_movi_tl(cpu_PC, ctx->pc + 4);
         tcg_gen_exit_tb(0); // no chaining
         ctx->bstate = BS_BRANCH;
         break;
     case OPC_RISC_CSRRS:
         tcg_gen_movi_tl(cpu_PC, ctx->pc);
-        gen_helper_csrrs(dest, cpu_env, source1, csr_store, cpu_PC);
+        gen_helper_csrrs(dest, cpu_env, source1, csr_store, cpu_PC, rs1_pass);
         gen_set_gpr(rd, dest);
         // end tb since we may be changing priv modes
         tcg_gen_movi_tl(cpu_PC, ctx->pc + 4);
@@ -1299,7 +1254,7 @@ inline static void gen_system(DisasContext *ctx, uint32_t opc,
         break;
     case OPC_RISC_CSRRC:
         tcg_gen_movi_tl(cpu_PC, ctx->pc);
-        gen_helper_csrrc(dest, cpu_env, source1, csr_store, cpu_PC);
+        gen_helper_csrrc(dest, cpu_env, source1, csr_store, cpu_PC, rs1_pass);
         gen_set_gpr(rd, dest);
         // end tb since we may be changing priv modes
         tcg_gen_movi_tl(cpu_PC, ctx->pc + 4);
@@ -1325,7 +1280,7 @@ inline static void gen_system(DisasContext *ctx, uint32_t opc,
             tcg_gen_movi_tl(cpu_PC, ctx->pc);
             TCGv imm_rs1 = tcg_temp_new();
             tcg_gen_movi_tl(imm_rs1, rs1);
-            gen_helper_csrrsi(dest, cpu_env, imm_rs1, csr_store, cpu_PC);
+            gen_helper_csrrs(dest, cpu_env, imm_rs1, csr_store, cpu_PC, rs1_pass);
             gen_set_gpr(rd, dest);
             tcg_temp_free(imm_rs1);
             // end tb since we may be changing priv modes
@@ -1339,7 +1294,7 @@ inline static void gen_system(DisasContext *ctx, uint32_t opc,
             tcg_gen_movi_tl(cpu_PC, ctx->pc);
             TCGv imm_rs1 = tcg_temp_new();
             tcg_gen_movi_tl(imm_rs1, rs1);
-            gen_helper_csrrc(dest, cpu_env, imm_rs1, csr_store, cpu_PC);
+            gen_helper_csrrc(dest, cpu_env, imm_rs1, csr_store, cpu_PC, rs1_pass);
             gen_set_gpr(rd, dest);
             tcg_temp_free(imm_rs1);
             // end tb since we may be changing priv modes
@@ -1354,8 +1309,10 @@ inline static void gen_system(DisasContext *ctx, uint32_t opc,
 
     }
     tcg_temp_free(source1);
-    tcg_temp_free(dest);
     tcg_temp_free(csr_store);
+    tcg_temp_free(dest);
+    tcg_temp_free(rs1_pass);
+
 }
 
 
@@ -1522,7 +1479,6 @@ inline static void gen_fp_arith(DisasContext *ctx, uint32_t opc,
         break;
     case OPC_RISC_FSGNJ_S:
         // also handles: OPC_RISC_FSGNJN_S, OPC_RISC_FSGNJX_S
-        // TODO: probably don't need to use helpers here
         if (rm == 0x0) {
             gen_helper_fsgnj_s(cpu_fpr[rd], cpu_env, cpu_fpr[rs1], cpu_fpr[rs2]);
         } else if (rm == 0x1) {
@@ -1729,10 +1685,6 @@ inline static void gen_fp_arith(DisasContext *ctx, uint32_t opc,
     tcg_temp_free(write_int_rd);
 }
 
-#ifdef RISCV_DEBUG_PRINT
-int monitor_region = 0;
-#endif
-
 static void decode_opc (CPURISCVState *env, DisasContext *ctx)
 {
 
@@ -1768,26 +1720,17 @@ static void decode_opc (CPURISCVState *env, DisasContext *ctx)
     rd = (ctx->opcode >> 7) & 0x1f;
     imm = (int16_t)(((int32_t)ctx->opcode) >> 20); /* sign extends */
 
-#ifdef RISCV_DEBUG_PRINT
+    #ifdef RISCV_DEBUG_PRINT
     // this will print a log similar to spike, should be left off unless
     // you're debugging QEMU
-    int start = 1; //0 && ctx->pc == 0x8ccac;
     TCGv print_helper_tmp = tcg_temp_local_new();
     TCGv printpc = tcg_temp_local_new();
     tcg_gen_movi_tl(print_helper_tmp, ctx->opcode);
     tcg_gen_movi_tl(printpc, ctx->pc);
-
-    if (monitor_region || start) {
-        gen_helper_debug_print(cpu_env, printpc, print_helper_tmp);
-        monitor_region = 1;
-
-        // can print some reg val too
-        gen_helper_debug_print(cpu_env, cpu_fpr[28], cpu_fpr[28]);
-
-    }
+    gen_helper_debug_print(cpu_env, printpc, print_helper_tmp);
     tcg_temp_free(print_helper_tmp);
     tcg_temp_free(printpc);
-#endif
+    #endif
 
     switch (op) {
 
@@ -2053,10 +1996,6 @@ void riscv_cpu_dump_state(CPUState *cs, FILE *f, fprintf_function cpu_fprintf,
     }
 
     cpu_fprintf(f, " %s " TARGET_FMT_lx "\n", "MSTATUS ", env->csr[NEW_CSR_MSTATUS]);
-    cpu_fprintf(f, " %s " TARGET_FMT_lx "\n", "MTIMECMP", env->csr[NEW_CSR_MTIMECMP]);
-    cpu_fprintf(f, " %s " TARGET_FMT_lx "\n", "MTIME   ", cpu_riscv_read_mtime(env));
-    cpu_fprintf(f, " %s " TARGET_FMT_lx "\n", "TIME    ", cpu_riscv_read_time(env));
-
     cpu_fprintf(f, " %s " TARGET_FMT_lx "\n", "MIP     ", env->csr[NEW_CSR_MIP]);
 
     cpu_fprintf(f, " %s " TARGET_FMT_lx "\n", "MIE     ", env->csr[NEW_CSR_MIE]);
@@ -2126,20 +2065,13 @@ RISCVCPU *cpu_riscv_init(const char *cpu_model)
     env->cpu_model = def;
 
     memset(env->csr, 0, 4096*sizeof(uint64_t));
-
-    // init mstatus
-    target_ulong start_mstatus = 0;
-    start_mstatus = set_field(start_mstatus, MSTATUS_PRV, PRV_M);
-    start_mstatus = set_field(start_mstatus, MSTATUS_PRV1, PRV_U);
-    start_mstatus = set_field(start_mstatus, MSTATUS_PRV2, PRV_U);
-    env->csr[NEW_CSR_MSTATUS] = start_mstatus;
+    env->priv = PRV_M;
 
     // set mcpuid from def
-    env->csr[NEW_CSR_MCPUID] = def->init_mcpuid_reg;
+    env->csr[NEW_CSR_MISA] = def->init_misa_reg;
     object_property_set_bool(OBJECT(cpu), true, "realized", NULL);
 
     // fpu flags:
-    // TODO any more?
     set_default_nan_mode(1, &env->fp_status);
 
     return cpu;
@@ -2150,10 +2082,15 @@ void cpu_state_reset(CPURISCVState *env)
     RISCVCPU *cpu = riscv_env_get_cpu(env);
     CPUState *cs = CPU(cpu);
 
-    env->active_tc.PC = RISCV_START_PC; // STARTING PC VALUE def'd in cpu.h
+    // config string is handled in riscv_board
+
+    env->priv = PRV_M;
+    env->active_tc.PC = DEFAULT_RSTVEC;
+    env->csr[NEW_CSR_MTVEC] = DEFAULT_MTVEC;
     cs->exception_index = EXCP_NONE;
 }
 
+// TODO what is this?
 void restore_state_to_opc(CPURISCVState *env, TranslationBlock *tb, target_ulong *data)
 {
     env->active_tc.PC = data[0];

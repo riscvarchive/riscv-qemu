@@ -51,6 +51,13 @@ void cpu_save(QEMUFile *f, void *opaque)
     for (i = 0; i < 4096; i++) {
         qemu_put_betls(f, &env->csr[i]);
     }
+
+    qemu_put_betls(f, &env->priv);
+    qemu_put_betls(f, &env->badaddr);
+    qemu_put_betls(f, &env->mfromhost);
+    qemu_put_betls(f, &env->mtohost);
+    qemu_put_betls(f, &env->timecmp);
+
 }
 
 static void load_tc(QEMUFile *f, TCState *tc)
@@ -85,6 +92,12 @@ int cpu_load(QEMUFile *f, void *opaque, int version_id)
     for (i = 0; i < 4096; i++) {
         qemu_get_betls(f, &env->csr[i]);
     }
+
+    qemu_get_betls(f, &env->priv);
+    qemu_get_betls(f, &env->badaddr);
+    qemu_get_betls(f, &env->mfromhost);
+    qemu_get_betls(f, &env->mtohost);
+    qemu_get_betls(f, &env->timecmp);
 
     tlb_flush(CPU(cpu), 1);
     return 0;
