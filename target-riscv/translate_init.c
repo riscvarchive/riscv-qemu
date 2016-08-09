@@ -29,7 +29,7 @@
 
 struct riscv_def_t {
     const char *name;
-    target_ulong init_mcpuid_reg;
+    target_ulong init_misa_reg;
 };
 
 /* RISC-V CPU definitions */
@@ -38,7 +38,7 @@ static const riscv_def_t riscv_defs[] =
     {
         .name = "riscv-generic",
         // for now, hardcode RV64G:
-        .init_mcpuid_reg = MCPUID_RV64I | MCPUID_SUPER | /*MCPUID_USER |*/ MCPUID_I
+        .init_misa_reg = MCPUID_RV64I | MCPUID_SUPER | MCPUID_USER | MCPUID_I
             | MCPUID_M | MCPUID_A | MCPUID_F | MCPUID_D,
     },
 };

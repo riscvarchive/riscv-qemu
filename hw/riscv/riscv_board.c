@@ -9,7 +9,9 @@
  * 1) HTIF Console
  * 2) HTIF Block Device
  *
- * These are created by htif_mm_init below.
+ * These are created by htif_mm_init below. Note that some of these devices
+ * are no longer available for use by riscv-linux (block device) because
+ * the driver was removed.
  *
  * The following "Shim" devices allow support for interrupts triggered by the
  * processor itself (writes to the MIP/SIP CSRs):
@@ -20,8 +22,7 @@
  *
  * These are created by softint_mm_init below.
  *
- * This board currently uses a hardcoded devicetree that indicates one hart
- * and 2048 MB of memory.
+ * This board currently uses a hardcoded devicetree that indicates one hart.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -45,9 +46,10 @@
 #include "hw/hw.h"
 #include "hw/i386/pc.h"
 #include "hw/char/serial.h"
-#include "hw/riscv/softint.h"
+#include "hw/riscv/riscv_softint.h"
 #include "hw/riscv/htif/htif.h"
 #include "hw/riscv/htif/frontend.h"
+#include "hw/riscv/riscv_rtc.h"
 #include "hw/block/fdc.h"
 #include "net/net.h"
 #include "hw/boards.h"
@@ -80,55 +82,6 @@
 
 #define TYPE_RISCV_BOARD "riscv-board"
 #define RISCV_BOARD(obj) OBJECT_CHECK(BoardState, (obj), TYPE_RISCV_BOARD)
-
-// TODO: don't hardcode, don't rely on items past 0x408 to be init zero
-#define DEVTREE_LEN 65944
-char devtree[DEVTREE_LEN] = {
-0xd0,
-0x0d, 0xfe, 0xed, 0x00, 0x00, 0x01, 0x98, 0x00, 0x00, 0x00,
-0x38, 0x00, 0x00, 0x01, 0x58, 0x00, 0x00, 0x00, 0x28, 0x00,
-0x00, 0x00, 0x11, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00,
-0x00, 0x00, 0x00, 0x00, 0x40, 0x00, 0x00, 0x01, 0x20, 0x00,
-0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00,
-0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00,
-0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00,
-0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00,
-0x0f, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x03, 0x00,
-0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x1b, 0x53, 0x70, 0x69,
-0x6b, 0x65, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x6d,
-0x65, 0x6d, 0x6f, 0x72, 0x79, 0x40, 0x30, 0x00, 0x00, 0x00,
-0x00, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x07, 0x00,
-0x00, 0x00, 0x21, 0x6d, 0x65, 0x6d, 0x6f, 0x72, 0x79, 0x00,
-0x00, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x10, 0x00,
-0x00, 0x00, 0x2d, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-0x00, 0x00, 0x00, 0x00, 0x00, 0x80, 0x00, 0x00, 0x00, 0x00,
-0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x01, 0x63, 0x70, 0x75,
-0x73, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x00,
-0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-0x02, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x04, 0x00,
-0x00, 0x00, 0x0f, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00,
-0x01, 0x63, 0x70, 0x75, 0x40, 0x38, 0x30, 0x30, 0x30, 0x31,
-0x30, 0x30, 0x30, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-0x03, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x21, 0x63,
-0x70, 0x75, 0x00, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00,
-0x06, 0x00, 0x00, 0x00, 0x31, 0x72, 0x69, 0x73, 0x63, 0x76,
-0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00,
-0x0b, 0x00, 0x00, 0x00, 0x3c, 0x72, 0x76, 0x36, 0x34, 0x69,
-0x6d, 0x61, 0x66, 0x64, 0x63, 0x00, 0x00, 0x00, 0x00, 0x00,
-0x03, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00, 0x2d, 0x00,
-0x00, 0x00, 0x00, 0x80, 0x00, 0x10, 0x00, 0x00, 0x00, 0x00,
-0x02, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x02, 0x00,
-0x00, 0x00, 0x09, 0x23, 0x61, 0x64, 0x64, 0x72, 0x65, 0x73,
-0x73, 0x2d, 0x63, 0x65, 0x6c, 0x6c, 0x73, 0x00, 0x23, 0x73,
-0x69, 0x7a, 0x65, 0x2d, 0x63, 0x65, 0x6c, 0x6c, 0x73, 0x00,
-0x6d, 0x6f, 0x64, 0x65, 0x6c, 0x00, 0x64, 0x65, 0x76, 0x69,
-0x63, 0x65, 0x5f, 0x74, 0x79, 0x70, 0x65, 0x00, 0x72, 0x65,
-0x67, 0x00, 0x63, 0x6f, 0x6d, 0x70, 0x61, 0x74, 0x69, 0x62,
-0x6c, 0x65, 0x00, 0x69, 0x73, 0x61, 0x00,
-};
-
-
 
 typedef struct {
     SysBusDevice parent_obj;
@@ -166,25 +119,6 @@ static void main_cpu_reset(void *opaque)
 {
     RISCVCPU *cpu = opaque;
     cpu_reset(CPU(cpu));
-}
-
-/* hack for now to set memory size without implementing devicetree generation
- * modifies memory size and addresses */
-static void set_devtree_memsize(uint64_t memsize)
-{
-
-    uint64_t addr1 = memsize | 0x1000;
-
-    if (memsize <= 0x1000) {
-        fprintf(stderr, "Warning: Insufficient memsize for bbl. If you are not "
-                        "using bbl, you may disregard this message\n");
-    }
-
-    int i;
-    for (i = 0; i < 8; i++) {
-        devtree[179-i] = (memsize >> (i*8)) & 0xFF;
-        devtree[327-i] = (addr1 >> (i*8)) & 0xFF;
-    }
 }
 
 static void riscv_board_init(MachineState *args)
@@ -238,7 +172,7 @@ static void riscv_board_init(MachineState *args)
     env = &cpu->env;
 
     /* register system main memory (actual RAM) */
-    memory_region_init_ram(main_mem, NULL, "riscv_board.ram", ram_size + DEVTREE_LEN, &error_fatal);
+    memory_region_init_ram(main_mem, NULL, "riscv_board.ram", 2147483648L + ram_size, &error_fatal);
     // for CSR_MIOBASE
     env->memsize = ram_size;
     vmstate_register_ram_global(main_mem);
@@ -251,18 +185,66 @@ static void riscv_board_init(MachineState *args)
         loaderparams.initrd_filename = initrd_filename;
         load_kernel();
     }
-
     // TODO: still necessary?
     // write memory amount in MiB to 0x0
     //stl_p(memory_region_get_ram_ptr(main_mem), ram_size >> 20);
 
-    // set memory size in devicetree
-    set_devtree_memsize(ram_size);
+    uint32_t reset_vec[8] = {
+        0x297 + 0x80000000 - 0x1000, // reset vector
+        0x00028067,                  // jump to DRAM_BASE
+        0x00000000,                  // reserved
+        0x0,                         // config string pointer
+        0, 0, 0, 0                   // trap vector
+    };
+    reset_vec[3] = 0x1000 + sizeof(reset_vec); // config string pointer
 
-    // copy in the devtree
+    // part one of config string - before memory size specified
+    const char * config_string1 = "platform {\n"
+        "  vendor ucb;\n"
+        "  arch spike;\n"
+        "};\n"
+        "rtc {\n"
+        "  addr 0x" "40000000" ";\n"
+        "};\n"
+        "ram {\n"
+        "  0 {\n"
+        "    addr 0x" "80000000" ";\n"
+        "    size 0x";
+   
+   
+    // part two of config string - after memory size specified 
+    const char * config_string2 =  ";\n"
+        "  };\n"
+        "};\n"
+        "core {\n"
+        "  0" " {\n"
+          "    " "0 {\n"
+          "      isa " "rv64imafd" ";\n"
+          "      timecmp 0x" "40000008" ";\n"
+          "      ipi 0x" "40001000" ";\n"
+          "    };\n"
+          "  };\n"
+          "};\n";
+
+    // build config string with supplied memory size
+    uint64_t rsz = ram_size;
+    char * ramsize_as_hex_str = malloc(17);
+    sprintf(ramsize_as_hex_str, "%016lx", rsz);
+    char * config_string = malloc(strlen(config_string1) + strlen(ramsize_as_hex_str) + strlen(config_string2) + 1);
+    config_string[0] = 0;
+    strcat(config_string, config_string1);
+    strcat(config_string, ramsize_as_hex_str);
+    strcat(config_string, config_string2);
+
+    // copy in the reset vec and configstring
     int q;
-    for (q = 0; q < DEVTREE_LEN; q++) {
-        stb_p(memory_region_get_ram_ptr(main_mem)+ram_size+q, devtree[q]);
+    for (q = 0; q < sizeof(reset_vec)/sizeof(reset_vec[0]); q++) {
+        stl_p(memory_region_get_ram_ptr(main_mem)+0x1000+q*4, reset_vec[q]);
+    }
+
+    int confstrlen = strlen(config_string);
+    for (q = 0; q < confstrlen; q++) {
+        stb_p(memory_region_get_ram_ptr(main_mem)+reset_vec[3]+q, config_string[q]);
     }
 
     // add serial device 0x3f8-0x3ff
@@ -270,6 +252,7 @@ static void riscv_board_init(MachineState *args)
     //         serial_hds[0], DEVICE_NATIVE_ENDIAN);
 
     // setup HTIF Block Device if one is specified as -hda FILENAME
+    // NOTE: this is no longer supported by riscv-linux
     htifbd_drive = drive_get_by_index(IF_IDE, 0);
     if (NULL == htifbd_drive) {
         htifbd_fname = NULL;
@@ -279,9 +262,14 @@ static void riscv_board_init(MachineState *args)
         htifbd_drive->is_default = true;
     }
 
-    // add htif device at 0xFFFFFFFFF0000000
-    htif_mm_init(system_memory, 0xFFFFFFFFF0000000L, env->irq[4], main_mem,
+    // add memory mapped htif registers at location specified in the symbol
+    // table of the elf being loaded (thus kernel_filename is passed to the 
+    // init rather than an address)
+    htif_mm_init(system_memory, kernel_filename, env->irq[4], main_mem,
             htifbd_fname, kernel_cmdline, env, serial_hds[0]);
+
+    // timer device at 0x40000000, as specified in the config string above
+    timer_mm_init(system_memory, 0x40000000, env);
 
     // Softint "devices" for cleaner handling of CPU-triggered interrupts
     softint_mm_init(system_memory, 0xFFFFFFFFF0000020L, env->irq[1], main_mem,

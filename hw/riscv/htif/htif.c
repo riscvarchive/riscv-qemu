@@ -37,7 +37,7 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <inttypes.h>
-
+#include "elf_symb.h"
 
 #define ENABLE_CHARDEV
 //#define DEBUG_CHARDEV
@@ -67,16 +67,16 @@ static void htif_recv(void *opaque, const uint8_t *buf, int size)
     HTIFState *htifstate = opaque;
 
     #ifdef DEBUG_CHARDEV
-    if (htifstate->env->csr[NEW_CSR_MFROMHOST] != 0x0) {
+    if (htifstate->env->mfromhost != 0x0) {
         fprintf(stderr, "recv handler: fromhost was not ready to accept input\n");
-        fprintf(stderr, "recv handler: prev value was: %016lx\n", htifstate->env->csr[NEW_CSR_MFROMHOST]);
+        fprintf(stderr, "recv handler: prev value was: %016lx\n", htifstate->env->mfromhost);
     }
     #endif
 
     uint64_t val_written = htifstate->pending_read;
     uint64_t resp = 0x100 | *buf;
 
-    htifstate->env->csr[NEW_CSR_MFROMHOST] = (val_written >> 48 << 48) | (resp << 16 >> 16);
+    htifstate->env->mfromhost = (val_written >> 48 << 48) | (resp << 16 >> 16);
     qemu_irq_raise(htifstate->irq);
 }
 
@@ -109,8 +109,10 @@ const VMStateDescription vmstate_htif = {
     .pre_save = htif_pre_save,
     .post_load = htif_post_load,
     .fields      = (VMStateField []) { // TODO what
-        VMSTATE_UINT64(tohost_addr, HTIFState),
-        VMSTATE_UINT64(fromhost_addr, HTIFState),
+        VMSTATE_UINT64(tohost_offset, HTIFState),
+        VMSTATE_UINT64(fromhost_offset, HTIFState),
+        VMSTATE_UINT64(tohost_size, HTIFState),
+        VMSTATE_UINT64(fromhost_size, HTIFState),
         VMSTATE_END_OF_LIST()
     },
 };
@@ -252,7 +254,7 @@ static void htif_handle_tohost_write(HTIFState *htifstate, uint64_t val_written)
         if (cmd == 0x0) {
             // this should be a queue, but not yet implemented as such
             htifstate->pending_read = val_written;
-            htifstate->env->csr[NEW_CSR_MTOHOST] = 0; // clear to indicate we read
+            htifstate->env->mtohost = 0; // clear to indicate we read
             return;
         } else if (cmd == 0x1) {
             #ifdef ENABLE_CHARDEV
@@ -325,29 +327,34 @@ static void htif_handle_tohost_write(HTIFState *htifstate, uint64_t val_written)
         fprintf(stderr, "-device: %d\n-cmd: %d\n-what: %02lx\n-payload: %016lx\n", device, cmd, payload & 0xFF, payload);
         exit(1);
     }
-    while (!htifstate->fromhost_inprogress && htifstate->env->csr[NEW_CSR_MFROMHOST] != 0x0) {
+    while (!htifstate->fromhost_inprogress && htifstate->env->mfromhost != 0x0) {
         // wait
     }
-    htifstate->env->csr[NEW_CSR_MFROMHOST] = (val_written >> 48 << 48) | (resp << 16 >> 16);
-    htifstate->env->csr[NEW_CSR_MTOHOST] = 0; // clear to indicate we read
-    if (htifstate->env->csr[NEW_CSR_MFROMHOST] != 0) {
+    htifstate->env->mfromhost = (val_written >> 48 << 48) | (resp << 16 >> 16);
+    htifstate->env->mtohost = 0; // clear to indicate we read
+    if (htifstate->env->mfromhost != 0) {
         // raise HTIF interrupt
         qemu_irq_raise(htifstate->irq);
     }
 }
 
+#define TOHOST_OFFSET1 htifstate->tohost_offset
+#define TOHOST_OFFSET2 (htifstate->tohost_offset+4)
+#define FROMHOST_OFFSET1 htifstate->fromhost_offset
+#define FROMHOST_OFFSET2 (htifstate->fromhost_offset+4)
+
 // CPU wants to read an HTIF register
 static uint64_t htif_mm_read(void *opaque, hwaddr addr, unsigned size)
 {
     HTIFState *htifstate = opaque;
-    if (addr == 0x0) {
-        return htifstate->env->csr[NEW_CSR_MTOHOST] & 0xFFFFFFFF;
-    } else if (addr == 0x4) {
-        return (htifstate->env->csr[NEW_CSR_MTOHOST] >> 32) & 0xFFFFFFFF;
-    } else if (addr == 0x8) {
-        return htifstate->env->csr[NEW_CSR_MFROMHOST] & 0xFFFFFFFF;
-    } else if (addr == 0xc) {
-        return (htifstate->env->csr[NEW_CSR_MFROMHOST] >> 32) & 0xFFFFFFFF;
+    if (addr == TOHOST_OFFSET1) {
+        return htifstate->env->mtohost & 0xFFFFFFFF;
+    } else if (addr == TOHOST_OFFSET2) {
+        return (htifstate->env->mtohost >> 32) & 0xFFFFFFFF;
+    } else if (addr == FROMHOST_OFFSET1) {
+        return htifstate->env->mfromhost & 0xFFFFFFFF;
+    } else if (addr == FROMHOST_OFFSET2) {
+        return (htifstate->env->mfromhost >> 32) & 0xFFFFFFFF;
     } else {
         printf("Invalid htif register address %016lx\n", (uint64_t)addr);
         exit(1);
@@ -359,24 +366,34 @@ static void htif_mm_write(void *opaque, hwaddr addr,
                             uint64_t value, unsigned size)
 {
     HTIFState *htifstate = opaque;
-    if (addr == 0x0) {
-        if (htifstate->env->csr[NEW_CSR_MTOHOST] == 0x0) {
+    if (addr == TOHOST_OFFSET1) {
+        if (htifstate->env->mtohost == 0x0) {
             htifstate->allow_tohost = 1;
-            htifstate->env->csr[NEW_CSR_MTOHOST] = value & 0xFFFFFFFF;
+            htifstate->env->mtohost = value & 0xFFFFFFFF;
+
+            if (unlikely(htifstate->tohost_size != 8)) {
+#ifdef DEBUG_HTIF
+                fprintf(stderr, "Using non-8 htif width\n");
+#endif
+                // tests have a zero tohost size in elf symb tab and they 
+                // use sw to write to mm_write, so TOHOST_OFFSET2 will never
+                // be written to. Thus, initiate side effects here.
+                htif_handle_tohost_write(htifstate, htifstate->env->mtohost);
+            }
         } else {
             htifstate->allow_tohost = 0;
         }
-    } else if (addr == 0x4) {
+    } else if (addr == TOHOST_OFFSET2) {
         if (htifstate->allow_tohost) {
-            htifstate->env->csr[NEW_CSR_MTOHOST] |= value << 32;
-            htif_handle_tohost_write(htifstate, htifstate->env->csr[NEW_CSR_MTOHOST]);
+            htifstate->env->mtohost |= value << 32;
+            htif_handle_tohost_write(htifstate, htifstate->env->mtohost);
         }
-    } else if (addr == 0x8) {
+    } else if (addr == FROMHOST_OFFSET1) {
         htifstate->fromhost_inprogress = 1;
-        htifstate->env->csr[NEW_CSR_MFROMHOST] = value & 0xFFFFFFFF;
-    } else if (addr == 0xc) {
-        htifstate->env->csr[NEW_CSR_MFROMHOST] |= value << 32;
-        if (htifstate->env->csr[NEW_CSR_MFROMHOST] == 0x0) {
+        htifstate->env->mfromhost = value & 0xFFFFFFFF;
+    } else if (addr == FROMHOST_OFFSET2) {
+        htifstate->env->mfromhost |= value << 32;
+        if (htifstate->env->mfromhost == 0x0) {
             qemu_irq_lower(htifstate->irq);
         }
         htifstate->fromhost_inprogress = 0;
@@ -394,12 +411,35 @@ static const MemoryRegionOps htif_mm_ops[3] = {
     },
 };
 
-HTIFState *htif_mm_init(MemoryRegion *address_space, hwaddr base, qemu_irq irq,
-                        MemoryRegion *main_mem, const char* htifbd_fname,
-                                            const char *kernel_cmdline,
-                                            CPURISCVState *env,
-                                            CharDriverState *chr)
+HTIFState *htif_mm_init(MemoryRegion *address_space, const char* kernel_filename, 
+           qemu_irq irq, MemoryRegion *main_mem, const char* htifbd_fname,
+           const char *kernel_cmdline, CPURISCVState *env, CharDriverState *chr)
 {
+    // get fromhost/tohost addresses from the ELF, as spike/fesvr do
+    Elf_obj * e = elf_open(kernel_filename);
+    const char * fromhost = "fromhost";
+    const char * tohost = "tohost";
+    uint64_t fromhost_addr = 0;
+    uint64_t fromhost_size = 0; // for pk vs tests
+    uint64_t tohost_addr = 0;
+    uint64_t tohost_size = 0; // for pk vs tests
+    
+    Elf64_Sym * curr_sym = elf_firstsym(e);
+    while (curr_sym) {
+        char * symname = elf_symname(e, curr_sym);
+        if (strcmp(fromhost, symname) == 0) {
+            // get fromhost addr
+            fromhost_addr = curr_sym->st_value;
+            fromhost_size = curr_sym->st_size; // this is correctly set to 8 by pk
+        } else if (strcmp(tohost, symname) == 0) {
+            // get tohost addr
+            tohost_addr = curr_sym->st_value;
+            tohost_size = curr_sym->st_size; // this is correctly set to 8 by pk
+        }
+        curr_sym = elf_nextsym(e, curr_sym);
+    }
+
+    // now setup HTIF device
     // TODO: cleanup the constant buffer sizes
     HTIFState *htifstate;
     size_t size;
@@ -408,8 +448,6 @@ HTIFState *htif_mm_init(MemoryRegion *address_space, hwaddr base, qemu_irq irq,
 
     htifstate = g_malloc0(sizeof(HTIFState));
     rname = g_malloc0(sizeof(char)*500);
-    htifstate->tohost_addr = base;
-    htifstate->fromhost_addr = base + 0x8;
     htifstate->irq = irq;
     htifstate->address_space = address_space;
     htifstate->main_mem = main_mem;
@@ -419,15 +457,24 @@ HTIFState *htif_mm_init(MemoryRegion *address_space, hwaddr base, qemu_irq irq,
     htifstate->pending_read = 0;
     htifstate->allow_tohost = 0;
     htifstate->fromhost_inprogress = 0;
+    htifstate->fromhost_size = fromhost_size;
+    htifstate->tohost_size = tohost_size;
 
 #ifdef ENABLE_CHARDEV
     qemu_chr_add_handlers(htifstate->chr, htif_can_recv, htif_recv, htif_event, htifstate);
 #endif
 
+    uint64_t base = tohost_addr < fromhost_addr ? tohost_addr : fromhost_addr;
+    uint64_t second = tohost_addr < fromhost_addr ? fromhost_addr : tohost_addr;
+    uint64_t regionwidth = second - base + 8;
+
+    htifstate->tohost_offset = base == tohost_addr ? 0 : tohost_addr - fromhost_addr;
+    htifstate->fromhost_offset = base == fromhost_addr ? 0 : fromhost_addr - tohost_addr;
+
     vmstate_register(NULL, base, &vmstate_htif, htifstate);
 
     memory_region_init_io(&htifstate->io, NULL, &htif_mm_ops[DEVICE_LITTLE_ENDIAN],
-            htifstate, "htif", 16 /* 2 64-bit registers */);
+            htifstate, "htif", regionwidth);
     memory_region_add_subregion(address_space, base, &htifstate->io);
 
     // save kernel_cmdline for sys_getmainvars
