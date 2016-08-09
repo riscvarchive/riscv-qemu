@@ -12,6 +12,7 @@ General
 - TODO: print useful csrs in riscv_cpu_dump_state in translate.c
 - TODO: debug mode
 - TODO: rvc, rv32
+- TODO: reenable riscv-torture runs
 
 Testing
 -------

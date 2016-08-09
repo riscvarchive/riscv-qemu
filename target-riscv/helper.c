@@ -105,7 +105,7 @@ static int get_physical_address (CPURISCVState *env, hwaddr *physical,
     }
 
     if (mode == PRV_M) {
-        target_ulong msb_mask = (2L << 63) - 1;
+        target_ulong msb_mask = 0x7FFFFFFFFFFFFFFF;
         *physical = address & msb_mask;
         *prot = PAGE_READ | PAGE_WRITE | PAGE_EXEC;
         return TRANSLATE_SUCCESS;
@@ -287,6 +287,7 @@ int riscv_cpu_handle_mmu_fault(CPUState *cs, vaddr address, int rw, int mmu_idx)
     return ret;
 }
 
+#ifdef RISCV_DEBUG_INTERRUPT
 static const char * const riscv_excp_names[12] = {
     "misaligned fetch",
     "fault fetch",
@@ -318,6 +319,7 @@ static const char * const riscv_interrupt_names[14] = {
     "COP interrupt",
     "Host interrupt"
 };
+#endif     // RISCV_DEBUG_INTERRUPT
 
 /* handle traps. similar to take_trap in spike */
 void riscv_cpu_do_interrupt(CPUState *cs)

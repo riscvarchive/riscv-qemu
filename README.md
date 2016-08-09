@@ -46,7 +46,7 @@ as a payload for bbl. Alternatively, you can use the prebuilt copy linked
 below. This single file contains bbl with the Linux kernel as a payload. The
 included copy of the Linux kernel also has an initramfs with busybox.
 
-**a)** [bblvmlinuxinitramfs_dynamic](https://www.eecs.berkeley.edu/~skarandikar/host/qemu/1.9/bblvmlinuxinitramfs_dynamic)
+**a)** [bblvmlinuxinitramfs_dynamic](https://people.eecs.berkeley.edu/~skarandikar/host/qemu/1.9/bblvmlinuxinitramfs_dynamic)
 
 ####Step 3: Run QEMU
 
