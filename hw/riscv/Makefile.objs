@@ -1,5 +1,6 @@
-obj-y += riscv_board.o
-obj-y += cputimer.o riscv_int.o
+obj-y += riscv_rtc.o riscv_int.o
+obj-y += htif/elf_symb.o
 obj-y += htif/htif.o
 obj-y += htif/frontend.o
-obj-y += softint.o
+obj-y += riscv_softint.o
+obj-y += riscv_board.o

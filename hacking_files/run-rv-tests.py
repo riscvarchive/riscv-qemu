@@ -6,8 +6,8 @@ import sys
 # with no test specified, will run all tests
 # else run the specific test
 
-tests_dir = "/scratch/sagark/qemu-compatible-tools-inst/inst/riscv64-unknown-elf/share/riscv-tests/isa/"
-cmd = "../riscv-softmmu/qemu-system-riscv -m 2048M -kernel " + tests_dir + "{} -nographic"
+tests_dir = "/scratch/sagark/qemu-newpriv1.9/riscv-tools/riscv-tests/isa/"
+cmd = "../riscv-softmmu/qemu-system-riscv -m 3840M -kernel " + tests_dir + "{} -nographic"
 
 if len(sys.argv) == 1:
     devnull = open(os.devnull, 'w')

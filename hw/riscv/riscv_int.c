@@ -35,6 +35,7 @@
  */
 static void cpu_riscv_irq_request(void *opaque, int irq, int level)
 {
+    // TODO fixup post 1.9
     // This "irq" number is not a real irq number, just some set of numbers
     // we choose. These are not the same irq numbers visible to the processor.
 
@@ -55,7 +56,7 @@ static void cpu_riscv_irq_request(void *opaque, int irq, int level)
     if (level) {
         cpu_interrupt(cs, CPU_INTERRUPT_HARD);
     } else {
-        if (!env->csr[NEW_CSR_MIP] && !env->csr[NEW_CSR_MFROMHOST]) {
+        if (!env->csr[NEW_CSR_MIP] && !env->mfromhost) {
             // no interrupts pending, no host interrupt for HTIF, reset
             cpu_reset_interrupt(cs, CPU_INTERRUPT_HARD);
         }

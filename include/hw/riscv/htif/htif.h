@@ -33,8 +33,10 @@ struct HTIFState {
     int allow_tohost;
     int fromhost_inprogress;
 
-    hwaddr tohost_addr;
-    hwaddr fromhost_addr;
+    hwaddr tohost_offset;
+    hwaddr fromhost_offset;
+    uint64_t tohost_size;
+    uint64_t fromhost_size;
     qemu_irq irq; // host interrupt line
     MemoryRegion io;
     MemoryRegion* address_space;
@@ -68,7 +70,7 @@ extern const VMStateDescription vmstate_htif;
 extern const MemoryRegionOps htif_io_ops;
 
 /* legacy pre qom */
-HTIFState *htif_mm_init(MemoryRegion *address_space, hwaddr base, 
+HTIFState *htif_mm_init(MemoryRegion *address_space, const char* kernel_filename, 
                     qemu_irq irq, MemoryRegion *main_mem, const char *htifbd_fname,
                     const char *kernel_cmdline, CPURISCVState *env,
                     CharDriverState *chr);
