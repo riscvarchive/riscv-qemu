@@ -56,86 +56,86 @@ struct CPURISCVState;
 #define FSR_NXA  (FPEXC_NX << FSR_AEXC_SHIFT)
 #define FSR_AEXC (FSR_NVA | FSR_OFA | FSR_UFA | FSR_DZA | FSR_NXA)
 
-#define NEW_CSR_FFLAGS 0x1
-#define NEW_CSR_FRM 0x2
-#define NEW_CSR_FCSR 0x3
-#define NEW_CSR_CYCLE 0xc00
-#define NEW_CSR_TIME 0xc01
-#define NEW_CSR_INSTRET 0xc02
-#define NEW_CSR_SSTATUS 0x100
-#define NEW_CSR_SIE 0x104
-#define NEW_CSR_STVEC 0x105
-#define NEW_CSR_SSCRATCH 0x140
-#define NEW_CSR_SEPC 0x141
-#define NEW_CSR_SCAUSE 0x142
-#define NEW_CSR_SBADADDR 0x143
-#define NEW_CSR_SIP 0x144
-#define NEW_CSR_SPTBR 0x180
-#define NEW_CSR_SCYCLE 0xd00
-#define NEW_CSR_STIME 0xd01
-#define NEW_CSR_SINSTRET 0xd02
-#define NEW_CSR_MSTATUS 0x300
-#define NEW_CSR_MEDELEG 0x302
-#define NEW_CSR_MIDELEG 0x303
-#define NEW_CSR_MIE 0x304
-#define NEW_CSR_MTVEC 0x305
-#define NEW_CSR_MSCRATCH 0x340
-#define NEW_CSR_MEPC 0x341
-#define NEW_CSR_MCAUSE 0x342
-#define NEW_CSR_MBADADDR 0x343
-#define NEW_CSR_MIP 0x344
-#define NEW_CSR_MUCOUNTEREN 0x310
-#define NEW_CSR_MSCOUNTEREN 0x311
-#define NEW_CSR_MUCYCLE_DELTA 0x700
-#define NEW_CSR_MUTIME_DELTA 0x701
-#define NEW_CSR_MUINSTRET_DELTA 0x702
-#define NEW_CSR_MSCYCLE_DELTA 0x704
-#define NEW_CSR_MSTIME_DELTA 0x705
-#define NEW_CSR_MSINSTRET_DELTA 0x706
-#define NEW_CSR_TDRSELECT 0x7a0
-#define NEW_CSR_TDRDATA1 0x7a1
-#define NEW_CSR_TDRDATA2 0x7a2
-#define NEW_CSR_TDRDATA3 0x7a3
-#define NEW_CSR_DCSR 0x7b0
-#define NEW_CSR_DPC 0x7b1
-#define NEW_CSR_DSCRATCH 0x7b2
-#define NEW_CSR_MCYCLE 0xf00
-#define NEW_CSR_MTIME 0xf01
-#define NEW_CSR_MINSTRET 0xf02
-#define NEW_CSR_MISA 0xf10
-#define NEW_CSR_MVENDORID 0xf11
-#define NEW_CSR_MARCHID 0xf12
-#define NEW_CSR_MIMPID 0xf13
-#define NEW_CSR_MHARTID 0xf14
-#define NEW_CSR_MRESET 0x7c2
-#define NEW_CSR_CYCLEH 0xc80
-#define NEW_CSR_TIMEH 0xc81
-#define NEW_CSR_INSTRETH 0xc82
-#define NEW_CSR_MUCYCLE_DELTAH 0x780
-#define NEW_CSR_MUTIME_DELTAH 0x781
-#define NEW_CSR_MUINSTRET_DELTAH 0x782
-#define NEW_CSR_MSCYCLE_DELTAH 0x784
-#define NEW_CSR_MSTIME_DELTAH 0x785
-#define NEW_CSR_MSINSTRET_DELTAH 0x786
-#define NEW_CSR_MCYCLEH 0xf80
-#define NEW_CSR_MTIMEH 0xf81
-#define NEW_CSR_MINSTRETH 0xf82
+#define CSR_FFLAGS 0x1
+#define CSR_FRM 0x2
+#define CSR_FCSR 0x3
+#define CSR_CYCLE 0xc00
+#define CSR_TIME 0xc01
+#define CSR_INSTRET 0xc02
+#define CSR_SSTATUS 0x100
+#define CSR_SIE 0x104
+#define CSR_STVEC 0x105
+#define CSR_SSCRATCH 0x140
+#define CSR_SEPC 0x141
+#define CSR_SCAUSE 0x142
+#define CSR_SBADADDR 0x143
+#define CSR_SIP 0x144
+#define CSR_SPTBR 0x180
+#define CSR_SCYCLE 0xd00
+#define CSR_STIME 0xd01
+#define CSR_SINSTRET 0xd02
+#define CSR_MSTATUS 0x300
+#define CSR_MEDELEG 0x302
+#define CSR_MIDELEG 0x303
+#define CSR_MIE 0x304
+#define CSR_MTVEC 0x305
+#define CSR_MSCRATCH 0x340
+#define CSR_MEPC 0x341
+#define CSR_MCAUSE 0x342
+#define CSR_MBADADDR 0x343
+#define CSR_MIP 0x344
+#define CSR_MUCOUNTEREN 0x310
+#define CSR_MSCOUNTEREN 0x311
+#define CSR_MUCYCLE_DELTA 0x700
+#define CSR_MUTIME_DELTA 0x701
+#define CSR_MUINSTRET_DELTA 0x702
+#define CSR_MSCYCLE_DELTA 0x704
+#define CSR_MSTIME_DELTA 0x705
+#define CSR_MSINSTRET_DELTA 0x706
+#define CSR_TDRSELECT 0x7a0
+#define CSR_TDRDATA1 0x7a1
+#define CSR_TDRDATA2 0x7a2
+#define CSR_TDRDATA3 0x7a3
+#define CSR_DCSR 0x7b0
+#define CSR_DPC 0x7b1
+#define CSR_DSCRATCH 0x7b2
+#define CSR_MCYCLE 0xf00
+#define CSR_MTIME 0xf01
+#define CSR_MINSTRET 0xf02
+#define CSR_MISA 0xf10
+#define CSR_MVENDORID 0xf11
+#define CSR_MARCHID 0xf12
+#define CSR_MIMPID 0xf13
+#define CSR_MHARTID 0xf14
+#define CSR_MRESET 0x7c2
+#define CSR_CYCLEH 0xc80
+#define CSR_TIMEH 0xc81
+#define CSR_INSTRETH 0xc82
+#define CSR_MUCYCLE_DELTAH 0x780
+#define CSR_MUTIME_DELTAH 0x781
+#define CSR_MUINSTRET_DELTAH 0x782
+#define CSR_MSCYCLE_DELTAH 0x784
+#define CSR_MSTIME_DELTAH 0x785
+#define CSR_MSINSTRET_DELTAH 0x786
+#define CSR_MCYCLEH 0xf80
+#define CSR_MTIMEH 0xf81
+#define CSR_MINSTRETH 0xf82
 
 // RISCV Exception Codes
 #define EXCP_NONE                       -1   // not a real RISCV exception code
-#define NEW_RISCV_EXCP_INST_ADDR_MIS           0x0
-#define NEW_RISCV_EXCP_INST_ACCESS_FAULT       0x1
-#define NEW_RISCV_EXCP_ILLEGAL_INST            0x2
-#define NEW_RISCV_EXCP_BREAKPOINT              0x3
-#define NEW_RISCV_EXCP_LOAD_ADDR_MIS           0x4
-#define NEW_RISCV_EXCP_LOAD_ACCESS_FAULT       0x5
-#define NEW_RISCV_EXCP_STORE_AMO_ADDR_MIS      0x6
-#define NEW_RISCV_EXCP_STORE_AMO_ACCESS_FAULT  0x7
-#define NEW_RISCV_EXCP_U_ECALL                 0x8 // for convenience, report all
+#define RISCV_EXCP_INST_ADDR_MIS           0x0
+#define RISCV_EXCP_INST_ACCESS_FAULT       0x1
+#define RISCV_EXCP_ILLEGAL_INST            0x2
+#define RISCV_EXCP_BREAKPOINT              0x3
+#define RISCV_EXCP_LOAD_ADDR_MIS           0x4
+#define RISCV_EXCP_LOAD_ACCESS_FAULT       0x5
+#define RISCV_EXCP_STORE_AMO_ADDR_MIS      0x6
+#define RISCV_EXCP_STORE_AMO_ACCESS_FAULT  0x7
+#define RISCV_EXCP_U_ECALL                 0x8 // for convenience, report all
                                                    // ECALLs as this, handler fixes
-#define NEW_RISCV_EXCP_S_ECALL                 0x9
-#define NEW_RISCV_EXCP_H_ECALL                 0xa
-#define NEW_RISCV_EXCP_M_ECALL                 0xb
+#define RISCV_EXCP_S_ECALL                 0x9
+#define RISCV_EXCP_H_ECALL                 0xa
+#define RISCV_EXCP_M_ECALL                 0xb
 // interrupts not listed here
 
 #define IS_RV_INTERRUPT(ival) (ival & (0x1 << 31))
@@ -389,11 +389,11 @@ static inline int cpu_mmu_index (CPURISCVState *env, bool ifetch)
 {
     target_ulong mode = env->priv;
     if (!ifetch) {
-         if(get_field(env->csr[NEW_CSR_MSTATUS], MSTATUS_MPRV)) {
-             mode = get_field(env->csr[NEW_CSR_MSTATUS], MSTATUS_MPP);
+         if(get_field(env->csr[CSR_MSTATUS], MSTATUS_MPRV)) {
+             mode = get_field(env->csr[CSR_MSTATUS], MSTATUS_MPP);
          }
     }
-    if (get_field(env->csr[NEW_CSR_MSTATUS], MSTATUS_VM) == VM_MBARE) {
+    if (get_field(env->csr[CSR_MSTATUS], MSTATUS_VM) == VM_MBARE) {
         mode = PRV_M;
     }
     return mode;
@@ -417,15 +417,15 @@ static int ctz(target_ulong val)
 static inline int cpu_riscv_hw_interrupts_pending(CPURISCVState *env)
 {
 
-    target_ulong pending_interrupts = env->csr[NEW_CSR_MIP] & env->csr[NEW_CSR_MIE];
+    target_ulong pending_interrupts = env->csr[CSR_MIP] & env->csr[CSR_MIE];
 
-    target_ulong mie = get_field(env->csr[NEW_CSR_MSTATUS], MSTATUS_MIE);
+    target_ulong mie = get_field(env->csr[CSR_MSTATUS], MSTATUS_MIE);
     target_ulong m_enabled = env->priv < PRV_M || (env->priv == PRV_M && mie);
-    target_ulong enabled_interrupts = pending_interrupts & ~env->csr[NEW_CSR_MIDELEG] & -m_enabled;
+    target_ulong enabled_interrupts = pending_interrupts & ~env->csr[CSR_MIDELEG] & -m_enabled;
 
-    target_ulong sie = get_field(env->csr[NEW_CSR_MSTATUS], MSTATUS_SIE);
+    target_ulong sie = get_field(env->csr[CSR_MSTATUS], MSTATUS_SIE);
     target_ulong s_enabled = env->priv < PRV_S || (env->priv == PRV_S && sie);
-    enabled_interrupts |= pending_interrupts & env->csr[NEW_CSR_MIDELEG] & -s_enabled;
+    enabled_interrupts |= pending_interrupts & env->csr[CSR_MIDELEG] & -s_enabled;
 
     if (enabled_interrupts) {
         target_ulong counted = ctz(enabled_interrupts);
