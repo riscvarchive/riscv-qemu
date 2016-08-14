@@ -358,7 +358,7 @@ inline static void gen_arith(DisasContext *ctx, uint32_t opc,
         }
         break;
     default:
-        kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
+        kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         break;
 
     }
@@ -410,7 +410,7 @@ inline static void gen_arith_imm(DisasContext *ctx, uint32_t opc,
         }
         break;
     default:
-        kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
+        kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         break;
     }
 
@@ -457,7 +457,7 @@ inline static void gen_arith_imm_w(DisasContext *ctx, uint32_t opc,
         }
         break;
     default:
-        kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
+        kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         break;
     }
     gen_set_gpr(rd, source1);
@@ -656,7 +656,7 @@ inline static void gen_arith_w(DisasContext *ctx, uint32_t opc,
         }
         break;
     default:
-        kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
+        kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         break;
     }
     gen_set_gpr(rd, source1);
@@ -696,7 +696,7 @@ inline static void gen_branch(DisasContext *ctx, uint32_t opc,
         tcg_gen_brcond_tl(TCG_COND_GEU, source1, source2, l);
         break;
     default:
-        kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
+        kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         break;
     }
 
@@ -754,7 +754,7 @@ inline static void gen_load(DisasContext *ctx, uint32_t opc,
         tcg_gen_qemu_ld32u(t1, t0, ctx->mem_idx);
         break;
     default:
-        kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
+        kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         break;
 
     }
@@ -792,7 +792,7 @@ inline static void gen_store(DisasContext *ctx, uint32_t opc,
         break;
 
     default:
-        kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
+        kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         break;
     }
 
@@ -829,14 +829,14 @@ inline static void gen_jalr(DisasContext *ctx, uint32_t opc,
         tcg_gen_br(done);
 
         gen_set_label(misaligned);
-        generate_exception_mbadaddr(ctx, NEW_RISCV_EXCP_INST_ADDR_MIS);
+        generate_exception_mbadaddr(ctx, RISCV_EXCP_INST_ADDR_MIS);
 
         gen_set_label(done);
         tcg_gen_exit_tb(0); // exception or not, NO CHAINING FOR JALR
         ctx->bstate = BS_BRANCH;
         break;
     default:
-        kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
+        kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         break;
 
     }
@@ -1157,7 +1157,7 @@ inline static void gen_atomic(DisasContext *ctx, uint32_t opc,
         }
         break;
     default:
-        kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
+        kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         break;
 
     }
@@ -1190,12 +1190,12 @@ inline static void gen_system(DisasContext *ctx, uint32_t opc,
         switch (backup_csr) {
             case 0x0: // ECALL
                 // always generates U-level ECALL, fixed in do_interrupt handler
-                generate_exception(ctx, NEW_RISCV_EXCP_U_ECALL);
+                generate_exception(ctx, RISCV_EXCP_U_ECALL);
                 tcg_gen_exit_tb(0); // no chaining
                 ctx->bstate = BS_BRANCH;
                 break;
             case 0x1: // EBREAK
-                generate_exception(ctx, NEW_RISCV_EXCP_BREAKPOINT);
+                generate_exception(ctx, RISCV_EXCP_BREAKPOINT);
                 tcg_gen_exit_tb(0); // no chaining
                 ctx->bstate = BS_BRANCH;
                 break;
@@ -1230,7 +1230,7 @@ inline static void gen_system(DisasContext *ctx, uint32_t opc,
                 gen_helper_tlb_flush(cpu_env);
                 break;
             default:
-                kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
+                kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
                 break;
         }
         break;
@@ -1304,7 +1304,7 @@ inline static void gen_system(DisasContext *ctx, uint32_t opc,
         }
         break;
     default:
-        kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
+        kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         break;
 
     }
@@ -1334,7 +1334,7 @@ inline static void gen_fp_load(DisasContext *ctx, uint32_t opc,
         tcg_gen_qemu_ld64(t0, t0, ctx->mem_idx);
         break;
     default:
-        kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
+        kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         break;
 
     }
@@ -1364,7 +1364,7 @@ inline static void gen_fp_store(DisasContext *ctx, uint32_t opc,
         break;
 
     default:
-        kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
+        kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         break;
     }
 
@@ -1387,7 +1387,7 @@ inline static void gen_fp_fmadd(DisasContext *ctx, uint32_t opc,
         gen_helper_fmadd_d(cpu_fpr[rd], cpu_env, cpu_fpr[rs1], cpu_fpr[rs2], cpu_fpr[rs3], rm_reg);
         break;
     default:
-        kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
+        kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         break;
     }
     tcg_temp_free(rm_reg);
@@ -1409,7 +1409,7 @@ inline static void gen_fp_fmsub(DisasContext *ctx, uint32_t opc,
         gen_helper_fmsub_d(cpu_fpr[rd], cpu_env, cpu_fpr[rs1], cpu_fpr[rs2], cpu_fpr[rs3], rm_reg);
         break;
     default:
-        kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
+        kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         break;
     }
     tcg_temp_free(rm_reg);
@@ -1430,7 +1430,7 @@ inline static void gen_fp_fnmsub(DisasContext *ctx, uint32_t opc,
         gen_helper_fnmsub_d(cpu_fpr[rd], cpu_env, cpu_fpr[rs1], cpu_fpr[rs2], cpu_fpr[rs3], rm_reg);
         break;
     default:
-        kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
+        kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         break;
     }
     tcg_temp_free(rm_reg);
@@ -1451,7 +1451,7 @@ inline static void gen_fp_fnmadd(DisasContext *ctx, uint32_t opc,
         gen_helper_fnmadd_d(cpu_fpr[rd], cpu_env, cpu_fpr[rs1], cpu_fpr[rs2], cpu_fpr[rs3], rm_reg);
         break;
     default:
-        kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
+        kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         break;
     }
     tcg_temp_free(rm_reg);
@@ -1486,7 +1486,7 @@ inline static void gen_fp_arith(DisasContext *ctx, uint32_t opc,
         } else if (rm == 0x2) {
             gen_helper_fsgnjx_s(cpu_fpr[rd], cpu_env, cpu_fpr[rs1], cpu_fpr[rs2]);
         } else {
-            kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
+            kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         }
         break;
     case OPC_RISC_FMIN_S:
@@ -1496,7 +1496,7 @@ inline static void gen_fp_arith(DisasContext *ctx, uint32_t opc,
         } else if (rm == 0x1) {
             gen_helper_fmax_s(cpu_fpr[rd], cpu_env, cpu_fpr[rs1], cpu_fpr[rs2]);
         } else {
-            kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
+            kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         }
         break;
 
@@ -1513,7 +1513,7 @@ inline static void gen_fp_arith(DisasContext *ctx, uint32_t opc,
         } else if (rm == 0x2) {
             gen_helper_feq_s(write_int_rd, cpu_env, cpu_fpr[rs1], cpu_fpr[rs2]);
         } else {
-            kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
+            kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         }
         gen_set_gpr(rd, write_int_rd);
         break;
@@ -1529,7 +1529,7 @@ inline static void gen_fp_arith(DisasContext *ctx, uint32_t opc,
         } else if (rs2 == 0x3) { // FCVT_LU_S
             gen_helper_fcvt_lu_s(write_int_rd, cpu_env, cpu_fpr[rs1], rm_reg);
         } else {
-            kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
+            kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         }
         gen_set_gpr(rd, write_int_rd);
         break;
@@ -1546,7 +1546,7 @@ inline static void gen_fp_arith(DisasContext *ctx, uint32_t opc,
         } else if (rs2 == 0x3) { // FCVT_S_LU
             gen_helper_fcvt_s_lu(cpu_fpr[rd], cpu_env, write_int_rd, rm_reg);
         } else {
-            kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
+            kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         }
         break;
 
@@ -1557,7 +1557,7 @@ inline static void gen_fp_arith(DisasContext *ctx, uint32_t opc,
         } else if (rm == 0x1) {
             gen_helper_fclass_s(write_int_rd, cpu_env, cpu_fpr[rs1]);
         } else {
-            kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
+            kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         }
         gen_set_gpr(rd, write_int_rd);
         break;
@@ -1589,7 +1589,7 @@ inline static void gen_fp_arith(DisasContext *ctx, uint32_t opc,
         } else if (rm == 0x2) {
             gen_helper_fsgnjx_d(cpu_fpr[rd], cpu_env, cpu_fpr[rs1], cpu_fpr[rs2]);
         } else {
-            kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
+            kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         }
         break;
     case OPC_RISC_FMIN_D:
@@ -1599,21 +1599,21 @@ inline static void gen_fp_arith(DisasContext *ctx, uint32_t opc,
         } else if (rm == 0x1) {
             gen_helper_fmax_d(cpu_fpr[rd], cpu_env, cpu_fpr[rs1], cpu_fpr[rs2]);
         } else {
-            kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
+            kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         }
         break;
     case OPC_RISC_FCVT_S_D:
         if (rs2 == 0x1) {
             gen_helper_fcvt_s_d(cpu_fpr[rd], cpu_env, cpu_fpr[rs1], rm_reg);
         } else {
-            kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
+            kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         }
         break;
     case OPC_RISC_FCVT_D_S:
         if (rs2 == 0x0) {
             gen_helper_fcvt_d_s(cpu_fpr[rd], cpu_env, cpu_fpr[rs1], rm_reg);
         } else {
-            kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
+            kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         }
         break;
     case OPC_RISC_FSQRT_D:
@@ -1628,7 +1628,7 @@ inline static void gen_fp_arith(DisasContext *ctx, uint32_t opc,
         } else if (rm == 0x2) {
             gen_helper_feq_d(write_int_rd, cpu_env, cpu_fpr[rs1], cpu_fpr[rs2]);
         } else {
-            kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
+            kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         }
         gen_set_gpr(rd, write_int_rd);
         break;
@@ -1643,7 +1643,7 @@ inline static void gen_fp_arith(DisasContext *ctx, uint32_t opc,
         } else if (rs2 == 0x3) {
             gen_helper_fcvt_lu_d(write_int_rd, cpu_env, cpu_fpr[rs1], rm_reg);
         } else {
-            kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
+            kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         }
         gen_set_gpr(rd, write_int_rd);
         break;
@@ -1659,7 +1659,7 @@ inline static void gen_fp_arith(DisasContext *ctx, uint32_t opc,
         } else if (rs2 == 0x3) {
             gen_helper_fcvt_d_lu(cpu_fpr[rd], cpu_env, write_int_rd, rm_reg);
         } else {
-            kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
+            kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         }
         break;
     case OPC_RISC_FMV_X_D:
@@ -1669,7 +1669,7 @@ inline static void gen_fp_arith(DisasContext *ctx, uint32_t opc,
         } else if (rm == 0x1) {
             gen_helper_fclass_d(write_int_rd, cpu_env, cpu_fpr[rs1]);
         } else {
-            kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
+            kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         }
         gen_set_gpr(rd, write_int_rd);
         break;
@@ -1678,7 +1678,7 @@ inline static void gen_fp_arith(DisasContext *ctx, uint32_t opc,
         tcg_gen_mov_tl(cpu_fpr[rd], write_int_rd);
         break;
     default:
-        kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
+        kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         break;
     }
     tcg_temp_free(rm_reg);
@@ -1773,7 +1773,7 @@ static void decode_opc (CPURISCVState *env, DisasContext *ctx)
             tcg_gen_br(done);
             gen_set_label(misaligned);
             // throw exception for misaligned case
-            generate_exception_mbadaddr(ctx, NEW_RISCV_EXCP_INST_ADDR_MIS);
+            generate_exception_mbadaddr(ctx, RISCV_EXCP_INST_ADDR_MIS);
             gen_set_label(done);
             ctx->bstate = BS_BRANCH;
             tcg_temp_free(nextpc);
@@ -1854,7 +1854,7 @@ static void decode_opc (CPURISCVState *env, DisasContext *ctx)
         gen_fp_arith(ctx, MASK_OP_FP_ARITH(ctx->opcode), rd, rs1, rs2, GET_RM(ctx->opcode));
         break;
     default:
-        kill_unknown(ctx, NEW_RISCV_EXCP_ILLEGAL_INST);
+        kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         break;
     }
 }
@@ -1995,10 +1995,10 @@ void riscv_cpu_dump_state(CPUState *cs, FILE *f, fprintf_function cpu_fprintf,
         }
     }
 
-    cpu_fprintf(f, " %s " TARGET_FMT_lx "\n", "MSTATUS ", env->csr[NEW_CSR_MSTATUS]);
-    cpu_fprintf(f, " %s " TARGET_FMT_lx "\n", "MIP     ", env->csr[NEW_CSR_MIP]);
+    cpu_fprintf(f, " %s " TARGET_FMT_lx "\n", "MSTATUS ", env->csr[CSR_MSTATUS]);
+    cpu_fprintf(f, " %s " TARGET_FMT_lx "\n", "MIP     ", env->csr[CSR_MIP]);
 
-    cpu_fprintf(f, " %s " TARGET_FMT_lx "\n", "MIE     ", env->csr[NEW_CSR_MIE]);
+    cpu_fprintf(f, " %s " TARGET_FMT_lx "\n", "MIE     ", env->csr[CSR_MIE]);
 
     for (i = 0; i < 32; i++) {
         if ((i & 3) == 0) {
@@ -2068,7 +2068,7 @@ RISCVCPU *cpu_riscv_init(const char *cpu_model)
     env->priv = PRV_M;
 
     // set mcpuid from def
-    env->csr[NEW_CSR_MISA] = def->init_misa_reg;
+    env->csr[CSR_MISA] = def->init_misa_reg;
     object_property_set_bool(OBJECT(cpu), true, "realized", NULL);
 
     // fpu flags:
@@ -2086,7 +2086,7 @@ void cpu_state_reset(CPURISCVState *env)
 
     env->priv = PRV_M;
     env->active_tc.PC = DEFAULT_RSTVEC;
-    env->csr[NEW_CSR_MTVEC] = DEFAULT_MTVEC;
+    env->csr[CSR_MTVEC] = DEFAULT_MTVEC;
     cs->exception_index = EXCP_NONE;
 }
 

@@ -90,11 +90,11 @@ static int get_physical_address (CPURISCVState *env, hwaddr *physical,
 
     target_ulong mode = env->priv;
     if (rw != QEMU_IN_FETCH) {
-         if(get_field(env->csr[NEW_CSR_MSTATUS], MSTATUS_MPRV)) {
-             mode = get_field(env->csr[NEW_CSR_MSTATUS], MSTATUS_MPP);
+         if(get_field(env->csr[CSR_MSTATUS], MSTATUS_MPRV)) {
+             mode = get_field(env->csr[CSR_MSTATUS], MSTATUS_MPP);
          }
     }
-    if (get_field(env->csr[NEW_CSR_MSTATUS], MSTATUS_VM) == VM_MBARE) {
+    if (get_field(env->csr[CSR_MSTATUS], MSTATUS_VM) == VM_MBARE) {
         mode = PRV_M;
     }
 
@@ -113,11 +113,11 @@ static int get_physical_address (CPURISCVState *env, hwaddr *physical,
 
     target_ulong addr = address;
     int supervisor = mode == PRV_S;
-    int pum = get_field(env->csr[NEW_CSR_MSTATUS], MSTATUS_PUM);
-    int mxr = get_field(env->csr[NEW_CSR_MSTATUS], MSTATUS_MXR);
+    int pum = get_field(env->csr[CSR_MSTATUS], MSTATUS_PUM);
+    int mxr = get_field(env->csr[CSR_MSTATUS], MSTATUS_MXR);
 
     int levels, ptidxbits, ptesize;
-    switch (get_field(env->csr[NEW_CSR_MSTATUS], MSTATUS_VM))
+    switch (get_field(env->csr[CSR_MSTATUS], MSTATUS_VM))
     {
       case VM_SV32:
           printf("SV32 untested. Find and remove to continue.\n");
@@ -148,7 +148,7 @@ static int get_physical_address (CPURISCVState *env, hwaddr *physical,
         return TRANSLATE_FAIL;
     }
 
-    target_ulong base = env->csr[NEW_CSR_SPTBR] << PGSHIFT;
+    target_ulong base = env->csr[CSR_SPTBR] << PGSHIFT;
     int ptshift = (levels - 1) * ptidxbits;
     int i;
     for (i = 0; i < levels; i++, ptshift -= ptidxbits) {
@@ -228,13 +228,13 @@ static void raise_mmu_exception(CPURISCVState *env, target_ulong address,
     CPUState *cs = CPU(riscv_env_get_cpu(env));
     int exception = 0;
     if (rw == QEMU_IN_FETCH) { // inst access
-        exception = NEW_RISCV_EXCP_INST_ACCESS_FAULT;
+        exception = RISCV_EXCP_INST_ACCESS_FAULT;
         env->badaddr = address;
     } else if (rw == QEMU_IN_WRITE) { // store access
-        exception = NEW_RISCV_EXCP_STORE_AMO_ACCESS_FAULT;
+        exception = RISCV_EXCP_STORE_AMO_ACCESS_FAULT;
         env->badaddr = address;
     } else if (rw == QEMU_IN_READ) { // load access
-        exception = NEW_RISCV_EXCP_LOAD_ACCESS_FAULT;
+        exception = RISCV_EXCP_LOAD_ACCESS_FAULT;
         env->badaddr = address;
     } else {
         fprintf(stderr, "FAIL: invalid rw\n");
@@ -338,7 +338,7 @@ void riscv_cpu_do_interrupt(CPUState *cs)
     }
     #endif
 
-    if (cs->exception_index == NEW_RISCV_EXCP_BREAKPOINT) {
+    if (cs->exception_index == RISCV_EXCP_BREAKPOINT) {
         fprintf(stderr, "debug mode not implemented\n");
     }
 
@@ -352,19 +352,19 @@ void riscv_cpu_do_interrupt(CPUState *cs)
         fixed_cause |= (1L << 63);
     } else {
         // fixup User ECALL -> correct priv ECALL
-        if (cs->exception_index == NEW_RISCV_EXCP_U_ECALL) {
+        if (cs->exception_index == RISCV_EXCP_U_ECALL) {
             switch(env->priv) {
                 case PRV_U:
-                    fixed_cause = NEW_RISCV_EXCP_U_ECALL;
+                    fixed_cause = RISCV_EXCP_U_ECALL;
                     break;
                 case PRV_S:
-                    fixed_cause = NEW_RISCV_EXCP_S_ECALL;
+                    fixed_cause = RISCV_EXCP_S_ECALL;
                     break;
                 case PRV_H:
-                    fixed_cause = NEW_RISCV_EXCP_H_ECALL;
+                    fixed_cause = RISCV_EXCP_H_ECALL;
                     break;
                 case PRV_M:
-                    fixed_cause = NEW_RISCV_EXCP_M_ECALL;
+                    fixed_cause = RISCV_EXCP_M_ECALL;
                     break;
             }
         } else {
@@ -375,56 +375,56 @@ void riscv_cpu_do_interrupt(CPUState *cs)
     target_ulong backup_epc = env->active_tc.PC;
 
     target_ulong bit = fixed_cause;
-    target_ulong deleg = env->csr[NEW_CSR_MEDELEG];
+    target_ulong deleg = env->csr[CSR_MEDELEG];
 
     int hasbadaddr = 
-        (fixed_cause == NEW_RISCV_EXCP_INST_ADDR_MIS) ||
-        (fixed_cause == NEW_RISCV_EXCP_INST_ACCESS_FAULT) ||
-        (fixed_cause == NEW_RISCV_EXCP_LOAD_ADDR_MIS) || 
-        (fixed_cause == NEW_RISCV_EXCP_STORE_AMO_ADDR_MIS) ||
-        (fixed_cause == NEW_RISCV_EXCP_LOAD_ACCESS_FAULT) ||
-        (fixed_cause == NEW_RISCV_EXCP_STORE_AMO_ACCESS_FAULT);
+        (fixed_cause == RISCV_EXCP_INST_ADDR_MIS) ||
+        (fixed_cause == RISCV_EXCP_INST_ACCESS_FAULT) ||
+        (fixed_cause == RISCV_EXCP_LOAD_ADDR_MIS) || 
+        (fixed_cause == RISCV_EXCP_STORE_AMO_ADDR_MIS) ||
+        (fixed_cause == RISCV_EXCP_LOAD_ACCESS_FAULT) ||
+        (fixed_cause == RISCV_EXCP_STORE_AMO_ACCESS_FAULT);
 
     if (bit & ((target_ulong)1 << (64-1))) {
-        deleg = env->csr[NEW_CSR_MIDELEG], bit &= ~((target_ulong)1 << (64-1));
+        deleg = env->csr[CSR_MIDELEG], bit &= ~((target_ulong)1 << (64-1));
     }
 
     if (env->priv <= PRV_S && bit < 64 && ((deleg >> bit) & 1)) {
         // handle the trap in S-mode
-        env->active_tc.PC = env->csr[NEW_CSR_STVEC];
-        env->csr[NEW_CSR_SCAUSE] = fixed_cause;  
-        env->csr[NEW_CSR_SEPC] = backup_epc;
+        env->active_tc.PC = env->csr[CSR_STVEC];
+        env->csr[CSR_SCAUSE] = fixed_cause;  
+        env->csr[CSR_SEPC] = backup_epc;
 
         if (hasbadaddr) {
             #ifdef RISCV_DEBUG_INTERRUPT
             fprintf(stderr, "core   0: badaddr 0x%016lx\n", env->badaddr);
             #endif
-            env->csr[NEW_CSR_SBADADDR] = env->badaddr;
+            env->csr[CSR_SBADADDR] = env->badaddr;
         }
   
-        target_ulong s = env->csr[NEW_CSR_MSTATUS];
+        target_ulong s = env->csr[CSR_MSTATUS];
         s = set_field(s, MSTATUS_SPIE, get_field(s, MSTATUS_UIE << env->priv));
         s = set_field(s, MSTATUS_SPP, env->priv);
         s = set_field(s, MSTATUS_SIE, 0);
-        csr_write_helper(env, s, NEW_CSR_MSTATUS);
+        csr_write_helper(env, s, CSR_MSTATUS);
         set_privilege2(env, PRV_S);
     } else {
-        env->active_tc.PC = env->csr[NEW_CSR_MTVEC];
-        env->csr[NEW_CSR_MEPC] = backup_epc;
-        env->csr[NEW_CSR_MCAUSE] = fixed_cause;  
+        env->active_tc.PC = env->csr[CSR_MTVEC];
+        env->csr[CSR_MEPC] = backup_epc;
+        env->csr[CSR_MCAUSE] = fixed_cause;  
         
         if (hasbadaddr) {
             #ifdef RISCV_DEBUG_INTERRUPT
             fprintf(stderr, "core   0: badaddr 0x%016lx\n", env->badaddr);
             #endif
-            env->csr[NEW_CSR_MBADADDR] = env->badaddr;
+            env->csr[CSR_MBADADDR] = env->badaddr;
         }
 
-        target_ulong s = env->csr[NEW_CSR_MSTATUS];
+        target_ulong s = env->csr[CSR_MSTATUS];
         s = set_field(s, MSTATUS_MPIE, get_field(s, MSTATUS_UIE << env->priv));
         s = set_field(s, MSTATUS_MPP, env->priv);
         s = set_field(s, MSTATUS_MIE, 0);
-        csr_write_helper(env, s, NEW_CSR_MSTATUS);
+        csr_write_helper(env, s, CSR_MSTATUS);
         set_privilege2(env, PRV_M);
     }
     // TODO yield load reservation 

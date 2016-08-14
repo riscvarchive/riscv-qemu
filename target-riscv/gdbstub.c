@@ -27,73 +27,73 @@
 
 // map to CSR NOs for GDB
 /*int indexed_csrs[] = {
-    NEW_CSR_FFLAGS,
-    NEW_CSR_FRM,
-    NEW_CSR_FCSR,
-    NEW_CSR_CYCLE,
-    NEW_CSR_TIME,
-    NEW_CSR_INSTRET,
-    NEW_CSR_STATS,
-    NEW_CSR_UARCH0,
-    NEW_CSR_UARCH1,
-    NEW_CSR_UARCH2,
-    NEW_CSR_UARCH3,
-    NEW_CSR_UARCH4,
-    NEW_CSR_UARCH5,
-    NEW_CSR_UARCH6,
-    NEW_CSR_UARCH7,
-    NEW_CSR_UARCH8,
-    NEW_CSR_UARCH9,
-    NEW_CSR_UARCH10,
-    NEW_CSR_UARCH11,
-    NEW_CSR_UARCH12,
-    NEW_CSR_UARCH13,
-    NEW_CSR_UARCH14,
-    NEW_CSR_UARCH15,
-    NEW_CSR_SSTATUS,
-    NEW_CSR_STVEC,
-    NEW_CSR_SIE,
-    NEW_CSR_SSCRATCH,
-    NEW_CSR_SEPC,
-    NEW_CSR_SIP,
-    NEW_CSR_SPTBR,
-    NEW_CSR_SASID,
-    NEW_CSR_CYCLEW,
-    NEW_CSR_TIMEW,
-    NEW_CSR_INSTRETW,
-    NEW_CSR_STIME,
-    NEW_CSR_SCAUSE,
-    NEW_CSR_SBADADDR,
-    NEW_CSR_STIMEW,
-    NEW_CSR_MSTATUS,
-    NEW_CSR_MTVEC,
-    NEW_CSR_MTDELEG,
-    NEW_CSR_MIE,
-    NEW_CSR_MTIMECMP,
-    NEW_CSR_MSCRATCH,
-    NEW_CSR_MEPC,
-    NEW_CSR_MCAUSE,
-    NEW_CSR_MBADADDR,
-    NEW_CSR_MIP,
-    NEW_CSR_MTIME,
-    NEW_CSR_MCPUID,
-    NEW_CSR_MIMPID,
-    NEW_CSR_MHARTID,
-    NEW_CSR_MTOHOST,
-    NEW_CSR_MFROMHOST,
-    NEW_CSR_MRESET,
-    NEW_CSR_MIPI,
-    NEW_CSR_MIOBASE,
-    NEW_CSR_CYCLEH,
-    NEW_CSR_TIMEH,
-    NEW_CSR_INSTRETH,
-    NEW_CSR_CYCLEHW,
-    NEW_CSR_TIMEHW,
-    NEW_CSR_INSTRETHW,
-    NEW_CSR_STIMEH,
-    NEW_CSR_STIMEHW,
-    NEW_CSR_MTIMECMPH,
-    NEW_CSR_MTIMEH
+    CSR_FFLAGS,
+    CSR_FRM,
+    CSR_FCSR,
+    CSR_CYCLE,
+    CSR_TIME,
+    CSR_INSTRET,
+    CSR_STATS,
+    CSR_UARCH0,
+    CSR_UARCH1,
+    CSR_UARCH2,
+    CSR_UARCH3,
+    CSR_UARCH4,
+    CSR_UARCH5,
+    CSR_UARCH6,
+    CSR_UARCH7,
+    CSR_UARCH8,
+    CSR_UARCH9,
+    CSR_UARCH10,
+    CSR_UARCH11,
+    CSR_UARCH12,
+    CSR_UARCH13,
+    CSR_UARCH14,
+    CSR_UARCH15,
+    CSR_SSTATUS,
+    CSR_STVEC,
+    CSR_SIE,
+    CSR_SSCRATCH,
+    CSR_SEPC,
+    CSR_SIP,
+    CSR_SPTBR,
+    CSR_SASID,
+    CSR_CYCLEW,
+    CSR_TIMEW,
+    CSR_INSTRETW,
+    CSR_STIME,
+    CSR_SCAUSE,
+    CSR_SBADADDR,
+    CSR_STIMEW,
+    CSR_MSTATUS,
+    CSR_MTVEC,
+    CSR_MTDELEG,
+    CSR_MIE,
+    CSR_MTIMECMP,
+    CSR_MSCRATCH,
+    CSR_MEPC,
+    CSR_MCAUSE,
+    CSR_MBADADDR,
+    CSR_MIP,
+    CSR_MTIME,
+    CSR_MCPUID,
+    CSR_MIMPID,
+    CSR_MHARTID,
+    CSR_MTOHOST,
+    CSR_MFROMHOST,
+    CSR_MRESET,
+    CSR_MIPI,
+    CSR_MIOBASE,
+    CSR_CYCLEH,
+    CSR_TIMEH,
+    CSR_INSTRETH,
+    CSR_CYCLEHW,
+    CSR_TIMEHW,
+    CSR_INSTRETHW,
+    CSR_STIMEH,
+    CSR_STIMEHW,
+    CSR_MTIMECMPH,
+    CSR_MTIMEH
 };*/
 
 int riscv_cpu_gdb_read_register(CPUState *cs, uint8_t *mem_buf, int n)
@@ -115,29 +115,29 @@ int riscv_cpu_gdb_read_register(CPUState *cs, uint8_t *mem_buf, int n)
         switch (target_csrno) 
         {
         // 32-bit wide 
-        case NEW_CSR_FFLAGS:
-        case NEW_CSR_FRM:
-        case NEW_CSR_FCSR:
+        case CSR_FFLAGS:
+        case CSR_FRM:
+        case CSR_FCSR:
             return gdb_get_reg32(mem_buf, csr_read_helper(env, target_csrno));
 
         // unused on RV64 or not implemented
-        case NEW_CSR_MTIMEH:
-        case NEW_CSR_STIMEH:
-        case NEW_CSR_STIMEHW:
-        case NEW_CSR_TIMEH:
-        case NEW_CSR_TIMEHW:
-        case NEW_CSR_CYCLEH:
-        case NEW_CSR_INSTRETH:
-        case NEW_CSR_CYCLEHW:
-        case NEW_CSR_INSTRETHW:
-        case NEW_CSR_STATS:
-        case NEW_CSR_MRESET:
-        case NEW_CSR_MTIMECMPH:
+        case CSR_MTIMEH:
+        case CSR_STIMEH:
+        case CSR_STIMEHW:
+        case CSR_TIMEH:
+        case CSR_TIMEHW:
+        case CSR_CYCLEH:
+        case CSR_INSTRETH:
+        case CSR_CYCLEHW:
+        case CSR_INSTRETHW:
+        case CSR_STATS:
+        case CSR_MRESET:
+        case CSR_MTIMECMPH:
             return gdb_get_regl(mem_buf, 0L);
 
         // special MFROMHOST, MTOHOST
-        case NEW_CSR_MFROMHOST:
-        case NEW_CSR_MTOHOST:
+        case CSR_MFROMHOST:
+        case CSR_MTOHOST:
             return gdb_get_regl(mem_buf, env->csr[target_csrno]);
 
         // all others

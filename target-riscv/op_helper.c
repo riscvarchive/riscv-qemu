@@ -90,7 +90,7 @@ unsigned int ieee_rm[] = {
 
 // obtain rm value to use in computation
 // as the last step, convert rm codes to what the softfloat library expects
-#define RM ({ if (rm == 7) rm = env->csr[NEW_CSR_FRM]; \
+#define RM ({ if (rm == 7) rm = env->csr[CSR_FRM]; \
               if (rm > 4) { /* TODO throw trap*/ }; \
               ieee_rm[rm]; })
 
@@ -116,7 +116,7 @@ unsigned int softfloat_flags_to_riscv(unsigned int flag) {
     }
 }
 
-#define set_fp_exceptions ({ env->csr[NEW_CSR_FFLAGS] |= softfloat_flags_to_riscv(get_float_exception_flags(&env->fp_status)); \
+#define set_fp_exceptions ({ env->csr[CSR_FFLAGS] |= softfloat_flags_to_riscv(get_float_exception_flags(&env->fp_status)); \
                              set_float_exception_flags(0, &env->fp_status); })
 
 uint64_t helper_fmadd_s(CPURISCVState *env, uint64_t frs1, uint64_t frs2, uint64_t frs3, uint64_t rm)
@@ -621,21 +621,21 @@ inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
 
     switch (csrno)
     {
-    case NEW_CSR_FFLAGS:
-        env->csr[NEW_CSR_MSTATUS] |= MSTATUS_FS | MSTATUS64_SD;
-        env->csr[NEW_CSR_FFLAGS] = val_to_write & (FSR_AEXC >> FSR_AEXC_SHIFT);
+    case CSR_FFLAGS:
+        env->csr[CSR_MSTATUS] |= MSTATUS_FS | MSTATUS64_SD;
+        env->csr[CSR_FFLAGS] = val_to_write & (FSR_AEXC >> FSR_AEXC_SHIFT);
         break;
-    case NEW_CSR_FRM:
-        env->csr[NEW_CSR_MSTATUS] |= MSTATUS_FS | MSTATUS64_SD;
-        env->csr[NEW_CSR_FRM] = val_to_write & (FSR_RD >> FSR_RD_SHIFT);
+    case CSR_FRM:
+        env->csr[CSR_MSTATUS] |= MSTATUS_FS | MSTATUS64_SD;
+        env->csr[CSR_FRM] = val_to_write & (FSR_RD >> FSR_RD_SHIFT);
         break;
-    case NEW_CSR_FCSR:
-        env->csr[NEW_CSR_MSTATUS] |= MSTATUS_FS | MSTATUS64_SD;
-        env->csr[NEW_CSR_FFLAGS] = (val_to_write & FSR_AEXC) >> FSR_AEXC_SHIFT;
-        env->csr[NEW_CSR_FRM] = (val_to_write & FSR_RD) >> FSR_RD_SHIFT;
+    case CSR_FCSR:
+        env->csr[CSR_MSTATUS] |= MSTATUS_FS | MSTATUS64_SD;
+        env->csr[CSR_FFLAGS] = (val_to_write & FSR_AEXC) >> FSR_AEXC_SHIFT;
+        env->csr[CSR_FRM] = (val_to_write & FSR_RD) >> FSR_RD_SHIFT;
         break;
-    case NEW_CSR_MSTATUS: {
-        target_ulong mstatus = env->csr[NEW_CSR_MSTATUS];
+    case CSR_MSTATUS: {
+        target_ulong mstatus = env->csr[CSR_MSTATUS];
         if ((val_to_write ^ mstatus) &
             (MSTATUS_VM | MSTATUS_MPP | MSTATUS_MPRV | MSTATUS_PUM | MSTATUS_MXR)) {
             helper_tlb_flush(env);
@@ -658,125 +658,125 @@ inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
         int dirty = (mstatus & MSTATUS_FS) == MSTATUS_FS;
         dirty |= (mstatus & MSTATUS_XS) == MSTATUS_XS;
         mstatus = set_field(mstatus, MSTATUS64_SD, dirty);
-        env->csr[NEW_CSR_MSTATUS] = mstatus;
+        env->csr[CSR_MSTATUS] = mstatus;
         break;
     }
-    case NEW_CSR_MIP: {
+    case CSR_MIP: {
         target_ulong mask = MIP_SSIP | MIP_STIP;
-        env->csr[NEW_CSR_MIP] = (env->csr[NEW_CSR_MIP] & ~mask) |
+        env->csr[CSR_MIP] = (env->csr[CSR_MIP] & ~mask) |
             (val_to_write & mask);
         CPUState *cs = CPU(riscv_env_get_cpu(env));
-        if (env->csr[NEW_CSR_MIP] & MIP_SSIP) {
+        if (env->csr[CSR_MIP] & MIP_SSIP) {
             stw_phys(cs->as, 0xFFFFFFFFF0000020, 0x1);
         } else {
             stw_phys(cs->as, 0xFFFFFFFFF0000020, 0x0);
         }
-        if (env->csr[NEW_CSR_MIP] & MIP_STIP) {
+        if (env->csr[CSR_MIP] & MIP_STIP) {
             stw_phys(cs->as, 0xFFFFFFFFF0000040, 0x1);
         } else {
             stw_phys(cs->as, 0xFFFFFFFFF0000040, 0x0);
         }
-        if (env->csr[NEW_CSR_MIP] & MIP_MSIP) {
+        if (env->csr[CSR_MIP] & MIP_MSIP) {
             stw_phys(cs->as, 0xFFFFFFFFF0000060, 0x1);
         } else {
             stw_phys(cs->as, 0xFFFFFFFFF0000060, 0x0);
         }
         break;
     }
-    case NEW_CSR_MIE: {
-        env->csr[NEW_CSR_MIE] = (env->csr[NEW_CSR_MIE] & ~all_ints) |
+    case CSR_MIE: {
+        env->csr[CSR_MIE] = (env->csr[CSR_MIE] & ~all_ints) |
             (val_to_write & all_ints);
         break;
     }
-    case NEW_CSR_MIDELEG:
-        env->csr[NEW_CSR_MIDELEG] = (env->csr[NEW_CSR_MIDELEG] & ~delegable_ints) | (val_to_write & delegable_ints);
+    case CSR_MIDELEG:
+        env->csr[CSR_MIDELEG] = (env->csr[CSR_MIDELEG] & ~delegable_ints) | (val_to_write & delegable_ints);
         break;
-    case NEW_CSR_MEDELEG: {
+    case CSR_MEDELEG: {
         target_ulong mask = 0;
-        mask |= 1ULL << (NEW_RISCV_EXCP_INST_ADDR_MIS);
-        mask |= 1ULL << (NEW_RISCV_EXCP_INST_ACCESS_FAULT);
-        mask |= 1ULL << (NEW_RISCV_EXCP_ILLEGAL_INST);
-        mask |= 1ULL << (NEW_RISCV_EXCP_BREAKPOINT);
-        mask |= 1ULL << (NEW_RISCV_EXCP_LOAD_ADDR_MIS);
-        mask |= 1ULL << (NEW_RISCV_EXCP_LOAD_ACCESS_FAULT);
-        mask |= 1ULL << (NEW_RISCV_EXCP_STORE_AMO_ADDR_MIS);
-        mask |= 1ULL << (NEW_RISCV_EXCP_STORE_AMO_ACCESS_FAULT);
-        mask |= 1ULL << (NEW_RISCV_EXCP_U_ECALL);
-        mask |= 1ULL << (NEW_RISCV_EXCP_S_ECALL);
-        mask |= 1ULL << (NEW_RISCV_EXCP_H_ECALL);
-        mask |= 1ULL << (NEW_RISCV_EXCP_M_ECALL);
-        env->csr[NEW_CSR_MEDELEG] = (env->csr[NEW_CSR_MEDELEG] & ~mask) | (val_to_write & mask);
+        mask |= 1ULL << (RISCV_EXCP_INST_ADDR_MIS);
+        mask |= 1ULL << (RISCV_EXCP_INST_ACCESS_FAULT);
+        mask |= 1ULL << (RISCV_EXCP_ILLEGAL_INST);
+        mask |= 1ULL << (RISCV_EXCP_BREAKPOINT);
+        mask |= 1ULL << (RISCV_EXCP_LOAD_ADDR_MIS);
+        mask |= 1ULL << (RISCV_EXCP_LOAD_ACCESS_FAULT);
+        mask |= 1ULL << (RISCV_EXCP_STORE_AMO_ADDR_MIS);
+        mask |= 1ULL << (RISCV_EXCP_STORE_AMO_ACCESS_FAULT);
+        mask |= 1ULL << (RISCV_EXCP_U_ECALL);
+        mask |= 1ULL << (RISCV_EXCP_S_ECALL);
+        mask |= 1ULL << (RISCV_EXCP_H_ECALL);
+        mask |= 1ULL << (RISCV_EXCP_M_ECALL);
+        env->csr[CSR_MEDELEG] = (env->csr[CSR_MEDELEG] & ~mask) | (val_to_write & mask);
         break;
     }
-    case NEW_CSR_MUCOUNTEREN:
-        env->csr[NEW_CSR_MUCOUNTEREN] = val_to_write & 7;
+    case CSR_MUCOUNTEREN:
+        env->csr[CSR_MUCOUNTEREN] = val_to_write & 7;
         break;
-    case NEW_CSR_MSCOUNTEREN:
-        env->csr[NEW_CSR_MSCOUNTEREN] = val_to_write & 7;
+    case CSR_MSCOUNTEREN:
+        env->csr[CSR_MSCOUNTEREN] = val_to_write & 7;
         break;
-    case NEW_CSR_SSTATUS: {
-        target_ulong ms = env->csr[NEW_CSR_MSTATUS];
+    case CSR_SSTATUS: {
+        target_ulong ms = env->csr[CSR_MSTATUS];
         target_ulong mask = SSTATUS_SIE | SSTATUS_SPIE | SSTATUS_SPP | SSTATUS_FS
             | SSTATUS_XS | SSTATUS_PUM; // TODO should XS be here?
         ms = (ms & ~mask) | (val_to_write & mask);
-        csr_write_helper(env, ms, NEW_CSR_MSTATUS);
+        csr_write_helper(env, ms, CSR_MSTATUS);
         break;
     }
-    case NEW_CSR_SIP: {
-        target_ulong next_mip = (env->csr[NEW_CSR_MIP] & ~env->csr[NEW_CSR_MIDELEG]) | (val_to_write & env->csr[NEW_CSR_MIDELEG]);
-        csr_write_helper(env, next_mip, NEW_CSR_MIP);
+    case CSR_SIP: {
+        target_ulong next_mip = (env->csr[CSR_MIP] & ~env->csr[CSR_MIDELEG]) | (val_to_write & env->csr[CSR_MIDELEG]);
+        csr_write_helper(env, next_mip, CSR_MIP);
         // note: stw_phys should be done by the call to set MIP if necessary,
         // so we don't do it here
         break;
     }
-    case NEW_CSR_SIE: {
-        target_ulong next_mie = (env->csr[NEW_CSR_MIE] & ~env->csr[NEW_CSR_MIDELEG]) | (val_to_write & env->csr[NEW_CSR_MIDELEG]);
-        csr_write_helper(env, next_mie, NEW_CSR_MIE);
+    case CSR_SIE: {
+        target_ulong next_mie = (env->csr[CSR_MIE] & ~env->csr[CSR_MIDELEG]) | (val_to_write & env->csr[CSR_MIDELEG]);
+        csr_write_helper(env, next_mie, CSR_MIE);
         break;
     }
-    case NEW_CSR_SPTBR: {
-        env->csr[NEW_CSR_SPTBR] = val_to_write & (((target_ulong)1 << (50 - PGSHIFT)) - 1);
+    case CSR_SPTBR: {
+        env->csr[CSR_SPTBR] = val_to_write & (((target_ulong)1 << (50 - PGSHIFT)) - 1);
         break;
     }
-    case NEW_CSR_SEPC:
-        env->csr[NEW_CSR_SEPC] = val_to_write;
+    case CSR_SEPC:
+        env->csr[CSR_SEPC] = val_to_write;
         break;
-    case NEW_CSR_STVEC:
-        env->csr[NEW_CSR_STVEC] = val_to_write >> 2 << 2;
+    case CSR_STVEC:
+        env->csr[CSR_STVEC] = val_to_write >> 2 << 2;
         break;
-    case NEW_CSR_SSCRATCH:
-        env->csr[NEW_CSR_SSCRATCH] = val_to_write;
+    case CSR_SSCRATCH:
+        env->csr[CSR_SSCRATCH] = val_to_write;
         break;
-    case NEW_CSR_SCAUSE:
-        env->csr[NEW_CSR_SCAUSE] = val_to_write;
+    case CSR_SCAUSE:
+        env->csr[CSR_SCAUSE] = val_to_write;
         break;
-    case NEW_CSR_SBADADDR:
-        env->csr[NEW_CSR_SBADADDR] = val_to_write;
+    case CSR_SBADADDR:
+        env->csr[CSR_SBADADDR] = val_to_write;
         break;
-    case NEW_CSR_MEPC:
-        env->csr[NEW_CSR_MEPC] = val_to_write;
+    case CSR_MEPC:
+        env->csr[CSR_MEPC] = val_to_write;
         break;
-    case NEW_CSR_MTVEC:
-        env->csr[NEW_CSR_MTVEC] = val_to_write << 2 >> 2;
+    case CSR_MTVEC:
+        env->csr[CSR_MTVEC] = val_to_write << 2 >> 2;
         break;
-    case NEW_CSR_MSCRATCH:
-        env->csr[NEW_CSR_MSCRATCH] = val_to_write;
+    case CSR_MSCRATCH:
+        env->csr[CSR_MSCRATCH] = val_to_write;
         break;
-    case NEW_CSR_MCAUSE:
-        env->csr[NEW_CSR_MCAUSE] = val_to_write;
+    case CSR_MCAUSE:
+        env->csr[CSR_MCAUSE] = val_to_write;
         break;
-    case NEW_CSR_MBADADDR:
-        env->csr[NEW_CSR_MBADADDR] = val_to_write;
+    case CSR_MBADADDR:
+        env->csr[CSR_MBADADDR] = val_to_write;
         break;
-    case NEW_CSR_DCSR:
+    case CSR_DCSR:
         printf("DEBUG NOT SUPPORTED\n");
         exit(1);
         break;
-    case NEW_CSR_DPC:
+    case CSR_DPC:
         printf("DEBUG NOT SUPPORTED\n");
         exit(1);
         break;
-    case NEW_CSR_DSCRATCH:
+    case CSR_DSCRATCH:
         printf("DEBUG NOT SUPPORTED\n");
         exit(1);
         break;
@@ -797,143 +797,143 @@ inline target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno)
 
     switch (csrno2)
     {
-    case NEW_CSR_FFLAGS:
-        return env->csr[NEW_CSR_FFLAGS];
-    case NEW_CSR_FRM:
-        return env->csr[NEW_CSR_FRM];
-    case NEW_CSR_FCSR:
-        return (env->csr[NEW_CSR_FFLAGS] << FSR_AEXC_SHIFT) |
-            (env->csr[NEW_CSR_FRM] << FSR_RD_SHIFT);
-    case NEW_CSR_TIME:
-    case NEW_CSR_INSTRET:
-    case NEW_CSR_CYCLE:
-        if ((env->csr[NEW_CSR_MUCOUNTEREN] >> (csrno2 & (63))) & 1) {
-            return csr_read_helper(env, csrno2 + (NEW_CSR_MCYCLE - NEW_CSR_CYCLE));
+    case CSR_FFLAGS:
+        return env->csr[CSR_FFLAGS];
+    case CSR_FRM:
+        return env->csr[CSR_FRM];
+    case CSR_FCSR:
+        return (env->csr[CSR_FFLAGS] << FSR_AEXC_SHIFT) |
+            (env->csr[CSR_FRM] << FSR_RD_SHIFT);
+    case CSR_TIME:
+    case CSR_INSTRET:
+    case CSR_CYCLE:
+        if ((env->csr[CSR_MUCOUNTEREN] >> (csrno2 & (63))) & 1) {
+            return csr_read_helper(env, csrno2 + (CSR_MCYCLE - CSR_CYCLE));
         }
         break;
-    case NEW_CSR_STIME:
-    case NEW_CSR_SINSTRET:
-    case NEW_CSR_SCYCLE:
-        if ((env->csr[NEW_CSR_MSCOUNTEREN] >> (csrno2 & (63))) & 1) {
-            return csr_read_helper(env, csrno2 + (NEW_CSR_MCYCLE - NEW_CSR_SCYCLE));
+    case CSR_STIME:
+    case CSR_SINSTRET:
+    case CSR_SCYCLE:
+        if ((env->csr[CSR_MSCOUNTEREN] >> (csrno2 & (63))) & 1) {
+            return csr_read_helper(env, csrno2 + (CSR_MCYCLE - CSR_SCYCLE));
         }
         break;
-    case NEW_CSR_MUCOUNTEREN:
-        return env->csr[NEW_CSR_MUCOUNTEREN];
-    case NEW_CSR_MSCOUNTEREN:
-        return env->csr[NEW_CSR_MSCOUNTEREN];
-    case NEW_CSR_MUCYCLE_DELTA: 
+    case CSR_MUCOUNTEREN:
+        return env->csr[CSR_MUCOUNTEREN];
+    case CSR_MSCOUNTEREN:
+        return env->csr[CSR_MSCOUNTEREN];
+    case CSR_MUCYCLE_DELTA: 
         return 0; // as spike does
-    case NEW_CSR_MUTIME_DELTA:  
+    case CSR_MUTIME_DELTA:  
         return 0; // as spike does
-    case NEW_CSR_MUINSTRET_DELTA:  
+    case CSR_MUINSTRET_DELTA:  
         return 0; // as spike does
-    case NEW_CSR_MSCYCLE_DELTA:  
+    case CSR_MSCYCLE_DELTA:  
         return 0; // as spike does
-    case NEW_CSR_MSTIME_DELTA:  
+    case CSR_MSTIME_DELTA:  
         return 0; // as spike does
-    case NEW_CSR_MSINSTRET_DELTA:  
+    case CSR_MSINSTRET_DELTA:  
         return 0; // as spike does
-    case NEW_CSR_MUCYCLE_DELTAH:  
+    case CSR_MUCYCLE_DELTAH:  
         printf("CSR 0x%x unsupported on RV64\n", csrno2);
         exit(1);
-    case NEW_CSR_MUTIME_DELTAH:  
+    case CSR_MUTIME_DELTAH:  
         printf("CSR 0x%x unsupported on RV64\n", csrno2);
         exit(1);
-    case NEW_CSR_MUINSTRET_DELTAH:  
+    case CSR_MUINSTRET_DELTAH:  
         printf("CSR 0x%x unsupported on RV64\n", csrno2);
         exit(1);
-    case NEW_CSR_MSCYCLE_DELTAH:  
+    case CSR_MSCYCLE_DELTAH:  
         printf("CSR 0x%x unsupported on RV64\n", csrno2);
         exit(1);
-    case NEW_CSR_MSTIME_DELTAH:  
+    case CSR_MSTIME_DELTAH:  
         printf("CSR 0x%x unsupported on RV64\n", csrno2);
         exit(1);
-    case NEW_CSR_MSINSTRET_DELTAH:  
+    case CSR_MSINSTRET_DELTAH:  
         printf("CSR 0x%x unsupported on RV64\n", csrno2);
         exit(1);
     // notice the lack of CSR_MTIME - this is handled by throwing an exception
     // and letting the handler read from the RTC
-    case NEW_CSR_MCYCLE:  
+    case CSR_MCYCLE:  
         return cpu_riscv_read_instret(env);
-    case NEW_CSR_MINSTRET:  
+    case CSR_MINSTRET:  
         return cpu_riscv_read_instret(env);
-    case NEW_CSR_MCYCLEH:  
+    case CSR_MCYCLEH:  
         printf("CSR 0x%x unsupported on RV64\n", csrno2);
         exit(1);
-    case NEW_CSR_MINSTRETH:  
+    case CSR_MINSTRETH:  
         printf("CSR 0x%x unsupported on RV64\n", csrno2);
         exit(1);
-    case NEW_CSR_SSTATUS: {
+    case CSR_SSTATUS: {
         target_ulong mask = SSTATUS_SIE | SSTATUS_SPIE | SSTATUS_SPP | SSTATUS_FS
             | SSTATUS_XS | SSTATUS_PUM;
-        target_ulong sstatus = env->csr[NEW_CSR_MSTATUS] & mask;
+        target_ulong sstatus = env->csr[CSR_MSTATUS] & mask;
         if ((sstatus & SSTATUS_FS) == SSTATUS_FS ||
                 (sstatus & SSTATUS_XS) == SSTATUS_XS) {
             sstatus |= SSTATUS64_SD;
         }
         return sstatus;
     }
-    case NEW_CSR_SIP:
-        return env->csr[NEW_CSR_MIP] & env->csr[NEW_CSR_MIDELEG];
-    case NEW_CSR_SIE:
-        return env->csr[NEW_CSR_MIE] & env->csr[NEW_CSR_MIDELEG];
-    case NEW_CSR_SEPC:
-        return env->csr[NEW_CSR_SEPC];
-    case NEW_CSR_SBADADDR:
-        return env->csr[NEW_CSR_SBADADDR];
-    case NEW_CSR_STVEC:
-        return env->csr[NEW_CSR_STVEC];
-    case NEW_CSR_SCAUSE:
-        return env->csr[NEW_CSR_SCAUSE];
-    case NEW_CSR_SPTBR:
-        return env->csr[NEW_CSR_SPTBR];
-    case NEW_CSR_SSCRATCH:
-        return env->csr[NEW_CSR_SSCRATCH];
-    case NEW_CSR_MSTATUS:
-        return env->csr[NEW_CSR_MSTATUS];
-    case NEW_CSR_MIP:
-        return env->csr[NEW_CSR_MIP];
-    case NEW_CSR_MIE:
-        return env->csr[NEW_CSR_MIE];
-    case NEW_CSR_MEPC:
-        return env->csr[NEW_CSR_MEPC];
-    case NEW_CSR_MSCRATCH:
-        return env->csr[NEW_CSR_MSCRATCH];
-    case NEW_CSR_MCAUSE:
-        return env->csr[NEW_CSR_MCAUSE];
-    case NEW_CSR_MBADADDR:
-        return env->csr[NEW_CSR_MBADADDR];
-    case NEW_CSR_MISA:
-        return env->csr[NEW_CSR_MISA];
-    case NEW_CSR_MARCHID:
+    case CSR_SIP:
+        return env->csr[CSR_MIP] & env->csr[CSR_MIDELEG];
+    case CSR_SIE:
+        return env->csr[CSR_MIE] & env->csr[CSR_MIDELEG];
+    case CSR_SEPC:
+        return env->csr[CSR_SEPC];
+    case CSR_SBADADDR:
+        return env->csr[CSR_SBADADDR];
+    case CSR_STVEC:
+        return env->csr[CSR_STVEC];
+    case CSR_SCAUSE:
+        return env->csr[CSR_SCAUSE];
+    case CSR_SPTBR:
+        return env->csr[CSR_SPTBR];
+    case CSR_SSCRATCH:
+        return env->csr[CSR_SSCRATCH];
+    case CSR_MSTATUS:
+        return env->csr[CSR_MSTATUS];
+    case CSR_MIP:
+        return env->csr[CSR_MIP];
+    case CSR_MIE:
+        return env->csr[CSR_MIE];
+    case CSR_MEPC:
+        return env->csr[CSR_MEPC];
+    case CSR_MSCRATCH:
+        return env->csr[CSR_MSCRATCH];
+    case CSR_MCAUSE:
+        return env->csr[CSR_MCAUSE];
+    case CSR_MBADADDR:
+        return env->csr[CSR_MBADADDR];
+    case CSR_MISA:
+        return env->csr[CSR_MISA];
+    case CSR_MARCHID:
         return 0; // as spike does
-    case NEW_CSR_MIMPID:
+    case CSR_MIMPID:
         return 0; // as spike does
-    case NEW_CSR_MVENDORID:
+    case CSR_MVENDORID:
         return 0; // as spike does
-    case NEW_CSR_MHARTID:
+    case CSR_MHARTID:
         return 0;
-    case NEW_CSR_MTVEC:
-        return env->csr[NEW_CSR_MTVEC];
-    case NEW_CSR_MEDELEG:
-        return env->csr[NEW_CSR_MEDELEG];
-    case NEW_CSR_MIDELEG:
-        return env->csr[NEW_CSR_MIDELEG];
-    case NEW_CSR_TDRSELECT:
+    case CSR_MTVEC:
+        return env->csr[CSR_MTVEC];
+    case CSR_MEDELEG:
+        return env->csr[CSR_MEDELEG];
+    case CSR_MIDELEG:
+        return env->csr[CSR_MIDELEG];
+    case CSR_TDRSELECT:
         return 0; // as spike does
-    case NEW_CSR_DCSR:
+    case CSR_DCSR:
         printf("DEBUG NOT IMPLEMENTED\n");
         exit(1);
-    case NEW_CSR_DPC:
+    case CSR_DPC:
         printf("DEBUG NOT IMPLEMENTED\n");
         exit(1);
-    case NEW_CSR_DSCRATCH:
+    case CSR_DSCRATCH:
         printf("DEBUG NOT IMPLEMENTED\n");
         exit(1);
     }
     // used by e.g. MTIME read
-    helper_raise_exception(env, NEW_RISCV_EXCP_ILLEGAL_INST);
+    helper_raise_exception(env, RISCV_EXCP_ILLEGAL_INST);
     return 0;
 }
 
@@ -943,7 +943,7 @@ void validate_csr(CPURISCVState *env, uint64_t which, uint64_t write,
     unsigned csr_priv = get_field((which), 0x300);
     unsigned csr_read_only = get_field((which), 0xC00) == 3;
     if (((write) && csr_read_only) || (env->priv < csr_priv)) {
-        do_raise_exception_err(env, NEW_RISCV_EXCP_ILLEGAL_INST, new_pc);
+        do_raise_exception_err(env, RISCV_EXCP_ILLEGAL_INST, new_pc);
     }
     return;
 }
@@ -1025,19 +1025,19 @@ target_ulong helper_sret(CPURISCVState *env, target_ulong cpu_pc_deb)
         exit(1);
     }
 
-    target_ulong retpc = env->csr[NEW_CSR_SEPC];
+    target_ulong retpc = env->csr[CSR_SEPC];
     if (retpc & 0x3) {
         printf("MISALIGNED INST FETCH\n");
         exit(1);
     }
 
-    target_ulong mstatus = env->csr[NEW_CSR_MSTATUS];
+    target_ulong mstatus = env->csr[CSR_MSTATUS];
     target_ulong prev_priv = get_field(mstatus, MSTATUS_SPP);
     mstatus = set_field(mstatus, MSTATUS_UIE << prev_priv, get_field(mstatus, MSTATUS_SPIE));
     mstatus = set_field(mstatus, MSTATUS_SPIE, 0);
     mstatus = set_field(mstatus, MSTATUS_SPP, PRV_U); 
     set_privilege(env, prev_priv);
-    csr_write_helper(env, mstatus, NEW_CSR_MSTATUS);
+    csr_write_helper(env, mstatus, CSR_MSTATUS);
 
     return retpc;
 }
@@ -1050,19 +1050,19 @@ target_ulong helper_mret(CPURISCVState *env, target_ulong cpu_pc_deb)
         exit(1);
     }
 
-    target_ulong retpc = env->csr[NEW_CSR_MEPC];
+    target_ulong retpc = env->csr[CSR_MEPC];
     if (retpc & 0x3) {
         printf("MISALIGNED INST FETCH\n");
         exit(1);
     }
 
-    target_ulong mstatus = env->csr[NEW_CSR_MSTATUS];
+    target_ulong mstatus = env->csr[CSR_MSTATUS];
     target_ulong prev_priv = get_field(mstatus, MSTATUS_MPP);
     mstatus = set_field(mstatus, MSTATUS_UIE << prev_priv, get_field(mstatus, MSTATUS_MPIE));
     mstatus = set_field(mstatus, MSTATUS_MPIE, 0);
     mstatus = set_field(mstatus, MSTATUS_MPP, PRV_U); 
     set_privilege(env, prev_priv);
-    csr_write_helper(env, mstatus, NEW_CSR_MSTATUS);
+    csr_write_helper(env, mstatus, CSR_MSTATUS);
 
     return retpc;
 }
@@ -1111,11 +1111,11 @@ void riscv_cpu_do_unaligned_access(CPUState *cs, target_ulong addr,
         exit(1);
     } else if (rw == 0x1) {
         printf("Store\n");
-        cs->exception_index = NEW_RISCV_EXCP_STORE_AMO_ADDR_MIS;
+        cs->exception_index = RISCV_EXCP_STORE_AMO_ADDR_MIS;
         env->badaddr = addr;
     } else {
         printf("Load\n");
-        cs->exception_index = NEW_RISCV_EXCP_LOAD_ADDR_MIS;
+        cs->exception_index = RISCV_EXCP_LOAD_ADDR_MIS;
         env->badaddr = addr;
     }
     do_raise_exception_err(env, cs->exception_index, retaddr);
