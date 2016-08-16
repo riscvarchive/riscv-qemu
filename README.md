@@ -79,8 +79,7 @@ Running RISC-V Tests:
 A script (`run-rv-tests.py`) for running the RV64 tests from [riscv-tests] is
 included in the `hacking_files` directory. All RV64 tests (listed in 
 `hacking_files/rv-tests-list`) are expected to pass, however you may need to 
-increase  `TIMER_INTERVAL` in `riscv-tests/env/pt/riscv_test.h`. Also, see
-the note in `target-riscv/TODO` about HTIF compatibility with tests.
+increase  `TIMER_INTERVAL` in `riscv-tests/env/pt/riscv_test.h`.
 
 Using QEMU to Debug RISC-V Code:
 --------------------------------

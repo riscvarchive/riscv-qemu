@@ -2,7 +2,7 @@ Notes for RISCV, priv spec version v1.9
 -----------------------------------------------
 
 This version is designed to match with commit 
-65da94f84a2ba5a61a8bcf3ebdd8ca57f6d899ca of riscv-tools.
+745e74afb56ecba090669615d4ac9c9b9b96c653 of riscv-tools.
 
 General
 -------
@@ -12,23 +12,7 @@ General
 - TODO: print useful csrs in riscv_cpu_dump_state in translate.c
 - TODO: debug mode
 - TODO: rvc, rv32
-- TODO: reenable riscv-torture runs
 
 Testing
 -------
-- TODO: instructions cannot be fetched from pages that have MMIO regions - 
-  this is only a problem when running riscv-tests
-- hacking_files/fix_htif_page.diff has a hacky fix for this
 - all relevant tests currently pass
-
-OLD, left as notes:
--------------------
-- In include/exec/cpu-defs.h, CPU_TLB_BITS has been set to zero for
-  debugging purposes, increase for performance
-    - this sets the TLBs to only hold one entry
-- fpu-custom-riscv aka softfloat is taken directly from spike (riscv-isa-sim)
-  the current version is from 853391c2bb814451ad88b8dbff2aec8616fc6a12 of
-  spike. NOTE: fpu-custom-riscv has now been replaced with appropriately 
-  configured softfloat library from qemu/fpu
-
-
