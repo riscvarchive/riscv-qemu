@@ -4,3 +4,4 @@ obj-y += htif/elf_symb.o
 obj-y += htif/htif.o
 obj-y += riscv_board.o
 obj-y += sifive_board.o
+obj-y += sifive_uart.o
