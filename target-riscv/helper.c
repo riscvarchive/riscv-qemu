@@ -80,7 +80,7 @@ static int get_physical_address (CPURISCVState *env, hwaddr *physical,
                                 int *prot, target_ulong address,
                                 int rw, int mmu_idx)
 {
-    /* NOTE: the env->active_tc.PC value visible here will not be
+    /* NOTE: the env->PC value visible here will not be
      * correct, but the value visible to the exception handler
      * (riscv_cpu_do_interrupt) is correct */
 
@@ -272,7 +272,7 @@ int riscv_cpu_handle_mmu_fault(CPUState *cs, vaddr address, int rw, int mmu_idx)
     int ret = 0;
 
     qemu_log("%s pc " TARGET_FMT_lx " ad %" VADDR_PRIx " rw %d mmu_idx %d\n",
-              __func__, env->active_tc.PC, address, rw, mmu_idx);
+              __func__, env->PC, address, rw, mmu_idx);
 
     ret = get_physical_address(env, &physical, &prot, address, rw, mmu_idx);
     qemu_log("%s address=%" VADDR_PRIx " ret %d physical " TARGET_FMT_plx
@@ -331,10 +331,10 @@ void riscv_cpu_do_interrupt(CPUState *cs)
     if (cs->exception_index & 0x70000000) {
         fprintf(stderr, "core   0: exception trap_%s, epc 0x%016lx\n",
                 riscv_interrupt_names[cs->exception_index & 0x0fffffff], 
-                env->active_tc.PC);
+                env->PC);
     } else {
         fprintf(stderr, "core   0: exception trap_%s, epc 0x%016lx\n",
-                riscv_excp_names[cs->exception_index], env->active_tc.PC);
+                riscv_excp_names[cs->exception_index], env->PC);
     }
     #endif
 
@@ -372,7 +372,7 @@ void riscv_cpu_do_interrupt(CPUState *cs)
         }
     }
 
-    target_ulong backup_epc = env->active_tc.PC;
+    target_ulong backup_epc = env->PC;
 
     target_ulong bit = fixed_cause;
     target_ulong deleg = env->csr[CSR_MEDELEG];
@@ -391,7 +391,7 @@ void riscv_cpu_do_interrupt(CPUState *cs)
 
     if (env->priv <= PRV_S && bit < 64 && ((deleg >> bit) & 1)) {
         // handle the trap in S-mode
-        env->active_tc.PC = env->csr[CSR_STVEC];
+        env->PC = env->csr[CSR_STVEC];
         env->csr[CSR_SCAUSE] = fixed_cause;  
         env->csr[CSR_SEPC] = backup_epc;
 
@@ -409,7 +409,7 @@ void riscv_cpu_do_interrupt(CPUState *cs)
         csr_write_helper(env, s, CSR_MSTATUS);
         set_privilege2(env, PRV_S);
     } else {
-        env->active_tc.PC = env->csr[CSR_MTVEC];
+        env->PC = env->csr[CSR_MTVEC];
         env->csr[CSR_MEPC] = backup_epc;
         env->csr[CSR_MCAUSE] = fixed_cause;  
         
