@@ -268,18 +268,12 @@ struct CPURISCVState;
 
 typedef struct riscv_def_t riscv_def_t;
 
-typedef struct TCState TCState;
-struct TCState {
+typedef struct CPURISCVState CPURISCVState;
+struct CPURISCVState {
     target_ulong gpr[32];
     target_ulong fpr[32];
     target_ulong PC;
     target_ulong load_reservation;
-};
-
-typedef struct CPURISCVState CPURISCVState;
-struct CPURISCVState {
-    TCState active_tc;
-    uint32_t current_tc;
 
     uint64_t csr[4096]; // RISCV CSR registers
     uint64_t priv;
@@ -380,11 +374,6 @@ void riscv_cpu_list (FILE *f, fprintf_function cpu_fprintf);
 #define cpu_signal_handler cpu_riscv_signal_handler
 #define cpu_list riscv_cpu_list
 
-// TODO I think this is related to VMState stuff
-// commenting it out breaks stuff, and there's an #ifdef CPU_SAVE_VERSION
-// in include/qemu-common.h
-#define CPU_SAVE_VERSION 3
-
 static inline int cpu_mmu_index (CPURISCVState *env, bool ifetch)
 {
     target_ulong mode = env->priv;
@@ -474,7 +463,7 @@ hwaddr cpu_riscv_translate_address (CPURISCVState *env, target_ulong address,
 static inline void cpu_get_tb_cpu_state(CPURISCVState *env, target_ulong *pc,
                                         target_ulong *cs_base, int *flags)
 {
-    *pc = env->active_tc.PC;
+    *pc = env->PC;
     *cs_base = 0;
     *flags = 0; // necessary to avoid compiler warning
 }
