@@ -1987,9 +1987,9 @@ void riscv_cpu_dump_state(CPUState *cs, FILE *f, fprintf_function cpu_fprintf,
     CPURISCVState *env = &cpu->env;
     int i;
 
-    cpu_fprintf(f, "pc=0x" TARGET_FMT_lx "\n", env->active_tc.PC);
+    cpu_fprintf(f, "pc=0x" TARGET_FMT_lx "\n", env->PC);
     for (i = 0; i < 32; i++) {
-        cpu_fprintf(f, " %s " TARGET_FMT_lx, regnames[i], env->active_tc.gpr[i]);
+        cpu_fprintf(f, " %s " TARGET_FMT_lx, regnames[i], env->gpr[i]);
         if ((i & 3) == 3) {
             cpu_fprintf(f, "\n");
         }
@@ -2004,7 +2004,7 @@ void riscv_cpu_dump_state(CPUState *cs, FILE *f, fprintf_function cpu_fprintf,
         if ((i & 3) == 0) {
             cpu_fprintf(f, "FPR%02d:", i);
         }
-        cpu_fprintf(f, " %s " TARGET_FMT_lx, fpr_regnames[i], env->active_tc.fpr[i]);
+        cpu_fprintf(f, " %s " TARGET_FMT_lx, fpr_regnames[i], env->fpr[i]);
         if ((i & 3) == 3) {
             cpu_fprintf(f, "\n");
         }
@@ -2029,22 +2029,22 @@ void riscv_tcg_init(void)
     TCGV_UNUSED(cpu_gpr[0]);
     for (i = 1; i < 32; i++) {
         cpu_gpr[i] = tcg_global_mem_new(TCG_AREG0,
-                                        offsetof(CPURISCVState, active_tc.gpr[i]),
+                                        offsetof(CPURISCVState, gpr[i]),
                                         regnames[i]);
     }
 
     for (i = 0; i < 32; i++) {
         cpu_fpr[i] = tcg_global_mem_new(TCG_AREG0,
-                                        offsetof(CPURISCVState, active_tc.fpr[i]),
+                                        offsetof(CPURISCVState, fpr[i]),
                                         fpr_regnames[i]);
     }
 
     cpu_PC = tcg_global_mem_new(TCG_AREG0,
-                                offsetof(CPURISCVState, active_tc.PC), "PC");
+                                offsetof(CPURISCVState, PC), "PC");
 
     // TODO: not initialized
     load_reservation = tcg_global_mem_new(TCG_AREG0,
-                     offsetof(CPURISCVState, active_tc.load_reservation),
+                     offsetof(CPURISCVState, load_reservation),
                      "load_reservation");
     inited = 1;
 }
@@ -2085,7 +2085,7 @@ void cpu_state_reset(CPURISCVState *env)
     // config string is handled in riscv_board
 
     env->priv = PRV_M;
-    env->active_tc.PC = DEFAULT_RSTVEC;
+    env->PC = DEFAULT_RSTVEC;
     env->csr[CSR_MTVEC] = DEFAULT_MTVEC;
     cs->exception_index = EXCP_NONE;
 }
@@ -2093,5 +2093,5 @@ void cpu_state_reset(CPURISCVState *env)
 // TODO what is this?
 void restore_state_to_opc(CPURISCVState *env, TranslationBlock *tb, target_ulong *data)
 {
-    env->active_tc.PC = data[0];
+    env->PC = data[0];
 }

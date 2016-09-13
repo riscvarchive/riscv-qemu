@@ -25,14 +25,14 @@ static void riscv_cpu_set_pc(CPUState *cs, vaddr value)
 {
     RISCVCPU *cpu = RISCV_CPU(cs);
     CPURISCVState *env = &cpu->env;
-    env->active_tc.PC = value;
+    env->PC = value;
 }
 
 static void riscv_cpu_synchronize_from_tb(CPUState *cs, TranslationBlock *tb)
 {
     RISCVCPU *cpu = RISCV_CPU(cs);
     CPURISCVState *env = &cpu->env;
-    env->active_tc.PC = tb->pc;
+    env->PC = tb->pc;
 }
 
 static bool riscv_cpu_has_work(CPUState *cs)

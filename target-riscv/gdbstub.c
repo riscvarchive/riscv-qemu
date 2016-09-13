@@ -104,11 +104,11 @@ int riscv_cpu_gdb_read_register(CPUState *cs, uint8_t *mem_buf, int n)
     int target_csrno;
 
     if (n < 32) {
-        return gdb_get_regl(mem_buf, env->active_tc.gpr[n]);
+        return gdb_get_regl(mem_buf, env->gpr[n]);
     } else if (n == 32) {
-        return gdb_get_regl(mem_buf, env->active_tc.PC);
+        return gdb_get_regl(mem_buf, env->PC);
     } else if (n < 65) {
-        return gdb_get_regl(mem_buf, env->active_tc.fpr[n-33]);
+        return gdb_get_regl(mem_buf, env->fpr[n-33]);
     } else if (n < 132) {
         n -= 65;
         target_csrno = indexed_csrs[n];
@@ -160,13 +160,13 @@ int riscv_cpu_gdb_write_register(CPUState *cs, uint8_t *mem_buf, int n)
     tmp = ldtul_p(mem_buf);
 
     if (n < 32) {
-        env->active_tc.gpr[n] = tmp;
+        env->gpr[n] = tmp;
         return sizeof(target_ulong);
     } else if (n == 32) {
-        env->active_tc.PC = tmp;
+        env->PC = tmp;
         return sizeof(target_ulong);
     } else if (n < 65) {
-        env->active_tc.fpr[n-33] = tmp;
+        env->fpr[n-33] = tmp;
         return sizeof(target_ulong);
     } else if (n < 132) {
         n -= 65;
