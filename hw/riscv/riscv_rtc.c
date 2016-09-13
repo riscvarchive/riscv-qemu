@@ -22,6 +22,7 @@
  * THE SOFTWARE.
  */
 
+#include "qemu/osdep.h"
 #include "hw/hw.h"
 #include "hw/riscv/cpudevs.h"
 #include "hw/riscv/riscv_rtc_internal.h"
@@ -38,11 +39,11 @@
 #define CPU_FREQ    1000 * 1000 * 1000
 
 inline uint64_t rtc_read(CPURISCVState *env) {
-    return muldiv64(qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL), TIMER_FREQ, get_ticks_per_sec());
+    return muldiv64(qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL), TIMER_FREQ, NANOSECONDS_PER_SECOND);
 }
 
 inline uint64_t instret_read(CPURISCVState *env) {
-    return muldiv64(qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL), CPU_FREQ, get_ticks_per_sec());
+    return muldiv64(qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL), CPU_FREQ, NANOSECONDS_PER_SECOND);
 }
 
 /*
@@ -73,7 +74,7 @@ static inline void cpu_riscv_timer_update(CPURISCVState *env)
     diff = env->timecmp - rtc_r;
     // back to ns (note args switched in muldiv64)
     next = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) +
-        muldiv64(diff, get_ticks_per_sec(), TIMER_FREQ);
+        muldiv64(diff, NANOSECONDS_PER_SECOND, TIMER_FREQ);
     timer_mod(env->timer, next);
 }
 

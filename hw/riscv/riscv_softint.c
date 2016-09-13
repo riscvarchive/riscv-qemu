@@ -32,6 +32,7 @@
  * THE SOFTWARE.
  */
 
+#include "qemu/osdep.h"
 #include "hw/riscv/riscv_softint.h"
 #include "exec/address-spaces.h"
 #include "qemu/error-report.h"

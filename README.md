@@ -13,7 +13,7 @@ passes the compatibility tests from [riscv-tests].
 
 **Upstream QEMU Version:**
 
-* v2.5.0
+* 2.7.50
 
 **Privileged Specification Version:**
 

@@ -18,6 +18,7 @@
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "qemu/osdep.h"
 #include "cpu.h"
 #include "disas/disas.h"
 #include "tcg-op.h"
@@ -2028,22 +2029,22 @@ void riscv_tcg_init(void)
     // registers, unless you specifically block reads/writes to reg 0
     TCGV_UNUSED(cpu_gpr[0]);
     for (i = 1; i < 32; i++) {
-        cpu_gpr[i] = tcg_global_mem_new(TCG_AREG0,
+        cpu_gpr[i] = tcg_global_mem_new(cpu_env,
                                         offsetof(CPURISCVState, gpr[i]),
                                         regnames[i]);
     }
 
     for (i = 0; i < 32; i++) {
-        cpu_fpr[i] = tcg_global_mem_new(TCG_AREG0,
+        cpu_fpr[i] = tcg_global_mem_new(cpu_env,
                                         offsetof(CPURISCVState, fpr[i]),
                                         fpr_regnames[i]);
     }
 
-    cpu_PC = tcg_global_mem_new(TCG_AREG0,
+    cpu_PC = tcg_global_mem_new(cpu_env,
                                 offsetof(CPURISCVState, PC), "PC");
 
     // TODO: not initialized
-    load_reservation = tcg_global_mem_new(TCG_AREG0,
+    load_reservation = tcg_global_mem_new(cpu_env,
                      offsetof(CPURISCVState, load_reservation),
                      "load_reservation");
     inited = 1;

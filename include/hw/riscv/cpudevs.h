@@ -1,5 +1,8 @@
 #ifndef HW_RISCV_CPUDEVS_H
 #define HW_RISCV_CPUDEVS_H
+
+#include "target-riscv/cpu.h"
+
 /* Definitions for RISCV CPU internal devices.  */
 
 /* riscv_board.c */

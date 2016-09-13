@@ -43,6 +43,7 @@
  * THE SOFTWARE.
  */
 
+#include "qemu/osdep.h"
 #include "hw/hw.h"
 #include "hw/i386/pc.h"
 #include "hw/char/serial.h"
@@ -105,9 +106,10 @@ static int64_t load_kernel (void)
     int big_endian;
     big_endian = 0;
 
+    // TODO: check the additional arg to load_elf
     if (load_elf(loaderparams.kernel_filename, identity_translate, NULL,
                  (uint64_t *)&kernel_entry, NULL, (uint64_t *)&kernel_high,
-                 big_endian, ELF_MACHINE, 1) < 0) {
+                 big_endian, ELF_MACHINE, 1, 0) < 0) {
         fprintf(stderr, "qemu: could not load kernel '%s'\n",
                 loaderparams.kernel_filename);
         exit(1);
