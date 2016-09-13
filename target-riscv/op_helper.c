@@ -1104,22 +1104,23 @@ void helper_tlb_flush(CPURISCVState *env)
 void riscv_cpu_do_unaligned_access(CPUState *cs, vaddr addr,
                            MMUAccessType access_type, int mmu_idx, uintptr_t retaddr)
 {
-    // TODO: MMUAccessType
-    // TODO: access_type/mmu_idx changed
     RISCVCPU *cpu = RISCV_CPU(cs);
     CPURISCVState *env = &cpu->env;
     printf("addr: %016lx\n", addr);
-    if (access_type & 0x2) {
+    if (access_type == MMU_INST_FETCH) {
         fprintf(stderr, "unaligned inst fetch not handled here\n");
         exit(1);
-    } else if (access_type == 0x1) {
+    } else if (access_type == MMU_DATA_STORE) {
         printf("Store\n");
         cs->exception_index = RISCV_EXCP_STORE_AMO_ADDR_MIS;
         env->badaddr = addr;
-    } else {
+    } else if (access_type == MMU_DATA_LOAD) {
         printf("Load\n");
         cs->exception_index = RISCV_EXCP_LOAD_ADDR_MIS;
         env->badaddr = addr;
+    } else {
+        fprintf(stderr, "Invalid MMUAccessType\n");
+        exit(1);
     }
     do_raise_exception_err(env, cs->exception_index, retaddr);
 }
