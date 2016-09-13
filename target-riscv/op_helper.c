@@ -18,6 +18,7 @@
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "qemu/osdep.h"
 #include <stdlib.h>
 #include "cpu.h"
 #include "qemu/host-utils.h"
@@ -50,7 +51,7 @@ static inline void QEMU_NORETURN do_raise_exception_err(CPURISCVState *env,
                                           uint32_t exception, uintptr_t pc)
 {
     CPUState *cs = CPU(riscv_env_get_cpu(env));
-    qemu_log("%s: %d\n", __func__, exception);
+    qemu_log_mask(CPU_LOG_INT, "%s: %d\n", __func__, exception);
     cs->exception_index = exception;
     cpu_loop_exit_restore(cs, pc);
 }
@@ -348,9 +349,9 @@ uint64_t helper_fcvt_s_lu(CPURISCVState *env, uint64_t rs1, uint64_t rm)
 
 union ui32_f32 { uint32_t ui; uint32_t f; };
 
-uint_fast16_t float32_classify( uint32_t a );
+uint_fast16_t float32_classify(uint32_t a, float_status *status);
 
-uint_fast16_t float32_classify( uint32_t a )
+uint_fast16_t float32_classify(uint32_t a, float_status *status)
 {
     union ui32_f32 uA;
     uint_fast32_t uiA;
@@ -371,13 +372,13 @@ uint_fast16_t float32_classify( uint32_t a )
         ( !sign && !infOrNaN && !subnormalOrZero )              << 6 |
         ( !sign && subnormalOrZero && fracF32UI( uiA ) )        << 5 |
         ( !sign && subnormalOrZero && fracF32UI( uiA ) == 0 )   << 4 |
-        ( isNaNF32UI( uiA ) &&  float32_is_signaling_nan( uiA )) << 8 |
-        ( isNaNF32UI( uiA ) && !float32_is_signaling_nan( uiA )) << 9;
+        ( isNaNF32UI( uiA ) &&  float32_is_signaling_nan( uiA, status )) << 8 |
+        ( isNaNF32UI( uiA ) && !float32_is_signaling_nan( uiA, status )) << 9;
 }
 
 uint64_t helper_fclass_s(CPURISCVState *env, uint64_t frs1)
 {
-    frs1 = float32_classify(frs1);
+    frs1 = float32_classify(frs1, &env->fp_status);
     return frs1;
 }
 
@@ -562,9 +563,9 @@ uint64_t helper_fcvt_d_lu(CPURISCVState *env, uint64_t frs1, uint64_t rm)
 
 union ui64_f64 { uint64_t ui; uint64_t f; };
 
-uint_fast16_t float64_classify( uint64_t a );
+uint_fast16_t float64_classify(uint64_t a, float_status *status);
 
-uint_fast16_t float64_classify( uint64_t a )
+uint_fast16_t float64_classify(uint64_t a, float_status *status)
 {
     union ui64_f64 uA;
     uint_fast64_t uiA;
@@ -585,13 +586,13 @@ uint_fast16_t float64_classify( uint64_t a )
         ( !sign && !infOrNaN && !subnormalOrZero )              << 6 |
         ( !sign && subnormalOrZero && fracF64UI( uiA ) )        << 5 |
         ( !sign && subnormalOrZero && fracF64UI( uiA ) == 0 )   << 4 |
-        ( isNaNF64UI( uiA ) &&  float64_is_signaling_nan( uiA )) << 8 |
-        ( isNaNF64UI( uiA ) && !float64_is_signaling_nan( uiA )) << 9;
+        ( isNaNF64UI( uiA ) &&  float64_is_signaling_nan( uiA, status )) << 8 |
+        ( isNaNF64UI( uiA ) && !float64_is_signaling_nan( uiA, status )) << 9;
 }
 
 uint64_t helper_fclass_d(CPURISCVState *env, uint64_t frs1)
 {
-    frs1 = float64_classify(frs1);
+    frs1 = float64_classify(frs1, &env->fp_status);
     return frs1;
 }
 
@@ -1100,16 +1101,18 @@ void helper_tlb_flush(CPURISCVState *env)
 
 #if !defined(CONFIG_USER_ONLY)
 
-void riscv_cpu_do_unaligned_access(CPUState *cs, target_ulong addr,
-                                int rw, int is_user, uintptr_t retaddr)
+void riscv_cpu_do_unaligned_access(CPUState *cs, vaddr addr,
+                           MMUAccessType access_type, int mmu_idx, uintptr_t retaddr)
 {
+    // TODO: MMUAccessType
+    // TODO: access_type/mmu_idx changed
     RISCVCPU *cpu = RISCV_CPU(cs);
     CPURISCVState *env = &cpu->env;
     printf("addr: %016lx\n", addr);
-    if (rw & 0x2) {
+    if (access_type & 0x2) {
         fprintf(stderr, "unaligned inst fetch not handled here\n");
         exit(1);
-    } else if (rw == 0x1) {
+    } else if (access_type == 0x1) {
         printf("Store\n");
         cs->exception_index = RISCV_EXCP_STORE_AMO_ADDR_MIS;
         env->badaddr = addr;
@@ -1122,11 +1125,11 @@ void riscv_cpu_do_unaligned_access(CPUState *cs, target_ulong addr,
 }
 
 /* called by qemu's softmmu to fill the qemu tlb */
-void tlb_fill(CPUState *cs, target_ulong addr, int is_write, int mmu_idx,
-              uintptr_t retaddr)
+void tlb_fill(CPUState *cs, target_ulong addr, MMUAccessType access_type, 
+        int mmu_idx, uintptr_t retaddr)
 {
     int ret;
-    ret = riscv_cpu_handle_mmu_fault(cs, addr, is_write, mmu_idx);
+    ret = riscv_cpu_handle_mmu_fault(cs, addr, access_type, mmu_idx);
     if (ret == TRANSLATE_FAIL) {
         RISCVCPU *cpu = RISCV_CPU(cs);
         CPURISCVState *env = &cpu->env;

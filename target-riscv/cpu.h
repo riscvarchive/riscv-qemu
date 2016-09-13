@@ -11,7 +11,6 @@
 
 #define ALIGNED_ONLY
 
-#include "config.h"
 #include "qemu-common.h"
 #include "riscv-defs.h"
 #include "exec/cpu-defs.h"
@@ -358,9 +357,9 @@ hwaddr riscv_cpu_get_phys_page_debug(CPUState *cpu, vaddr addr);
 int riscv_cpu_gdb_read_register(CPUState *cpu, uint8_t *buf, int reg);
 int riscv_cpu_gdb_write_register(CPUState *cpu, uint8_t *buf, int reg);
 bool riscv_cpu_exec_interrupt(CPUState *cs, int interrupt_request);
-void  riscv_cpu_do_unaligned_access(CPUState *cs,
-                                              target_ulong addr, int rw,
-                                              int is_user, uintptr_t retaddr);
+void  riscv_cpu_do_unaligned_access(CPUState *cs, vaddr addr, 
+                                        MMUAccessType access_type,
+                                        int mmu_idx, uintptr_t retaddr);
 #endif
 
 #if !defined(CONFIG_USER_ONLY)
@@ -370,7 +369,6 @@ void riscv_cpu_unassigned_access(CPUState *cpu, hwaddr addr, bool is_write,
 
 void riscv_cpu_list (FILE *f, fprintf_function cpu_fprintf);
 
-#define cpu_exec cpu_riscv_exec
 #define cpu_signal_handler cpu_riscv_signal_handler
 #define cpu_list riscv_cpu_list
 
@@ -436,7 +434,7 @@ static inline int cpu_riscv_hw_interrupts_pending(CPURISCVState *env)
 
 #include "exec/cpu-all.h"
 
-int cpu_riscv_exec(CPUState *cpu);
+//int cpu_riscv_exec(CPUState *cpu);
 void riscv_tcg_init(void);
 RISCVCPU *cpu_riscv_init(const char *cpu_model);
 int cpu_riscv_signal_handler(int host_signum, void *pinfo, void *puc);
@@ -461,7 +459,7 @@ hwaddr cpu_riscv_translate_address (CPURISCVState *env, target_ulong address,
 #endif
 
 static inline void cpu_get_tb_cpu_state(CPURISCVState *env, target_ulong *pc,
-                                        target_ulong *cs_base, int *flags)
+                                        target_ulong *cs_base, uint32_t *flags)
 {
     *pc = env->PC;
     *cs_base = 0;

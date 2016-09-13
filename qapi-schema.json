@@ -832,7 +832,7 @@
 # Since: 2.6
 ##
 { 'enum': 'CpuInfoArch',
-  'data': ['x86', 'sparc', 'ppc', 'mips', 'tricore', 'other' ] }
+  'data': ['x86', 'sparc', 'ppc', 'mips', 'tricore', 'riscv', 'other' ] }
 
 ##
 # @CpuInfo:
@@ -867,6 +867,7 @@
             'ppc': 'CpuInfoPPC',
             'mips': 'CpuInfoMIPS',
             'tricore': 'CpuInfoTricore',
+            'riscv': 'CpuInfoRISCV',
             'other': 'CpuInfoOther' } }
 
 ##
@@ -925,6 +926,17 @@
 # Since 2.6
 ##
 { 'struct': 'CpuInfoTricore', 'data': { 'PC': 'int' } }
+
+##
+# @CpuInfoRISCV:
+#
+# Additional information about a virtual RISCV CPU
+#
+# @PC: the instruction pointer
+#
+# Since 2.6
+##
+{ 'struct': 'CpuInfoRISCV', 'data': { 'pc': 'int' } }
 
 ##
 # @CpuInfoOther:

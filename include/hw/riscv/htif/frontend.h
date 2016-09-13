@@ -4,6 +4,7 @@
 #include "hw/hw.h"
 #include "sysemu/sysemu.h"
 #include "exec/memory.h"
+#include "target-riscv/cpu.h"
 
 
 #define RV_FSYSCALL_sys_openat 56
