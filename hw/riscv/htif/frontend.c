@@ -27,6 +27,7 @@
  * THE SOFTWARE.
  */
 
+#include "qemu/osdep.h"
 #include "hw/riscv/htif/htif.h"
 #include "hw/riscv/htif/frontend.h"
 #include <inttypes.h>

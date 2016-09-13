@@ -1,3 +1,4 @@
+#include "qemu/osdep.h"
 #include "disas/bfd.h"
 
 #define USE_SPIKE_DASM
@@ -42,5 +43,3 @@ int print_insn_riscv(bfd_vma pc, disassemble_info *info)
     g_free(buf);
     return n;
 }
-
-

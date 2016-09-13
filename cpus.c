@@ -1649,8 +1649,8 @@ CpuInfoList *qmp_query_cpus(Error **errp)
         info->value->arch = CPU_INFO_ARCH_TRICORE;
         info->value->u.tricore.PC = env->PC;
 #elif defined(TARGET_RISCV)
-        info->value->has_PC = true;
-        info->value->PC = env->PC;
+        info->value->arch = CPU_INFO_ARCH_RISCV;
+        info->value->u.riscv.pc = env->PC;
 #else
         info->value->arch = CPU_INFO_ARCH_OTHER;
 #endif

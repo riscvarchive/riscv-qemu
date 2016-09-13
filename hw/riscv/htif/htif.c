@@ -26,6 +26,7 @@
  * THE SOFTWARE.
  */
 
+#include "qemu/osdep.h"
 #include "hw/char/serial.h"
 #include "sysemu/char.h"
 #include "hw/riscv/htif/htif.h"

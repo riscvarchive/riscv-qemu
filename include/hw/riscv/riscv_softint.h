@@ -26,6 +26,7 @@
 #include "hw/hw.h"
 #include "sysemu/sysemu.h"
 #include "exec/memory.h"
+#include "target-riscv/cpu.h"
 
 typedef struct SoftintState SoftintState;
 

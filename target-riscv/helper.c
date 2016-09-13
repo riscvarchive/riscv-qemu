@@ -17,6 +17,8 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
+
+#include "qemu/osdep.h"
 #include <stdarg.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -271,11 +273,13 @@ int riscv_cpu_handle_mmu_fault(CPUState *cs, vaddr address, int rw, int mmu_idx)
     int prot;
     int ret = 0;
 
-    qemu_log("%s pc " TARGET_FMT_lx " ad %" VADDR_PRIx " rw %d mmu_idx %d\n",
+    qemu_log_mask(CPU_LOG_MMU, 
+            "%s pc " TARGET_FMT_lx " ad %" VADDR_PRIx " rw %d mmu_idx %d\n",
               __func__, env->PC, address, rw, mmu_idx);
 
     ret = get_physical_address(env, &physical, &prot, address, rw, mmu_idx);
-    qemu_log("%s address=%" VADDR_PRIx " ret %d physical " TARGET_FMT_plx
+    qemu_log_mask(CPU_LOG_MMU, 
+            "%s address=%" VADDR_PRIx " ret %d physical " TARGET_FMT_plx
              " prot %d\n",
              __func__, address, ret, physical, prot);
     if (ret == TRANSLATE_SUCCESS) {
