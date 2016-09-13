@@ -451,7 +451,7 @@ uint64_t cpu_riscv_read_instret(CPURISCVState *env);
 void cpu_riscv_soft_irq(CPURISCVState *env, int irq, int level);
 
 /* helper.c */
-int riscv_cpu_handle_mmu_fault(CPUState *cpu, vaddr address, int rw,
+int riscv_cpu_handle_mmu_fault(CPUState *cpu, vaddr address, MMUAccessType rw,
                               int mmu_idx);
 #if !defined(CONFIG_USER_ONLY)
 hwaddr cpu_riscv_translate_address (CPURISCVState *env, target_ulong address,
