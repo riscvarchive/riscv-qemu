@@ -270,13 +270,13 @@ typedef struct riscv_def_t riscv_def_t;
 typedef struct CPURISCVState CPURISCVState;
 struct CPURISCVState {
     target_ulong gpr[32];
-    target_ulong fpr[32];
+    uint64_t fpr[32]; // TODO: width dep on F or D extension
     target_ulong PC;
     target_ulong load_reservation;
 
-    uint64_t csr[4096]; // RISCV CSR registers
-    uint64_t priv;
-    uint64_t badaddr;
+    target_ulong csr[4096]; // RISCV CSR registers
+    target_ulong priv;
+    target_ulong badaddr;
 
     // temporary htif regs
     uint64_t mfromhost;

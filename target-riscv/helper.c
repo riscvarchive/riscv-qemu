@@ -102,7 +102,7 @@ static int get_physical_address (CPURISCVState *env, hwaddr *physical,
     }
 
     if (mode == PRV_M) {
-        target_ulong msb_mask = 0x7FFFFFFFFFFFFFFF;
+        target_ulong msb_mask = (2L << (TARGET_LONG_BITS-1))-1; //0x7FFFFFFFFFFFFFFF;
         *physical = address & msb_mask;
         *prot = PAGE_READ | PAGE_WRITE | PAGE_EXEC;
         return TRANSLATE_SUCCESS;
@@ -117,8 +117,6 @@ static int get_physical_address (CPURISCVState *env, hwaddr *physical,
     switch (get_field(env->csr[CSR_MSTATUS], MSTATUS_VM))
     {
       case VM_SV32:
-          printf("SV32 untested. Find and remove to continue.\n");
-          exit(1);
           levels = 2;
           ptidxbits = 10;
           ptesize = 4;
@@ -139,7 +137,7 @@ static int get_physical_address (CPURISCVState *env, hwaddr *physical,
     }
 
     int va_bits = PGSHIFT + levels * ptidxbits;
-    target_ulong mask = (1L << (64 - (va_bits-1))) - 1;
+    target_ulong mask = (1L << (TARGET_LONG_BITS - (va_bits-1))) - 1;
     target_ulong masked_msbs = (addr >> (va_bits-1)) & mask;
     if (masked_msbs != 0 && masked_msbs != mask) {
         return TRANSLATE_FAIL;
@@ -329,11 +327,11 @@ void riscv_cpu_do_interrupt(CPUState *cs)
 
     #ifdef RISCV_DEBUG_INTERRUPT
     if (cs->exception_index & 0x70000000) {
-        fprintf(stderr, "core   0: exception trap_%s, epc 0x%016lx\n",
+        fprintf(stderr, "core   0: exception trap_%s, epc 0x" TARGET_FMT_lx "\n",
                 riscv_interrupt_names[cs->exception_index & 0x0fffffff], 
                 env->PC);
     } else {
-        fprintf(stderr, "core   0: exception trap_%s, epc 0x%016lx\n",
+        fprintf(stderr, "core   0: exception trap_%s, epc 0x" TARGET_FMT_lx "\n",
                 riscv_excp_names[cs->exception_index], env->PC);
     }
     #endif
@@ -385,8 +383,8 @@ void riscv_cpu_do_interrupt(CPUState *cs)
         (fixed_cause == RISCV_EXCP_LOAD_ACCESS_FAULT) ||
         (fixed_cause == RISCV_EXCP_STORE_AMO_ACCESS_FAULT);
 
-    if (bit & ((target_ulong)1 << (64-1))) {
-        deleg = env->csr[CSR_MIDELEG], bit &= ~((target_ulong)1 << (64-1));
+    if (bit & ((target_ulong)1 << (TARGET_LONG_BITS-1))) {
+        deleg = env->csr[CSR_MIDELEG], bit &= ~(1L << (TARGET_LONG_BITS-1));
     }
 
     if (env->priv <= PRV_S && bit < 64 && ((deleg >> bit) & 1)) {
@@ -397,7 +395,7 @@ void riscv_cpu_do_interrupt(CPUState *cs)
 
         if (hasbadaddr) {
             #ifdef RISCV_DEBUG_INTERRUPT
-            fprintf(stderr, "core   0: badaddr 0x%016lx\n", env->badaddr);
+            fprintf(stderr, "core   0: badaddr 0x" TARGET_FMT_lx "\n", env->badaddr);
             #endif
             env->csr[CSR_SBADADDR] = env->badaddr;
         }
@@ -415,7 +413,7 @@ void riscv_cpu_do_interrupt(CPUState *cs)
         
         if (hasbadaddr) {
             #ifdef RISCV_DEBUG_INTERRUPT
-            fprintf(stderr, "core   0: badaddr 0x%016lx\n", env->badaddr);
+            fprintf(stderr, "core   0: badaddr 0x" TARGET_FMT_lx "\n", env->badaddr);
             #endif
             env->csr[CSR_MBADADDR] = env->badaddr;
         }

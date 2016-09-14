@@ -18,7 +18,8 @@
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
-#define MCPUID_RV64I   (2L << 62)
+#define MCPUID_RV64I   (2L << (TARGET_LONG_BITS-2))
+#define MCPUID_RV32I   (1L << (TARGET_LONG_BITS-2))
 #define MCPUID_SUPER   (1L << ('S' - 'A'))
 #define MCPUID_USER    (1L << ('U' - 'A'))
 #define MCPUID_I       (1L << ('I' - 'A'))
@@ -29,7 +30,7 @@
 
 struct riscv_def_t {
     const char *name;
-    target_ulong init_misa_reg;
+    uint64_t init_misa_reg;
 };
 
 /* RISC-V CPU definitions */
@@ -37,9 +38,14 @@ static const riscv_def_t riscv_defs[] =
 {
     {
         .name = "riscv",
-        // for now, hardcode RV64G:
+#if defined(TARGET_RISCV64)
+        // RV64G
         .init_misa_reg = MCPUID_RV64I | MCPUID_SUPER | MCPUID_USER | MCPUID_I
             | MCPUID_M | MCPUID_A | MCPUID_F | MCPUID_D,
+#else
+        .init_misa_reg = MCPUID_RV32I | MCPUID_SUPER | MCPUID_USER | MCPUID_I
+            | MCPUID_M | MCPUID_A | MCPUID_F | MCPUID_D,
+#endif
     },
 };
 

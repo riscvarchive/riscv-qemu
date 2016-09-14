@@ -253,8 +253,10 @@ static void riscv_board_init(MachineState *args)
     // Softint "devices" for cleaner handling of CPU-triggered interrupts
     softint_mm_init(system_memory, 0xFFFFFFFFF0000020L, env->irq[1], main_mem,
             env, "SSIP");
+
     softint_mm_init(system_memory, 0xFFFFFFFFF0000040L, env->irq[2], main_mem,
             env, "STIP");
+
     softint_mm_init(system_memory, 0xFFFFFFFFF0000060L, env->irq[3], main_mem,
             env, "MSIP");
 
