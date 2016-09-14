@@ -81,7 +81,7 @@
 #include "qemu/error-report.h"
 #include "sysemu/block-backend.h"
 
-#define TYPE_RISCV_BOARD "riscv-board"
+#define TYPE_RISCV_BOARD "riscv"
 #define RISCV_BOARD(obj) OBJECT_CHECK(BoardState, (obj), TYPE_RISCV_BOARD)
 
 typedef struct {
@@ -106,7 +106,6 @@ static int64_t load_kernel (void)
     int big_endian;
     big_endian = 0;
 
-    // TODO: check the additional arg to load_elf
     if (load_elf(loaderparams.kernel_filename, identity_translate, NULL,
                  (uint64_t *)&kernel_entry, NULL, (uint64_t *)&kernel_high,
                  big_endian, ELF_MACHINE, 1, 0) < 0) {
@@ -135,12 +134,7 @@ static void riscv_board_init(MachineState *args)
     RISCVCPU *cpu;
     CPURISCVState *env;
     int i;
-
-    DriveInfo *htifbd_drive;
-    const char *htifbd_fname; // htif block device filename
-
     DeviceState *dev = qdev_create(NULL, TYPE_RISCV_BOARD);
-
     object_property_set_bool(OBJECT(dev), true, "realized", NULL);
 
     /* Make sure the first 3 serial ports are associated with a device. */
@@ -154,7 +148,7 @@ static void riscv_board_init(MachineState *args)
 
     /* init CPUs */
     if (cpu_model == NULL) {
-        cpu_model = "riscv-generic";
+        cpu_model = "riscv";
     }
 
     for (i = 0; i < smp_cpus; i++) {
@@ -187,9 +181,6 @@ static void riscv_board_init(MachineState *args)
         loaderparams.initrd_filename = initrd_filename;
         load_kernel();
     }
-    // TODO: still necessary?
-    // write memory amount in MiB to 0x0
-    //stl_p(memory_region_get_ram_ptr(main_mem), ram_size >> 20);
 
     uint32_t reset_vec[8] = {
         0x297 + 0x80000000 - 0x1000, // reset vector
@@ -249,26 +240,12 @@ static void riscv_board_init(MachineState *args)
         stb_p(memory_region_get_ram_ptr(main_mem)+reset_vec[3]+q, config_string[q]);
     }
 
-    // add serial device 0x3f8-0x3ff
-    // serial_mm_init(system_memory, 0xF0000400, 0, env->irq[5], 1843200/16,
-    //         serial_hds[0], DEVICE_NATIVE_ENDIAN);
-
-    // setup HTIF Block Device if one is specified as -hda FILENAME
-    // NOTE: this is no longer supported by riscv-linux
-    htifbd_drive = drive_get_by_index(IF_IDE, 0);
-    if (NULL == htifbd_drive) {
-        htifbd_fname = NULL;
-    } else {
-        htifbd_fname = blk_bs(blk_by_legacy_dinfo(htifbd_drive))->filename;
-        // get rid of orphaned drive warning, until htif uses the real blockdev
-        htifbd_drive->is_default = true;
-    }
-
     // add memory mapped htif registers at location specified in the symbol
     // table of the elf being loaded (thus kernel_filename is passed to the 
     // init rather than an address)
+
     htif_mm_init(system_memory, kernel_filename, env->irq[4], main_mem,
-            htifbd_fname, kernel_cmdline, env, serial_hds[0]);
+            kernel_cmdline, env, serial_hds[0]);
 
     // timer device at 0x40000000, as specified in the config string above
     timer_mm_init(system_memory, 0x40000000, env);
@@ -317,4 +294,4 @@ static void riscv_board_register_types(void)
     type_register_static(&riscv_board_device);
 }
 
-type_init(riscv_board_register_types)
+type_init(riscv_board_register_types);

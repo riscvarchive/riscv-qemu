@@ -413,42 +413,41 @@ static const MemoryRegionOps htif_mm_ops[3] = {
 };
 
 HTIFState *htif_mm_init(MemoryRegion *address_space, const char* kernel_filename, 
-           qemu_irq irq, MemoryRegion *main_mem, const char* htifbd_fname,
+           qemu_irq irq, MemoryRegion *main_mem,
            const char *kernel_cmdline, CPURISCVState *env, CharDriverState *chr)
 {
-    // get fromhost/tohost addresses from the ELF, as spike/fesvr do
-    Elf_obj * e = elf_open(kernel_filename);
-    const char * fromhost = "fromhost";
-    const char * tohost = "tohost";
     uint64_t fromhost_addr = 0;
     uint64_t fromhost_size = 0; // for pk vs tests
     uint64_t tohost_addr = 0;
     uint64_t tohost_size = 0; // for pk vs tests
-    
-    Elf64_Sym * curr_sym = elf_firstsym(e);
-    while (curr_sym) {
-        char * symname = elf_symname(e, curr_sym);
-        if (strcmp(fromhost, symname) == 0) {
-            // get fromhost addr
-            fromhost_addr = curr_sym->st_value;
-            fromhost_size = curr_sym->st_size; // this is correctly set to 8 by pk
-        } else if (strcmp(tohost, symname) == 0) {
-            // get tohost addr
-            tohost_addr = curr_sym->st_value;
-            tohost_size = curr_sym->st_size; // this is correctly set to 8 by pk
+ 
+    // get fromhost/tohost addresses from the ELF, as spike/fesvr do
+    if (NULL != kernel_filename) {
+        Elf_obj * e = elf_open(kernel_filename);
+
+        const char * fromhost = "fromhost";
+        const char * tohost = "tohost";
+       
+        Elf64_Sym * curr_sym = elf_firstsym(e);
+        while (curr_sym) {
+            char * symname = elf_symname(e, curr_sym);
+            if (strcmp(fromhost, symname) == 0) {
+                // get fromhost addr
+                fromhost_addr = curr_sym->st_value;
+                fromhost_size = curr_sym->st_size; // this is correctly set to 8 by pk
+            } else if (strcmp(tohost, symname) == 0) {
+                // get tohost addr
+                tohost_addr = curr_sym->st_value;
+                tohost_size = curr_sym->st_size; // this is correctly set to 8 by pk
+            }
+            curr_sym = elf_nextsym(e, curr_sym);
         }
-        curr_sym = elf_nextsym(e, curr_sym);
     }
 
     // now setup HTIF device
-    // TODO: cleanup the constant buffer sizes
     HTIFState *htifstate;
-    size_t size;
-    char *rname;
-    char size_str_buf[400];
 
     htifstate = g_malloc0(sizeof(HTIFState));
-    rname = g_malloc0(sizeof(char)*500);
     htifstate->irq = irq;
     htifstate->address_space = address_space;
     htifstate->main_mem = main_mem;
@@ -481,27 +480,5 @@ HTIFState *htif_mm_init(MemoryRegion *address_space, const char* kernel_filename
     // save kernel_cmdline for sys_getmainvars
     htifstate->kernel_cmdline = malloc(strlen(kernel_cmdline)+1);
     strcpy(htifstate->kernel_cmdline, kernel_cmdline);
-
-    if (NULL == htifbd_fname) { // NULL means no -hda specified
-        htifstate->block_dev_present = 0;
-        return htifstate;
-    }
-
-    htifstate->block_fname = htifbd_fname;
-    htifstate->block_fd = open(htifstate->block_fname, O_RDWR);
-
-    struct stat st;
-    if (fstat(htifstate->block_fd, &st) < 0) {
-        fprintf(stderr, "WARN: Could not stat %s, continuing without block device.\n",
-                htifstate->block_fname);
-        htifstate->block_dev_present = 0;
-        return htifstate;
-    }
-    size = st.st_size;
-    strcpy(rname, "disk size=");
-    snprintf(size_str_buf, sizeof(size_str_buf), "%zu", size);
-    strcat(rname, size_str_buf);
-    htifstate->real_name = rname;
-    htifstate->block_dev_present = 1;
     return htifstate;
 }

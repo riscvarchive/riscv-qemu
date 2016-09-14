@@ -36,7 +36,7 @@ struct riscv_def_t {
 static const riscv_def_t riscv_defs[] =
 {
     {
-        .name = "riscv-generic",
+        .name = "riscv",
         // for now, hardcode RV64G:
         .init_misa_reg = MCPUID_RV64I | MCPUID_SUPER | MCPUID_USER | MCPUID_I
             | MCPUID_M | MCPUID_A | MCPUID_F | MCPUID_D,
