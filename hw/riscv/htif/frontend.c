@@ -53,7 +53,9 @@ uint64_t sys_openat(HTIFState *htifstate, uint64_t dirfd, uint64_t pname,
     }
 
     // in case host OS has different val for AT_FDCWD, e.g. OS X
-    dirfd = dirfd == BBL_AT_FDCWD ? AT_FDCWD : dirfd;
+    // TODO: removed to fix clang/osx build, sys_openat isn't used anymore
+    // by bbl anyway
+    // dirfd = dirfd == BBL_AT_FDCWD ? AT_FDCWD : dirfd;
 
     #ifdef DEBUG_FRONTEND_RISCV
     fprintf(stderr, "openat: %s\n"
