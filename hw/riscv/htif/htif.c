@@ -371,7 +371,6 @@ static void htif_mm_write(void *opaque, hwaddr addr,
         if (htifstate->env->mtohost == 0x0) {
             htifstate->allow_tohost = 1;
             htifstate->env->mtohost = value & 0xFFFFFFFF;
-
             if (unlikely(htifstate->tohost_size != 8)) {
 #ifdef DEBUG_HTIF
                 fprintf(stderr, "Using non-8 htif width\n");
@@ -423,14 +422,27 @@ HTIFState *htif_mm_init(MemoryRegion *address_space, const char* kernel_filename
  
     // get fromhost/tohost addresses from the ELF, as spike/fesvr do
     if (NULL != kernel_filename) {
+#if defined(TARGET_RISCV64)       
         Elf_obj * e = elf_open(kernel_filename);
+#else
+        Elf_obj32 * e = elf_open32(kernel_filename);
+#endif
 
         const char * fromhost = "fromhost";
         const char * tohost = "tohost";
-       
+
+#if defined(TARGET_RISCV64)       
         Elf64_Sym * curr_sym = elf_firstsym(e);
+#else
+        Elf32_Sym * curr_sym = elf_firstsym32(e);
+#endif
         while (curr_sym) {
+#if defined(TARGET_RISCV64)       
             char * symname = elf_symname(e, curr_sym);
+#else
+            char * symname = elf_symname32(e, curr_sym);
+#endif
+
             if (strcmp(fromhost, symname) == 0) {
                 // get fromhost addr
                 fromhost_addr = curr_sym->st_value;
@@ -440,7 +452,11 @@ HTIFState *htif_mm_init(MemoryRegion *address_space, const char* kernel_filename
                 tohost_addr = curr_sym->st_value;
                 tohost_size = curr_sym->st_size; // this is correctly set to 8 by pk
             }
+#if defined(TARGET_RISCV64)
             curr_sym = elf_nextsym(e, curr_sym);
+#else
+            curr_sym = elf_nextsym32(e, curr_sym);
+#endif
         }
     }
 

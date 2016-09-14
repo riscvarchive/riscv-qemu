@@ -3,9 +3,12 @@ riscv-qemu [![Build Status](https://travis-ci.org/riscv/riscv-qemu.svg?branch=ma
 
 **About:**
 
-The `riscv-softmmu` target for full system RV64G emulation is currently supported.
+The `riscv64-softmmu` target for full system RV64G emulation is currently supported.
 It supports booting Linux from the `priv-1.9` branch of [riscv-linux] and 
 passes the compatibility tests from [riscv-tests].
+
+A `riscv32-softmmu` target for full system RV32G emulation is also supported.
+It currently passes all tests from [riscv-tests].
 
 **RISC-V Port Authors:**
 
@@ -34,7 +37,7 @@ Prerequisites:
     $ git clone https://github.com/riscv/riscv-qemu
     $ cd riscv-qemu
     $ git submodule update --init pixman
-    $ ./configure --target-list=riscv-softmmu [--prefix=INSTALL_LOCATION]
+    $ ./configure --target-list=riscv64-softmmu,riscv32-softmmu [--prefix=INSTALL_LOCATION]
     $ make
     $ [make install] # if you supplied prefix above
 
@@ -52,7 +55,7 @@ included copy of the Linux kernel also has an initramfs with busybox.
 
 To boot Linux (assuming you are in the `riscv-qemu` directory):
 
-    $ ./riscv-softmmu/qemu-system-riscv -kernel bblvmlinuxinitramfs_dynamic -nographic
+    $ ./riscv64-softmmu/qemu-system-riscv64 -kernel bblvmlinuxinitramfs_dynamic -nographic
 
 Notes about arguments:
 * `-kernel bblvmlinuxinitramfs_dynamic`: This is the path to the binary to run. In this case, it contains the bbl bootloader, vmlinux, and an initramfs containing busybox.
@@ -76,10 +79,11 @@ Coming soon!
 Running RISC-V Tests:
 ---------------------
 
-A script (`run-rv-tests.py`) for running the RV64 tests from [riscv-tests] is
-included in the `hacking_files` directory. All RV64 tests (listed in 
-`hacking_files/rv-tests-list`) are expected to pass, however you may need to 
-increase  `TIMER_INTERVAL` in `riscv-tests/env/pt/riscv_test.h`.
+A script (`run-rv-tests.py`) for running the RV64/RV32 tests from [riscv-tests]
+is included in the `hacking_files` directory. All RV64/RV32 tests (listed in
+`hacking_files/rv64-tests-list` and `hacking_files/rv32-tests-list`) are
+expected to pass on their respective targets, however you may need to increase
+`TIMER_INTERVAL` in `riscv-tests/env/pt/riscv_test.h`.
 
 Using QEMU to Debug RISC-V Code:
 --------------------------------
