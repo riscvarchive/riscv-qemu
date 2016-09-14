@@ -43,7 +43,7 @@ void set_privilege(CPURISCVState *env, target_ulong newpriv) {
 }
 
 static int validate_vm(target_ulong vm) {
-    return vm == VM_SV39 || vm == VM_SV48 || vm == VM_MBARE;
+    return vm == VM_SV32 || vm == VM_SV39 || vm == VM_SV48 || vm == VM_MBARE;
 }
 
 /* Exceptions processing helpers */
@@ -256,28 +256,28 @@ uint64_t helper_fsqrt_s(CPURISCVState *env, uint64_t frs1, uint64_t rm)
     return frs1;
 }
 
-uint64_t helper_fle_s(CPURISCVState *env, uint64_t frs1, uint64_t frs2)
+target_ulong helper_fle_s(CPURISCVState *env, uint64_t frs1, uint64_t frs2)
 {
     frs1 = float32_le(frs1, frs2, &env->fp_status);
     set_fp_exceptions;
     return frs1;
 }
 
-uint64_t helper_flt_s(CPURISCVState *env, uint64_t frs1, uint64_t frs2)
+target_ulong helper_flt_s(CPURISCVState *env, uint64_t frs1, uint64_t frs2)
 {
     frs1 = float32_lt(frs1, frs2, &env->fp_status);
     set_fp_exceptions;
     return frs1;
 }
 
-uint64_t helper_feq_s(CPURISCVState *env, uint64_t frs1, uint64_t frs2)
+target_ulong helper_feq_s(CPURISCVState *env, uint64_t frs1, uint64_t frs2)
 {
     frs1 = float32_eq(frs1, frs2, &env->fp_status);
     set_fp_exceptions;
     return frs1;
 }
 
-uint64_t helper_fcvt_w_s(CPURISCVState *env, uint64_t frs1, uint64_t rm)
+target_ulong helper_fcvt_w_s(CPURISCVState *env, uint64_t frs1, uint64_t rm)
 {
     set_float_rounding_mode(RM, &env->fp_status);
     frs1 = (int64_t)((int32_t)float32_to_int32(frs1, &env->fp_status));
@@ -285,7 +285,7 @@ uint64_t helper_fcvt_w_s(CPURISCVState *env, uint64_t frs1, uint64_t rm)
     return frs1;
 }
 
-uint64_t helper_fcvt_wu_s(CPURISCVState *env, uint64_t frs1, uint64_t rm)
+target_ulong helper_fcvt_wu_s(CPURISCVState *env, uint64_t frs1, uint64_t rm)
 {
     set_float_rounding_mode(RM, &env->fp_status);
     frs1 = (int64_t)((int32_t)float32_to_uint32(frs1, &env->fp_status));
@@ -293,6 +293,7 @@ uint64_t helper_fcvt_wu_s(CPURISCVState *env, uint64_t frs1, uint64_t rm)
     return frs1;
 }
 
+#if defined(TARGET_RISCV64)
 uint64_t helper_fcvt_l_s(CPURISCVState *env, uint64_t frs1, uint64_t rm)
 {
     set_float_rounding_mode(RM, &env->fp_status);
@@ -308,8 +309,9 @@ uint64_t helper_fcvt_lu_s(CPURISCVState *env, uint64_t frs1, uint64_t rm)
     set_fp_exceptions;
     return frs1;
 }
+#endif
 
-uint64_t helper_fcvt_s_w(CPURISCVState *env, uint64_t rs1, uint64_t rm)
+uint64_t helper_fcvt_s_w(CPURISCVState *env, target_ulong rs1, uint64_t rm)
 {
     set_float_rounding_mode(RM, &env->fp_status);
     rs1 = int32_to_float32((int32_t)rs1, &env->fp_status);
@@ -317,7 +319,7 @@ uint64_t helper_fcvt_s_w(CPURISCVState *env, uint64_t rs1, uint64_t rm)
     return rs1;
 }
 
-uint64_t helper_fcvt_s_wu(CPURISCVState *env, uint64_t rs1, uint64_t rm)
+uint64_t helper_fcvt_s_wu(CPURISCVState *env, target_ulong rs1, uint64_t rm)
 {
     set_float_rounding_mode(RM, &env->fp_status);
     rs1 = uint32_to_float32((uint32_t)rs1, &env->fp_status);
@@ -325,6 +327,7 @@ uint64_t helper_fcvt_s_wu(CPURISCVState *env, uint64_t rs1, uint64_t rm)
     return rs1;
 }
 
+#if defined(TARGET_RISCV64)
 uint64_t helper_fcvt_s_l(CPURISCVState *env, uint64_t rs1, uint64_t rm)
 {
     set_float_rounding_mode(RM, &env->fp_status);
@@ -340,6 +343,7 @@ uint64_t helper_fcvt_s_lu(CPURISCVState *env, uint64_t rs1, uint64_t rm)
     set_fp_exceptions;
     return rs1;
 }
+#endif
 
 /* adapted from spike */
 #define isNaNF32UI( ui ) (0xFF000000<(uint32_t)((uint_fast32_t)(ui)<<1))
@@ -376,7 +380,7 @@ uint_fast16_t float32_classify(uint32_t a, float_status *status)
         ( isNaNF32UI( uiA ) && !float32_is_signaling_nan( uiA, status )) << 9;
 }
 
-uint64_t helper_fclass_s(CPURISCVState *env, uint64_t frs1)
+target_ulong helper_fclass_s(CPURISCVState *env, uint64_t frs1)
 {
     frs1 = float32_classify(frs1, &env->fp_status);
     return frs1;
@@ -470,28 +474,28 @@ uint64_t helper_fsqrt_d(CPURISCVState *env, uint64_t frs1, uint64_t rm)
     return frs1;
 }
 
-uint64_t helper_fle_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2)
+target_ulong helper_fle_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2)
 {
     frs1 = float64_le(frs1, frs2, &env->fp_status);
     set_fp_exceptions;
     return frs1;
 }
 
-uint64_t helper_flt_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2)
+target_ulong helper_flt_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2)
 {
     frs1 = float64_lt(frs1, frs2, &env->fp_status);
     set_fp_exceptions;
     return frs1;
 }
 
-uint64_t helper_feq_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2)
+target_ulong helper_feq_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2)
 {
     frs1 = float64_eq(frs1, frs2, &env->fp_status);
     set_fp_exceptions;
     return frs1;
 }
 
-uint64_t helper_fcvt_w_d(CPURISCVState *env, uint64_t frs1, uint64_t rm)
+target_ulong helper_fcvt_w_d(CPURISCVState *env, uint64_t frs1, uint64_t rm)
 {
     set_float_rounding_mode(RM, &env->fp_status);
     frs1 = (int64_t)((int32_t)float64_to_int32(frs1, &env->fp_status));
@@ -499,7 +503,7 @@ uint64_t helper_fcvt_w_d(CPURISCVState *env, uint64_t frs1, uint64_t rm)
     return frs1;
 }
 
-uint64_t helper_fcvt_wu_d(CPURISCVState *env, uint64_t frs1, uint64_t rm)
+target_ulong helper_fcvt_wu_d(CPURISCVState *env, uint64_t frs1, uint64_t rm)
 {
     set_float_rounding_mode(RM, &env->fp_status);
     frs1 = (int64_t)((int32_t)float64_to_uint32(frs1, &env->fp_status));
@@ -507,6 +511,7 @@ uint64_t helper_fcvt_wu_d(CPURISCVState *env, uint64_t frs1, uint64_t rm)
     return frs1;
 }
 
+#if defined(TARGET_RISCV64)
 uint64_t helper_fcvt_l_d(CPURISCVState *env, uint64_t frs1, uint64_t rm)
 {
     set_float_rounding_mode(RM, &env->fp_status);
@@ -522,38 +527,43 @@ uint64_t helper_fcvt_lu_d(CPURISCVState *env, uint64_t frs1, uint64_t rm)
     set_fp_exceptions;
     return frs1;
 }
+#endif
 
-uint64_t helper_fcvt_d_w(CPURISCVState *env, uint64_t frs1, uint64_t rm)
+uint64_t helper_fcvt_d_w(CPURISCVState *env, target_ulong rs1, uint64_t rm)
 {
+    uint64_t res;
     set_float_rounding_mode(RM, &env->fp_status);
-    frs1 = int32_to_float64((int32_t)frs1, &env->fp_status);
+    res = int32_to_float64((int32_t)rs1, &env->fp_status);
     set_fp_exceptions;
-    return frs1;
+    return res;
 }
 
-uint64_t helper_fcvt_d_wu(CPURISCVState *env, uint64_t frs1, uint64_t rm)
+uint64_t helper_fcvt_d_wu(CPURISCVState *env, target_ulong rs1, uint64_t rm)
 {
+    uint64_t res;
     set_float_rounding_mode(RM, &env->fp_status);
-    frs1 = uint32_to_float64((uint32_t)frs1, &env->fp_status);
+    res = uint32_to_float64((uint32_t)rs1, &env->fp_status);
     set_fp_exceptions;
-    return frs1;
+    return res;
 }
 
-uint64_t helper_fcvt_d_l(CPURISCVState *env, uint64_t frs1, uint64_t rm)
+#if defined(TARGET_RISCV64)
+uint64_t helper_fcvt_d_l(CPURISCVState *env, uint64_t rs1, uint64_t rm)
 {
     set_float_rounding_mode(RM, &env->fp_status);
-    frs1 = int64_to_float64(frs1, &env->fp_status);
+    rs1 = int64_to_float64(rs1, &env->fp_status);
     set_fp_exceptions;
-    return frs1;
+    return rs1;
 }
 
-uint64_t helper_fcvt_d_lu(CPURISCVState *env, uint64_t frs1, uint64_t rm)
+uint64_t helper_fcvt_d_lu(CPURISCVState *env, uint64_t rs1, uint64_t rm)
 {
     set_float_rounding_mode(RM, &env->fp_status);
-    frs1 = uint64_to_float64(frs1, &env->fp_status);
+    rs1 = uint64_to_float64(rs1, &env->fp_status);
     set_fp_exceptions;
-    return frs1;
+    return rs1;
 }
+#endif
 
 /* adapted from spike */
 #define isNaNF64UI( ui ) (UINT64_C(0xFFE0000000000000)<(uint64_t)((uint_fast64_t)(ui)<<1))
@@ -590,7 +600,7 @@ uint_fast16_t float64_classify(uint64_t a, float_status *status)
         ( isNaNF64UI( uiA ) && !float64_is_signaling_nan( uiA, status )) << 9;
 }
 
-uint64_t helper_fclass_d(CPURISCVState *env, uint64_t frs1)
+target_ulong helper_fclass_d(CPURISCVState *env, uint64_t frs1)
 {
     frs1 = float64_classify(frs1, &env->fp_status);
     return frs1;
@@ -599,9 +609,15 @@ uint64_t helper_fclass_d(CPURISCVState *env, uint64_t frs1)
 target_ulong helper_mulhsu(CPURISCVState *env, target_ulong arg1,
                           target_ulong arg2)
 {
+#if defined(TARGET_RISCV64)
     int64_t a = arg1;
     uint64_t b = arg2;
     return (int64_t)((__int128_t)a*b >> 64);
+#else
+    int32_t a = arg1;
+    uint32_t b = arg2;
+    return (int32_t)((int64_t)a*b >> 32);
+#endif
 }
 
 /*
@@ -736,7 +752,7 @@ inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
         break;
     }
     case CSR_SPTBR: {
-        env->csr[CSR_SPTBR] = val_to_write & (((target_ulong)1 << (50 - PGSHIFT)) - 1);
+        env->csr[CSR_SPTBR] = val_to_write & (((target_ulong)1 << (TARGET_PHYS_ADDR_SPACE_BITS - PGSHIFT)) - 1);
         break;
     }
     case CSR_SEPC:
@@ -758,7 +774,7 @@ inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
         env->csr[CSR_MEPC] = val_to_write;
         break;
     case CSR_MTVEC:
-        env->csr[CSR_MTVEC] = val_to_write << 2 >> 2;
+        env->csr[CSR_MTVEC] = val_to_write >> 2 << 2;
         break;
     case CSR_MSCRATCH:
         env->csr[CSR_MSCRATCH] = val_to_write;
@@ -1003,19 +1019,19 @@ void helper_debug_print(CPURISCVState *env, target_ulong cpu_pc_deb,
         fprintf(stderr, ": core   0: 0x" TARGET_FMT_lx " (0x%08lx) %s",
                 cpu_pc_deb, instruction, path);
     } else {*/
-        fprintf(stderr, ": core   0: 0x" TARGET_FMT_lx " (0x%08lx) %s",
+        fprintf(stderr, ": core   0: 0x" TARGET_FMT_lx " (0x" TARGET_FMT_lx ") %s",
                 cpu_pc_deb, instruction, "DASM BAD RESULT\n");
 /*    }
     pclose(fp);*/
 }
 
 void helper_debug_print_reg1(CPURISCVState *env, target_ulong reg1) {
-    printf("reg1: 0x%016lx\n", reg1);
+    printf("reg1: 0x" TARGET_FMT_lx "\n", reg1);
 }
 
 void helper_debug_print_reg2(CPURISCVState *env, target_ulong reg1, target_ulong reg2) {
-    printf("reg1: 0x%016lx\n", reg1);
-    printf("reg2: 0x%016lx\n", reg2);
+    printf("reg1: 0x" TARGET_FMT_lx "\n", reg1);
+    printf("reg2: 0x" TARGET_FMT_lx "\n", reg2);
 }
 
 target_ulong helper_sret(CPURISCVState *env, target_ulong cpu_pc_deb)
