@@ -52,7 +52,8 @@ enum {
     OPC_RISC_FP_ARITH = (0x53),
 };
 
-#define MASK_OP_ARITH(op)   (MASK_OP_MAJOR(op) | (op & ((0x7 << 12) | (0x7F << 25))))
+#define MASK_OP_ARITH(op)   (MASK_OP_MAJOR(op) | (op & ((0x7 << 12) | \
+                            (0x7F << 25))))
 enum {
     OPC_RISC_ADD   = OPC_RISC_ARITH | (0x0 << 12) | (0x00 << 25),
     OPC_RISC_SUB   = OPC_RISC_ARITH | (0x0 << 12) | (0x20 << 25),
@@ -86,8 +87,9 @@ enum {
     OPC_RISC_XORI   = OPC_RISC_ARITH_IMM | (0x4 << 12),
     OPC_RISC_ORI    = OPC_RISC_ARITH_IMM | (0x6 << 12),
     OPC_RISC_ANDI   = OPC_RISC_ARITH_IMM | (0x7 << 12),
-    OPC_RISC_SLLI   = OPC_RISC_ARITH_IMM | (0x1 << 12), // additional part of IMM
-    OPC_RISC_SHIFT_RIGHT_I = OPC_RISC_ARITH_IMM | (0x5 << 12) // SRAI, SRLI
+    OPC_RISC_SLLI   = OPC_RISC_ARITH_IMM | (0x1 << 12), /* additional part of
+                                                           IMM */
+    OPC_RISC_SHIFT_RIGHT_I = OPC_RISC_ARITH_IMM | (0x5 << 12) /* SRAI, SRLI */
 };
 
 #define MASK_OP_BRANCH(op)     (MASK_OP_MAJOR(op) | (op & (0x7 << 12)))
@@ -103,11 +105,14 @@ enum {
 #define MASK_OP_ARITH_IMM_W(op)   (MASK_OP_MAJOR(op) | (op & (0x7 << 12)))
 enum {
     OPC_RISC_ADDIW   = OPC_RISC_ARITH_IMM_W | (0x0 << 12),
-    OPC_RISC_SLLIW   = OPC_RISC_ARITH_IMM_W | (0x1 << 12), // additional part of IMM
-    OPC_RISC_SHIFT_RIGHT_IW = OPC_RISC_ARITH_IMM_W | (0x5 << 12) // SRAI, SRLI
+    OPC_RISC_SLLIW   = OPC_RISC_ARITH_IMM_W | (0x1 << 12), /* additional part of
+                                                              IMM */
+    OPC_RISC_SHIFT_RIGHT_IW = OPC_RISC_ARITH_IMM_W | (0x5 << 12) /* SRAI, SRLI
+                                                                  */
 };
 
-#define MASK_OP_ARITH_W(op)   (MASK_OP_MAJOR(op) | (op & ((0x7 << 12) | (0x7F << 25))))
+#define MASK_OP_ARITH_W(op)   (MASK_OP_MAJOR(op) | (op & ((0x7 << 12) \
+                              | (0x7F << 25))))
 enum {
     OPC_RISC_ADDW   = OPC_RISC_ARITH_W | (0x0 << 12) | (0x00 << 25),
     OPC_RISC_SUBW   = OPC_RISC_ARITH_W | (0x0 << 12) | (0x20 << 25),
@@ -143,10 +148,12 @@ enum {
 };
 
 #define MASK_OP_JALR(op)   (MASK_OP_MAJOR(op) | (op & (0x7 << 12)))
-// no enum since OPC_RISC_JALR is the actual value
+/* no enum since OPC_RISC_JALR is the actual value */
 
-#define MASK_OP_ATOMIC(op)   (MASK_OP_MAJOR(op) | (op & ((0x7 << 12) | (0x7F << 25))))
-#define MASK_OP_ATOMIC_NO_AQ_RL(op)   (MASK_OP_MAJOR(op) | (op & ((0x7 << 12) | (0x1F << 27))))
+#define MASK_OP_ATOMIC(op)   (MASK_OP_MAJOR(op) | (op & ((0x7 << 12) \
+                                                | (0x7F << 25))))
+#define MASK_OP_ATOMIC_NO_AQ_RL(op)   (MASK_OP_MAJOR(op) | (op & ((0x7 << 12)\
+                                                         | (0x1F << 27))))
 enum {
     OPC_RISC_LR_W        = OPC_RISC_ATOMIC | (0x2 << 12) | (0x02 << 27),
     OPC_RISC_SC_W        = OPC_RISC_ATOMIC | (0x2 << 12) | (0x03 << 27),
@@ -230,7 +237,7 @@ enum {
 
 #define MASK_OP_FP_ARITH(op)   (MASK_OP_MAJOR(op) | (op & (0x7F << 25)))
 enum {
-    // float
+    /* float */
     OPC_RISC_FADD_S    = OPC_RISC_FP_ARITH | (0x0 << 25),
     OPC_RISC_FSUB_S    = OPC_RISC_FP_ARITH | (0x4 << 25),
     OPC_RISC_FMUL_S    = OPC_RISC_FP_ARITH | (0x8 << 25),
@@ -264,7 +271,7 @@ enum {
 
     OPC_RISC_FMV_S_X   = OPC_RISC_FP_ARITH | (0x78 << 25),
 
-    // double
+    /* double */
     OPC_RISC_FADD_D    = OPC_RISC_FP_ARITH | (0x1 << 25),
     OPC_RISC_FSUB_D    = OPC_RISC_FP_ARITH | (0x5 << 25),
     OPC_RISC_FMUL_D    = OPC_RISC_FP_ARITH | (0x9 << 25),
@@ -303,9 +310,18 @@ enum {
     OPC_RISC_FMV_D_X   = OPC_RISC_FP_ARITH | (0x79 << 25),
 };
 
-#define GET_B_IMM(inst)              ((int16_t)((((inst >> 25) & 0x3F) << 5) | ((((int32_t)inst) >> 31) << 12) | (((inst >> 8) & 0xF) << 1) | (((inst >> 7) & 0x1) << 11)))  /* THIS BUILDS 13 bit imm (implicit zero is tacked on here), also note that bit #12 is obtained in a special way to get sign extension */
-#define GET_STORE_IMM(inst)           ((int16_t)(((((int32_t)inst) >> 25) << 5) | ((inst >> 7) & 0x1F)))
-#define GET_JAL_IMM(inst)             ((int32_t)((inst & 0xFF000) | (((inst >> 20) & 0x1) << 11) | (((inst >> 21) & 0x3FF) << 1) | ((((int32_t)inst) >> 31) << 20)))
-#define GET_RM(inst)                  ((inst >> 12) & 0x7)
-#define GET_RS3(inst)                 ((inst >> 27) & 0x1F)
+/* THIS BUILDS 13 bit imm (implicit zero is tacked on here), also note that bit
+   #12 is obtained in a special way to get sign extension */
+#define GET_B_IMM(inst)              ((int16_t)((((inst >> 25) & 0x3F) << 5)\
+                                     | ((((int32_t)inst) >> 31) << 12)      \
+                                     | (((inst >> 8) & 0xF) << 1)           \
+                                     | (((inst >> 7) & 0x1) << 11)))
 
+#define GET_STORE_IMM(inst)          ((int16_t)(((((int32_t)inst) >> 25) << 5)\
+                                     | ((inst >> 7) & 0x1F)))
+#define GET_JAL_IMM(inst)            ((int32_t)((inst & 0xFF000) \
+                                     | (((inst >> 20) & 0x1) << 11)\
+                                     | (((inst >> 21) & 0x3FF) << 1)\
+                                     | ((((int32_t)inst) >> 31) << 20)))
+#define GET_RM(inst)                 ((inst >> 12) & 0x7)
+#define GET_RS3(inst)                ((inst >> 27) & 0x1F)

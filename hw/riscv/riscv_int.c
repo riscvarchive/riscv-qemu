@@ -36,19 +36,20 @@
  */
 static void cpu_riscv_irq_request(void *opaque, int irq, int level)
 {
-    // TODO fixup post 1.9
-    // This "irq" number is not a real irq number, just some set of numbers
-    // we choose. These are not the same irq numbers visible to the processor.
+    /* TODO fixup post 1.9
+       This "irq" number is not a real irq number, just some set of numbers
+       we choose. These are not the same irq numbers visible to the
+       processor. */
 
     RISCVCPU *cpu = opaque;
     CPURISCVState *env = &cpu->env;
     CPUState *cs = CPU(cpu);
 
-    // current irqs:
-    // 7: Machine Timer. MIP_MTIP should have already been set
-    // 4: Host Interrupt. mfromhost should have a nonzero value
-    // 3, 2, 1: Interrupts triggered by the CPU. At least one of
-    //    MIP_STIP, MIP_SSIP, MIP_MSIP should already be set
+    /* current irqs:
+       7: Machine Timer. MIP_MTIP should have already been set
+       4: Host Interrupt. mfromhost should have a nonzero value
+       3, 2, 1: Interrupts triggered by the CPU. At least one of
+       MIP_STIP, MIP_SSIP, MIP_MSIP should already be set */
     if (unlikely(irq != 7 && !(irq < 5 && irq > 0))) {
         fprintf(stderr, "Unused IRQ was raised.\n");
         exit(1);
@@ -58,7 +59,7 @@ static void cpu_riscv_irq_request(void *opaque, int irq, int level)
         cpu_interrupt(cs, CPU_INTERRUPT_HARD);
     } else {
         if (!env->csr[CSR_MIP] && !env->mfromhost) {
-            // no interrupts pending, no host interrupt for HTIF, reset
+            /* no interrupts pending, no host interrupt for HTIF, reset */
             cpu_reset_interrupt(cs, CPU_INTERRUPT_HARD);
         }
     }

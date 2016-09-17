@@ -114,7 +114,8 @@ float32 float32_default_nan(float_status *status)
 #if defined(TARGET_SPARC)
     return const_float32(0x7FFFFFFF);
 #elif defined(TARGET_PPC) || defined(TARGET_ARM) || defined(TARGET_ALPHA) || \
-      defined(TARGET_XTENSA) || defined(TARGET_S390X) || defined(TARGET_TRICORE) || defined(TARGET_RISCV)
+      defined(TARGET_XTENSA) || defined(TARGET_S390X) || \
+      defined(TARGET_TRICORE) || defined(TARGET_RISCV)
     return const_float32(0x7FC00000);
 #else
     if (status->snan_bit_is_one) {

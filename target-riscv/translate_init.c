@@ -18,8 +18,8 @@
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
-#define MCPUID_RV64I   (2L << (TARGET_LONG_BITS-2))
-#define MCPUID_RV32I   (1L << (TARGET_LONG_BITS-2))
+#define MCPUID_RV64I   (2L << (TARGET_LONG_BITS - 2))
+#define MCPUID_RV32I   (1L << (TARGET_LONG_BITS - 2))
 #define MCPUID_SUPER   (1L << ('S' - 'A'))
 #define MCPUID_USER    (1L << ('U' - 'A'))
 #define MCPUID_I       (1L << ('I' - 'A'))
@@ -34,12 +34,11 @@ struct riscv_def_t {
 };
 
 /* RISC-V CPU definitions */
-static const riscv_def_t riscv_defs[] =
-{
+static const riscv_def_t riscv_defs[] = {
     {
         .name = "riscv",
 #if defined(TARGET_RISCV64)
-        // RV64G
+        /* RV64G */
         .init_misa_reg = MCPUID_RV64I | MCPUID_SUPER | MCPUID_USER | MCPUID_I
             | MCPUID_M | MCPUID_A | MCPUID_F | MCPUID_D,
 #else
@@ -49,7 +48,7 @@ static const riscv_def_t riscv_defs[] =
     },
 };
 
-static const riscv_def_t *cpu_riscv_find_by_name (const char *name)
+static const riscv_def_t *cpu_riscv_find_by_name(const char *name)
 {
     int i;
     for (i = 0; i < ARRAY_SIZE(riscv_defs); i++) {
@@ -60,7 +59,7 @@ static const riscv_def_t *cpu_riscv_find_by_name (const char *name)
     return NULL;
 }
 
-void riscv_cpu_list (FILE *f, fprintf_function cpu_fprintf)
+void riscv_cpu_list(FILE *f, fprintf_function cpu_fprintf)
 {
     int i;
     for (i = 0; i < ARRAY_SIZE(riscv_defs); i++) {

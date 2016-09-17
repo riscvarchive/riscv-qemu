@@ -41,9 +41,9 @@
 #include "elf_symb.h"
 
 #define ENABLE_CHARDEV
-//#define DEBUG_CHARDEV
-//#define DEBUG_BLKDEV
-//#define DEBUG_HTIF
+/*#define DEBUG_CHARDEV */
+/*#define DEBUG_BLKDEV */
+/*#define DEBUG_HTIF */
 
 
 #ifdef ENABLE_CHARDEV
@@ -69,8 +69,10 @@ static void htif_recv(void *opaque, const uint8_t *buf, int size)
 
     #ifdef DEBUG_CHARDEV
     if (htifstate->env->mfromhost != 0x0) {
-        fprintf(stderr, "recv handler: fromhost was not ready to accept input\n");
-        fprintf(stderr, "recv handler: prev value was: %016lx\n", htifstate->env->mfromhost);
+        fprintf(stderr, "recv handler: fromhost was not ready to \
+                         accept input\n");
+        fprintf(stderr, "recv handler: prev value was: %016lx\n",
+                htifstate->env->mfromhost);
     }
     #endif
 
@@ -109,7 +111,7 @@ const VMStateDescription vmstate_htif = {
     .minimum_version_id = 1,
     .pre_save = htif_pre_save,
     .post_load = htif_post_load,
-    .fields      = (VMStateField []) { // TODO what
+    .fields      = (VMStateField []) { /* TODO what */
         VMSTATE_UINT64(tohost_offset, HTIFState),
         VMSTATE_UINT64(fromhost_offset, HTIFState),
         VMSTATE_UINT64(tohost_size, HTIFState),
@@ -118,23 +120,25 @@ const VMStateDescription vmstate_htif = {
     },
 };
 
-static void dma_strcopy(HTIFState *htifstate, char *str, hwaddr phys_addr) {
+static void dma_strcopy(HTIFState *htifstate, char *str, hwaddr phys_addr)
+{
     int i = 0;
-    void* base_copy_addr = htifstate->main_mem_ram_ptr+phys_addr;
-    while(*(str+i)) {
-        stb_p((void*)(base_copy_addr + i), *(str + i));
+    void *base_copy_addr = htifstate->main_mem_ram_ptr + phys_addr;
+    while (*(str + i)) {
+        stb_p((void *)(base_copy_addr + i), *(str + i));
         i++;
     }
-    stb_p((void*)(base_copy_addr + i), 0); // store null term
+    stb_p((void *)(base_copy_addr + i), 0); /* store null term */
 }
 
-static int htif_block_device_read(HTIFState *htifstate, uint64_t payload) {
+static int htif_block_device_read(HTIFState *htifstate, uint64_t payload)
+{
     request_t req;
     int i;
-    uint8_t* reqptr = (uint8_t*)&req;
-    void *base = htifstate->main_mem_ram_ptr+payload;
+    uint8_t *reqptr = (uint8_t *)&req;
+    void *base = htifstate->main_mem_ram_ptr + payload;
     for (i = 0; i < sizeof(req); i++) {
-        *(reqptr + i) = ldub_p((void*)(base + i));
+        *(reqptr + i) = ldub_p((void *)(base + i));
     }
 
     #ifdef DEBUG_BLKDEV
@@ -145,7 +149,7 @@ static int htif_block_device_read(HTIFState *htifstate, uint64_t payload) {
     fprintf(stderr, "-tag: %016lx\n", req.tag);
     #endif
 
-    uint8_t * copybuf = malloc(req.size * sizeof(uint8_t));
+    uint8_t *copybuf = malloc(req.size * sizeof(uint8_t));
     if (pread(htifstate->block_fd, copybuf, req.size, req.offset) != req.size) {
         printf("FAILED READ\n");
         exit(1);
@@ -154,29 +158,31 @@ static int htif_block_device_read(HTIFState *htifstate, uint64_t payload) {
     base = htifstate->main_mem_ram_ptr + req.addr;
 
     for (i = 0; i < req.size; i++) {
-        stb_p((void*)(base + i), copybuf[i]);
+        stb_p((void *)(base + i), copybuf[i]);
     }
     free(copybuf);
     return req.tag;
 }
 
-static int htif_block_device_write(HTIFState *htifstate, uint64_t payload) {
+static int htif_block_device_write(HTIFState *htifstate, uint64_t payload)
+{
     request_t req;
     int i;
-    uint8_t* reqptr = (uint8_t*)&req;
-    void* base = htifstate->main_mem_ram_ptr + payload;
+    uint8_t *reqptr = (uint8_t *)&req;
+    void *base = htifstate->main_mem_ram_ptr + payload;
     for (i = 0; i < sizeof(req); i++) {
-        *(reqptr + i) = ldub_p((void*)(base + i));
+        *(reqptr + i) = ldub_p((void *)(base + i));
     }
 
-    uint8_t * copybuf = malloc(req.size * sizeof(uint8_t));
+    uint8_t *copybuf = malloc(req.size * sizeof(uint8_t));
 
     base = htifstate->main_mem_ram_ptr + req.addr;
     for (i = 0; i < req.size; i++) {
-        copybuf[i] = ldub_p((void*)(base + i));
+        copybuf[i] = ldub_p((void *)(base + i));
     }
 
-    if (pwrite(htifstate->block_fd, copybuf, req.size, req.offset) != req.size) {
+    if (pwrite(htifstate->block_fd, copybuf, req.size, req.offset)
+        != req.size) {
         printf("FAILED WRITE\n");
         exit(1);
     }
@@ -185,8 +191,8 @@ static int htif_block_device_write(HTIFState *htifstate, uint64_t payload) {
     return req.tag;
 }
 
-static void htif_handle_tohost_write(HTIFState *htifstate, uint64_t val_written) {
-
+static void htif_handle_tohost_write(HTIFState *htifstate, uint64_t val_written)
+{
     #ifdef DEBUG_HTIF
     fprintf(stderr, "TOHOST WRITE WITH val 0x%016lx\n", val_written);
     #endif
@@ -200,9 +206,10 @@ static void htif_handle_tohost_write(HTIFState *htifstate, uint64_t val_written)
     uint8_t what = payload & 0xFF;
     int resp;
 
-    resp = 0; // stop gcc complaining
+    resp = 0; /* stop gcc complaining */
     #ifdef DEBUG_HTIF
-    fprintf(stderr, "mtohost write:\n-device: %d\n-cmd: %d\n-what: %02lx\n-payload: %016lx\n", device, cmd, payload & 0xFF, payload);
+    fprintf(stderr, "mtohost write:\n-device: %d\n-cmd: %d\n-what: %02lx\n\
+                     -payload: %016lx\n", device, cmd, payload & 0xFF, payload);
     #endif
 
     /*
@@ -212,15 +219,16 @@ static void htif_handle_tohost_write(HTIFState *htifstate, uint64_t val_written)
      * 2: Block Device
      */
     if (unlikely(device == 0x0)) {
-        // frontend syscall handler
+        /* frontend syscall handler */
         if (cmd == 0x0) {
             #ifdef DEBUG_HTIF
             fprintf(stderr, "frontend syscall handler\n");
             #endif
             if (payload & 0x1) {
-                // test result
+                /* test result */
                 if (payload >> 1) {
-                    printf("*** FAILED *** (exitcode = %016lx)\n", payload >> 1);
+                    printf("*** FAILED *** (exitcode = %016lx)\n",
+                           payload >> 1);
                 } else {
                     printf("TEST PASSED\n");
                 }
@@ -228,81 +236,81 @@ static void htif_handle_tohost_write(HTIFState *htifstate, uint64_t val_written)
             }
             resp = handle_frontend_syscall(htifstate, payload);
         } else if (cmd == 0xFF) {
-            // use what
+            /* use what */
             if (what == 0xFF) {
                 #ifdef DEBUG_HTIF
                 fprintf(stderr, "registering name\n");
                 #endif
-                dma_strcopy(htifstate, (char*)"syscall_proxy", real_addr);
+                dma_strcopy(htifstate, (char *)"syscall_proxy", real_addr);
             } else if (what == 0x0) {
                 #ifdef DEBUG_HTIF
                 fprintf(stderr, "registering syscall cmd\n");
                 #endif
-                dma_strcopy(htifstate, (char*)"syscall", real_addr);
+                dma_strcopy(htifstate, (char *)"syscall", real_addr);
             } else {
                 #ifdef DEBUG_HTIF
                 fprintf(stderr, "registering end of cmds list\n");
                 #endif
-                dma_strcopy(htifstate, (char*)"", real_addr);
+                dma_strcopy(htifstate, (char *)"", real_addr);
             }
-            resp = 0x1; // write to indicate device name placed
+            resp = 0x1; /* write to indicate device name placed */
         } else {
             fprintf(stderr, "HTIF device %d: UNKNOWN COMMAND\n", device);
             exit(1);
         }
     } else if (likely(device == 0x1)) {
-        // HTIF Console
+        /* HTIF Console */
         if (cmd == 0x0) {
-            // this should be a queue, but not yet implemented as such
+            /* this should be a queue, but not yet implemented as such */
             htifstate->pending_read = val_written;
-            htifstate->env->mtohost = 0; // clear to indicate we read
+            htifstate->env->mtohost = 0; /* clear to indicate we read */
             return;
         } else if (cmd == 0x1) {
             #ifdef ENABLE_CHARDEV
-            qemu_chr_fe_write(htifstate->chr, (uint8_t*)&payload, 1);
+            qemu_chr_fe_write(htifstate->chr, (uint8_t *)&payload, 1);
             #endif
             resp = 0x100 | (uint8_t)payload;
         } else if (cmd == 0xFF) {
-            // use what
+            /* use what */
             if (what == 0xFF) {
                 #ifdef DEBUG_HTIF
                 fprintf(stderr, "registering name\n");
                 #endif
-                dma_strcopy(htifstate, (char*)"bcd", real_addr);
+                dma_strcopy(htifstate, (char *)"bcd", real_addr);
             } else if (what == 0x0) {
                 #ifdef DEBUG_HTIF
                 fprintf(stderr, "registering read cmd\n");
                 #endif
-                dma_strcopy(htifstate, (char*)"read", real_addr);
+                dma_strcopy(htifstate, (char *)"read", real_addr);
             } else if (what == 0x1) {
                 #ifdef DEBUG_HTIF
                 fprintf(stderr, "registering write cmd\n");
                 #endif
-                dma_strcopy(htifstate, (char*)"write", real_addr);
+                dma_strcopy(htifstate, (char *)"write", real_addr);
             } else {
                 #ifdef DEBUG_HTIF
                 fprintf(stderr, "registering end of cmds list\n");
                 #endif
-                dma_strcopy(htifstate, (char*)"", real_addr);
+                dma_strcopy(htifstate, (char *)"", real_addr);
             }
-            resp = 0x1; // write to indicate device name placed
+            resp = 0x1; /* write to indicate device name placed */
         } else {
             fprintf(stderr, "HTIF device %d: UNKNOWN COMMAND\n", device);
             exit(1);
         }
     } else if (device == 0x2 && htifstate->block_dev_present) {
-        // HTIF Block Device
+        /* HTIF Block Device */
         if (unlikely(cmd == 0xFF)) {
-            if (what == 0xFF) { // register
+            if (what == 0xFF) { /* register */
                 dma_strcopy(htifstate, htifstate->real_name, real_addr);
             } else if (what == 0x0) {
-                dma_strcopy(htifstate, (char*)"read", real_addr);
+                dma_strcopy(htifstate, (char *)"read", real_addr);
             } else if (what == 0x1) {
-                dma_strcopy(htifstate, (char*)"write", real_addr);
+                dma_strcopy(htifstate, (char *)"write", real_addr);
             } else {
-                dma_strcopy(htifstate, (char*)"", real_addr);
+                dma_strcopy(htifstate, (char *)"", real_addr);
             }
-            resp = 0x1; // write to indicate device name placed
+            resp = 0x1; /* write to indicate device name placed */
         } else if (cmd == 0x0) {
             #ifdef DEBUG_HTIF
             fprintf(stderr, "DOING DISK READ\n");
@@ -316,35 +324,39 @@ static void htif_handle_tohost_write(HTIFState *htifstate, uint64_t val_written)
         } else {
             fprintf(stderr, "HTIF device %d: UNKNOWN COMMAND\n", device);
             exit(1);
+
         }
-    } else if (device == 0x3 && cmd == 0xFF && what == 0xFF) { // all other devices
+    /* all other devices */
+    } else if (device == 0x3 && cmd == 0xFF && what == 0xFF) {
         #ifdef DEBUG_HTIF
         fprintf(stderr, "registering no device as last\n");
         #endif
-        stb_p((void*)(htifstate->main_mem_ram_ptr+real_addr), 0);
-        resp = 0x1; // write to indicate device name placed
+        stb_p((void *)(htifstate->main_mem_ram_ptr + real_addr), 0);
+        resp = 0x1; /* write to indicate device name placed */
     } else {
         fprintf(stderr, "HTIF UNKNOWN DEVICE OR COMMAND!\n");
-        fprintf(stderr, "-device: %d\n-cmd: %d\n-what: %02lx\n-payload: %016lx\n", device, cmd, payload & 0xFF, payload);
+        fprintf(stderr, "-device: %d\n-cmd: %d\n-what: %02lx\n-payload: \
+                         %016lx\n", device, cmd, payload & 0xFF, payload);
         exit(1);
     }
-    while (!htifstate->fromhost_inprogress && htifstate->env->mfromhost != 0x0) {
-        // wait
+    while (!htifstate->fromhost_inprogress &&
+            htifstate->env->mfromhost != 0x0) {
+        /* wait */
     }
     htifstate->env->mfromhost = (val_written >> 48 << 48) | (resp << 16 >> 16);
-    htifstate->env->mtohost = 0; // clear to indicate we read
+    htifstate->env->mtohost = 0; /* clear to indicate we read */
     if (htifstate->env->mfromhost != 0) {
-        // raise HTIF interrupt
+        /* raise HTIF interrupt */
         qemu_irq_raise(htifstate->irq);
     }
 }
 
-#define TOHOST_OFFSET1 htifstate->tohost_offset
-#define TOHOST_OFFSET2 (htifstate->tohost_offset+4)
-#define FROMHOST_OFFSET1 htifstate->fromhost_offset
-#define FROMHOST_OFFSET2 (htifstate->fromhost_offset+4)
+#define TOHOST_OFFSET1 (htifstate->tohost_offset)
+#define TOHOST_OFFSET2 (htifstate->tohost_offset + 4)
+#define FROMHOST_OFFSET1 (htifstate->fromhost_offset)
+#define FROMHOST_OFFSET2 (htifstate->fromhost_offset + 4)
 
-// CPU wants to read an HTIF register
+/* CPU wants to read an HTIF register */
 static uint64_t htif_mm_read(void *opaque, hwaddr addr, unsigned size)
 {
     HTIFState *htifstate = opaque;
@@ -362,7 +374,7 @@ static uint64_t htif_mm_read(void *opaque, hwaddr addr, unsigned size)
     }
 }
 
-// CPU wrote to an HTIF register
+/* CPU wrote to an HTIF register */
 static void htif_mm_write(void *opaque, hwaddr addr,
                             uint64_t value, unsigned size)
 {
@@ -375,9 +387,9 @@ static void htif_mm_write(void *opaque, hwaddr addr,
 #ifdef DEBUG_HTIF
                 fprintf(stderr, "Using non-8 htif width\n");
 #endif
-                // tests have a zero tohost size in elf symb tab and they 
-                // use sw to write to mm_write, so TOHOST_OFFSET2 will never
-                // be written to. Thus, initiate side effects here.
+                /* tests have a zero tohost size in elf symb tab and they
+                   use sw to write to mm_write, so TOHOST_OFFSET2 will never
+                   be written to. Thus, initiate side effects here. */
                 htif_handle_tohost_write(htifstate, htifstate->env->mtohost);
             }
         } else {
@@ -411,46 +423,48 @@ static const MemoryRegionOps htif_mm_ops[3] = {
     },
 };
 
-HTIFState *htif_mm_init(MemoryRegion *address_space, const char* kernel_filename, 
-           qemu_irq irq, MemoryRegion *main_mem,
+HTIFState *htif_mm_init(MemoryRegion *address_space,
+           const char *kernel_filename, qemu_irq irq, MemoryRegion *main_mem,
            const char *kernel_cmdline, CPURISCVState *env, CharDriverState *chr)
 {
     uint64_t fromhost_addr = 0;
-    uint64_t fromhost_size = 0; // for pk vs tests
+    uint64_t fromhost_size = 0; /* for pk vs tests */
     uint64_t tohost_addr = 0;
-    uint64_t tohost_size = 0; // for pk vs tests
- 
-    // get fromhost/tohost addresses from the ELF, as spike/fesvr do
+    uint64_t tohost_size = 0; /* for pk vs tests */
+
+    /* get fromhost/tohost addresses from the ELF, as spike/fesvr do */
     if (NULL != kernel_filename) {
-#if defined(TARGET_RISCV64)       
-        Elf_obj * e = elf_open(kernel_filename);
+#if defined(TARGET_RISCV64)
+        Elf_obj *e = elf_open(kernel_filename);
 #else
-        Elf_obj32 * e = elf_open32(kernel_filename);
+        Elf_obj32 *e = elf_open32(kernel_filename);
 #endif
 
-        const char * fromhost = "fromhost";
-        const char * tohost = "tohost";
+        const char *fromhost = "fromhost";
+        const char *tohost = "tohost";
 
-#if defined(TARGET_RISCV64)       
-        Elf64_Sym * curr_sym = elf_firstsym(e);
+#if defined(TARGET_RISCV64)
+        Elf64_Sym *curr_sym = elf_firstsym(e);
 #else
-        Elf32_Sym * curr_sym = elf_firstsym32(e);
+        Elf32_Sym *curr_sym = elf_firstsym32(e);
 #endif
         while (curr_sym) {
-#if defined(TARGET_RISCV64)       
-            char * symname = elf_symname(e, curr_sym);
+#if defined(TARGET_RISCV64)
+            char *symname = elf_symname(e, curr_sym);
 #else
-            char * symname = elf_symname32(e, curr_sym);
+            char *symname = elf_symname32(e, curr_sym);
 #endif
 
             if (strcmp(fromhost, symname) == 0) {
-                // get fromhost addr
+                /* get fromhost addr */
                 fromhost_addr = curr_sym->st_value;
-                fromhost_size = curr_sym->st_size; // this is correctly set to 8 by pk
+                fromhost_size = curr_sym->st_size; /* this is correctly set to 8
+                                                      by pk */
             } else if (strcmp(tohost, symname) == 0) {
-                // get tohost addr
+                /* get tohost addr */
                 tohost_addr = curr_sym->st_value;
-                tohost_size = curr_sym->st_size; // this is correctly set to 8 by pk
+                tohost_size = curr_sym->st_size; /* this is correctly set to 8
+                                                    by pk */
             }
 #if defined(TARGET_RISCV64)
             curr_sym = elf_nextsym(e, curr_sym);
@@ -460,7 +474,7 @@ HTIFState *htif_mm_init(MemoryRegion *address_space, const char* kernel_filename
         }
     }
 
-    // now setup HTIF device
+    /* now setup HTIF device */
     HTIFState *htifstate;
 
     htifstate = g_malloc0(sizeof(HTIFState));
@@ -477,24 +491,28 @@ HTIFState *htif_mm_init(MemoryRegion *address_space, const char* kernel_filename
     htifstate->tohost_size = tohost_size;
 
 #ifdef ENABLE_CHARDEV
-    qemu_chr_add_handlers(htifstate->chr, htif_can_recv, htif_recv, htif_event, htifstate);
+    qemu_chr_add_handlers(htifstate->chr, htif_can_recv, htif_recv, htif_event,
+                          htifstate);
 #endif
 
     uint64_t base = tohost_addr < fromhost_addr ? tohost_addr : fromhost_addr;
     uint64_t second = tohost_addr < fromhost_addr ? fromhost_addr : tohost_addr;
     uint64_t regionwidth = second - base + 8;
 
-    htifstate->tohost_offset = base == tohost_addr ? 0 : tohost_addr - fromhost_addr;
-    htifstate->fromhost_offset = base == fromhost_addr ? 0 : fromhost_addr - tohost_addr;
+    htifstate->tohost_offset = base == tohost_addr ? 0 : tohost_addr -
+                                                         fromhost_addr;
+    htifstate->fromhost_offset = base == fromhost_addr ? 0 : fromhost_addr -
+                                                             tohost_addr;
 
     vmstate_register(NULL, base, &vmstate_htif, htifstate);
 
-    memory_region_init_io(&htifstate->io, NULL, &htif_mm_ops[DEVICE_LITTLE_ENDIAN],
-            htifstate, "htif", regionwidth);
+    memory_region_init_io(&htifstate->io, NULL,
+                          &htif_mm_ops[DEVICE_LITTLE_ENDIAN],
+                           htifstate, "htif", regionwidth);
     memory_region_add_subregion(address_space, base, &htifstate->io);
 
-    // save kernel_cmdline for sys_getmainvars
-    htifstate->kernel_cmdline = malloc(strlen(kernel_cmdline)+1);
+    /* save kernel_cmdline for sys_getmainvars */
+    htifstate->kernel_cmdline = malloc(strlen(kernel_cmdline) + 1);
     strcpy(htifstate->kernel_cmdline, kernel_cmdline);
     return htifstate;
 }
