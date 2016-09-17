@@ -27,33 +27,36 @@
 #include <signal.h>
 #include "cpu.h"
 
-//#define RISCV_DEBUG_INTERRUPT
+/*#define RISCV_DEBUG_INTERRUPT */
 
 #if !defined(CONFIG_USER_ONLY)
 
-// TODO duplicated in op_helper.c
+/* TODO duplicated in op_helper.c */
 int validate_priv2(target_ulong priv);
 
-int validate_priv2(target_ulong priv) {
+int validate_priv2(target_ulong priv)
+{
     return priv == PRV_U || priv == PRV_S || priv == PRV_M;
 }
 
-// TODO duplicated in op_helper.c
+/* TODO duplicated in op_helper.c */
 void set_privilege2(CPURISCVState *env, target_ulong newpriv);
 
-void set_privilege2(CPURISCVState *env, target_ulong newpriv) {
+void set_privilege2(CPURISCVState *env, target_ulong newpriv)
+{
     if (!validate_priv2(newpriv)) {
         printf("INVALID PRIV SET\n");
         exit(1);
     }
-    // copied body of helper_tlb_flush for now
+    /* copied body of helper_tlb_flush for now */
     RISCVCPU *cpu = riscv_env_get_cpu(env);
     tlb_flush(CPU(cpu), 1);
     env->priv = newpriv;
 }
 
 
-bool riscv_cpu_exec_interrupt(CPUState *cs, int interrupt_request) {
+bool riscv_cpu_exec_interrupt(CPUState *cs, int interrupt_request)
+{
     if (interrupt_request & CPU_INTERRUPT_HARD) {
         RISCVCPU *cpu = RISCV_CPU(cs);
         CPURISCVState *env = &cpu->env;
@@ -74,7 +77,7 @@ bool riscv_cpu_exec_interrupt(CPUState *cs, int interrupt_request) {
  *
  * Returns 0 if the translation was successful
 */
-static int get_physical_address (CPURISCVState *env, hwaddr *physical,
+static int get_physical_address(CPURISCVState *env, hwaddr *physical,
                                 int *prot, target_ulong address,
                                 MMUAccessType access_type, int mmu_idx)
 {
@@ -87,22 +90,23 @@ static int get_physical_address (CPURISCVState *env, hwaddr *physical,
 
     target_ulong mode = env->priv;
     if (access_type != MMU_INST_FETCH) {
-         if(get_field(env->csr[CSR_MSTATUS], MSTATUS_MPRV)) {
-             mode = get_field(env->csr[CSR_MSTATUS], MSTATUS_MPP);
-         }
+        if (get_field(env->csr[CSR_MSTATUS], MSTATUS_MPRV)) {
+            mode = get_field(env->csr[CSR_MSTATUS], MSTATUS_MPP);
+        }
     }
     if (get_field(env->csr[CSR_MSTATUS], MSTATUS_VM) == VM_MBARE) {
         mode = PRV_M;
     }
 
-    // check to make sure that mmu_idx and mode that we get matches
+    /* check to make sure that mmu_idx and mode that we get matches */
     if (unlikely(mode != mmu_idx)) {
         fprintf(stderr, "MODE, mmu_idx mismatch\n");
         exit(1);
     }
 
     if (mode == PRV_M) {
-        target_ulong msb_mask = (2L << (TARGET_LONG_BITS-1))-1; //0x7FFFFFFFFFFFFFFF;
+        target_ulong msb_mask = (2L << (TARGET_LONG_BITS - 1)) - 1;
+                                        /*0x7FFFFFFFFFFFFFFF; */
         *physical = address & msb_mask;
         *prot = PAGE_READ | PAGE_WRITE | PAGE_EXEC;
         return TRANSLATE_SUCCESS;
@@ -114,31 +118,30 @@ static int get_physical_address (CPURISCVState *env, hwaddr *physical,
     int mxr = get_field(env->csr[CSR_MSTATUS], MSTATUS_MXR);
 
     int levels, ptidxbits, ptesize;
-    switch (get_field(env->csr[CSR_MSTATUS], MSTATUS_VM))
-    {
-      case VM_SV32:
-          levels = 2;
-          ptidxbits = 10;
-          ptesize = 4;
-          break;
-      case VM_SV39:
-          levels = 3;
-          ptidxbits = 9;
-          ptesize = 8;
-          break;
-      case VM_SV48:
-          levels = 4;
-          ptidxbits = 9;
-          ptesize = 8;
-          break;
-      default:
-          printf("unsupported MSTATUS_VM value\n");
-          exit(1);
+    switch (get_field(env->csr[CSR_MSTATUS], MSTATUS_VM)) {
+    case VM_SV32:
+      levels = 2;
+      ptidxbits = 10;
+      ptesize = 4;
+      break;
+    case VM_SV39:
+      levels = 3;
+      ptidxbits = 9;
+      ptesize = 8;
+      break;
+    case VM_SV48:
+      levels = 4;
+      ptidxbits = 9;
+      ptesize = 8;
+      break;
+    default:
+      printf("unsupported MSTATUS_VM value\n");
+      exit(1);
     }
 
     int va_bits = PGSHIFT + levels * ptidxbits;
-    target_ulong mask = (1L << (TARGET_LONG_BITS - (va_bits-1))) - 1;
-    target_ulong masked_msbs = (addr >> (va_bits-1)) & mask;
+    target_ulong mask = (1L << (TARGET_LONG_BITS - (va_bits - 1))) - 1;
+    target_ulong masked_msbs = (addr >> (va_bits - 1)) & mask;
     if (masked_msbs != 0 && masked_msbs != mask) {
         return TRANSLATE_FAIL;
     }
@@ -147,12 +150,13 @@ static int get_physical_address (CPURISCVState *env, hwaddr *physical,
     int ptshift = (levels - 1) * ptidxbits;
     int i;
     for (i = 0; i < levels; i++, ptshift -= ptidxbits) {
-        target_ulong idx = (addr >> (PGSHIFT + ptshift)) & ((1 << ptidxbits) - 1);
+        target_ulong idx = (addr >> (PGSHIFT + ptshift)) &
+                           ((1 << ptidxbits) - 1);
 
-        // check that physical address of PTE is legal
+        /* check that physical address of PTE is legal */
         target_ulong pte_addr = base + idx * ptesize;
 
-        // PTE must reside in memory
+        /* PTE must reside in memory */
         if (!(pte_addr >= DRAM_BASE && pte_addr < (DRAM_BASE + env->memsize))) {
             printf("PTE was not in DRAM region\n");
             exit(1);
@@ -162,31 +166,32 @@ static int get_physical_address (CPURISCVState *env, hwaddr *physical,
         target_ulong pte = ldq_phys(cs->as, pte_addr);
         target_ulong ppn = pte >> PTE_PPN_SHIFT;
 
-        if (PTE_TABLE(pte)) { // next level of page table
+        if (PTE_TABLE(pte)) { /* next level of page table */
             base = ppn << PGSHIFT;
         } else if ((pte & PTE_U) ? supervisor && pum : !supervisor) {
             break;
         } else if (!(pte & PTE_V) || (!(pte & PTE_R) && (pte & PTE_W))) {
             break;
         } else if (access_type == MMU_INST_FETCH ? !(pte & PTE_X) :
-                   access_type == MMU_DATA_LOAD ?  !(pte & PTE_R) && !(mxr && (pte & PTE_X)) :
-                                   !((pte & PTE_R) && (pte & PTE_W))) {
+                  access_type == MMU_DATA_LOAD ?  !(pte & PTE_R) &&
+                  !(mxr && (pte & PTE_X)) : !((pte & PTE_R) && (pte & PTE_W))) {
             break;
         } else {
-            // set accessed and possibly dirty bits.
-            // we only put it in the TLB if it has the right stuff
+            /* set accessed and possibly dirty bits.
+               we only put it in the TLB if it has the right stuff */
             stq_phys(cs->as, pte_addr, ldq_phys(cs->as, pte_addr) | PTE_A |
                     ((access_type == MMU_DATA_STORE) * PTE_D));
 
-            // for superpage mappings, make a fake leaf PTE for the TLB's benefit.
+            /* for superpage mappings, make a fake leaf PTE for the TLB's
+               benefit. */
             target_ulong vpn = addr >> PGSHIFT;
             *physical = (ppn | (vpn & ((1L << ptshift) - 1))) << PGSHIFT;
 
-            // we do not give all prots indicated by the PTE
-            // this is because future accesses need to do things like set the
-            // dirty bit on the PTE
-            //
-            // at this point, we assume that protection checks have occurred
+            /* we do not give all prots indicated by the PTE
+             * this is because future accesses need to do things like set the
+             * dirty bit on the PTE
+             *
+             * at this point, we assume that protection checks have occurred */
             if (supervisor) {
                 if ((pte & PTE_X) && access_type == MMU_INST_FETCH) {
                     *prot |= PAGE_EXEC;
@@ -222,13 +227,13 @@ static void raise_mmu_exception(CPURISCVState *env, target_ulong address,
 {
     CPUState *cs = CPU(riscv_env_get_cpu(env));
     int exception = 0;
-    if (access_type == MMU_INST_FETCH) { // inst access
+    if (access_type == MMU_INST_FETCH) { /* inst access */
         exception = RISCV_EXCP_INST_ACCESS_FAULT;
         env->badaddr = address;
-    } else if (access_type == MMU_DATA_STORE) { // store access
+    } else if (access_type == MMU_DATA_STORE) { /* store access */
         exception = RISCV_EXCP_STORE_AMO_ACCESS_FAULT;
         env->badaddr = address;
-    } else if (access_type == MMU_DATA_LOAD) { // load access
+    } else if (access_type == MMU_DATA_LOAD) { /* load access */
         exception = RISCV_EXCP_LOAD_ACCESS_FAULT;
         env->badaddr = address;
     } else {
@@ -257,28 +262,30 @@ hwaddr riscv_cpu_get_phys_page_debug(CPUState *cs, vaddr addr)
  *
  * Assuming system mode, only called in target-riscv/op_helper:tlb_fill
  */
-int riscv_cpu_handle_mmu_fault(CPUState *cs, vaddr address, 
+int riscv_cpu_handle_mmu_fault(CPUState *cs, vaddr address,
         MMUAccessType access_type, int mmu_idx)
 {
     RISCVCPU *cpu = RISCV_CPU(cs);
     CPURISCVState *env = &cpu->env;
     hwaddr physical;
-    physical = 0; // stop gcc complaining
+    physical = 0; /* stop gcc complaining */
     int prot;
     int ret = 0;
 
-    qemu_log_mask(CPU_LOG_MMU, 
-            "%s pc " TARGET_FMT_lx " ad %" VADDR_PRIx " access_type %d mmu_idx %d\n",
-              __func__, env->PC, address, access_type, mmu_idx);
+    qemu_log_mask(CPU_LOG_MMU,
+            "%s pc " TARGET_FMT_lx " ad %" VADDR_PRIx " access_type %d mmu_idx \
+             %d\n", __func__, env->PC, address, access_type, mmu_idx);
 
-    ret = get_physical_address(env, &physical, &prot, address, access_type, mmu_idx);
-    qemu_log_mask(CPU_LOG_MMU, 
+    ret = get_physical_address(env, &physical, &prot, address, access_type,
+                               mmu_idx);
+    qemu_log_mask(CPU_LOG_MMU,
             "%s address=%" VADDR_PRIx " ret %d physical " TARGET_FMT_plx
              " prot %d\n",
              __func__, address, ret, physical, prot);
     if (ret == TRANSLATE_SUCCESS) {
-        tlb_set_page(cs, address & TARGET_PAGE_MASK, physical & TARGET_PAGE_MASK,
-                prot, mmu_idx, TARGET_PAGE_SIZE);
+        tlb_set_page(cs, address & TARGET_PAGE_MASK,
+                     physical & TARGET_PAGE_MASK,
+                     prot, mmu_idx, TARGET_PAGE_SIZE);
     } else if (ret == TRANSLATE_FAIL) {
         raise_mmu_exception(env, address, access_type);
     }
@@ -310,14 +317,14 @@ static const char * const riscv_interrupt_names[14] = {
     "S Timer interrupt",
     "H Timer interrupt",
     "M Timer interrupt",
-    "", 
+    "",
     "S Ext interrupt",
     "H Ext interrupt",
     "M Ext interrupt",
     "COP interrupt",
     "Host interrupt"
 };
-#endif     // RISCV_DEBUG_INTERRUPT
+#endif     /* RISCV_DEBUG_INTERRUPT */
 
 /* handle traps. similar to take_trap in spike */
 void riscv_cpu_do_interrupt(CPUState *cs)
@@ -327,12 +334,12 @@ void riscv_cpu_do_interrupt(CPUState *cs)
 
     #ifdef RISCV_DEBUG_INTERRUPT
     if (cs->exception_index & 0x70000000) {
-        fprintf(stderr, "core   0: exception trap_%s, epc 0x" TARGET_FMT_lx "\n",
-                riscv_interrupt_names[cs->exception_index & 0x0fffffff], 
+        fprintf(stderr, "core   0: exception trap_%s, epc 0x" TARGET_FMT_lx "\n"
+                , riscv_interrupt_names[cs->exception_index & 0x0fffffff],
                 env->PC);
     } else {
-        fprintf(stderr, "core   0: exception trap_%s, epc 0x" TARGET_FMT_lx "\n",
-                riscv_excp_names[cs->exception_index], env->PC);
+        fprintf(stderr, "core   0: exception trap_%s, epc 0x" TARGET_FMT_lx "\n"
+                , riscv_excp_names[cs->exception_index], env->PC);
     }
     #endif
 
@@ -340,30 +347,30 @@ void riscv_cpu_do_interrupt(CPUState *cs)
         fprintf(stderr, "debug mode not implemented\n");
     }
 
-    // skip dcsr cause check
+    /* skip dcsr cause check */
 
     target_ulong fixed_cause = 0;
     if (cs->exception_index & (0x70000000)) {
-        // hacky for now. the MSB (bit 63) indicates interrupt but cs->exception
-        // index is only 32 bits wide
+        /* hacky for now. the MSB (bit 63) indicates interrupt but cs->exception
+           index is only 32 bits wide */
         fixed_cause = cs->exception_index & 0x0FFFFFFF;
         fixed_cause |= (1L << 63);
     } else {
-        // fixup User ECALL -> correct priv ECALL
+        /* fixup User ECALL -> correct priv ECALL */
         if (cs->exception_index == RISCV_EXCP_U_ECALL) {
-            switch(env->priv) {
-                case PRV_U:
-                    fixed_cause = RISCV_EXCP_U_ECALL;
-                    break;
-                case PRV_S:
-                    fixed_cause = RISCV_EXCP_S_ECALL;
-                    break;
-                case PRV_H:
-                    fixed_cause = RISCV_EXCP_H_ECALL;
-                    break;
-                case PRV_M:
-                    fixed_cause = RISCV_EXCP_M_ECALL;
-                    break;
+            switch (env->priv) {
+            case PRV_U:
+                fixed_cause = RISCV_EXCP_U_ECALL;
+                break;
+            case PRV_S:
+                fixed_cause = RISCV_EXCP_S_ECALL;
+                break;
+            case PRV_H:
+                fixed_cause = RISCV_EXCP_H_ECALL;
+                break;
+            case PRV_M:
+                fixed_cause = RISCV_EXCP_M_ECALL;
+                break;
             }
         } else {
             fixed_cause = cs->exception_index;
@@ -375,31 +382,32 @@ void riscv_cpu_do_interrupt(CPUState *cs)
     target_ulong bit = fixed_cause;
     target_ulong deleg = env->csr[CSR_MEDELEG];
 
-    int hasbadaddr = 
+    int hasbadaddr =
         (fixed_cause == RISCV_EXCP_INST_ADDR_MIS) ||
         (fixed_cause == RISCV_EXCP_INST_ACCESS_FAULT) ||
-        (fixed_cause == RISCV_EXCP_LOAD_ADDR_MIS) || 
+        (fixed_cause == RISCV_EXCP_LOAD_ADDR_MIS) ||
         (fixed_cause == RISCV_EXCP_STORE_AMO_ADDR_MIS) ||
         (fixed_cause == RISCV_EXCP_LOAD_ACCESS_FAULT) ||
         (fixed_cause == RISCV_EXCP_STORE_AMO_ACCESS_FAULT);
 
-    if (bit & ((target_ulong)1 << (TARGET_LONG_BITS-1))) {
-        deleg = env->csr[CSR_MIDELEG], bit &= ~(1L << (TARGET_LONG_BITS-1));
+    if (bit & ((target_ulong)1 << (TARGET_LONG_BITS - 1))) {
+        deleg = env->csr[CSR_MIDELEG], bit &= ~(1L << (TARGET_LONG_BITS - 1));
     }
 
     if (env->priv <= PRV_S && bit < 64 && ((deleg >> bit) & 1)) {
-        // handle the trap in S-mode
+        /* handle the trap in S-mode */
         env->PC = env->csr[CSR_STVEC];
-        env->csr[CSR_SCAUSE] = fixed_cause;  
+        env->csr[CSR_SCAUSE] = fixed_cause;
         env->csr[CSR_SEPC] = backup_epc;
 
         if (hasbadaddr) {
             #ifdef RISCV_DEBUG_INTERRUPT
-            fprintf(stderr, "core   0: badaddr 0x" TARGET_FMT_lx "\n", env->badaddr);
+            fprintf(stderr, "core   0: badaddr 0x" TARGET_FMT_lx "\n",
+                    env->badaddr);
             #endif
             env->csr[CSR_SBADADDR] = env->badaddr;
         }
-  
+
         target_ulong s = env->csr[CSR_MSTATUS];
         s = set_field(s, MSTATUS_SPIE, get_field(s, MSTATUS_UIE << env->priv));
         s = set_field(s, MSTATUS_SPP, env->priv);
@@ -409,11 +417,12 @@ void riscv_cpu_do_interrupt(CPUState *cs)
     } else {
         env->PC = env->csr[CSR_MTVEC];
         env->csr[CSR_MEPC] = backup_epc;
-        env->csr[CSR_MCAUSE] = fixed_cause;  
-        
+        env->csr[CSR_MCAUSE] = fixed_cause;
+
         if (hasbadaddr) {
             #ifdef RISCV_DEBUG_INTERRUPT
-            fprintf(stderr, "core   0: badaddr 0x" TARGET_FMT_lx "\n", env->badaddr);
+            fprintf(stderr, "core   0: badaddr 0x" TARGET_FMT_lx "\n",
+                    env->badaddr);
             #endif
             env->csr[CSR_MBADADDR] = env->badaddr;
         }
@@ -425,7 +434,7 @@ void riscv_cpu_do_interrupt(CPUState *cs)
         csr_write_helper(env, s, CSR_MSTATUS);
         set_privilege2(env, PRV_M);
     }
-    // TODO yield load reservation 
+    /* TODO yield load reservation  */
 
-    cs->exception_index = EXCP_NONE; // mark handled to qemu
+    cs->exception_index = EXCP_NONE; /* mark handled to qemu */
 }

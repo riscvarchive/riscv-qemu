@@ -23,9 +23,9 @@
 #include "exec/gdbstub.h"
 #include "cpu.h"
 
-// TODO: fix after priv 1.9 bump
+/* TODO: fix after priv 1.9 bump */
 
-// map to CSR NOs for GDB
+/* map to CSR NOs for GDB */
 /*int indexed_csrs[] = {
     CSR_FFLAGS,
     CSR_FRM,
@@ -98,7 +98,7 @@
 
 int riscv_cpu_gdb_read_register(CPUState *cs, uint8_t *mem_buf, int n)
 {
-    /*
+#if 0
     RISCVCPU *cpu = RISCV_CPU(cs);
     CPURISCVState *env = &cpu->env;
     int target_csrno;
@@ -108,19 +108,18 @@ int riscv_cpu_gdb_read_register(CPUState *cs, uint8_t *mem_buf, int n)
     } else if (n == 32) {
         return gdb_get_regl(mem_buf, env->PC);
     } else if (n < 65) {
-        return gdb_get_regl(mem_buf, env->fpr[n-33]);
+        return gdb_get_regl(mem_buf, env->fpr[n - 33]);
     } else if (n < 132) {
         n -= 65;
         target_csrno = indexed_csrs[n];
-        switch (target_csrno) 
-        {
-        // 32-bit wide 
+        switch (target_csrno) {
+        /* 32-bit wide  */
         case CSR_FFLAGS:
         case CSR_FRM:
         case CSR_FCSR:
             return gdb_get_reg32(mem_buf, csr_read_helper(env, target_csrno));
 
-        // unused on RV64 or not implemented
+        /* unused on RV64 or not implemented */
         case CSR_MTIMEH:
         case CSR_STIMEH:
         case CSR_STIMEHW:
@@ -135,17 +134,17 @@ int riscv_cpu_gdb_read_register(CPUState *cs, uint8_t *mem_buf, int n)
         case CSR_MTIMECMPH:
             return gdb_get_regl(mem_buf, 0L);
 
-        // special MFROMHOST, MTOHOST
+        /* special MFROMHOST, MTOHOST */
         case CSR_MFROMHOST:
         case CSR_MTOHOST:
             return gdb_get_regl(mem_buf, env->csr[target_csrno]);
 
-        // all others
+        /* all others */
         default:
             return gdb_get_regl(mem_buf, csr_read_helper(env, target_csrno));
         }
     }
-    */
+#endif
     return 0;
 }
 

@@ -1,13 +1,13 @@
-// Exceptions
+/* Exceptions */
 DEF_HELPER_2(raise_exception, noreturn, env, i32)
 DEF_HELPER_1(raise_exception_debug, noreturn, env)
 DEF_HELPER_3(raise_exception_err, noreturn, env, i32, tl)
 DEF_HELPER_3(raise_exception_mbadaddr, noreturn, env, i32, tl)
 
-// MULHSU helper
+/* MULHSU helper */
 DEF_HELPER_3(mulhsu, tl, env, tl, tl)
 
-// Floating Point - fused
+/* Floating Point - fused */
 DEF_HELPER_5(fmadd_s, i64, env, i64, i64, i64, i64)
 DEF_HELPER_5(fmadd_d, i64, env, i64, i64, i64, i64)
 DEF_HELPER_5(fmsub_s, i64, env, i64, i64, i64, i64)
@@ -17,7 +17,7 @@ DEF_HELPER_5(fnmsub_d, i64, env, i64, i64, i64, i64)
 DEF_HELPER_5(fnmadd_s, i64, env, i64, i64, i64, i64)
 DEF_HELPER_5(fnmadd_d, i64, env, i64, i64, i64, i64)
 
-// Floating Point - Single Precision
+/* Floating Point - Single Precision */
 DEF_HELPER_4(fadd_s, i64, env, i64, i64, i64)
 DEF_HELPER_4(fsub_s, i64, env, i64, i64, i64)
 DEF_HELPER_4(fmul_s, i64, env, i64, i64, i64)
@@ -45,7 +45,7 @@ DEF_HELPER_3(fcvt_s_lu, i64, env, i64, i64)
 #endif
 DEF_HELPER_2(fclass_s, tl, env, i64)
 
-// Floating Point - Double Precision
+/* Floating Point - Double Precision */
 DEF_HELPER_4(fadd_d, i64, env, i64, i64, i64)
 DEF_HELPER_4(fsub_d, i64, env, i64, i64, i64)
 DEF_HELPER_4(fmul_d, i64, env, i64, i64, i64)

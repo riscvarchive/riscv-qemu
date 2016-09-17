@@ -29,21 +29,25 @@
 #include "hw/riscv/riscv_rtc.h"
 #include "qemu/timer.h"
 
-//#define TIMER_DEBUGGING_RISCV
+/*#define TIMER_DEBUGGING_RISCV */
 
-// this is the "right value" for defaults in pk/linux
-// see pk/sbi_entry.S and arch/riscv/kernel/time.c call to
-// clockevents_config_and_register
-#define TIMER_FREQ	10 * 1000 * 1000
-// CPU_FREQ is for instret approximation - say we're running at 1 BIPS
-#define CPU_FREQ    1000 * 1000 * 1000
+/* this is the "right value" for defaults in pk/linux
+   see pk/sbi_entry.S and arch/riscv/kernel/time.c call to
+   clockevents_config_and_register */
+#define TIMER_FREQ (10 * 1000 * 1000)
+/* CPU_FREQ is for instret approximation - say we're running at 1 BIPS */
+#define CPU_FREQ (1000 * 1000 * 1000)
 
-inline uint64_t rtc_read(CPURISCVState *env) {
-    return muldiv64(qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL), TIMER_FREQ, NANOSECONDS_PER_SECOND);
+inline uint64_t rtc_read(CPURISCVState *env)
+{
+    return muldiv64(qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL), TIMER_FREQ,
+                    NANOSECONDS_PER_SECOND);
 }
 
-inline uint64_t instret_read(CPURISCVState *env) {
-    return muldiv64(qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL), CPU_FREQ, NANOSECONDS_PER_SECOND);
+inline uint64_t instret_read(CPURISCVState *env)
+{
+    return muldiv64(qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL), CPU_FREQ,
+                    NANOSECONDS_PER_SECOND);
 }
 
 /*
@@ -63,16 +67,16 @@ static inline void cpu_riscv_timer_update(CPURISCVState *env)
     #endif
 
     if (env->timecmp <= rtc_r) {
-        // if we're setting an MTIMECMP value in the "past", immediately raise
-        // the timer interrupt
+        /* if we're setting an MTIMECMP value in the "past",
+           immediately raise the timer interrupt */
         env->csr[CSR_MIP] |= MIP_MTIP;
         qemu_irq_raise(env->irq[7]);
         return;
     }
 
-    // otherwise, set up the future timer interrupt
+    /* otherwise, set up the future timer interrupt */
     diff = env->timecmp - rtc_r;
-    // back to ns (note args switched in muldiv64)
+    /* back to ns (note args switched in muldiv64) */
     next = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) +
         muldiv64(diff, NANOSECONDS_PER_SECOND, TIMER_FREQ);
     timer_mod(env->timer, next);
@@ -84,13 +88,14 @@ static inline void cpu_riscv_timer_update(CPURISCVState *env)
  */
 static inline void cpu_riscv_timer_expire(CPURISCVState *env)
 {
-    // do not call update here
+    /* do not call update here */
     env->csr[CSR_MIP] |= MIP_MTIP;
     qemu_irq_raise(env->irq[7]);
 }
 
-// used in op_helper.c
-inline uint64_t cpu_riscv_read_instret(CPURISCVState *env) {
+/* used in op_helper.c */
+inline uint64_t cpu_riscv_read_instret(CPURISCVState *env)
+{
     uint64_t retval = instret_read(env);
     return retval;
 }
@@ -110,7 +115,7 @@ inline void write_timecmp(CPURISCVState *env, uint64_t value)
 /*
  * Callback used when the timer set using timer_mod expires.
  */
-static void riscv_timer_cb (void *opaque)
+static void riscv_timer_cb(void *opaque)
 {
     CPURISCVState *env;
     env = opaque;
@@ -120,7 +125,7 @@ static void riscv_timer_cb (void *opaque)
 /*
  * Initialize clock mechanism.
  */
-void cpu_riscv_clock_init (CPURISCVState *env)
+void cpu_riscv_clock_init(CPURISCVState *env)
 {
     env->timer = timer_new_ns(QEMU_CLOCK_VIRTUAL, &riscv_timer_cb, env);
     env->timecmp = 0;
@@ -145,60 +150,60 @@ const VMStateDescription vmstate_timer_rv = {
     .minimum_version_id = 1,
     .pre_save = timer_pre_save,
     .post_load = timer_post_load,
-    .fields      = (VMStateField []) { // TODO what
+    .fields      = (VMStateField []) { /* TODO what */
         VMSTATE_END_OF_LIST()
     },
 };
 
-// CPU wants to read rtc or timecmp register
+/* CPU wants to read rtc or timecmp register */
 static uint64_t timer_mm_read(void *opaque, hwaddr addr, unsigned size)
 {
     TIMERState *timerstate = opaque;
     if (addr == 0) {
-        // rtc
-        timerstate->temp_rtc_val = rtc_read(timerstate->env);        
+        /* rtc */
+        timerstate->temp_rtc_val = rtc_read(timerstate->env);
         return timerstate->temp_rtc_val & 0xFFFFFFFF;
     } else if (addr == 4) {
-        // rtc
+        /* rtc */
         return (timerstate->temp_rtc_val >> 32) & 0xFFFFFFFF;
     } else if (addr == 8) {
-        // timecmp
+        /* timecmp */
         printf("TIMECMP READ NOT IMPL\n");
         exit(1);
-        // return timerstate->env->mtohost & 0xFFFFFFFF;
+        /* return timerstate->env->mtohost & 0xFFFFFFFF; */
     } else if (addr == 0xc) {
-        // timecmp
+        /* timecmp */
         printf("TIMECMP READ NOT IMPL\n");
         exit(1);
-        // return (timerstate->env->mtohost >> 32) & 0xFFFFFFFF;
+        /* return (timerstate->env->mtohost >> 32) & 0xFFFFFFFF; */
     } else {
         printf("Invalid timer register address %016lx\n", (uint64_t)addr);
         exit(1);
     }
 }
 
-// CPU wrote to rtc or timecmp register
-static void timer_mm_write(void *opaque, hwaddr addr, uint64_t value, 
+/* CPU wrote to rtc or timecmp register */
+static void timer_mm_write(void *opaque, hwaddr addr, uint64_t value,
         unsigned size)
 {
     TIMERState *timerstate = opaque;
     if (addr == 0) {
-        //rtc
+        /*rtc */
         printf("RTC WRITE NOT IMPL\n");
         exit(1);
-        //        timerstate->env->mfromhost = value & 0xFFFFFFFF;
+        /*        timerstate->env->mfromhost = value & 0xFFFFFFFF; */
     } else if (addr == 4) {
-        //rtc
+        /*rtc */
         printf("RTC WRITE NOT IMPL\n");
         exit(1);
-        //        timerstate->env->mfromhost |= value << 32;
-        //        qemu_irq_lower(timerstate->irq);
+        /*        timerstate->env->mfromhost |= value << 32;
+                  qemu_irq_lower(timerstate->irq); */
     } else if (addr == 8) {
-        // timecmp
+        /* timecmp */
         timerstate->timecmp_lower = value & 0xFFFFFFFF;
     } else if (addr == 0xc) {
-        // timecmp
-        write_timecmp(timerstate->env, value << 32 | 
+        /* timecmp */
+        write_timecmp(timerstate->env, value << 32 |
                 timerstate->timecmp_lower);
     } else {
         printf("Invalid timer register address %016lx\n", (uint64_t)addr);
@@ -214,14 +219,15 @@ static const MemoryRegionOps timer_mm_ops[3] = {
     },
 };
 
-TIMERState *timer_mm_init(MemoryRegion *address_space, hwaddr base,                                             CPURISCVState *env)
+TIMERState *timer_mm_init(MemoryRegion *address_space, hwaddr base,
+                          CPURISCVState *env)
 {
     TIMERState *timerstate;
     timerstate = g_malloc0(sizeof(TIMERState));
     timerstate->env = env;
     timerstate->temp_rtc_val = 0;
     vmstate_register(NULL, base, &vmstate_timer_rv, timerstate);
-    memory_region_init_io(&timerstate->io, NULL, 
+    memory_region_init_io(&timerstate->io, NULL,
             &timer_mm_ops[DEVICE_LITTLE_ENDIAN],
             timerstate, "timer", 16 /* 2 64-bit registers */);
     memory_region_add_subregion(address_space, base, &timerstate->io);
