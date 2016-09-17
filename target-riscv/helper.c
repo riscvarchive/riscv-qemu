@@ -105,7 +105,7 @@ static int get_physical_address(CPURISCVState *env, hwaddr *physical,
     }
 
     if (mode == PRV_M) {
-        target_ulong msb_mask = (2L << (TARGET_LONG_BITS - 1)) - 1;
+        target_ulong msb_mask = (2UL << (TARGET_LONG_BITS - 1)) - 1;
                                         /*0x7FFFFFFFFFFFFFFF; */
         *physical = address & msb_mask;
         *prot = PAGE_READ | PAGE_WRITE | PAGE_EXEC;
