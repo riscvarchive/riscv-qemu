@@ -57,7 +57,7 @@
 #include "hw/i2c/smbus.h"
 #include "block/block.h"
 #include "hw/block/flash.h"
-#include "block/block_int.h" // move later
+#include "block/block_int.h" /* move later */
 #include "hw/riscv/riscv.h"
 #include "hw/riscv/cpudevs.h"
 #include "hw/pci/pci.h"
@@ -100,7 +100,7 @@ uint64_t identity_translate(void *opaque, uint64_t addr)
     return addr;
 }
 
-static int64_t load_kernel (void)
+static int64_t load_kernel(void)
 {
     int64_t kernel_entry, kernel_high;
     int big_endian;
@@ -138,7 +138,7 @@ static void riscv_board_init(MachineState *args)
     object_property_set_bool(OBJECT(dev), true, "realized", NULL);
 
     /* Make sure the first 3 serial ports are associated with a device. */
-    for(i = 0; i < 3; i++) {
+    for (i = 0; i < 3; i++) {
         if (!serial_hds[i]) {
             char label[32];
             snprintf(label, sizeof(label), "serial%d", i);
@@ -168,8 +168,9 @@ static void riscv_board_init(MachineState *args)
     env = &cpu->env;
 
     /* register system main memory (actual RAM) */
-    memory_region_init_ram(main_mem, NULL, "riscv_board.ram", 2147483648L + ram_size, &error_fatal);
-    // for CSR_MIOBASE
+    memory_region_init_ram(main_mem, NULL, "riscv_board.ram", 2147483648L +
+                           ram_size, &error_fatal);
+    /* for CSR_MIOBASE */
     env->memsize = ram_size;
     vmstate_register_ram_global(main_mem);
     memory_region_add_subregion(system_memory, 0x0, main_mem);
@@ -183,16 +184,16 @@ static void riscv_board_init(MachineState *args)
     }
 
     uint32_t reset_vec[8] = {
-        0x297 + 0x80000000 - 0x1000, // reset vector
-        0x00028067,                  // jump to DRAM_BASE
-        0x00000000,                  // reserved
-        0x0,                         // config string pointer
-        0, 0, 0, 0                   // trap vector
+        0x297 + 0x80000000 - 0x1000, /* reset vector */
+        0x00028067,                  /* jump to DRAM_BASE */
+        0x00000000,                  /* reserved */
+        0x0,                         /* config string pointer */
+        0, 0, 0, 0                   /* trap vector */
     };
-    reset_vec[3] = 0x1000 + sizeof(reset_vec); // config string pointer
+    reset_vec[3] = 0x1000 + sizeof(reset_vec); /* config string pointer */
 
-    // part one of config string - before memory size specified
-    const char * config_string1 = "platform {\n"
+    /* part one of config string - before memory size specified */
+    const char *config_string1 = "platform {\n"
         "  vendor ucb;\n"
         "  arch spike;\n"
         "};\n"
@@ -203,10 +204,10 @@ static void riscv_board_init(MachineState *args)
         "  0 {\n"
         "    addr 0x" "80000000" ";\n"
         "    size 0x";
-   
-   
-    // part two of config string - after memory size specified 
-    const char * config_string2 =  ";\n"
+
+
+    /* part two of config string - after memory size specified */
+    const char *config_string2 =  ";\n"
         "  };\n"
         "};\n"
         "core {\n"
@@ -219,38 +220,42 @@ static void riscv_board_init(MachineState *args)
           "  };\n"
           "};\n";
 
-    // build config string with supplied memory size
+    /* build config string with supplied memory size */
     uint64_t rsz = ram_size;
-    char * ramsize_as_hex_str = malloc(17);
+    char *ramsize_as_hex_str = malloc(17);
     sprintf(ramsize_as_hex_str, "%016lx", rsz);
-    char * config_string = malloc(strlen(config_string1) + strlen(ramsize_as_hex_str) + strlen(config_string2) + 1);
+    char *config_string = malloc(strlen(config_string1) +
+                                  strlen(ramsize_as_hex_str) +
+                                  strlen(config_string2) + 1);
     config_string[0] = 0;
     strcat(config_string, config_string1);
     strcat(config_string, ramsize_as_hex_str);
     strcat(config_string, config_string2);
 
-    // copy in the reset vec and configstring
+    /* copy in the reset vec and configstring */
     int q;
-    for (q = 0; q < sizeof(reset_vec)/sizeof(reset_vec[0]); q++) {
-        stl_p(memory_region_get_ram_ptr(main_mem)+0x1000+q*4, reset_vec[q]);
+    for (q = 0; q < sizeof(reset_vec) / sizeof(reset_vec[0]); q++) {
+        stl_p(memory_region_get_ram_ptr(main_mem) + 0x1000 + q * 4,
+              reset_vec[q]);
     }
 
     int confstrlen = strlen(config_string);
     for (q = 0; q < confstrlen; q++) {
-        stb_p(memory_region_get_ram_ptr(main_mem)+reset_vec[3]+q, config_string[q]);
+        stb_p(memory_region_get_ram_ptr(main_mem) + reset_vec[3] + q,
+              config_string[q]);
     }
 
-    // add memory mapped htif registers at location specified in the symbol
-    // table of the elf being loaded (thus kernel_filename is passed to the 
-    // init rather than an address)
+    /* add memory mapped htif registers at location specified in the symbol
+       table of the elf being loaded (thus kernel_filename is passed to the
+       init rather than an address) */
 
     htif_mm_init(system_memory, kernel_filename, env->irq[4], main_mem,
             kernel_cmdline, env, serial_hds[0]);
 
-    // timer device at 0x40000000, as specified in the config string above
+    /* timer device at 0x40000000, as specified in the config string above */
     timer_mm_init(system_memory, 0x40000000, env);
 
-    // Softint "devices" for cleaner handling of CPU-triggered interrupts
+    /* Softint "devices" for cleaner handling of CPU-triggered interrupts */
     softint_mm_init(system_memory, 0xFFFFFFFFF0000020L, env->irq[1], main_mem,
             env, "SSIP");
 
@@ -260,7 +265,7 @@ static void riscv_board_init(MachineState *args)
     softint_mm_init(system_memory, 0xFFFFFFFFF0000060L, env->irq[3], main_mem,
             env, "MSIP");
 
-    // TODO: VIRTIO
+    /* TODO: VIRTIO */
 }
 
 static int riscv_board_sysbus_device_init(SysBusDevice *sysbusdev)

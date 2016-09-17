@@ -64,7 +64,8 @@ static void riscv_cpu_reset(CPUState *s)
     cpu_state_reset(env);
 }
 
-static void riscv_cpu_disas_set_info(CPUState *s, disassemble_info *info) {
+static void riscv_cpu_disas_set_info(CPUState *s, disassemble_info *info)
+{
     info->print_insn = print_insn_riscv;
 }
 
@@ -119,8 +120,8 @@ static void riscv_cpu_class_init(ObjectClass *c, void *data)
     cc->do_unassigned_access = riscv_cpu_unassigned_access;
     cc->do_unaligned_access = riscv_cpu_do_unaligned_access;
     cc->get_phys_page_debug = riscv_cpu_get_phys_page_debug;
-    // TODO to support migration:
-    // cc->vmsd = &vmstate_riscv_cpu;
+    /* TODO to support migration:
+       cc->vmsd = &vmstate_riscv_cpu; */
 #endif
 
     cc->disas_set_info = riscv_cpu_disas_set_info;

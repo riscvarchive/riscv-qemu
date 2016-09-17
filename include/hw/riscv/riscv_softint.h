@@ -31,21 +31,21 @@
 typedef struct SoftintState SoftintState;
 
 struct SoftintState {
-    qemu_irq irq; // host interrupt line
+    qemu_irq irq; /* host interrupt line */
     MemoryRegion io;
-    MemoryRegion* address_space;
+    MemoryRegion *address_space;
 
     CPURISCVState *env;
     CharDriverState *chr;
-    char * name;
+    char *name;
 };
 
 extern const VMStateDescription vmstate_softint;
 extern const MemoryRegionOps softint_io_ops;
 
 /* legacy pre qom */
-SoftintState *softint_mm_init(MemoryRegion *address_space, hwaddr base, 
+SoftintState *softint_mm_init(MemoryRegion *address_space, hwaddr base,
                     qemu_irq irq, MemoryRegion *main_mem, CPURISCVState *env,
-                    const char * name);
+                    const char *name);
 
 #endif

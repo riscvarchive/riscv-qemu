@@ -63,14 +63,14 @@ const VMStateDescription vmstate_softint = {
     },
 };
 
-// CPU wants to read an Softint register. Should not happen.
+/* CPU wants to read an Softint register. Should not happen. */
 static uint64_t softint_mm_read(void *opaque, hwaddr addr, unsigned size)
 {
     fprintf(stderr, "Unimplemented read softint\n");
     exit(1);
 }
 
-// CPU wrote to an Softint register
+/* CPU wrote to an Softint register */
 static void softint_mm_write(void *opaque, hwaddr addr,
                             uint64_t value, unsigned size)
 {
@@ -83,7 +83,8 @@ static void softint_mm_write(void *opaque, hwaddr addr,
             qemu_irq_lower(softintstate->irq);
         }
     } else {
-        fprintf(stderr, "Invalid softint register address %016lx\n", (uint64_t)addr);
+        fprintf(stderr, "Invalid softint register address %016lx\n",
+                (uint64_t)addr);
         exit(1);
     }
 }
@@ -96,10 +97,11 @@ static const MemoryRegionOps softint_mm_ops[3] = {
     },
 };
 
-SoftintState *softint_mm_init(MemoryRegion *address_space, hwaddr base, qemu_irq irq,
-                        MemoryRegion *main_mem, CPURISCVState *env, const char * name)
+SoftintState *softint_mm_init(MemoryRegion *address_space, hwaddr base,
+                              qemu_irq irq, MemoryRegion *main_mem,
+                              CPURISCVState *env, const char * name)
 {
-    // TODO: cleanup the constant buffer sizes
+    /* TODO: cleanup the constant buffer sizes */
     SoftintState *softintstate;
 
     softintstate = g_malloc0(sizeof(SoftintState));
@@ -107,7 +109,7 @@ SoftintState *softint_mm_init(MemoryRegion *address_space, hwaddr base, qemu_irq
     softintstate->address_space = address_space;
     softintstate->env = env;
 
-    char * badbuf = g_malloc0(sizeof(char)*100);
+    char *badbuf = g_malloc0(sizeof(char) * 100);
     sprintf(badbuf, "%s%s", "softint", name);
     softintstate->name = badbuf;
 

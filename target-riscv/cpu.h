@@ -1,11 +1,11 @@
-#if !defined (__RISCV_CPU_H__)
+#if !defined(__RISCV_CPU_H__)
 #define __RISCV_CPU_H__
 
-//#define DEBUG_OP
+/*#define DEBUG_OP */
 
 #define TARGET_HAS_ICE 1
 
-#define ELF_MACHINE	EM_RISCV
+#define ELF_MACHINE EM_RISCV
 
 #define CPUArchState struct CPURISCVState
 
@@ -13,14 +13,14 @@
 
 #include "qemu-common.h"
 
-// QEMU addressing/paging config
-#define TARGET_PAGE_BITS 12 // 4 KiB Pages
+/* QEMU addressing/paging config */
+#define TARGET_PAGE_BITS 12 /* 4 KiB Pages */
 #if defined(TARGET_RISCV64)
-#define TARGET_LONG_BITS 64 // this defs TCGv as TCGv_i64 in tcg/tcg-op.h
+#define TARGET_LONG_BITS 64 /* this defs TCGv as TCGv_i64 in tcg/tcg-op.h */
 #define TARGET_PHYS_ADDR_SPACE_BITS 50
 #define TARGET_VIRT_ADDR_SPACE_BITS 39
 #elif defined(TARGET_RISCV32)
-#define TARGET_LONG_BITS 32 // this defs TCGv as TCGv_i64 in tcg/tcg-op.h
+#define TARGET_LONG_BITS 32 /* this defs TCGv as TCGv_i64 in tcg/tcg-op.h */
 #define TARGET_PHYS_ADDR_SPACE_BITS 34
 #define TARGET_VIRT_ADDR_SPACE_BITS 32
 #endif
@@ -37,11 +37,14 @@ struct CPURISCVState;
 
 #define PGSHIFT 12
 
-// uncomment for lots of debug printing
-// #define RISCV_DEBUG_PRINT
+/* uncomment for lots of debug printing */
+/* #define RISCV_DEBUG_PRINT */
 
-#define get_field(reg, mask) (((reg) & (target_ulong)(mask)) / ((mask) & ~((mask) << 1)))
-#define set_field(reg, mask, val) (((reg) & ~(target_ulong)(mask)) | (((target_ulong)(val) * ((mask) & ~((mask) << 1))) & (target_ulong)(mask)))
+#define get_field(reg, mask) (((reg) & \
+                 (target_ulong)(mask)) / ((mask) & ~((mask) << 1)))
+#define set_field(reg, mask, val) (((reg) & ~(target_ulong)(mask)) | \
+                 (((target_ulong)(val) * ((mask) & ~((mask) << 1))) & \
+                 (target_ulong)(mask)))
 
 
 #define FP_RD_NE  0
@@ -132,8 +135,8 @@ struct CPURISCVState;
 #define CSR_MTIMEH 0xf81
 #define CSR_MINSTRETH 0xf82
 
-// RISCV Exception Codes
-#define EXCP_NONE                       -1   // not a real RISCV exception code
+/* RISCV Exception Codes */
+#define EXCP_NONE                       -1 /* not a real RISCV exception code */
 #define RISCV_EXCP_INST_ADDR_MIS           0x0
 #define RISCV_EXCP_INST_ACCESS_FAULT       0x1
 #define RISCV_EXCP_ILLEGAL_INST            0x2
@@ -142,12 +145,13 @@ struct CPURISCVState;
 #define RISCV_EXCP_LOAD_ACCESS_FAULT       0x5
 #define RISCV_EXCP_STORE_AMO_ADDR_MIS      0x6
 #define RISCV_EXCP_STORE_AMO_ACCESS_FAULT  0x7
-#define RISCV_EXCP_U_ECALL                 0x8 // for convenience, report all
-                                                   // ECALLs as this, handler fixes
+#define RISCV_EXCP_U_ECALL                 0x8 /* for convenience, report all
+                                                  ECALLs as this, handler
+                                                  fixes */
 #define RISCV_EXCP_S_ECALL                 0x9
 #define RISCV_EXCP_H_ECALL                 0xa
 #define RISCV_EXCP_M_ECALL                 0xb
-// interrupts not listed here
+/* interrupts not listed here */
 
 #define IS_RV_INTERRUPT(ival) (ival & (0x1 << 31))
 
@@ -183,21 +187,21 @@ struct CPURISCVState;
 #define SSTATUS32_SD        0x80000000
 #define SSTATUS64_SD        0x8000000000000000
 
-#define DCSR_XDEBUGVER      (3U<<30)
-#define DCSR_NDRESET        (1<<29)
-#define DCSR_FULLRESET      (1<<28)
-#define DCSR_HWBPCOUNT      (0xfff<<16)
-#define DCSR_EBREAKM        (1<<15)
-#define DCSR_EBREAKH        (1<<14)
-#define DCSR_EBREAKS        (1<<13)
-#define DCSR_EBREAKU        (1<<12)
-#define DCSR_STOPCYCLE      (1<<10)
-#define DCSR_STOPTIME       (1<<9)
-#define DCSR_CAUSE          (7<<6)
-#define DCSR_DEBUGINT       (1<<5)
-#define DCSR_HALT           (1<<3)
-#define DCSR_STEP           (1<<2)
-#define DCSR_PRV            (3<<0)
+#define DCSR_XDEBUGVER      (3U << 30)
+#define DCSR_NDRESET        (1 << 29)
+#define DCSR_FULLRESET      (1 << 28)
+#define DCSR_HWBPCOUNT      (0xfff << 16)
+#define DCSR_EBREAKM        (1 << 15)
+#define DCSR_EBREAKH        (1 << 14)
+#define DCSR_EBREAKS        (1 << 13)
+#define DCSR_EBREAKU        (1 << 12)
+#define DCSR_STOPCYCLE      (1 << 10)
+#define DCSR_STOPTIME       (1 << 9)
+#define DCSR_CAUSE          (7 << 6)
+#define DCSR_DEBUGINT       (1 << 5)
+#define DCSR_HALT           (1 << 3)
+#define DCSR_STEP           (1 << 2)
+#define DCSR_PRV            (3 << 0)
 
 #define DCSR_CAUSE_NONE     0
 #define DCSR_CAUSE_SWBP     1
@@ -242,7 +246,7 @@ struct CPURISCVState;
 #define IRQ_M_EXT    11
 #define IRQ_COP      12
 #define IRQ_HOST     13
- 
+
 #define DEFAULT_RSTVEC     0x00001000
 #define DEFAULT_NMIVEC     0x00001004
 #define DEFAULT_MTVEC      0x00001010
@@ -250,7 +254,7 @@ struct CPURISCVState;
 #define EXT_IO_BASE        0x40000000
 #define DRAM_BASE          0x80000000
 
-// breakpoint control fields
+/* breakpoint control fields */
 #define BPCONTROL_X           0x00000001
 #define BPCONTROL_W           0x00000002
 #define BPCONTROL_R           0x00000004
@@ -262,17 +266,17 @@ struct CPURISCVState;
 #define BPCONTROL_BPAMASKMAX 0x0F80000000000000
 #define BPCONTROL_TDRTYPE    0xF000000000000000
 
-// page table entry (PTE) fields
-#define PTE_V     0x001 // Valid
-#define PTE_R     0x002 // Read
-#define PTE_W     0x004 // Write
-#define PTE_X     0x008 // Execute
-#define PTE_U     0x010 // User
-#define PTE_G     0x020 // Global
-#define PTE_A     0x040 // Accessed
-#define PTE_D     0x080 // Dirty
-#define PTE_SOFT  0x300 // Reserved for Software
- 
+/* page table entry (PTE) fields */
+#define PTE_V     0x001 /* Valid */
+#define PTE_R     0x002 /* Read */
+#define PTE_W     0x004 /* Write */
+#define PTE_X     0x008 /* Execute */
+#define PTE_U     0x010 /* User */
+#define PTE_G     0x020 /* Global */
+#define PTE_A     0x040 /* Accessed */
+#define PTE_D     0x080 /* Dirty */
+#define PTE_SOFT  0x300 /* Reserved for Software */
+
 #define PTE_PPN_SHIFT 10
 
 #define PTE_TABLE(PTE) (((PTE) & (PTE_V | PTE_R | PTE_W | PTE_X)) == PTE_V)
@@ -282,21 +286,21 @@ typedef struct riscv_def_t riscv_def_t;
 typedef struct CPURISCVState CPURISCVState;
 struct CPURISCVState {
     target_ulong gpr[32];
-    uint64_t fpr[32]; // TODO: width dep on F or D extension
+    uint64_t fpr[32]; /* TODO: width dep on F or D extension */
     target_ulong PC;
     target_ulong load_reservation;
 
-    target_ulong csr[4096]; // RISCV CSR registers
+    target_ulong csr[4096]; /* RISCV CSR registers */
     target_ulong priv;
     target_ulong badaddr;
 
-    // temporary htif regs
+    /* temporary htif regs */
     uint64_t mfromhost;
     uint64_t mtohost;
 
     uint64_t timecmp;
 
-    // backup in machine.c?
+    /* backup in machine.c? */
     float_status fp_status;
 
     /* QEMU */
@@ -369,7 +373,7 @@ hwaddr riscv_cpu_get_phys_page_debug(CPUState *cpu, vaddr addr);
 int riscv_cpu_gdb_read_register(CPUState *cpu, uint8_t *buf, int reg);
 int riscv_cpu_gdb_write_register(CPUState *cpu, uint8_t *buf, int reg);
 bool riscv_cpu_exec_interrupt(CPUState *cs, int interrupt_request);
-void  riscv_cpu_do_unaligned_access(CPUState *cs, vaddr addr, 
+void  riscv_cpu_do_unaligned_access(CPUState *cs, vaddr addr,
                                         MMUAccessType access_type,
                                         int mmu_idx, uintptr_t retaddr);
 #endif
@@ -379,18 +383,18 @@ void riscv_cpu_unassigned_access(CPUState *cpu, hwaddr addr, bool is_write,
         bool is_exec, int unused, unsigned size);
 #endif
 
-void riscv_cpu_list (FILE *f, fprintf_function cpu_fprintf);
+void riscv_cpu_list(FILE *f, fprintf_function cpu_fprintf);
 
 #define cpu_signal_handler cpu_riscv_signal_handler
 #define cpu_list riscv_cpu_list
 
-static inline int cpu_mmu_index (CPURISCVState *env, bool ifetch)
+static inline int cpu_mmu_index(CPURISCVState *env, bool ifetch)
 {
     target_ulong mode = env->priv;
     if (!ifetch) {
-         if(get_field(env->csr[CSR_MSTATUS], MSTATUS_MPRV)) {
-             mode = get_field(env->csr[CSR_MSTATUS], MSTATUS_MPP);
-         }
+        if (get_field(env->csr[CSR_MSTATUS], MSTATUS_MPRV)) {
+            mode = get_field(env->csr[CSR_MSTATUS], MSTATUS_MPP);
+        }
     }
     if (get_field(env->csr[CSR_MSTATUS], MSTATUS_VM) == VM_MBARE) {
         mode = PRV_M;
@@ -402,11 +406,13 @@ static int ctz(target_ulong val);
 
 static int ctz(target_ulong val)
 {
-  int res = 0;
-  if (val)
-    while ((val & 1) == 0)
-      val >>= 1, res++;
-  return res;
+    int res = 0;
+    if (val) {
+        while ((val & 1) == 0) {
+            val >>= 1, res++;
+        }
+    }
+    return res;
 }
 
 /*
@@ -420,33 +426,35 @@ static inline int cpu_riscv_hw_interrupts_pending(CPURISCVState *env)
 
     target_ulong mie = get_field(env->csr[CSR_MSTATUS], MSTATUS_MIE);
     target_ulong m_enabled = env->priv < PRV_M || (env->priv == PRV_M && mie);
-    target_ulong enabled_interrupts = pending_interrupts & ~env->csr[CSR_MIDELEG] & -m_enabled;
+    target_ulong enabled_interrupts = pending_interrupts &
+                                      ~env->csr[CSR_MIDELEG] & -m_enabled;
 
     target_ulong sie = get_field(env->csr[CSR_MSTATUS], MSTATUS_SIE);
     target_ulong s_enabled = env->priv < PRV_S || (env->priv == PRV_S && sie);
-    enabled_interrupts |= pending_interrupts & env->csr[CSR_MIDELEG] & -s_enabled;
+    enabled_interrupts |= pending_interrupts & env->csr[CSR_MIDELEG] &
+                          -s_enabled;
 
     if (enabled_interrupts) {
         target_ulong counted = ctz(enabled_interrupts);
         if (counted == IRQ_HOST) {
-            // we're handing it to the cpu now, so get rid of the qemu irq
-            qemu_irq_lower(env->irq[4]); // get rid of the irq request
+            /* we're handing it to the cpu now, so get rid of the qemu irq */
+            qemu_irq_lower(env->irq[4]); /* get rid of the irq request */
         } else if (counted == IRQ_M_TIMER) {
-            // we're handing it to the cpu now, so get rid of the qemu irq
-            qemu_irq_lower(env->irq[7]); // get rid of the irq request
+            /* we're handing it to the cpu now, so get rid of the qemu irq */
+            qemu_irq_lower(env->irq[7]); /* get rid of the irq request */
         } else if (counted == IRQ_S_TIMER || counted == IRQ_H_TIMER) {
-            // don't lower irq here
+            /* don't lower irq here */
         }
         return counted;
     } else {
-        // indicates no pending interrupt to handler in cpu-exec.c
+        /* indicates no pending interrupt to handler in cpu-exec.c */
         return -1;
     }
 }
 
 #include "exec/cpu-all.h"
 
-//int cpu_riscv_exec(CPUState *cpu);
+/*int cpu_riscv_exec(CPUState *cpu); */
 void riscv_tcg_init(void);
 RISCVCPU *cpu_riscv_init(const char *cpu_model);
 int cpu_riscv_signal_handler(int host_signum, void *pinfo, void *puc);
@@ -466,8 +474,8 @@ void cpu_riscv_soft_irq(CPURISCVState *env, int irq, int level);
 int riscv_cpu_handle_mmu_fault(CPUState *cpu, vaddr address, MMUAccessType rw,
                               int mmu_idx);
 #if !defined(CONFIG_USER_ONLY)
-hwaddr cpu_riscv_translate_address (CPURISCVState *env, target_ulong address,
-		                               int rw);
+hwaddr cpu_riscv_translate_address(CPURISCVState *env, target_ulong address,
+                                   int rw);
 #endif
 
 static inline void cpu_get_tb_cpu_state(CPURISCVState *env, target_ulong *pc,
@@ -475,7 +483,7 @@ static inline void cpu_get_tb_cpu_state(CPURISCVState *env, target_ulong *pc,
 {
     *pc = env->PC;
     *cs_base = 0;
-    *flags = 0; // necessary to avoid compiler warning
+    *flags = 0; /* necessary to avoid compiler warning */
 }
 
 #ifndef CONFIG_USER_ONLY

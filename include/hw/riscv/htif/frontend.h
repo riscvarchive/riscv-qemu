@@ -14,18 +14,21 @@
 #define RV_FSYSCALL_sys_exit  93
 #define RV_FSYSCALL_sys_getmainvars 2011
 
-uint64_t sys_openat(HTIFState *htifstate, uint64_t dirfd, uint64_t pname, uint64_t len, uint64_t flags, uint64_t mode);
+uint64_t sys_openat(HTIFState *htifstate, uint64_t dirfd, uint64_t pname,
+                    uint64_t len, uint64_t flags, uint64_t mode);
 
 uint64_t sys_close(HTIFState *htifstate, uint64_t fd);
 
-uint64_t sys_write(HTIFState *htifstate, uint64_t fd, uint64_t pbuf, uint64_t len);
+uint64_t sys_write(HTIFState *htifstate, uint64_t fd, uint64_t pbuf,
+                   uint64_t len);
 
-uint64_t sys_pread(HTIFState *htifstate, uint64_t fd, uint64_t pbuf, uint64_t len, uint64_t off);
+uint64_t sys_pread(HTIFState *htifstate, uint64_t fd, uint64_t pbuf,
+                   uint64_t len, uint64_t off);
 
 uint64_t sys_exit(HTIFState *htifstate, uint64_t code);
 
-int handle_frontend_syscall(HTIFState * htifstate, uint64_t payload);
+int handle_frontend_syscall(HTIFState *htifstate, uint64_t payload);
 
-uint64_t sys_getmainvars(HTIFState * htifstate, uint64_t pbuf, uint64_t limit);
+uint64_t sys_getmainvars(HTIFState *htifstate, uint64_t pbuf, uint64_t limit);
 
 #endif

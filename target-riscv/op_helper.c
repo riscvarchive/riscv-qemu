@@ -26,14 +26,16 @@
 
 int validate_priv(target_ulong priv);
 
-int validate_priv(target_ulong priv) {
+int validate_priv(target_ulong priv)
+{
     return priv == PRV_U || priv == PRV_S || priv == PRV_M;
 }
 
-// TODO duplicated in helper.c
+/* TODO duplicated in helper.c */
 void set_privilege(CPURISCVState *env, target_ulong newpriv);
 
-void set_privilege(CPURISCVState *env, target_ulong newpriv) {
+void set_privilege(CPURISCVState *env, target_ulong newpriv)
+{
     if (!validate_priv(newpriv)) {
         printf("INVALID PRIV SET\n");
         exit(1);
@@ -42,7 +44,8 @@ void set_privilege(CPURISCVState *env, target_ulong newpriv) {
     env->priv = newpriv;
 }
 
-static int validate_vm(target_ulong vm) {
+static int validate_vm(target_ulong vm)
+{
     return vm == VM_SV32 || vm == VM_SV39 || vm == VM_SV48 || vm == VM_MBARE;
 }
 
@@ -67,7 +70,8 @@ void helper_raise_exception_debug(CPURISCVState *env)
 }
 
 
-void helper_raise_exception_err(CPURISCVState *env, uint32_t exception, target_ulong pc)
+void helper_raise_exception_err(CPURISCVState *env, uint32_t exception,
+                                target_ulong pc)
 {
     do_raise_exception_err(env, exception, pc);
 }
@@ -89,142 +93,164 @@ unsigned int ieee_rm[] = {
     float_round_ties_away
 };
 
-// obtain rm value to use in computation
-// as the last step, convert rm codes to what the softfloat library expects
+/* obtain rm value to use in computation
+   as the last step, convert rm codes to what the softfloat library expects */
 #define RM ({ if (rm == 7) rm = env->csr[CSR_FRM]; \
               if (rm > 4) { /* TODO throw trap*/ }; \
               ieee_rm[rm]; })
 
 unsigned int softfloat_flags_to_riscv(unsigned int flag);
 
-/* convert softfloat library flag numbers to RISC-V 
+/* convert softfloat library flag numbers to RISC-V
  * TODO better way...
  */
-unsigned int softfloat_flags_to_riscv(unsigned int flag) {
+unsigned int softfloat_flags_to_riscv(unsigned int flag)
+{
     switch (flag) {
-        case float_flag_inexact:
-            return 1;
-        case float_flag_underflow:
-            return 2;
-        case float_flag_overflow:
-            return 4;
-        case float_flag_divbyzero:
-            return 8;
-        case float_flag_invalid:
-            return 16;
-        default:
-            return 0;
+    case float_flag_inexact:
+        return 1;
+    case float_flag_underflow:
+        return 2;
+    case float_flag_overflow:
+        return 4;
+    case float_flag_divbyzero:
+        return 8;
+    case float_flag_invalid:
+        return 16;
+    default:
+        return 0;
     }
 }
 
-#define set_fp_exceptions ({ env->csr[CSR_FFLAGS] |= softfloat_flags_to_riscv(get_float_exception_flags(&env->fp_status)); \
-                             set_float_exception_flags(0, &env->fp_status); })
+#define set_fp_exceptions() do { \
+    env->csr[CSR_FFLAGS] |= softfloat_flags_to_riscv(get_float_exception_flags(\
+                            &env->fp_status)); \
+    set_float_exception_flags(0, &env->fp_status); \
+} while (0)
 
-uint64_t helper_fmadd_s(CPURISCVState *env, uint64_t frs1, uint64_t frs2, uint64_t frs3, uint64_t rm)
+uint64_t helper_fmadd_s(CPURISCVState *env, uint64_t frs1, uint64_t frs2,
+                        uint64_t frs3, uint64_t rm)
 {
     set_float_rounding_mode(RM, &env->fp_status);
     frs1 = float32_muladd(frs1, frs2, frs3, 0, &env->fp_status);
-    set_fp_exceptions;
+    set_fp_exceptions();
     return frs1;
 }
 
-uint64_t helper_fmadd_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2, uint64_t frs3, uint64_t rm)
+uint64_t helper_fmadd_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2,
+                        uint64_t frs3, uint64_t rm)
 {
     set_float_rounding_mode(RM, &env->fp_status);
     frs1 = float64_muladd(frs1, frs2, frs3, 0, &env->fp_status);
-    set_fp_exceptions;
+    set_fp_exceptions();
     return frs1;
 }
 
-uint64_t helper_fmsub_s(CPURISCVState *env, uint64_t frs1, uint64_t frs2, uint64_t frs3, uint64_t rm)
+uint64_t helper_fmsub_s(CPURISCVState *env, uint64_t frs1, uint64_t frs2,
+                        uint64_t frs3, uint64_t rm)
 {
     set_float_rounding_mode(RM, &env->fp_status);
-    frs1 = float32_muladd(frs1, frs2, frs3 ^ (uint32_t)INT32_MIN, 0, &env->fp_status);
-    set_fp_exceptions;
+    frs1 = float32_muladd(frs1, frs2, frs3 ^ (uint32_t)INT32_MIN, 0,
+                          &env->fp_status);
+    set_fp_exceptions();
     return frs1;
 }
 
-uint64_t helper_fmsub_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2, uint64_t frs3, uint64_t rm)
+uint64_t helper_fmsub_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2,
+                        uint64_t frs3, uint64_t rm)
 {
     set_float_rounding_mode(RM, &env->fp_status);
-    frs1 = float64_muladd(frs1, frs2, frs3 ^ (uint64_t)INT64_MIN, 0, &env->fp_status);
-    set_fp_exceptions;
+    frs1 = float64_muladd(frs1, frs2, frs3 ^ (uint64_t)INT64_MIN, 0,
+                          &env->fp_status);
+    set_fp_exceptions();
     return frs1;
 }
 
-uint64_t helper_fnmsub_s(CPURISCVState *env, uint64_t frs1, uint64_t frs2, uint64_t frs3, uint64_t rm)
+uint64_t helper_fnmsub_s(CPURISCVState *env, uint64_t frs1, uint64_t frs2,
+                         uint64_t frs3, uint64_t rm)
 {
     set_float_rounding_mode(RM, &env->fp_status);
-    frs1 = float32_muladd(frs1 ^ (uint32_t)INT32_MIN, frs2, frs3, 0, &env->fp_status);
-    set_fp_exceptions;
+    frs1 = float32_muladd(frs1 ^ (uint32_t)INT32_MIN, frs2, frs3, 0,
+                          &env->fp_status);
+    set_fp_exceptions();
     return frs1;
 }
 
-uint64_t helper_fnmsub_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2, uint64_t frs3, uint64_t rm)
+uint64_t helper_fnmsub_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2,
+                         uint64_t frs3, uint64_t rm)
 {
     set_float_rounding_mode(RM, &env->fp_status);
-    frs1 = float64_muladd(frs1 ^ (uint64_t)INT64_MIN, frs2, frs3, 0, &env->fp_status);
-    set_fp_exceptions;
+    frs1 = float64_muladd(frs1 ^ (uint64_t)INT64_MIN, frs2, frs3, 0,
+                          &env->fp_status);
+    set_fp_exceptions();
     return frs1;
 }
 
-uint64_t helper_fnmadd_s(CPURISCVState *env, uint64_t frs1, uint64_t frs2, uint64_t frs3, uint64_t rm)
+uint64_t helper_fnmadd_s(CPURISCVState *env, uint64_t frs1, uint64_t frs2,
+                         uint64_t frs3, uint64_t rm)
 {
     set_float_rounding_mode(RM, &env->fp_status);
-    frs1 = float32_muladd(frs1 ^ (uint32_t)INT32_MIN, frs2, frs3 ^ (uint32_t)INT32_MIN, 0, &env->fp_status);
-    set_fp_exceptions;
+    frs1 = float32_muladd(frs1 ^ (uint32_t)INT32_MIN, frs2,
+                          frs3 ^ (uint32_t)INT32_MIN, 0, &env->fp_status);
+    set_fp_exceptions();
     return frs1;
 }
 
-uint64_t helper_fnmadd_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2, uint64_t frs3, uint64_t rm)
+uint64_t helper_fnmadd_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2,
+                         uint64_t frs3, uint64_t rm)
 {
     set_float_rounding_mode(RM, &env->fp_status);
-    frs1 = float64_muladd(frs1 ^ (uint64_t)INT64_MIN, frs2, frs3 ^ (uint64_t)INT64_MIN, 0, &env->fp_status);
-    set_fp_exceptions;
+    frs1 = float64_muladd(frs1 ^ (uint64_t)INT64_MIN, frs2,
+                          frs3 ^ (uint64_t)INT64_MIN, 0, &env->fp_status);
+    set_fp_exceptions();
     return frs1;
 }
 
-uint64_t helper_fadd_s(CPURISCVState *env, uint64_t frs1, uint64_t frs2, uint64_t rm)
+uint64_t helper_fadd_s(CPURISCVState *env, uint64_t frs1, uint64_t frs2,
+                       uint64_t rm)
 {
     set_float_rounding_mode(RM, &env->fp_status);
     frs1 = float32_add(frs1, frs2, &env->fp_status);
-    set_fp_exceptions;
+    set_fp_exceptions();
     return frs1;
 }
 
-uint64_t helper_fsub_s(CPURISCVState *env, uint64_t frs1, uint64_t frs2, uint64_t rm)
+uint64_t helper_fsub_s(CPURISCVState *env, uint64_t frs1, uint64_t frs2,
+                       uint64_t rm)
 {
     set_float_rounding_mode(RM, &env->fp_status);
     frs1 = float32_sub(frs1, frs2, &env->fp_status);
-    set_fp_exceptions;
+    set_fp_exceptions();
     return frs1;
 }
 
-uint64_t helper_fmul_s(CPURISCVState *env, uint64_t frs1, uint64_t frs2, uint64_t rm)
+uint64_t helper_fmul_s(CPURISCVState *env, uint64_t frs1, uint64_t frs2,
+                       uint64_t rm)
 {
     set_float_rounding_mode(RM, &env->fp_status);
     frs1 = float32_mul(frs1, frs2, &env->fp_status);
-    set_fp_exceptions;
+    set_fp_exceptions();
     return frs1;
 }
 
-uint64_t helper_fdiv_s(CPURISCVState *env, uint64_t frs1, uint64_t frs2, uint64_t rm)
+uint64_t helper_fdiv_s(CPURISCVState *env, uint64_t frs1, uint64_t frs2,
+                       uint64_t rm)
 {
     set_float_rounding_mode(RM, &env->fp_status);
     frs1 = float32_div(frs1, frs2, &env->fp_status);
-    set_fp_exceptions;
+    set_fp_exceptions();
     return frs1;
 }
 
 uint64_t helper_fsgnj_s(CPURISCVState *env, uint64_t frs1, uint64_t frs2)
 {
-    frs1 = (frs1 &~ (uint32_t)INT32_MIN) | (frs2 & (uint32_t)INT32_MIN);
+    frs1 = (frs1 & ~(uint32_t)INT32_MIN) | (frs2 & (uint32_t)INT32_MIN);
     return frs1;
 }
 
 uint64_t helper_fsgnjn_s(CPURISCVState *env, uint64_t frs1, uint64_t frs2)
 {
-    frs1 = (frs1 &~ (uint32_t)INT32_MIN) | ((~frs2) & (uint32_t)INT32_MIN);
+    frs1 = (frs1 & ~(uint32_t)INT32_MIN) | ((~frs2) & (uint32_t)INT32_MIN);
     return frs1;
 }
 
@@ -236,15 +262,17 @@ uint64_t helper_fsgnjx_s(CPURISCVState *env, uint64_t frs1, uint64_t frs2)
 
 uint64_t helper_fmin_s(CPURISCVState *env, uint64_t frs1, uint64_t frs2)
 {
-    frs1 = float32_is_any_nan(frs2) || float32_lt_quiet(frs1, frs2, &env->fp_status) ? frs1 : frs2;
-    set_fp_exceptions;
+    frs1 = float32_is_any_nan(frs2) ||
+           float32_lt_quiet(frs1, frs2, &env->fp_status) ? frs1 : frs2;
+    set_fp_exceptions();
     return frs1;
 }
 
 uint64_t helper_fmax_s(CPURISCVState *env, uint64_t frs1, uint64_t frs2)
 {
-    frs1 = float32_is_any_nan(frs2) || float32_le_quiet(frs2, frs1, &env->fp_status) ? frs1 : frs2;
-    set_fp_exceptions;
+    frs1 = float32_is_any_nan(frs2) ||
+           float32_le_quiet(frs2, frs1, &env->fp_status) ? frs1 : frs2;
+    set_fp_exceptions();
     return frs1;
 }
 
@@ -252,28 +280,28 @@ uint64_t helper_fsqrt_s(CPURISCVState *env, uint64_t frs1, uint64_t rm)
 {
     set_float_rounding_mode(RM, &env->fp_status);
     frs1 = float32_sqrt(frs1, &env->fp_status);
-    set_fp_exceptions;
+    set_fp_exceptions();
     return frs1;
 }
 
 target_ulong helper_fle_s(CPURISCVState *env, uint64_t frs1, uint64_t frs2)
 {
     frs1 = float32_le(frs1, frs2, &env->fp_status);
-    set_fp_exceptions;
+    set_fp_exceptions();
     return frs1;
 }
 
 target_ulong helper_flt_s(CPURISCVState *env, uint64_t frs1, uint64_t frs2)
 {
     frs1 = float32_lt(frs1, frs2, &env->fp_status);
-    set_fp_exceptions;
+    set_fp_exceptions();
     return frs1;
 }
 
 target_ulong helper_feq_s(CPURISCVState *env, uint64_t frs1, uint64_t frs2)
 {
     frs1 = float32_eq(frs1, frs2, &env->fp_status);
-    set_fp_exceptions;
+    set_fp_exceptions();
     return frs1;
 }
 
@@ -281,7 +309,7 @@ target_ulong helper_fcvt_w_s(CPURISCVState *env, uint64_t frs1, uint64_t rm)
 {
     set_float_rounding_mode(RM, &env->fp_status);
     frs1 = (int64_t)((int32_t)float32_to_int32(frs1, &env->fp_status));
-    set_fp_exceptions;
+    set_fp_exceptions();
     return frs1;
 }
 
@@ -289,7 +317,7 @@ target_ulong helper_fcvt_wu_s(CPURISCVState *env, uint64_t frs1, uint64_t rm)
 {
     set_float_rounding_mode(RM, &env->fp_status);
     frs1 = (int64_t)((int32_t)float32_to_uint32(frs1, &env->fp_status));
-    set_fp_exceptions;
+    set_fp_exceptions();
     return frs1;
 }
 
@@ -298,7 +326,7 @@ uint64_t helper_fcvt_l_s(CPURISCVState *env, uint64_t frs1, uint64_t rm)
 {
     set_float_rounding_mode(RM, &env->fp_status);
     frs1 = float32_to_int64(frs1, &env->fp_status);
-    set_fp_exceptions;
+    set_fp_exceptions();
     return frs1;
 }
 
@@ -306,7 +334,7 @@ uint64_t helper_fcvt_lu_s(CPURISCVState *env, uint64_t frs1, uint64_t rm)
 {
     set_float_rounding_mode(RM, &env->fp_status);
     frs1 = float32_to_uint64(frs1, &env->fp_status);
-    set_fp_exceptions;
+    set_fp_exceptions();
     return frs1;
 }
 #endif
@@ -315,7 +343,7 @@ uint64_t helper_fcvt_s_w(CPURISCVState *env, target_ulong rs1, uint64_t rm)
 {
     set_float_rounding_mode(RM, &env->fp_status);
     rs1 = int32_to_float32((int32_t)rs1, &env->fp_status);
-    set_fp_exceptions;
+    set_fp_exceptions();
     return rs1;
 }
 
@@ -323,7 +351,7 @@ uint64_t helper_fcvt_s_wu(CPURISCVState *env, target_ulong rs1, uint64_t rm)
 {
     set_float_rounding_mode(RM, &env->fp_status);
     rs1 = uint32_to_float32((uint32_t)rs1, &env->fp_status);
-    set_fp_exceptions;
+    set_fp_exceptions();
     return rs1;
 }
 
@@ -332,7 +360,7 @@ uint64_t helper_fcvt_s_l(CPURISCVState *env, uint64_t rs1, uint64_t rm)
 {
     set_float_rounding_mode(RM, &env->fp_status);
     rs1 = int64_to_float32(rs1, &env->fp_status);
-    set_fp_exceptions;
+    set_fp_exceptions();
     return rs1;
 }
 
@@ -340,16 +368,16 @@ uint64_t helper_fcvt_s_lu(CPURISCVState *env, uint64_t rs1, uint64_t rm)
 {
     set_float_rounding_mode(RM, &env->fp_status);
     rs1 = uint64_to_float32(rs1, &env->fp_status);
-    set_fp_exceptions;
+    set_fp_exceptions();
     return rs1;
 }
 #endif
 
 /* adapted from spike */
-#define isNaNF32UI( ui ) (0xFF000000<(uint32_t)((uint_fast32_t)(ui)<<1))
-#define signF32UI( a ) ((bool)((uint32_t)(a)>>31))
-#define expF32UI( a ) ((int_fast16_t)((a)>>23)&0xFF)
-#define fracF32UI( a ) ((a)&0x007FFFFF)
+#define isNaNF32UI(ui) (0xFF000000 < (uint32_t)((uint_fast32_t)ui << 1))
+#define signF32UI(a) ((bool)((uint32_t)a >> 31))
+#define expF32UI(a) ((int_fast16_t)(a >> 23) & 0xFF)
+#define fracF32UI(a) (a & 0x007FFFFF)
 
 union ui32_f32 { uint32_t ui; uint32_t f; };
 
@@ -363,21 +391,21 @@ uint_fast16_t float32_classify(uint32_t a, float_status *status)
     uA.f = a;
     uiA = uA.ui;
 
-    uint_fast16_t infOrNaN = expF32UI( uiA ) == 0xFF;
-    uint_fast16_t subnormalOrZero = expF32UI( uiA ) == 0;
-    bool sign = signF32UI( uiA );
+    uint_fast16_t infOrNaN = expF32UI(uiA) == 0xFF;
+    uint_fast16_t subnormalOrZero = expF32UI(uiA) == 0;
+    bool sign = signF32UI(uiA);
 
     return
-        (  sign && infOrNaN && fracF32UI( uiA ) == 0 )          << 0 |
-        (  sign && !infOrNaN && !subnormalOrZero )              << 1 |
-        (  sign && subnormalOrZero && fracF32UI( uiA ) )        << 2 |
-        (  sign && subnormalOrZero && fracF32UI( uiA ) == 0 )   << 3 |
-        ( !sign && infOrNaN && fracF32UI( uiA ) == 0 )          << 7 |
-        ( !sign && !infOrNaN && !subnormalOrZero )              << 6 |
-        ( !sign && subnormalOrZero && fracF32UI( uiA ) )        << 5 |
-        ( !sign && subnormalOrZero && fracF32UI( uiA ) == 0 )   << 4 |
-        ( isNaNF32UI( uiA ) &&  float32_is_signaling_nan( uiA, status )) << 8 |
-        ( isNaNF32UI( uiA ) && !float32_is_signaling_nan( uiA, status )) << 9;
+        (sign && infOrNaN && fracF32UI(uiA) == 0)           << 0 |
+        (sign && !infOrNaN && !subnormalOrZero)             << 1 |
+        (sign && subnormalOrZero && fracF32UI(uiA))         << 2 |
+        (sign && subnormalOrZero && fracF32UI(uiA) == 0)    << 3 |
+        (!sign && infOrNaN && fracF32UI(uiA) == 0)          << 7 |
+        (!sign && !infOrNaN && !subnormalOrZero)            << 6 |
+        (!sign && subnormalOrZero && fracF32UI(uiA))        << 5 |
+        (!sign && subnormalOrZero && fracF32UI(uiA) == 0)   << 4 |
+        (isNaNF32UI(uiA) &&  float32_is_signaling_nan(uiA, status)) << 8 |
+        (isNaNF32UI(uiA) && !float32_is_signaling_nan(uiA, status)) << 9;
 }
 
 target_ulong helper_fclass_s(CPURISCVState *env, uint64_t frs1)
@@ -386,47 +414,51 @@ target_ulong helper_fclass_s(CPURISCVState *env, uint64_t frs1)
     return frs1;
 }
 
-uint64_t helper_fadd_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2, uint64_t rm)
+uint64_t helper_fadd_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2,
+                       uint64_t rm)
 {
     set_float_rounding_mode(RM, &env->fp_status);
     frs1 = float64_add(frs1, frs2, &env->fp_status);
-    set_fp_exceptions;
+    set_fp_exceptions();
     return frs1;
 }
 
-uint64_t helper_fsub_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2, uint64_t rm)
+uint64_t helper_fsub_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2,
+                       uint64_t rm)
 {
     set_float_rounding_mode(RM, &env->fp_status);
     frs1 = float64_sub(frs1, frs2, &env->fp_status);
-    set_fp_exceptions;
+    set_fp_exceptions();
     return frs1;
 }
 
-uint64_t helper_fmul_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2, uint64_t rm)
+uint64_t helper_fmul_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2,
+                       uint64_t rm)
 {
     set_float_rounding_mode(RM, &env->fp_status);
     frs1 = float64_mul(frs1, frs2, &env->fp_status);
-    set_fp_exceptions;
+    set_fp_exceptions();
     return frs1;
 }
 
-uint64_t helper_fdiv_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2, uint64_t rm)
+uint64_t helper_fdiv_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2,
+                       uint64_t rm)
 {
     set_float_rounding_mode(RM, &env->fp_status);
     frs1 = float64_div(frs1, frs2, &env->fp_status);
-    set_fp_exceptions;
+    set_fp_exceptions();
     return frs1;
 }
 
 uint64_t helper_fsgnj_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2)
 {
-    frs1 = (frs1 &~ INT64_MIN) | (frs2 & INT64_MIN);
+    frs1 = (frs1 & ~INT64_MIN) | (frs2 & INT64_MIN);
     return frs1;
 }
 
 uint64_t helper_fsgnjn_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2)
 {
-    frs1 = (frs1 &~ INT64_MIN) | ((~frs2) & INT64_MIN);
+    frs1 = (frs1 & ~INT64_MIN) | ((~frs2) & INT64_MIN);
     return frs1;
 }
 
@@ -438,15 +470,17 @@ uint64_t helper_fsgnjx_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2)
 
 uint64_t helper_fmin_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2)
 {
-    frs1 = float64_is_any_nan(frs2) || float64_lt_quiet(frs1, frs2, &env->fp_status) ? frs1 : frs2;
-    set_fp_exceptions;
+    frs1 = float64_is_any_nan(frs2) ||
+           float64_lt_quiet(frs1, frs2, &env->fp_status) ? frs1 : frs2;
+    set_fp_exceptions();
     return frs1;
 }
 
 uint64_t helper_fmax_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2)
 {
-    frs1 = float64_is_any_nan(frs2) || float64_le_quiet(frs2, frs1, &env->fp_status) ? frs1 : frs2;
-    set_fp_exceptions;
+    frs1 = float64_is_any_nan(frs2) ||
+           float64_le_quiet(frs2, frs1, &env->fp_status) ? frs1 : frs2;
+    set_fp_exceptions();
     return frs1;
 }
 
@@ -454,7 +488,7 @@ uint64_t helper_fcvt_s_d(CPURISCVState *env, uint64_t rs1, uint64_t rm)
 {
     set_float_rounding_mode(RM, &env->fp_status);
     rs1 = float64_to_float32(rs1, &env->fp_status);
-    set_fp_exceptions;
+    set_fp_exceptions();
     return rs1;
 }
 
@@ -462,7 +496,7 @@ uint64_t helper_fcvt_d_s(CPURISCVState *env, uint64_t rs1, uint64_t rm)
 {
     set_float_rounding_mode(RM, &env->fp_status);
     rs1 = float32_to_float64(rs1, &env->fp_status);
-    set_fp_exceptions;
+    set_fp_exceptions();
     return rs1;
 }
 
@@ -470,28 +504,28 @@ uint64_t helper_fsqrt_d(CPURISCVState *env, uint64_t frs1, uint64_t rm)
 {
     set_float_rounding_mode(RM, &env->fp_status);
     frs1 = float64_sqrt(frs1, &env->fp_status);
-    set_fp_exceptions;
+    set_fp_exceptions();
     return frs1;
 }
 
 target_ulong helper_fle_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2)
 {
     frs1 = float64_le(frs1, frs2, &env->fp_status);
-    set_fp_exceptions;
+    set_fp_exceptions();
     return frs1;
 }
 
 target_ulong helper_flt_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2)
 {
     frs1 = float64_lt(frs1, frs2, &env->fp_status);
-    set_fp_exceptions;
+    set_fp_exceptions();
     return frs1;
 }
 
 target_ulong helper_feq_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2)
 {
     frs1 = float64_eq(frs1, frs2, &env->fp_status);
-    set_fp_exceptions;
+    set_fp_exceptions();
     return frs1;
 }
 
@@ -499,7 +533,7 @@ target_ulong helper_fcvt_w_d(CPURISCVState *env, uint64_t frs1, uint64_t rm)
 {
     set_float_rounding_mode(RM, &env->fp_status);
     frs1 = (int64_t)((int32_t)float64_to_int32(frs1, &env->fp_status));
-    set_fp_exceptions;
+    set_fp_exceptions();
     return frs1;
 }
 
@@ -507,7 +541,7 @@ target_ulong helper_fcvt_wu_d(CPURISCVState *env, uint64_t frs1, uint64_t rm)
 {
     set_float_rounding_mode(RM, &env->fp_status);
     frs1 = (int64_t)((int32_t)float64_to_uint32(frs1, &env->fp_status));
-    set_fp_exceptions;
+    set_fp_exceptions();
     return frs1;
 }
 
@@ -516,7 +550,7 @@ uint64_t helper_fcvt_l_d(CPURISCVState *env, uint64_t frs1, uint64_t rm)
 {
     set_float_rounding_mode(RM, &env->fp_status);
     frs1 = float64_to_int64(frs1, &env->fp_status);
-    set_fp_exceptions;
+    set_fp_exceptions();
     return frs1;
 }
 
@@ -524,7 +558,7 @@ uint64_t helper_fcvt_lu_d(CPURISCVState *env, uint64_t frs1, uint64_t rm)
 {
     set_float_rounding_mode(RM, &env->fp_status);
     frs1 = float64_to_uint64(frs1, &env->fp_status);
-    set_fp_exceptions;
+    set_fp_exceptions();
     return frs1;
 }
 #endif
@@ -534,7 +568,7 @@ uint64_t helper_fcvt_d_w(CPURISCVState *env, target_ulong rs1, uint64_t rm)
     uint64_t res;
     set_float_rounding_mode(RM, &env->fp_status);
     res = int32_to_float64((int32_t)rs1, &env->fp_status);
-    set_fp_exceptions;
+    set_fp_exceptions();
     return res;
 }
 
@@ -543,7 +577,7 @@ uint64_t helper_fcvt_d_wu(CPURISCVState *env, target_ulong rs1, uint64_t rm)
     uint64_t res;
     set_float_rounding_mode(RM, &env->fp_status);
     res = uint32_to_float64((uint32_t)rs1, &env->fp_status);
-    set_fp_exceptions;
+    set_fp_exceptions();
     return res;
 }
 
@@ -552,7 +586,7 @@ uint64_t helper_fcvt_d_l(CPURISCVState *env, uint64_t rs1, uint64_t rm)
 {
     set_float_rounding_mode(RM, &env->fp_status);
     rs1 = int64_to_float64(rs1, &env->fp_status);
-    set_fp_exceptions;
+    set_fp_exceptions();
     return rs1;
 }
 
@@ -560,16 +594,17 @@ uint64_t helper_fcvt_d_lu(CPURISCVState *env, uint64_t rs1, uint64_t rm)
 {
     set_float_rounding_mode(RM, &env->fp_status);
     rs1 = uint64_to_float64(rs1, &env->fp_status);
-    set_fp_exceptions;
+    set_fp_exceptions();
     return rs1;
 }
 #endif
 
 /* adapted from spike */
-#define isNaNF64UI( ui ) (UINT64_C(0xFFE0000000000000)<(uint64_t)((uint_fast64_t)(ui)<<1))
-#define signF64UI( a ) ((bool)((uint64_t)(a)>>63))
-#define expF64UI( a ) ((int_fast16_t)((a)>>52)&0x7FF)
-#define fracF64UI( a ) ((a)&UINT64_C(0x000FFFFFFFFFFFFF))
+#define isNaNF64UI(ui) (UINT64_C(0xFFE0000000000000) \
+                       < (uint64_t)((uint_fast64_t)ui << 1))
+#define signF64UI(a) ((bool)((uint64_t) a >> 63))
+#define expF64UI(a) ((int_fast16_t)(a >> 52) & 0x7FF)
+#define fracF64UI(a) (a & UINT64_C(0x000FFFFFFFFFFFFF))
 
 union ui64_f64 { uint64_t ui; uint64_t f; };
 
@@ -583,21 +618,21 @@ uint_fast16_t float64_classify(uint64_t a, float_status *status)
     uA.f = a;
     uiA = uA.ui;
 
-    uint_fast16_t infOrNaN = expF64UI( uiA ) == 0x7FF;
-    uint_fast16_t subnormalOrZero = expF64UI( uiA ) == 0;
-    bool sign = signF64UI( uiA );
+    uint_fast16_t infOrNaN = expF64UI(uiA) == 0x7FF;
+    uint_fast16_t subnormalOrZero = expF64UI(uiA) == 0;
+    bool sign = signF64UI(uiA);
 
     return
-        (  sign && infOrNaN && fracF64UI( uiA ) == 0 )          << 0 |
-        (  sign && !infOrNaN && !subnormalOrZero )              << 1 |
-        (  sign && subnormalOrZero && fracF64UI( uiA ) )        << 2 |
-        (  sign && subnormalOrZero && fracF64UI( uiA ) == 0 )   << 3 |
-        ( !sign && infOrNaN && fracF64UI( uiA ) == 0 )          << 7 |
-        ( !sign && !infOrNaN && !subnormalOrZero )              << 6 |
-        ( !sign && subnormalOrZero && fracF64UI( uiA ) )        << 5 |
-        ( !sign && subnormalOrZero && fracF64UI( uiA ) == 0 )   << 4 |
-        ( isNaNF64UI( uiA ) &&  float64_is_signaling_nan( uiA, status )) << 8 |
-        ( isNaNF64UI( uiA ) && !float64_is_signaling_nan( uiA, status )) << 9;
+        (sign && infOrNaN && fracF64UI(uiA) == 0)        << 0 |
+        (sign && !infOrNaN && !subnormalOrZero)            << 1 |
+        (sign && subnormalOrZero && fracF64UI(uiA))        << 2 |
+        (sign && subnormalOrZero && fracF64UI(uiA) == 0)   << 3 |
+        (!sign && infOrNaN && fracF64UI(uiA) == 0)         << 7 |
+        (!sign && !infOrNaN && !subnormalOrZero)           << 6 |
+        (!sign && subnormalOrZero && fracF64UI(uiA))       << 5 |
+        (!sign && subnormalOrZero && fracF64UI(uiA) == 0)  << 4 |
+        (isNaNF64UI(uiA) &&  float64_is_signaling_nan(uiA, status)) << 8 |
+        (isNaNF64UI(uiA) && !float64_is_signaling_nan(uiA, status)) << 9;
 }
 
 target_ulong helper_fclass_d(CPURISCVState *env, uint64_t frs1)
@@ -612,11 +647,11 @@ target_ulong helper_mulhsu(CPURISCVState *env, target_ulong arg1,
 #if defined(TARGET_RISCV64)
     int64_t a = arg1;
     uint64_t b = arg2;
-    return (int64_t)((__int128_t)a*b >> 64);
+    return (int64_t)((__int128_t)a * b >> 64);
 #else
     int32_t a = arg1;
     uint32_t b = arg2;
-    return (int32_t)((int64_t)a*b >> 32);
+    return (int32_t)((int64_t)a * b >> 32);
 #endif
 }
 
@@ -636,8 +671,7 @@ inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
     uint64_t delegable_ints = MIP_SSIP | MIP_STIP | MIP_SEIP | (1 << IRQ_COP);
     uint64_t all_ints = delegable_ints | MIP_MSIP | MIP_MTIP;
 
-    switch (csrno)
-    {
+    switch (csrno) {
     case CSR_FFLAGS:
         env->csr[CSR_MSTATUS] |= MSTATUS_FS | MSTATUS64_SD;
         env->csr[CSR_FFLAGS] = val_to_write & (FSR_AEXC >> FSR_AEXC_SHIFT);
@@ -654,14 +688,15 @@ inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
     case CSR_MSTATUS: {
         target_ulong mstatus = env->csr[CSR_MSTATUS];
         if ((val_to_write ^ mstatus) &
-            (MSTATUS_VM | MSTATUS_MPP | MSTATUS_MPRV | MSTATUS_PUM | MSTATUS_MXR)) {
+            (MSTATUS_VM | MSTATUS_MPP | MSTATUS_MPRV | MSTATUS_PUM |
+             MSTATUS_MXR)) {
             helper_tlb_flush(env);
         }
 
-        // no extension support
-        target_ulong mask = MSTATUS_SIE | MSTATUS_SPIE | MSTATUS_MIE | MSTATUS_MPIE
-            | MSTATUS_SPP | MSTATUS_FS | MSTATUS_MPRV | MSTATUS_PUM
-            | MSTATUS_MXR;
+        /* no extension support */
+        target_ulong mask = MSTATUS_SIE | MSTATUS_SPIE | MSTATUS_MIE
+            | MSTATUS_MPIE | MSTATUS_SPP | MSTATUS_FS | MSTATUS_MPRV
+            | MSTATUS_PUM | MSTATUS_MXR;
 
         if (validate_vm(get_field(val_to_write, MSTATUS_VM))) {
             mask |= MSTATUS_VM;
@@ -706,7 +741,8 @@ inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
         break;
     }
     case CSR_MIDELEG:
-        env->csr[CSR_MIDELEG] = (env->csr[CSR_MIDELEG] & ~delegable_ints) | (val_to_write & delegable_ints);
+        env->csr[CSR_MIDELEG] = (env->csr[CSR_MIDELEG] & ~delegable_ints)
+                                | (val_to_write & delegable_ints);
         break;
     case CSR_MEDELEG: {
         target_ulong mask = 0;
@@ -722,7 +758,8 @@ inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
         mask |= 1ULL << (RISCV_EXCP_S_ECALL);
         mask |= 1ULL << (RISCV_EXCP_H_ECALL);
         mask |= 1ULL << (RISCV_EXCP_M_ECALL);
-        env->csr[CSR_MEDELEG] = (env->csr[CSR_MEDELEG] & ~mask) | (val_to_write & mask);
+        env->csr[CSR_MEDELEG] = (env->csr[CSR_MEDELEG] & ~mask)
+                                | (val_to_write & mask);
         break;
     }
     case CSR_MUCOUNTEREN:
@@ -733,26 +770,30 @@ inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
         break;
     case CSR_SSTATUS: {
         target_ulong ms = env->csr[CSR_MSTATUS];
-        target_ulong mask = SSTATUS_SIE | SSTATUS_SPIE | SSTATUS_SPP | SSTATUS_FS
-            | SSTATUS_XS | SSTATUS_PUM; // TODO should XS be here?
+        target_ulong mask = SSTATUS_SIE | SSTATUS_SPIE | SSTATUS_SPP
+                            | SSTATUS_FS | SSTATUS_XS | SSTATUS_PUM;
+                            /* TODO should XS be here? */
         ms = (ms & ~mask) | (val_to_write & mask);
         csr_write_helper(env, ms, CSR_MSTATUS);
         break;
     }
     case CSR_SIP: {
-        target_ulong next_mip = (env->csr[CSR_MIP] & ~env->csr[CSR_MIDELEG]) | (val_to_write & env->csr[CSR_MIDELEG]);
+        target_ulong next_mip = (env->csr[CSR_MIP] & ~env->csr[CSR_MIDELEG])
+                                | (val_to_write & env->csr[CSR_MIDELEG]);
         csr_write_helper(env, next_mip, CSR_MIP);
-        // note: stw_phys should be done by the call to set MIP if necessary,
-        // so we don't do it here
+        /* note: stw_phys should be done by the call to set MIP if necessary, */
+        /* so we don't do it here */
         break;
     }
     case CSR_SIE: {
-        target_ulong next_mie = (env->csr[CSR_MIE] & ~env->csr[CSR_MIDELEG]) | (val_to_write & env->csr[CSR_MIDELEG]);
+        target_ulong next_mie = (env->csr[CSR_MIE] & ~env->csr[CSR_MIDELEG])
+                                | (val_to_write & env->csr[CSR_MIDELEG]);
         csr_write_helper(env, next_mie, CSR_MIE);
         break;
     }
     case CSR_SPTBR: {
-        env->csr[CSR_SPTBR] = val_to_write & (((target_ulong)1 << (TARGET_PHYS_ADDR_SPACE_BITS - PGSHIFT)) - 1);
+        env->csr[CSR_SPTBR] = val_to_write & (((target_ulong)1 <<
+                              (TARGET_PHYS_ADDR_SPACE_BITS - PGSHIFT)) - 1);
         break;
     }
     case CSR_SEPC:
@@ -812,15 +853,14 @@ inline target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno)
     fprintf(stderr, "READ CSR 0x%x\n", csrno2);
     #endif
 
-    switch (csrno2)
-    {
+    switch (csrno2) {
     case CSR_FFLAGS:
         return env->csr[CSR_FFLAGS];
     case CSR_FRM:
         return env->csr[CSR_FRM];
     case CSR_FCSR:
         return (env->csr[CSR_FFLAGS] << FSR_AEXC_SHIFT) |
-            (env->csr[CSR_FRM] << FSR_RD_SHIFT);
+               (env->csr[CSR_FRM] << FSR_RD_SHIFT);
     case CSR_TIME:
     case CSR_INSTRET:
     case CSR_CYCLE:
@@ -839,51 +879,51 @@ inline target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno)
         return env->csr[CSR_MUCOUNTEREN];
     case CSR_MSCOUNTEREN:
         return env->csr[CSR_MSCOUNTEREN];
-    case CSR_MUCYCLE_DELTA: 
-        return 0; // as spike does
-    case CSR_MUTIME_DELTA:  
-        return 0; // as spike does
-    case CSR_MUINSTRET_DELTA:  
-        return 0; // as spike does
-    case CSR_MSCYCLE_DELTA:  
-        return 0; // as spike does
-    case CSR_MSTIME_DELTA:  
-        return 0; // as spike does
-    case CSR_MSINSTRET_DELTA:  
-        return 0; // as spike does
-    case CSR_MUCYCLE_DELTAH:  
+    case CSR_MUCYCLE_DELTA:
+        return 0; /* as spike does */
+    case CSR_MUTIME_DELTA:
+        return 0; /* as spike does */
+    case CSR_MUINSTRET_DELTA:
+        return 0; /* as spike does */
+    case CSR_MSCYCLE_DELTA:
+        return 0; /* as spike does */
+    case CSR_MSTIME_DELTA:
+        return 0; /* as spike does */
+    case CSR_MSINSTRET_DELTA:
+        return 0; /* as spike does */
+    case CSR_MUCYCLE_DELTAH:
         printf("CSR 0x%x unsupported on RV64\n", csrno2);
         exit(1);
-    case CSR_MUTIME_DELTAH:  
+    case CSR_MUTIME_DELTAH:
         printf("CSR 0x%x unsupported on RV64\n", csrno2);
         exit(1);
-    case CSR_MUINSTRET_DELTAH:  
+    case CSR_MUINSTRET_DELTAH:
         printf("CSR 0x%x unsupported on RV64\n", csrno2);
         exit(1);
-    case CSR_MSCYCLE_DELTAH:  
+    case CSR_MSCYCLE_DELTAH:
         printf("CSR 0x%x unsupported on RV64\n", csrno2);
         exit(1);
-    case CSR_MSTIME_DELTAH:  
+    case CSR_MSTIME_DELTAH:
         printf("CSR 0x%x unsupported on RV64\n", csrno2);
         exit(1);
-    case CSR_MSINSTRET_DELTAH:  
+    case CSR_MSINSTRET_DELTAH:
         printf("CSR 0x%x unsupported on RV64\n", csrno2);
         exit(1);
-    // notice the lack of CSR_MTIME - this is handled by throwing an exception
-    // and letting the handler read from the RTC
-    case CSR_MCYCLE:  
+    /* notice the lack of CSR_MTIME - this is handled by throwing an exception
+       and letting the handler read from the RTC */
+    case CSR_MCYCLE:
         return cpu_riscv_read_instret(env);
-    case CSR_MINSTRET:  
+    case CSR_MINSTRET:
         return cpu_riscv_read_instret(env);
-    case CSR_MCYCLEH:  
+    case CSR_MCYCLEH:
         printf("CSR 0x%x unsupported on RV64\n", csrno2);
         exit(1);
-    case CSR_MINSTRETH:  
+    case CSR_MINSTRETH:
         printf("CSR 0x%x unsupported on RV64\n", csrno2);
         exit(1);
     case CSR_SSTATUS: {
-        target_ulong mask = SSTATUS_SIE | SSTATUS_SPIE | SSTATUS_SPP | SSTATUS_FS
-            | SSTATUS_XS | SSTATUS_PUM;
+        target_ulong mask = SSTATUS_SIE | SSTATUS_SPIE | SSTATUS_SPP
+                            | SSTATUS_FS | SSTATUS_XS | SSTATUS_PUM;
         target_ulong sstatus = env->csr[CSR_MSTATUS] & mask;
         if ((sstatus & SSTATUS_FS) == SSTATUS_FS ||
                 (sstatus & SSTATUS_XS) == SSTATUS_XS) {
@@ -924,11 +964,11 @@ inline target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno)
     case CSR_MISA:
         return env->csr[CSR_MISA];
     case CSR_MARCHID:
-        return 0; // as spike does
+        return 0; /* as spike does */
     case CSR_MIMPID:
-        return 0; // as spike does
+        return 0; /* as spike does */
     case CSR_MVENDORID:
-        return 0; // as spike does
+        return 0; /* as spike does */
     case CSR_MHARTID:
         return 0;
     case CSR_MTVEC:
@@ -938,7 +978,7 @@ inline target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno)
     case CSR_MIDELEG:
         return env->csr[CSR_MIDELEG];
     case CSR_TDRSELECT:
-        return 0; // as spike does
+        return 0; /* as spike does */
     case CSR_DCSR:
         printf("DEBUG NOT IMPLEMENTED\n");
         exit(1);
@@ -949,7 +989,7 @@ inline target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno)
         printf("DEBUG NOT IMPLEMENTED\n");
         exit(1);
     }
-    // used by e.g. MTIME read
+    /* used by e.g. MTIME read */
     helper_raise_exception(env, RISCV_EXCP_ILLEGAL_INST);
     return 0;
 }
@@ -1019,17 +1059,20 @@ void helper_debug_print(CPURISCVState *env, target_ulong cpu_pc_deb,
         fprintf(stderr, ": core   0: 0x" TARGET_FMT_lx " (0x%08lx) %s",
                 cpu_pc_deb, instruction, path);
     } else {*/
-        fprintf(stderr, ": core   0: 0x" TARGET_FMT_lx " (0x" TARGET_FMT_lx ") %s",
-                cpu_pc_deb, instruction, "DASM BAD RESULT\n");
+    fprintf(stderr, ": core   0: 0x" TARGET_FMT_lx " (0x" TARGET_FMT_lx ") %s",
+            cpu_pc_deb, instruction, "DASM BAD RESULT\n");
 /*    }
     pclose(fp);*/
 }
 
-void helper_debug_print_reg1(CPURISCVState *env, target_ulong reg1) {
+void helper_debug_print_reg1(CPURISCVState *env, target_ulong reg1)
+{
     printf("reg1: 0x" TARGET_FMT_lx "\n", reg1);
 }
 
-void helper_debug_print_reg2(CPURISCVState *env, target_ulong reg1, target_ulong reg2) {
+void helper_debug_print_reg2(CPURISCVState *env, target_ulong reg1,
+                             target_ulong reg2)
+{
     printf("reg1: 0x" TARGET_FMT_lx "\n", reg1);
     printf("reg2: 0x" TARGET_FMT_lx "\n", reg2);
 }
@@ -1037,7 +1080,7 @@ void helper_debug_print_reg2(CPURISCVState *env, target_ulong reg1, target_ulong
 target_ulong helper_sret(CPURISCVState *env, target_ulong cpu_pc_deb)
 {
     if (!(env->priv >= PRV_S)) {
-        // TODO: real illegal instruction trap
+        /* TODO: real illegal instruction trap */
         printf("ILLEGAL INST");
         exit(1);
     }
@@ -1050,9 +1093,10 @@ target_ulong helper_sret(CPURISCVState *env, target_ulong cpu_pc_deb)
 
     target_ulong mstatus = env->csr[CSR_MSTATUS];
     target_ulong prev_priv = get_field(mstatus, MSTATUS_SPP);
-    mstatus = set_field(mstatus, MSTATUS_UIE << prev_priv, get_field(mstatus, MSTATUS_SPIE));
+    mstatus = set_field(mstatus, MSTATUS_UIE << prev_priv,
+                        get_field(mstatus, MSTATUS_SPIE));
     mstatus = set_field(mstatus, MSTATUS_SPIE, 0);
-    mstatus = set_field(mstatus, MSTATUS_SPP, PRV_U); 
+    mstatus = set_field(mstatus, MSTATUS_SPP, PRV_U);
     set_privilege(env, prev_priv);
     csr_write_helper(env, mstatus, CSR_MSTATUS);
 
@@ -1062,7 +1106,7 @@ target_ulong helper_sret(CPURISCVState *env, target_ulong cpu_pc_deb)
 target_ulong helper_mret(CPURISCVState *env, target_ulong cpu_pc_deb)
 {
     if (!(env->priv >= PRV_M)) {
-        // TODO: real illegal instruction trap
+        /* TODO: real illegal instruction trap */
         printf("ILLEGAL INST");
         exit(1);
     }
@@ -1075,9 +1119,10 @@ target_ulong helper_mret(CPURISCVState *env, target_ulong cpu_pc_deb)
 
     target_ulong mstatus = env->csr[CSR_MSTATUS];
     target_ulong prev_priv = get_field(mstatus, MSTATUS_MPP);
-    mstatus = set_field(mstatus, MSTATUS_UIE << prev_priv, get_field(mstatus, MSTATUS_MPIE));
+    mstatus = set_field(mstatus, MSTATUS_UIE << prev_priv,
+                        get_field(mstatus, MSTATUS_MPIE));
     mstatus = set_field(mstatus, MSTATUS_MPIE, 0);
-    mstatus = set_field(mstatus, MSTATUS_MPP, PRV_U); 
+    mstatus = set_field(mstatus, MSTATUS_MPP, PRV_U);
     set_privilege(env, prev_priv);
     csr_write_helper(env, mstatus, CSR_MSTATUS);
 
@@ -1086,13 +1131,14 @@ target_ulong helper_mret(CPURISCVState *env, target_ulong cpu_pc_deb)
 
 #ifndef CONFIG_USER_ONLY
 
-void helper_fence_i(CPURISCVState *env) {
+void helper_fence_i(CPURISCVState *env)
+{
     RISCVCPU *cpu = riscv_env_get_cpu(env);
     CPUState *cs = CPU(cpu);
-    // Flush QEMU's TLB
+    /* Flush QEMU's TLB */
     tlb_flush(cs, 1);
-    // ARM port seems to not know if this is okay inside a TB...
-    // But we need to do it
+    /* ARM port seems to not know if this is okay inside a TB...
+       But we need to do it */
     tb_flush(cs);
 }
 
@@ -1104,7 +1150,7 @@ void helper_tlb_flush(CPURISCVState *env)
 
 #endif /* !CONFIG_USER_ONLY */
 
-// TODO: implement for RISC-V WFI
+/* TODO: implement for RISC-V WFI */
 /*void helper_wait(CPURISCVState *env)
 {
     CPUState *cs = CPU(riscv_env_get_cpu(env));
@@ -1118,7 +1164,8 @@ void helper_tlb_flush(CPURISCVState *env)
 #if !defined(CONFIG_USER_ONLY)
 
 void riscv_cpu_do_unaligned_access(CPUState *cs, vaddr addr,
-                           MMUAccessType access_type, int mmu_idx, uintptr_t retaddr)
+                                   MMUAccessType access_type, int mmu_idx,
+                                   uintptr_t retaddr)
 {
     RISCVCPU *cpu = RISCV_CPU(cs);
     CPURISCVState *env = &cpu->env;
@@ -1142,7 +1189,7 @@ void riscv_cpu_do_unaligned_access(CPUState *cs, vaddr addr,
 }
 
 /* called by qemu's softmmu to fill the qemu tlb */
-void tlb_fill(CPUState *cs, target_ulong addr, MMUAccessType access_type, 
+void tlb_fill(CPUState *cs, target_ulong addr, MMUAccessType access_type,
         int mmu_idx, uintptr_t retaddr)
 {
     int ret;

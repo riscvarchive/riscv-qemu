@@ -19,7 +19,7 @@ extern const VMStateDescription vmstate_timer_rv;
 extern const MemoryRegionOps timer_io_ops;
 
 /* legacy pre qom */
-TIMERState *timer_mm_init(MemoryRegion *address_space, hwaddr base, 
-                    CPURISCVState *env);
+TIMERState *timer_mm_init(MemoryRegion *address_space, hwaddr base,
+                          CPURISCVState *env);
 
 #endif
