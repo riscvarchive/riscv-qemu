@@ -27,30 +27,20 @@
 #include "hw/riscv/cpudevs.h"
 #include "cpu.h"
 
-/* irq request function, called in hw/irq.h by qemu_irq_raise (level = 1),
- * qemu_irq_lower (level = 0), qemu_irq_pulse (level = 1, then 0)
- *
- * The device will call this once to raise the interrupt line and once to
- * lower the interrupt line for level-trigerring
- *
- */
 static void cpu_riscv_irq_request(void *opaque, int irq, int level)
 {
-    /* TODO fixup post 1.9
-       This "irq" number is not a real irq number, just some set of numbers
-       we choose. These are not the same irq numbers visible to the
-       processor. */
-
+    /* These are not the same irq numbers visible to the emulated processor. */
     RISCVCPU *cpu = opaque;
     CPURISCVState *env = &cpu->env;
     CPUState *cs = CPU(cpu);
 
     /* current irqs:
-       7: Machine Timer. MIP_MTIP should have already been set
        4: Host Interrupt. mfromhost should have a nonzero value
-       3, 2, 1: Interrupts triggered by the CPU. At least one of
+       3: Machine Timer. MIP_MTIP should have already been set
+       2, 1, 0: Interrupts triggered by the CPU. At least one of
        MIP_STIP, MIP_SSIP, MIP_MSIP should already be set */
-    if (unlikely(irq != 7 && !(irq < 5 && irq > 0))) {
+    if (unlikely(!(irq < 5 && irq >= 0))) {
+        printf("IRQNO: %d\n", irq);
         fprintf(stderr, "Unused IRQ was raised.\n");
         exit(1);
     }
@@ -74,12 +64,4 @@ void cpu_riscv_irq_init_cpu(CPURISCVState *env)
     for (i = 0; i < 8; i++) {
         env->irq[i] = qi[i];
     }
-}
-
-void cpu_riscv_soft_irq(CPURISCVState *env, int irq, int level)
-{
-    if (irq != 0) {
-        return;
-    }
-    qemu_set_irq(env->irq[irq], level);
 }

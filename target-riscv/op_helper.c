@@ -713,11 +713,6 @@ inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
         env->csr[CSR_MSTATUS] = mstatus;
         break;
     }
-
-#define SSIP_IRQ (env->irq[1])
-#define STIP_IRQ (env->irq[2])
-#define MSIP_IRQ (env->irq[3])
-
     case CSR_MIP: {
         target_ulong mask = MIP_SSIP | MIP_STIP;
         env->csr[CSR_MIP] = (env->csr[CSR_MIP] & ~mask) |

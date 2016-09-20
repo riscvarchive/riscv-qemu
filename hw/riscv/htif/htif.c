@@ -41,9 +41,7 @@
 
 #define ENABLE_CHARDEV
 /*#define DEBUG_CHARDEV */
-/*#define DEBUG_BLKDEV */
 /*#define DEBUG_HTIF */
-
 
 #ifdef ENABLE_CHARDEV
 /*
