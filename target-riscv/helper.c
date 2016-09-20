@@ -31,30 +31,6 @@
 
 #if !defined(CONFIG_USER_ONLY)
 
-/* TODO duplicated in op_helper.c */
-int validate_priv2(target_ulong priv);
-
-int validate_priv2(target_ulong priv)
-{
-    return priv == PRV_U || priv == PRV_S || priv == PRV_M;
-}
-
-/* TODO duplicated in op_helper.c */
-void set_privilege2(CPURISCVState *env, target_ulong newpriv);
-
-void set_privilege2(CPURISCVState *env, target_ulong newpriv)
-{
-    if (!validate_priv2(newpriv)) {
-        printf("INVALID PRIV SET\n");
-        exit(1);
-    }
-    /* copied body of helper_tlb_flush for now */
-    RISCVCPU *cpu = riscv_env_get_cpu(env);
-    tlb_flush(CPU(cpu), 1);
-    env->priv = newpriv;
-}
-
-
 bool riscv_cpu_exec_interrupt(CPUState *cs, int interrupt_request)
 {
     if (interrupt_request & CPU_INTERRUPT_HARD) {
@@ -413,7 +389,7 @@ void riscv_cpu_do_interrupt(CPUState *cs)
         s = set_field(s, MSTATUS_SPP, env->priv);
         s = set_field(s, MSTATUS_SIE, 0);
         csr_write_helper(env, s, CSR_MSTATUS);
-        set_privilege2(env, PRV_S);
+        set_privilege(env, PRV_S);
     } else {
         env->PC = env->csr[CSR_MTVEC];
         env->csr[CSR_MEPC] = backup_epc;
@@ -432,7 +408,7 @@ void riscv_cpu_do_interrupt(CPUState *cs)
         s = set_field(s, MSTATUS_MPP, env->priv);
         s = set_field(s, MSTATUS_MIE, 0);
         csr_write_helper(env, s, CSR_MSTATUS);
-        set_privilege2(env, PRV_M);
+        set_privilege(env, PRV_M);
     }
     /* TODO yield load reservation  */
 

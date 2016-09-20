@@ -24,15 +24,10 @@
 #include "qemu/host-utils.h"
 #include "exec/helper-proto.h"
 
-int validate_priv(target_ulong priv);
-
 int validate_priv(target_ulong priv)
 {
     return priv == PRV_U || priv == PRV_S || priv == PRV_M;
 }
-
-/* TODO duplicated in helper.c */
-void set_privilege(CPURISCVState *env, target_ulong newpriv);
 
 void set_privilege(CPURISCVState *env, target_ulong newpriv)
 {
