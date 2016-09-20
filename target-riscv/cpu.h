@@ -1,5 +1,5 @@
-#if !defined(__RISCV_CPU_H__)
-#define __RISCV_CPU_H__
+#ifndef RISCV_CPU_H
+#define RISCV_CPU_H
 
 /*#define DEBUG_OP */
 
@@ -393,6 +393,8 @@ void riscv_cpu_list(FILE *f, fprintf_function cpu_fprintf);
 #define cpu_list riscv_cpu_list
 
 static int ctz(target_ulong val);
+int validate_priv(target_ulong priv);
+void set_privilege(CPURISCVState *env, target_ulong newpriv);
 
 static inline int cpu_mmu_index(CPURISCVState *env, bool ifetch)
 {
@@ -494,5 +496,4 @@ void validate_csr(CPURISCVState *env, uint64_t which, uint64_t write, uint64_t
 
 #include "exec/exec-all.h"
 
-
-#endif /* !defined (__RISCV_CPU_H__) */
+#endif /* RISCV_CPU_H */
