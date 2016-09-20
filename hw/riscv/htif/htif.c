@@ -335,7 +335,7 @@ static const MemoryRegionOps htif_mm_ops[3] = {
 
 HTIFState *htif_mm_init(MemoryRegion *address_space,
            const char *kernel_filename, qemu_irq irq, MemoryRegion *main_mem,
-           const char *kernel_cmdline, CPURISCVState *env, CharDriverState *chr)
+           CPURISCVState *env, CharDriverState *chr)
 {
     uint64_t fromhost_addr = 0;
     uint64_t fromhost_size = 0; /* for pk vs tests */
@@ -421,8 +421,5 @@ HTIFState *htif_mm_init(MemoryRegion *address_space,
                            htifstate, "htif", regionwidth);
     memory_region_add_subregion(address_space, base, &htifstate->io);
 
-    /* save kernel_cmdline for sys_getmainvars */
-    htifstate->kernel_cmdline = malloc(strlen(kernel_cmdline) + 1);
-    strcpy(htifstate->kernel_cmdline, kernel_cmdline);
     return htifstate;
 }
