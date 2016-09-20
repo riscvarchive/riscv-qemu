@@ -58,10 +58,15 @@ static void riscv_cpu_reset(CPUState *s)
     RISCVCPU *cpu = RISCV_CPU(s);
     RISCVCPUClass *mcc = RISCV_CPU_GET_CLASS(cpu);
     CPURISCVState *env = &cpu->env;
+    CPUState *cs = CPU(cpu);
 
     mcc->parent_reset(s);
     tlb_flush(s, 1);
-    cpu_state_reset(env);
+
+    env->priv = PRV_M;
+    env->PC = DEFAULT_RSTVEC;
+    env->csr[CSR_MTVEC] = DEFAULT_MTVEC;
+    cs->exception_index = EXCP_NONE;
 }
 
 static void riscv_cpu_disas_set_info(CPUState *s, disassemble_info *info)
@@ -123,10 +128,16 @@ static void riscv_cpu_class_init(ObjectClass *c, void *data)
     /* TODO to support migration:
        cc->vmsd = &vmstate_riscv_cpu; */
 #endif
-
     cc->disas_set_info = riscv_cpu_disas_set_info;
     cc->gdb_num_core_regs = 132;
     cc->gdb_stop_before_watchpoint = true;
+
+    /*
+     * Reason: riscv_cpu_initfn() calls cpu_exec_init(), which saves
+     * the object in cpus -> dangling pointer after final
+     * object_unref().
+     */
+    dc->cannot_destroy_with_object_finalize_yet = true;
 }
 
 static const TypeInfo riscv_cpu_type_info = {

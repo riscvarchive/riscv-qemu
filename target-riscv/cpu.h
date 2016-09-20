@@ -305,8 +305,6 @@ struct CPURISCVState {
     uint64_t mtohost;
 
     uint64_t timecmp;
-
-    /* backup in machine.c? */
     float_status fp_status;
 
     /* QEMU */
@@ -394,6 +392,8 @@ void riscv_cpu_list(FILE *f, fprintf_function cpu_fprintf);
 #define cpu_signal_handler cpu_riscv_signal_handler
 #define cpu_list riscv_cpu_list
 
+static int ctz(target_ulong val);
+
 static inline int cpu_mmu_index(CPURISCVState *env, bool ifetch)
 {
     target_ulong mode = env->priv;
@@ -407,8 +407,6 @@ static inline int cpu_mmu_index(CPURISCVState *env, bool ifetch)
     }
     return mode;
 }
-
-static int ctz(target_ulong val);
 
 static int ctz(target_ulong val)
 {
@@ -460,15 +458,11 @@ static inline int cpu_riscv_hw_interrupts_pending(CPURISCVState *env)
 
 #include "exec/cpu-all.h"
 
-/*int cpu_riscv_exec(CPUState *cpu); */
 void riscv_tcg_init(void);
 RISCVCPU *cpu_riscv_init(const char *cpu_model);
 int cpu_riscv_signal_handler(int host_signum, void *pinfo, void *puc);
 
 #define cpu_init(cpu_model) CPU(cpu_riscv_init(cpu_model))
-
-/* TODO QOM'ify CPU reset and remove */
-void cpu_state_reset(CPURISCVState *s);
 
 /* hw/riscv/riscv_rtc.c  - supplies instret by approximating */
 uint64_t cpu_riscv_read_instret(CPURISCVState *env);
