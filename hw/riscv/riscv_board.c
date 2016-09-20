@@ -49,7 +49,6 @@
 #include "hw/char/serial.h"
 #include "hw/riscv/riscv_softint.h"
 #include "hw/riscv/htif/htif.h"
-#include "hw/riscv/htif/frontend.h"
 #include "hw/riscv/riscv_rtc.h"
 #include "hw/block/fdc.h"
 #include "net/net.h"
