@@ -5,22 +5,10 @@
  *
  * This provides a RISC-V Board with the following devices:
  *
- * 0) HTIF Syscall Proxy
+ * 0) HTIF Test Pass/Fail Reporting (no syscall proxy)
  * 1) HTIF Console
- * 2) HTIF Block Device
  *
- * These are created by htif_mm_init below. Note that some of these devices
- * are no longer available for use by riscv-linux (block device) because
- * the driver was removed.
- *
- * The following "Shim" devices allow support for interrupts triggered by the
- * processor itself (writes to the MIP/SIP CSRs):
- *
- * softint0 - SSIP
- * softint1 - STIP
- * softint2 - MSIP
- *
- * These are created by softint_mm_init below.
+ * These are created by htif_mm_init below.
  *
  * This board currently uses a hardcoded devicetree that indicates one hart.
  *
@@ -47,7 +35,6 @@
 #include "hw/hw.h"
 #include "hw/i386/pc.h"
 #include "hw/char/serial.h"
-#include "hw/riscv/riscv_softint.h"
 #include "hw/riscv/htif/htif.h"
 #include "hw/riscv/riscv_rtc.h"
 #include "hw/block/fdc.h"
@@ -253,16 +240,6 @@ static void riscv_board_init(MachineState *args)
 
     /* timer device at 0x40000000, as specified in the config string above */
     timer_mm_init(system_memory, 0x40000000, env);
-
-    /* Softint "devices" for cleaner handling of CPU-triggered interrupts */
-    softint_mm_init(system_memory, 0xFFFFFFFFF0000020L, env->irq[1], main_mem,
-            env, "SSIP");
-
-    softint_mm_init(system_memory, 0xFFFFFFFFF0000040L, env->irq[2], main_mem,
-            env, "STIP");
-
-    softint_mm_init(system_memory, 0xFFFFFFFFF0000060L, env->irq[3], main_mem,
-            env, "MSIP");
 
     /* TODO: VIRTIO */
 }
