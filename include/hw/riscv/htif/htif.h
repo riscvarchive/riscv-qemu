@@ -47,24 +47,6 @@ struct HTIFState {
     CPURISCVState *env;
     CharDriverState *chr;
     uint64_t pending_read;
-
-
-    int block_dev_present;
-    /* TODO: eventually move the following to a separate HTIF block device
-             driver */
-    const char *block_fname;
-    int block_fd;
-    char *real_name;
-    char *kernel_cmdline; /* for sys_getmainvars */
-};
-
-typedef struct request_t request_t;
-
-struct request_t {
-    uint64_t addr;
-    uint64_t offset;
-    uint64_t size;
-    uint64_t tag;
 };
 
 extern const VMStateDescription vmstate_htif;
@@ -73,7 +55,7 @@ extern const MemoryRegionOps htif_io_ops;
 /* legacy pre qom */
 HTIFState *htif_mm_init(MemoryRegion *address_space,
                         const char *kernel_filename, qemu_irq irq,
-                        MemoryRegion *main_mem, const char *kernel_cmdline,
+                        MemoryRegion *main_mem,
                         CPURISCVState *env, CharDriverState *chr);
 
 #endif

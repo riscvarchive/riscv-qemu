@@ -33,31 +33,16 @@
 
 #include "qemu/osdep.h"
 #include "hw/hw.h"
-#include "hw/i386/pc.h"
 #include "hw/char/serial.h"
 #include "hw/riscv/htif/htif.h"
 #include "hw/riscv/riscv_rtc.h"
-#include "hw/block/fdc.h"
-#include "net/net.h"
 #include "hw/boards.h"
-#include "hw/i2c/smbus.h"
-#include "block/block.h"
-#include "hw/block/flash.h"
-#include "block/block_int.h" /* move later */
-#include "hw/riscv/riscv.h"
 #include "hw/riscv/cpudevs.h"
-#include "hw/pci/pci.h"
 #include "sysemu/char.h"
-#include "sysemu/sysemu.h"
 #include "sysemu/arch_init.h"
 #include "qemu/log.h"
-#include "hw/riscv/bios.h"
-#include "hw/ide.h"
 #include "hw/loader.h"
 #include "elf.h"
-#include "hw/timer/mc146818rtc.h"
-#include "hw/timer/i8254.h"
-#include "sysemu/blockdev.h"
 #include "exec/address-spaces.h"
 #include "hw/sysbus.h"             /* SysBusDevice */
 #include "qemu/host-utils.h"
@@ -156,7 +141,7 @@ static void riscv_board_init(MachineState *args)
     /* register system main memory (actual RAM) */
     memory_region_init_ram(main_mem, NULL, "riscv_board.ram", 2147483648L +
                            ram_size, &error_fatal);
-    /* for CSR_MIOBASE */
+    /* for phys mem size check in page table walk */
     env->memsize = ram_size;
     vmstate_register_ram_global(main_mem);
     memory_region_add_subregion(system_memory, 0x0, main_mem);
@@ -234,9 +219,8 @@ static void riscv_board_init(MachineState *args)
     /* add memory mapped htif registers at location specified in the symbol
        table of the elf being loaded (thus kernel_filename is passed to the
        init rather than an address) */
-
     htif_mm_init(system_memory, kernel_filename, env->irq[4], main_mem,
-            kernel_cmdline, env, serial_hds[0]);
+            env, serial_hds[0]);
 
     /* timer device at 0x40000000, as specified in the config string above */
     timer_mm_init(system_memory, 0x40000000, env);
