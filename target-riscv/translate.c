@@ -37,7 +37,7 @@
 /* global register indices */
 static TCGv_ptr cpu_env;
 static TCGv cpu_gpr[32], cpu_PC;
-static TCGv_i64 cpu_fpr[32]; /* TODO: set width based on F or D extension */
+static TCGv_i64 cpu_fpr[32]; /* assume F and D extensions */
 static TCGv load_reservation;
 
 #include "exec/gen-icount.h"
@@ -2209,19 +2209,6 @@ RISCVCPU *cpu_riscv_init(const char *cpu_model)
     set_default_nan_mode(1, &env->fp_status);
 
     return cpu;
-}
-
-void cpu_state_reset(CPURISCVState *env)
-{
-    RISCVCPU *cpu = riscv_env_get_cpu(env);
-    CPUState *cs = CPU(cpu);
-
-    /* config string is handled in riscv_board */
-
-    env->priv = PRV_M;
-    env->PC = DEFAULT_RSTVEC;
-    env->csr[CSR_MTVEC] = DEFAULT_MTVEC;
-    cs->exception_index = EXCP_NONE;
 }
 
 /* TODO what is this? */
