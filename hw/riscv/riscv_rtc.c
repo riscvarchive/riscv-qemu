@@ -70,7 +70,7 @@ static inline void cpu_riscv_timer_update(CPURISCVState *env)
         /* if we're setting an MTIMECMP value in the "past",
            immediately raise the timer interrupt */
         env->csr[CSR_MIP] |= MIP_MTIP;
-        qemu_irq_raise(env->irq[7]);
+        qemu_irq_raise(env->irq[3]);
         return;
     }
 
@@ -90,7 +90,7 @@ static inline void cpu_riscv_timer_expire(CPURISCVState *env)
 {
     /* do not call update here */
     env->csr[CSR_MIP] |= MIP_MTIP;
-    qemu_irq_raise(env->irq[7]);
+    qemu_irq_raise(env->irq[3]);
 }
 
 /* used in op_helper.c */
@@ -170,12 +170,10 @@ static uint64_t timer_mm_read(void *opaque, hwaddr addr, unsigned size)
         /* timecmp */
         printf("TIMECMP READ NOT IMPL\n");
         exit(1);
-        /* return timerstate->env->mtohost & 0xFFFFFFFF; */
     } else if (addr == 0xc) {
         /* timecmp */
         printf("TIMECMP READ NOT IMPL\n");
         exit(1);
-        /* return (timerstate->env->mtohost >> 32) & 0xFFFFFFFF; */
     } else {
         printf("Invalid timer register address %016lx\n", (uint64_t)addr);
         exit(1);
@@ -191,13 +189,10 @@ static void timer_mm_write(void *opaque, hwaddr addr, uint64_t value,
         /*rtc */
         printf("RTC WRITE NOT IMPL\n");
         exit(1);
-        /*        timerstate->env->mfromhost = value & 0xFFFFFFFF; */
     } else if (addr == 4) {
         /*rtc */
         printf("RTC WRITE NOT IMPL\n");
         exit(1);
-        /*        timerstate->env->mfromhost |= value << 32;
-                  qemu_irq_lower(timerstate->irq); */
     } else if (addr == 8) {
         /* timecmp */
         timerstate->timecmp_lower = value & 0xFFFFFFFF;

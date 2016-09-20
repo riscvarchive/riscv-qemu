@@ -281,6 +281,12 @@ struct CPURISCVState;
 
 #define PTE_TABLE(PTE) (((PTE) & (PTE_V | PTE_R | PTE_W | PTE_X)) == PTE_V)
 
+#define SSIP_IRQ (env->irq[0])
+#define STIP_IRQ (env->irq[1])
+#define MSIP_IRQ (env->irq[2])
+#define TIMER_IRQ (env->irq[3])
+#define HTIF_IRQ (env->irq[4])
+
 typedef struct riscv_def_t riscv_def_t;
 
 typedef struct CPURISCVState CPURISCVState;
@@ -438,10 +444,10 @@ static inline int cpu_riscv_hw_interrupts_pending(CPURISCVState *env)
         target_ulong counted = ctz(enabled_interrupts);
         if (counted == IRQ_HOST) {
             /* we're handing it to the cpu now, so get rid of the qemu irq */
-            qemu_irq_lower(env->irq[4]); /* get rid of the irq request */
+            qemu_irq_lower(HTIF_IRQ); /* get rid of the irq request */
         } else if (counted == IRQ_M_TIMER) {
             /* we're handing it to the cpu now, so get rid of the qemu irq */
-            qemu_irq_lower(env->irq[7]); /* get rid of the irq request */
+            qemu_irq_lower(TIMER_IRQ); /* get rid of the irq request */
         } else if (counted == IRQ_S_TIMER || counted == IRQ_H_TIMER) {
             /* don't lower irq here */
         }
@@ -466,9 +472,6 @@ void cpu_state_reset(CPURISCVState *s);
 
 /* hw/riscv/riscv_rtc.c  - supplies instret by approximating */
 uint64_t cpu_riscv_read_instret(CPURISCVState *env);
-
-/* hw/riscv/riscv_int.c */
-void cpu_riscv_soft_irq(CPURISCVState *env, int irq, int level);
 
 /* helper.c */
 int riscv_cpu_handle_mmu_fault(CPUState *cpu, vaddr address, MMUAccessType rw,
