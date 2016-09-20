@@ -30,7 +30,6 @@
 #include "hw/char/serial.h"
 #include "sysemu/char.h"
 #include "hw/riscv/htif/htif.h"
-#include "hw/riscv/htif/frontend.h"
 #include "qemu/timer.h"
 #include "exec/address-spaces.h"
 #include "qemu/error-report.h"
@@ -131,66 +130,6 @@ static void dma_strcopy(HTIFState *htifstate, char *str, hwaddr phys_addr)
     stb_p((void *)(base_copy_addr + i), 0); /* store null term */
 }
 
-static int htif_block_device_read(HTIFState *htifstate, uint64_t payload)
-{
-    request_t req;
-    int i;
-    uint8_t *reqptr = (uint8_t *)&req;
-    void *base = htifstate->main_mem_ram_ptr + payload;
-    for (i = 0; i < sizeof(req); i++) {
-        *(reqptr + i) = ldub_p((void *)(base + i));
-    }
-
-    #ifdef DEBUG_BLKDEV
-    fprintf(stderr, "HTIF Block device read:\n");
-    fprintf(stderr, "-addr: %016lx\n", req.addr);
-    fprintf(stderr, "-offset: %016lx\n", req.offset);
-    fprintf(stderr, "-size: %016lx\n", req.size);
-    fprintf(stderr, "-tag: %016lx\n", req.tag);
-    #endif
-
-    uint8_t *copybuf = malloc(req.size * sizeof(uint8_t));
-    if (pread(htifstate->block_fd, copybuf, req.size, req.offset) != req.size) {
-        printf("FAILED READ\n");
-        exit(1);
-    }
-
-    base = htifstate->main_mem_ram_ptr + req.addr;
-
-    for (i = 0; i < req.size; i++) {
-        stb_p((void *)(base + i), copybuf[i]);
-    }
-    free(copybuf);
-    return req.tag;
-}
-
-static int htif_block_device_write(HTIFState *htifstate, uint64_t payload)
-{
-    request_t req;
-    int i;
-    uint8_t *reqptr = (uint8_t *)&req;
-    void *base = htifstate->main_mem_ram_ptr + payload;
-    for (i = 0; i < sizeof(req); i++) {
-        *(reqptr + i) = ldub_p((void *)(base + i));
-    }
-
-    uint8_t *copybuf = malloc(req.size * sizeof(uint8_t));
-
-    base = htifstate->main_mem_ram_ptr + req.addr;
-    for (i = 0; i < req.size; i++) {
-        copybuf[i] = ldub_p((void *)(base + i));
-    }
-
-    if (pwrite(htifstate->block_fd, copybuf, req.size, req.offset)
-        != req.size) {
-        printf("FAILED WRITE\n");
-        exit(1);
-    }
-
-    free(copybuf);
-    return req.tag;
-}
-
 static void htif_handle_tohost_write(HTIFState *htifstate, uint64_t val_written)
 {
     #ifdef DEBUG_HTIF
@@ -214,12 +153,11 @@ static void htif_handle_tohost_write(HTIFState *htifstate, uint64_t val_written)
 
     /*
      * Currently, there is a fixed mapping of devices:
-     * 0: Syscall Proxy
+     * 0: riscv-tests Pass/Fail Reporting Only (no syscall proxy)
      * 1: Console
-     * 2: Block Device
      */
     if (unlikely(device == 0x0)) {
-        /* frontend syscall handler */
+        /* frontend syscall handler, only test pass/fail support */
         if (cmd == 0x0) {
             #ifdef DEBUG_HTIF
             fprintf(stderr, "frontend syscall handler\n");
@@ -234,7 +172,7 @@ static void htif_handle_tohost_write(HTIFState *htifstate, uint64_t val_written)
                 }
                 exit(payload >> 1);
             }
-            resp = handle_frontend_syscall(htifstate, payload);
+            fprintf(stderr, "pk syscall proxy not supported\n");
         } else if (cmd == 0xFF) {
             /* use what */
             if (what == 0xFF) {
@@ -298,36 +236,8 @@ static void htif_handle_tohost_write(HTIFState *htifstate, uint64_t val_written)
             fprintf(stderr, "HTIF device %d: UNKNOWN COMMAND\n", device);
             exit(1);
         }
-    } else if (device == 0x2 && htifstate->block_dev_present) {
-        /* HTIF Block Device */
-        if (unlikely(cmd == 0xFF)) {
-            if (what == 0xFF) { /* register */
-                dma_strcopy(htifstate, htifstate->real_name, real_addr);
-            } else if (what == 0x0) {
-                dma_strcopy(htifstate, (char *)"read", real_addr);
-            } else if (what == 0x1) {
-                dma_strcopy(htifstate, (char *)"write", real_addr);
-            } else {
-                dma_strcopy(htifstate, (char *)"", real_addr);
-            }
-            resp = 0x1; /* write to indicate device name placed */
-        } else if (cmd == 0x0) {
-            #ifdef DEBUG_HTIF
-            fprintf(stderr, "DOING DISK READ\n");
-            #endif
-            resp = htif_block_device_read(htifstate, payload);
-        } else if (cmd == 0x1) {
-            #ifdef DEBUG_HTIF
-            fprintf(stderr, "DOING DISK WRITE\n");
-            #endif
-            resp = htif_block_device_write(htifstate, payload);
-        } else {
-            fprintf(stderr, "HTIF device %d: UNKNOWN COMMAND\n", device);
-            exit(1);
-
-        }
     /* all other devices */
-    } else if (device == 0x3 && cmd == 0xFF && what == 0xFF) {
+    } else if (device == 0x2 && cmd == 0xFF && what == 0xFF) {
         #ifdef DEBUG_HTIF
         fprintf(stderr, "registering no device as last\n");
         #endif
