@@ -456,11 +456,11 @@ static inline void gen_arith_imm_w(DisasContext *ctx, uint32_t opc,
         tcg_gen_addi_tl(source1, source1, uimm);
         tcg_gen_ext32s_tl(source1, source1);
         break;
-    case OPC_RISC_SLLIW: /* TODO: add immediate upper bits check? */
+    case OPC_RISC_SLLIW:
         tcg_gen_shli_tl(source1, source1, uimm);
         tcg_gen_ext32s_tl(source1, source1);
         break;
-    case OPC_RISC_SHIFT_RIGHT_IW: /* SRLIW, SRAIW, TODO: upper bits check */
+    case OPC_RISC_SHIFT_RIGHT_IW:
         /* differentiate on IMM */
         if (uimm & 0x400) {
             /* SRAI */
@@ -2211,7 +2211,6 @@ RISCVCPU *cpu_riscv_init(const char *cpu_model)
     return cpu;
 }
 
-/* TODO what is this? */
 void restore_state_to_opc(CPURISCVState *env, TranslationBlock *tb,
                           target_ulong *data)
 {

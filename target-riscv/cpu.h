@@ -292,7 +292,7 @@ typedef struct riscv_def_t riscv_def_t;
 typedef struct CPURISCVState CPURISCVState;
 struct CPURISCVState {
     target_ulong gpr[32];
-    uint64_t fpr[32]; /* TODO: width dep on F or D extension */
+    uint64_t fpr[32]; /* assume both F and D extensions */
     target_ulong PC;
     target_ulong load_reservation;
 

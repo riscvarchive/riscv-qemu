@@ -22,6 +22,7 @@
 #include "qapi/error.h"
 #include "cpu.h"
 #include "qemu-common.h"
+#include "migration/vmstate.h"
 
 static void riscv_cpu_set_pc(CPUState *cs, vaddr value)
 {
@@ -99,6 +100,11 @@ static void riscv_cpu_initfn(Object *obj)
     }
 }
 
+static const VMStateDescription vmstate_riscv_cpu = {
+    .name = "cpu",
+    .unmigratable = 1,
+};
+
 static void riscv_cpu_class_init(ObjectClass *c, void *data)
 {
     RISCVCPUClass *mcc = RISCV_CPU_CLASS(c);
@@ -125,9 +131,9 @@ static void riscv_cpu_class_init(ObjectClass *c, void *data)
     cc->do_unassigned_access = riscv_cpu_unassigned_access;
     cc->do_unaligned_access = riscv_cpu_do_unaligned_access;
     cc->get_phys_page_debug = riscv_cpu_get_phys_page_debug;
-    /* TODO to support migration:
-       cc->vmsd = &vmstate_riscv_cpu; */
 #endif
+    /* For now, mark unmigratable: */
+    cc->vmsd = &vmstate_riscv_cpu;
     cc->disas_set_info = riscv_cpu_disas_set_info;
     cc->gdb_num_core_regs = 132;
     cc->gdb_stop_before_watchpoint = true;
