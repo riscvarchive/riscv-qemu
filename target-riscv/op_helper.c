@@ -767,7 +767,6 @@ inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
         target_ulong ms = env->csr[CSR_MSTATUS];
         target_ulong mask = SSTATUS_SIE | SSTATUS_SPIE | SSTATUS_SPP
                             | SSTATUS_FS | SSTATUS_XS | SSTATUS_PUM;
-                            /* TODO should XS be here? */
         ms = (ms & ~mask) | (val_to_write & mask);
         csr_write_helper(env, ms, CSR_MSTATUS);
         break;
@@ -1142,21 +1141,6 @@ void helper_tlb_flush(CPURISCVState *env)
     RISCVCPU *cpu = riscv_env_get_cpu(env);
     tlb_flush(CPU(cpu), 1);
 }
-
-#endif /* !CONFIG_USER_ONLY */
-
-/* TODO: implement for RISC-V WFI */
-/*void helper_wait(CPURISCVState *env)
-{
-    CPUState *cs = CPU(riscv_env_get_cpu(env));
-
-    cs->halted = 1;
-    cpu_reset_interrupt(cs, CPU_INTERRUPT_WAKE);
-    printf("NOT IMPLEMENTED FOR RISCV\n");
-    exit(1);
-}*/
-
-#if !defined(CONFIG_USER_ONLY)
 
 void riscv_cpu_do_unaligned_access(CPUState *cs, vaddr addr,
                                    MMUAccessType access_type, int mmu_idx,
