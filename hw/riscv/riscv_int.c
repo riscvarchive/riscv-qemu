@@ -78,8 +78,6 @@ void cpu_riscv_irq_init_cpu(CPURISCVState *env)
 
 void cpu_riscv_soft_irq(CPURISCVState *env, int irq, int level)
 {
-    printf("NOT USED for RISC-V\n");
-    exit(1);
     if (irq != 0) {
         return;
     }

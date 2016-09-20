@@ -713,25 +713,30 @@ inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
         env->csr[CSR_MSTATUS] = mstatus;
         break;
     }
+
+#define SSIP_IRQ (env->irq[1])
+#define STIP_IRQ (env->irq[2])
+#define MSIP_IRQ (env->irq[3])
+
     case CSR_MIP: {
         target_ulong mask = MIP_SSIP | MIP_STIP;
         env->csr[CSR_MIP] = (env->csr[CSR_MIP] & ~mask) |
             (val_to_write & mask);
-        CPUState *cs = CPU(riscv_env_get_cpu(env));
+        //CPUState *cs = CPU(riscv_env_get_cpu(env));
         if (env->csr[CSR_MIP] & MIP_SSIP) {
-            stw_phys(cs->as, 0xFFFFFFFFF0000020, 0x1);
+            qemu_irq_raise(SSIP_IRQ);
         } else {
-            stw_phys(cs->as, 0xFFFFFFFFF0000020, 0x0);
+            qemu_irq_lower(SSIP_IRQ);
         }
         if (env->csr[CSR_MIP] & MIP_STIP) {
-            stw_phys(cs->as, 0xFFFFFFFFF0000040, 0x1);
+            qemu_irq_raise(STIP_IRQ);
         } else {
-            stw_phys(cs->as, 0xFFFFFFFFF0000040, 0x0);
+            qemu_irq_lower(STIP_IRQ);
         }
         if (env->csr[CSR_MIP] & MIP_MSIP) {
-            stw_phys(cs->as, 0xFFFFFFFFF0000060, 0x1);
+            qemu_irq_raise(MSIP_IRQ);
         } else {
-            stw_phys(cs->as, 0xFFFFFFFFF0000060, 0x0);
+            qemu_irq_lower(MSIP_IRQ);
         }
         break;
     }
