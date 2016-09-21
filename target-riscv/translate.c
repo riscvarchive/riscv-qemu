@@ -651,10 +651,12 @@ static inline void gen_atomic(DisasContext *ctx, uint32_t opc,
     opc = MASK_OP_ATOMIC_NO_AQ_RL(opc);
 
     TCGv source1, source2, dat;
+    TCGLabel *j = gen_new_label();
+    TCGLabel *done = gen_new_label();
 
     source1 = tcg_temp_local_new();
     source2 = tcg_temp_local_new();
-    dat = tcg_temp_new();
+    dat = tcg_temp_local_new();
 
     gen_get_gpr(source1, rs1);
     gen_get_gpr(source2, rs2);
@@ -666,17 +668,14 @@ static inline void gen_atomic(DisasContext *ctx, uint32_t opc,
         tcg_gen_mov_tl(load_reservation, source1);
         tcg_gen_qemu_ld32s(source1, source1, ctx->mem_idx);
         break;
-    case OPC_RISC_SC_W: {
-        TCGLabel *fail = gen_new_label();
-        TCGLabel *done = gen_new_label();
-        tcg_gen_brcond_tl(TCG_COND_NE, load_reservation, source1, fail);
+    case OPC_RISC_SC_W:
+        tcg_gen_brcond_tl(TCG_COND_NE, load_reservation, source1, j);
         tcg_gen_qemu_st32(source2, source1, ctx->mem_idx);
         tcg_gen_movi_tl(source1, 0); /*success */
         tcg_gen_br(done);
-        gen_set_label(fail);
+        gen_set_label(j);
         tcg_gen_movi_tl(source1, 1); /*fail */
         gen_set_label(done);
-        }
         break;
     case OPC_RISC_AMOSWAP_W:
         tcg_gen_qemu_ld32s(dat, source1, ctx->mem_idx);
@@ -708,104 +707,54 @@ static inline void gen_atomic(DisasContext *ctx, uint32_t opc,
         tcg_gen_mov_tl(source1, dat);
         break;
     case OPC_RISC_AMOMIN_W:
-        {
-            TCGv source1_l, source2_l, dat_l;
-            source1_l = tcg_temp_local_new();
-            source2_l = tcg_temp_local_new();
-            dat_l = tcg_temp_local_new();
-            TCGLabel *j = gen_new_label();
-            TCGLabel *done = gen_new_label();
-            tcg_gen_mov_tl(source1_l, source1);
-            tcg_gen_ext32s_tl(source2_l, source2);
-            tcg_gen_qemu_ld32s(dat_l, source1_l, ctx->mem_idx);
-            tcg_gen_brcond_tl(TCG_COND_LT, dat_l, source2_l, j);
-            tcg_gen_qemu_st32(source2_l, source1_l, ctx->mem_idx);
-            tcg_gen_br(done);
-            /* here we store the thing on the left */
-            gen_set_label(j);
-            tcg_gen_qemu_st32(dat_l, source1_l, ctx->mem_idx);
-            /*done */
-            gen_set_label(done);
-            tcg_gen_mov_tl(source1, dat_l);
-            tcg_temp_free(source1_l);
-            tcg_temp_free(source2_l);
-            tcg_temp_free(dat_l);
-        }
+        tcg_gen_qemu_ld32s(dat, source1, ctx->mem_idx);
+        tcg_gen_brcond_tl(TCG_COND_LT, dat, source2, j);
+        tcg_gen_qemu_st32(source2, source1, ctx->mem_idx);
+        tcg_gen_br(done);
+        /* here we store the thing on the left */
+        gen_set_label(j);
+        tcg_gen_qemu_st32(dat, source1, ctx->mem_idx);
+        /*done */
+        gen_set_label(done);
+        tcg_gen_mov_tl(source1, dat);
         break;
     case OPC_RISC_AMOMAX_W:
-        {
-            TCGv source1_l, source2_l, dat_l;
-            source1_l = tcg_temp_local_new();
-            source2_l = tcg_temp_local_new();
-            dat_l = tcg_temp_local_new();
-            TCGLabel *j = gen_new_label();
-            TCGLabel *done = gen_new_label();
-            tcg_gen_mov_tl(source1_l, source1);
-            tcg_gen_ext32s_tl(source2_l, source2);
-            tcg_gen_qemu_ld32s(dat_l, source1_l, ctx->mem_idx);
-            tcg_gen_brcond_tl(TCG_COND_GT, dat_l, source2_l, j);
-            tcg_gen_qemu_st32(source2_l, source1_l, ctx->mem_idx);
-            tcg_gen_br(done);
-            /* here we store the thing on the left */
-            gen_set_label(j);
-            tcg_gen_qemu_st32(dat_l, source1_l, ctx->mem_idx);
-            /*done */
-            gen_set_label(done);
-            tcg_gen_mov_tl(source1, dat_l);
-            tcg_temp_free(source1_l);
-            tcg_temp_free(source2_l);
-            tcg_temp_free(dat_l);
-        }
+        tcg_gen_qemu_ld32s(dat, source1, ctx->mem_idx);
+        tcg_gen_brcond_tl(TCG_COND_GT, dat, source2, j);
+        tcg_gen_qemu_st32(source2, source1, ctx->mem_idx);
+        tcg_gen_br(done);
+        /* here we store the thing on the left */
+        gen_set_label(j);
+        tcg_gen_qemu_st32(dat, source1, ctx->mem_idx);
+        /*done */
+        gen_set_label(done);
+        tcg_gen_mov_tl(source1, dat);
         break;
     case OPC_RISC_AMOMINU_W:
-        {
-            TCGv source1_l, source2_l, dat_l;
-            source1_l = tcg_temp_local_new();
-            source2_l = tcg_temp_local_new();
-            dat_l = tcg_temp_local_new();
-            TCGLabel *j = gen_new_label();
-            TCGLabel *done = gen_new_label();
-            tcg_gen_mov_tl(source1_l, source1);
-            tcg_gen_ext32u_tl(source2_l, source2);
-            tcg_gen_qemu_ld32u(dat_l, source1_l, ctx->mem_idx);
-            tcg_gen_brcond_tl(TCG_COND_LTU, dat_l, source2_l, j);
-            tcg_gen_qemu_st32(source2_l, source1_l, ctx->mem_idx);
-            tcg_gen_br(done);
-            /* here we store the thing on the left */
-            gen_set_label(j);
-            tcg_gen_qemu_st32(dat_l, source1_l, ctx->mem_idx);
-            /*done */
-            gen_set_label(done);
-            tcg_gen_ext32s_tl(source1, dat_l);
-            tcg_temp_free(source1_l);
-            tcg_temp_free(source2_l);
-            tcg_temp_free(dat_l);
-        }
+        tcg_gen_mov_tl(source1, source1);
+        tcg_gen_ext32u_tl(source2, source2);
+        tcg_gen_qemu_ld32u(dat, source1, ctx->mem_idx);
+        tcg_gen_brcond_tl(TCG_COND_LTU, dat, source2, j);
+        tcg_gen_qemu_st32(source2, source1, ctx->mem_idx);
+        tcg_gen_br(done);
+        /* here we store the thing on the left */
+        gen_set_label(j);
+        tcg_gen_qemu_st32(dat, source1, ctx->mem_idx);
+        /*done */
+        gen_set_label(done);
+        tcg_gen_ext32s_tl(source1, dat);
         break;
     case OPC_RISC_AMOMAXU_W:
-        {
-            TCGv source1_l, source2_l, dat_l;
-            source1_l = tcg_temp_local_new();
-            source2_l = tcg_temp_local_new();
-            dat_l = tcg_temp_local_new();
-            TCGLabel *j = gen_new_label();
-            TCGLabel *done = gen_new_label();
-            tcg_gen_mov_tl(source1_l, source1);
-            tcg_gen_ext32u_tl(source2_l, source2);
-            tcg_gen_qemu_ld32u(dat_l, source1_l, ctx->mem_idx);
-            tcg_gen_brcond_tl(TCG_COND_GTU, dat_l, source2_l, j);
-            tcg_gen_qemu_st32(source2_l, source1_l, ctx->mem_idx);
-            tcg_gen_br(done);
-            /* here we store the thing on the left */
-            gen_set_label(j);
-            tcg_gen_qemu_st32(dat_l, source1_l, ctx->mem_idx);
-            /*done */
-            gen_set_label(done);
-            tcg_gen_ext32s_tl(source1, dat_l);
-            tcg_temp_free(source1_l);
-            tcg_temp_free(source2_l);
-            tcg_temp_free(dat_l);
-        }
+        tcg_gen_qemu_ld32u(dat, source1, ctx->mem_idx);
+        tcg_gen_brcond_tl(TCG_COND_GTU, dat, source2, j);
+        tcg_gen_qemu_st32(source2, source1, ctx->mem_idx);
+        tcg_gen_br(done);
+        /* here we store the thing on the left */
+        gen_set_label(j);
+        tcg_gen_qemu_st32(dat, source1, ctx->mem_idx);
+        /*done */
+        gen_set_label(done);
+        tcg_gen_ext32s_tl(source1, dat);
         break;
 #if defined(TARGET_RISCV64)
     case OPC_RISC_LR_D:
@@ -813,18 +762,15 @@ static inline void gen_atomic(DisasContext *ctx, uint32_t opc,
         tcg_gen_mov_tl(load_reservation, source1);
         tcg_gen_qemu_ld64(source1, source1, ctx->mem_idx);
         break;
-    case OPC_RISC_SC_D: {
-        TCGLabel *fail = gen_new_label();
-        TCGLabel *done = gen_new_label();
-        tcg_gen_brcond_tl(TCG_COND_NE, load_reservation, source1, fail);
+    case OPC_RISC_SC_D:
+        tcg_gen_brcond_tl(TCG_COND_NE, load_reservation, source1, j);
         tcg_gen_qemu_st64(source2, source1, ctx->mem_idx);
         tcg_gen_movi_tl(source1, 0); /*success */
         tcg_gen_br(done);
-        gen_set_label(fail);
+        gen_set_label(j);
         tcg_gen_movi_tl(source1, 1); /*fail */
         gen_set_label(done);
         break;
-        }
     case OPC_RISC_AMOSWAP_D:
         tcg_gen_qemu_ld64(dat, source1, ctx->mem_idx);
         tcg_gen_qemu_st64(source2, source1, ctx->mem_idx);
@@ -855,110 +801,57 @@ static inline void gen_atomic(DisasContext *ctx, uint32_t opc,
         tcg_gen_mov_tl(source1, dat);
         break;
     case OPC_RISC_AMOMIN_D:
-        {
-            TCGv source1_l, source2_l, dat_l;
-            source1_l = tcg_temp_local_new();
-            source2_l = tcg_temp_local_new();
-            dat_l = tcg_temp_local_new();
-            TCGLabel *j = gen_new_label();
-            TCGLabel *done = gen_new_label();
-            tcg_gen_mov_tl(source1_l, source1);
-            tcg_gen_mov_tl(source2_l, source2);
-            tcg_gen_qemu_ld64(dat_l, source1_l, ctx->mem_idx);
-            tcg_gen_brcond_tl(TCG_COND_LT, dat_l, source2_l, j);
-            tcg_gen_qemu_st64(source2_l, source1_l, ctx->mem_idx);
-            tcg_gen_br(done);
-            /* here we store the thing on the left */
-            gen_set_label(j);
-            tcg_gen_qemu_st64(dat_l, source1_l, ctx->mem_idx);
-            /*done */
-            gen_set_label(done);
-            tcg_gen_mov_tl(source1, dat_l);
-            tcg_temp_free(source1_l);
-            tcg_temp_free(source2_l);
-            tcg_temp_free(dat_l);
-        }
+        tcg_gen_qemu_ld64(dat, source1, ctx->mem_idx);
+        tcg_gen_brcond_tl(TCG_COND_LT, dat, source2, j);
+        tcg_gen_qemu_st64(source2, source1, ctx->mem_idx);
+        tcg_gen_br(done);
+        /* here we store the thing on the left */
+        gen_set_label(j);
+        tcg_gen_qemu_st64(dat, source1, ctx->mem_idx);
+        /*done */
+        gen_set_label(done);
+        tcg_gen_mov_tl(source1, dat);
         break;
     case OPC_RISC_AMOMAX_D:
-        {
-            TCGv source1_l, source2_l, dat_l;
-            source1_l = tcg_temp_local_new();
-            source2_l = tcg_temp_local_new();
-            dat_l = tcg_temp_local_new();
-            TCGLabel *j = gen_new_label();
-            TCGLabel *done = gen_new_label();
-            tcg_gen_mov_tl(source1_l, source1);
-            tcg_gen_mov_tl(source2_l, source2);
-            tcg_gen_qemu_ld64(dat_l, source1_l, ctx->mem_idx);
-            tcg_gen_brcond_tl(TCG_COND_GT, dat_l, source2_l, j);
-            tcg_gen_qemu_st64(source2_l, source1_l, ctx->mem_idx);
-            tcg_gen_br(done);
-            /* here we store the thing on the left */
-            gen_set_label(j);
-            tcg_gen_qemu_st64(dat_l, source1_l, ctx->mem_idx);
-            /*done */
-            gen_set_label(done);
-            tcg_gen_mov_tl(source1, dat_l);
-            tcg_temp_free(source1_l);
-            tcg_temp_free(source2_l);
-            tcg_temp_free(dat_l);
-        }
+        tcg_gen_qemu_ld64(dat, source1, ctx->mem_idx);
+        tcg_gen_brcond_tl(TCG_COND_GT, dat, source2, j);
+        tcg_gen_qemu_st64(source2, source1, ctx->mem_idx);
+        tcg_gen_br(done);
+        /* here we store the thing on the left */
+        gen_set_label(j);
+        tcg_gen_qemu_st64(dat, source1, ctx->mem_idx);
+        /*done */
+        gen_set_label(done);
+        tcg_gen_mov_tl(source1, dat);
         break;
     case OPC_RISC_AMOMINU_D:
-        {
-            TCGv source1_l, source2_l, dat_l;
-            source1_l = tcg_temp_local_new();
-            source2_l = tcg_temp_local_new();
-            dat_l = tcg_temp_local_new();
-            TCGLabel *j = gen_new_label();
-            TCGLabel *done = gen_new_label();
-            tcg_gen_mov_tl(source1_l, source1);
-            tcg_gen_mov_tl(source2_l, source2);
-            tcg_gen_qemu_ld64(dat_l, source1_l, ctx->mem_idx);
-            tcg_gen_brcond_tl(TCG_COND_LTU, dat_l, source2_l, j);
-            tcg_gen_qemu_st64(source2_l, source1_l, ctx->mem_idx);
-            tcg_gen_br(done);
-            /* here we store the thing on the left */
-            gen_set_label(j);
-            tcg_gen_qemu_st64(dat_l, source1_l, ctx->mem_idx);
-            /*done */
-            gen_set_label(done);
-            tcg_gen_mov_tl(source1, dat_l);
-            tcg_temp_free(source1_l);
-            tcg_temp_free(source2_l);
-            tcg_temp_free(dat_l);
-        }
+        tcg_gen_qemu_ld64(dat, source1, ctx->mem_idx);
+        tcg_gen_brcond_tl(TCG_COND_LTU, dat, source2, j);
+        tcg_gen_qemu_st64(source2, source1, ctx->mem_idx);
+        tcg_gen_br(done);
+        /* here we store the thing on the left */
+        gen_set_label(j);
+        tcg_gen_qemu_st64(dat, source1, ctx->mem_idx);
+        /*done */
+        gen_set_label(done);
+        tcg_gen_mov_tl(source1, dat);
         break;
     case OPC_RISC_AMOMAXU_D:
-        {
-            TCGv source1_l, source2_l, dat_l;
-            source1_l = tcg_temp_local_new();
-            source2_l = tcg_temp_local_new();
-            dat_l = tcg_temp_local_new();
-            TCGLabel *j = gen_new_label();
-            TCGLabel *done = gen_new_label();
-            tcg_gen_mov_tl(source1_l, source1);
-            tcg_gen_mov_tl(source2_l, source2);
-            tcg_gen_qemu_ld64(dat_l, source1_l, ctx->mem_idx);
-            tcg_gen_brcond_tl(TCG_COND_GTU, dat_l, source2_l, j);
-            tcg_gen_qemu_st64(source2_l, source1_l, ctx->mem_idx);
-            tcg_gen_br(done);
-            /* here we store the thing on the left */
-            gen_set_label(j);
-            tcg_gen_qemu_st64(dat_l, source1_l, ctx->mem_idx);
-            /*done */
-            gen_set_label(done);
-            tcg_gen_mov_tl(source1, dat_l);
-            tcg_temp_free(source1_l);
-            tcg_temp_free(source2_l);
-            tcg_temp_free(dat_l);
-        }
+        tcg_gen_qemu_ld64(dat, source1, ctx->mem_idx);
+        tcg_gen_brcond_tl(TCG_COND_GTU, dat, source2, j);
+        tcg_gen_qemu_st64(source2, source1, ctx->mem_idx);
+        tcg_gen_br(done);
+        /* here we store the thing on the left */
+        gen_set_label(j);
+        tcg_gen_qemu_st64(dat, source1, ctx->mem_idx);
+        /*done */
+        gen_set_label(done);
+        tcg_gen_mov_tl(source1, dat);
         break;
 #endif
     default:
         kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         break;
-
     }
 
     /* set and free */
