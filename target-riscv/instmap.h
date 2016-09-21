@@ -102,7 +102,6 @@ enum {
     OPC_RISC_BGEU = OPC_RISC_BRANCH  | (0x7  << 12)
 };
 
-#define MASK_OP_ARITH_IMM_W(op)   (MASK_OP_MAJOR(op) | (op & (0x7 << 12)))
 enum {
     OPC_RISC_ADDIW   = OPC_RISC_ARITH_IMM_W | (0x0 << 12),
     OPC_RISC_SLLIW   = OPC_RISC_ARITH_IMM_W | (0x1 << 12), /* additional part of
