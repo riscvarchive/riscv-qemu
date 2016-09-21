@@ -392,9 +392,13 @@ static inline void gen_arith_imm(DisasContext *ctx, uint32_t opc,
     source1 = tcg_temp_new();
     gen_get_gpr(source1, rs1);
     target_long uimm = (target_long)imm; /* sign ext 16->64 bits */
+    target_long extra_shamt = 0;
 
     switch (opc) {
     case OPC_RISC_ADDI:
+#if defined(TARGET_RISCV64)
+    case OPC_RISC_ADDIW:
+#endif
         tcg_gen_addi_tl(source1, source1, uimm);
         break;
     case OPC_RISC_SLTI:
@@ -412,6 +416,13 @@ static inline void gen_arith_imm(DisasContext *ctx, uint32_t opc,
     case OPC_RISC_ANDI:
         tcg_gen_andi_tl(source1, source1, uimm);
         break;
+#if defined(TARGET_RISCV64)
+    case OPC_RISC_SLLIW:
+         if ((uimm >= 32)) {
+            kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
+         }
+        // fall through to SLLI
+#endif
     case OPC_RISC_SLLI:
         if (uimm < TARGET_LONG_BITS) {
             tcg_gen_shli_tl(source1, source1, uimm);
@@ -419,14 +430,25 @@ static inline void gen_arith_imm(DisasContext *ctx, uint32_t opc,
             kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         }
         break;
+
+#if defined(TARGET_RISCV64)
+    case OPC_RISC_SHIFT_RIGHT_IW:
+        if ((uimm & 0x3ff) >= 32) {
+            kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
+        }
+        tcg_gen_shli_tl(source1, source1, 32);
+        extra_shamt = 32;
+        // fall through to SHIFT_RIGHT_I
+#endif
     case OPC_RISC_SHIFT_RIGHT_I:
         /* differentiate on IMM */
         if ((uimm & 0x3ff) < TARGET_LONG_BITS) {
             if (uimm & 0x400) {
-                /* SRAI */
-                tcg_gen_sari_tl(source1, source1, uimm ^ 0x400);
+                /* SRAI[W] */
+                tcg_gen_sari_tl(source1, source1, (uimm ^ 0x400) + extra_shamt);
             } else {
-                tcg_gen_shri_tl(source1, source1, uimm);
+                /* SRLI[W] */
+                tcg_gen_shri_tl(source1, source1, uimm + extra_shamt);
             }
         } else {
             kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
@@ -437,57 +459,16 @@ static inline void gen_arith_imm(DisasContext *ctx, uint32_t opc,
         break;
     }
 
+    if (opc & 0x8) {
+        // final sign-extension for W instructions
+        tcg_gen_ext32s_tl(source1, source1);
+    }
+
     gen_set_gpr(rd, source1);
     tcg_temp_free(source1);
 }
 
 #if defined(TARGET_RISCV64)
-/* lower 12 bits of imm are valid */
-static inline void gen_arith_imm_w(DisasContext *ctx, uint32_t opc,
-                                   int rd, int rs1, int16_t imm)
-{
-    TCGv source1;
-    source1 = tcg_temp_new();
-    gen_get_gpr(source1, rs1);
-    target_long uimm = (target_long)imm; /* sign ext 16->64 bits */
-
-    switch (opc) {
-    case OPC_RISC_ADDIW:
-        tcg_gen_addi_tl(source1, source1, uimm);
-        tcg_gen_ext32s_tl(source1, source1);
-        break;
-    case OPC_RISC_SLLIW:
-        tcg_gen_shli_tl(source1, source1, uimm);
-        tcg_gen_ext32s_tl(source1, source1);
-        break;
-    case OPC_RISC_SHIFT_RIGHT_IW:
-        /* differentiate on IMM */
-        if (uimm & 0x400) {
-            /* SRAI */
-            /* first, trick to get it to act like working on 32 bits: */
-            tcg_gen_shli_tl(source1, source1, 32);
-            /* now shift back to the right by shamt + 32 to get proper upper */
-            /* bits filling */
-            tcg_gen_sari_tl(source1, source1, (uimm ^ 0x400) + 32);
-            tcg_gen_ext32s_tl(source1, source1);
-        } else {
-            /* first, trick to get it to act like working on 32 bits (get rid */
-            /* of upper 32): */
-            tcg_gen_shli_tl(source1, source1, 32);
-            /* now shift back to the right by shamt + 32 to get proper upper */
-            /* bits filling */
-            tcg_gen_shri_tl(source1, source1, uimm + 32);
-            tcg_gen_ext32s_tl(source1, source1);
-        }
-        break;
-    default:
-        kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
-        break;
-    }
-    gen_set_gpr(rd, source1);
-    tcg_temp_free(source1);
-}
-
 static inline void gen_arith_w(DisasContext *ctx, uint32_t opc,
                                int rd, int rs1, int rs2)
 {
@@ -1913,6 +1894,9 @@ static void decode_opc(CPURISCVState *env, DisasContext *ctx)
                   GET_STORE_IMM(ctx->opcode));
         break;
     case OPC_RISC_ARITH_IMM:
+#if defined(TARGET_RISCV64)
+    case OPC_RISC_ARITH_IMM_W:
+#endif
         if (rd == 0) {
             break; /* NOP */
         }
@@ -1925,12 +1909,6 @@ static void decode_opc(CPURISCVState *env, DisasContext *ctx)
         gen_arith(ctx, MASK_OP_ARITH(ctx->opcode), rd, rs1, rs2);
         break;
 #if defined(TARGET_RISCV64)
-    case OPC_RISC_ARITH_IMM_W:
-        if (rd == 0) {
-            break; /* NOP */
-        }
-        gen_arith_imm_w(ctx, MASK_OP_ARITH_IMM_W(ctx->opcode), rd, rs1, imm);
-        break;
     case OPC_RISC_ARITH_W:
         if (rd == 0) {
             break; /* NOP */
