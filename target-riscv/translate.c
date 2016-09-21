@@ -171,22 +171,39 @@ static inline void gen_set_gpr(int reg_num_dst, TCGv t)
 static inline void gen_arith(DisasContext *ctx, uint32_t opc,
                              int rd, int rs1, int rs2)
 {
-    TCGv source1, source2;
+    TCGv source1, source2, cond1, cond2;
+    TCGLabel *handle_zero = gen_new_label();
+    TCGLabel *handle_overflow = gen_new_label();
+    TCGLabel *done = gen_new_label();
 
-    source1 = tcg_temp_new();
-    source2 = tcg_temp_new();
+    cond1 = tcg_temp_local_new();
+    cond2 = tcg_temp_local_new();
+
+    source1 = tcg_temp_local_new();
+    source2 = tcg_temp_local_new();
 
     gen_get_gpr(source1, rs1);
     gen_get_gpr(source2, rs2);
 
     switch (opc) {
 
+#if defined(TARGET_RISCV64)
+    case OPC_RISC_ADDW:
+#endif
     case OPC_RISC_ADD:
         tcg_gen_add_tl(source1, source1, source2);
         break;
+#if defined(TARGET_RISCV64)
+    case OPC_RISC_SUBW:
+#endif
     case OPC_RISC_SUB:
         tcg_gen_sub_tl(source1, source1, source2);
         break;
+#if defined(TARGET_RISCV64)
+    case OPC_RISC_SLLW:
+        tcg_gen_andi_tl(source2, source2, 0x1F);
+        /* fall through to SLL */
+#endif
     case OPC_RISC_SLL:
         tcg_gen_andi_tl(source2, source2, TARGET_LONG_BITS - 1);
         tcg_gen_shl_tl(source1, source1, source2);
@@ -200,10 +217,26 @@ static inline void gen_arith(DisasContext *ctx, uint32_t opc,
     case OPC_RISC_XOR:
         tcg_gen_xor_tl(source1, source1, source2);
         break;
+#if defined(TARGET_RISCV64)
+    case OPC_RISC_SRLW:
+        /* clear upper 32 */
+        tcg_gen_andi_tl(source1, source1, 0x00000000FFFFFFFFLL);
+        tcg_gen_andi_tl(source2, source2, 0x1F);
+        /* fall through to SRL */
+#endif
     case OPC_RISC_SRL:
         tcg_gen_andi_tl(source2, source2, TARGET_LONG_BITS - 1);
         tcg_gen_shr_tl(source1, source1, source2);
         break;
+#if defined(TARGET_RISCV64)
+    case OPC_RISC_SRAW:
+        /* first, trick to get it to act like working on 32 bits (get rid of
+        upper 32, sign extend to fill space) */
+        tcg_gen_shli_tl(source1, source1, 32); 
+        tcg_gen_sari_tl(source1, source1, 32);
+        tcg_gen_andi_tl(source2, source2, 0x1F);
+        /* fall through to SRA */
+#endif
     case OPC_RISC_SRA:
         tcg_gen_andi_tl(source2, source2, TARGET_LONG_BITS - 1);
         tcg_gen_sar_tl(source1, source1, source2);
@@ -214,6 +247,9 @@ static inline void gen_arith(DisasContext *ctx, uint32_t opc,
     case OPC_RISC_AND:
         tcg_gen_and_tl(source1, source1, source2);
         break;
+#if defined(TARGET_RISCV64)
+    case OPC_RISC_MULW:
+#endif
     case OPC_RISC_MUL:
         tcg_gen_muls2_tl(source1, source2, source1, source2);
         break;
@@ -226,162 +262,114 @@ static inline void gen_arith(DisasContext *ctx, uint32_t opc,
     case OPC_RISC_MULHU:
         tcg_gen_mulu2_tl(source2, source1, source1, source2);
         break;
+#if defined(TARGET_RISCV64)
+    case OPC_RISC_DIVW:
+        tcg_gen_ext32s_tl(source1, source1);
+        tcg_gen_ext32s_tl(source2, source2);
+        /* fall through to DIV */
+#endif
     case OPC_RISC_DIV:
-        {
-            TCGv spec_source1, spec_source2;
-            TCGv cond1, cond2;
-            TCGLabel *handle_zero = gen_new_label();
-            TCGLabel *handle_overflow = gen_new_label();
-            TCGLabel *done = gen_new_label();
-            spec_source1 = tcg_temp_local_new();
-            spec_source2 = tcg_temp_local_new();
-            cond1 = tcg_temp_local_new();
-            cond2 = tcg_temp_local_new();
-
-            gen_get_gpr(spec_source1, rs1);
-            gen_get_gpr(spec_source2, rs2);
-            tcg_gen_brcondi_tl(TCG_COND_EQ, spec_source2, 0x0, handle_zero);
-
-            /* now, use temp reg to check if both overflow conditions
-               satisfied */
-            tcg_gen_setcondi_tl(TCG_COND_EQ, cond2, spec_source2,
-                               (target_ulong)0xFFFFFFFFFFFFFFFF);
-                               /* divisor = -1 */
-            tcg_gen_setcondi_tl(TCG_COND_EQ, cond1, spec_source1,
-                                1L << (TARGET_LONG_BITS - 1));
-            tcg_gen_and_tl(cond1, cond1, cond2);
-
-            tcg_gen_brcondi_tl(TCG_COND_EQ, cond1, 1, handle_overflow);
-            /* normal case */
-            tcg_gen_div_tl(spec_source1, spec_source1, spec_source2);
-            tcg_gen_br(done);
-            /* special zero case */
-            gen_set_label(handle_zero);
-            tcg_gen_movi_tl(spec_source1, (target_ulong)0xFFFFFFFFFFFFFFFF);
-            tcg_gen_br(done);
-            /* special overflow case */
-            gen_set_label(handle_overflow);
-            tcg_gen_movi_tl(spec_source1, 1L << (TARGET_LONG_BITS - 1));
-            /* done */
-            gen_set_label(done);
-            tcg_gen_mov_tl(source1, spec_source1);
-            tcg_temp_free(spec_source1);
-            tcg_temp_free(spec_source2);
-            tcg_temp_free(cond1);
-            tcg_temp_free(cond2);
-        }
+        tcg_gen_brcondi_tl(TCG_COND_EQ, source2, 0x0, handle_zero);
+        /* Now, use temp reg to check if both overflow conditions satisfied.
+           Spike does not perform this check for DIVW, but that happens
+           automatically here since we cannot get 0x8000000000000000 as
+           the dividend from sign extending a 32 bit num */
+        tcg_gen_setcondi_tl(TCG_COND_EQ, cond2, source2,
+                           (target_ulong)0xFFFFFFFFFFFFFFFF);
+                           /* divisor = -1 */
+        tcg_gen_setcondi_tl(TCG_COND_EQ, cond1, source1,
+                            1L << (TARGET_LONG_BITS - 1));
+        tcg_gen_and_tl(cond1, cond1, cond2);
+        tcg_gen_brcondi_tl(TCG_COND_EQ, cond1, 1, handle_overflow);
+        /* normal case */
+        tcg_gen_div_tl(source1, source1, source2);
+        tcg_gen_br(done);
+        /* special zero case */
+        gen_set_label(handle_zero);
+        tcg_gen_movi_tl(source1, (target_ulong)0xFFFFFFFFFFFFFFFF);
+        tcg_gen_br(done);
+        /* special overflow case - cannot be triggered for DIVW*/
+        gen_set_label(handle_overflow);
+        tcg_gen_movi_tl(source1, 1L << (TARGET_LONG_BITS - 1));
+        /* done */
+        gen_set_label(done);
         break;
+#if defined(TARGET_RISCV64)
+    case OPC_RISC_DIVUW:
+        tcg_gen_ext32u_tl(source1, source1);
+        tcg_gen_ext32u_tl(source2, source2);
+        /* fall through to DIVU */
+#endif
     case OPC_RISC_DIVU:
-        {
-            TCGv spec_source1, spec_source2;
-            TCGLabel *handle_zero = gen_new_label();
-            TCGLabel *done = gen_new_label();
-            spec_source1 = tcg_temp_local_new();
-            spec_source2 = tcg_temp_local_new();
-
-            gen_get_gpr(spec_source1, rs1);
-            gen_get_gpr(spec_source2, rs2);
-            tcg_gen_brcondi_tl(TCG_COND_EQ, spec_source2, 0x0, handle_zero);
-
-            /* normal case */
-            tcg_gen_divu_tl(spec_source1, spec_source1, spec_source2);
-            tcg_gen_br(done);
-            /* special zero case */
-            gen_set_label(handle_zero);
-            tcg_gen_movi_tl(spec_source1, (target_ulong)0xFFFFFFFFFFFFFFFF);
-            tcg_gen_br(done);
-            /* done */
-            gen_set_label(done);
-            tcg_gen_mov_tl(source1, spec_source1);
-            tcg_temp_free(spec_source1);
-            tcg_temp_free(spec_source2);
-        }
+        tcg_gen_brcondi_tl(TCG_COND_EQ, source2, 0x0, handle_zero);
+        /* normal case */
+        tcg_gen_divu_tl(source1, source1, source2);
+        tcg_gen_br(done);
+        /* special zero case */
+        gen_set_label(handle_zero);
+        tcg_gen_movi_tl(source1, (target_ulong)0xFFFFFFFFFFFFFFFF);
+        /* done */
+        gen_set_label(done);
         break;
+#if defined(TARGET_RISCV64)
+    case OPC_RISC_REMW:
+        tcg_gen_ext32s_tl(source1, source1);
+        tcg_gen_ext32s_tl(source2, source2);
+        /* fall through to REM */
+#endif
     case OPC_RISC_REM:
-        {
-            TCGv spec_source1, spec_source2;
-            TCGv cond1, cond2;
-            TCGLabel *handle_zero = gen_new_label();
-            TCGLabel *handle_overflow = gen_new_label();
-            TCGLabel *done = gen_new_label();
-            spec_source1 = tcg_temp_local_new();
-            spec_source2 = tcg_temp_local_new();
-            cond1 = tcg_temp_local_new();
-            cond2 = tcg_temp_local_new();
-
-            gen_get_gpr(spec_source1, rs1);
-            gen_get_gpr(spec_source2, rs2);
-            tcg_gen_brcondi_tl(TCG_COND_EQ, spec_source2, 0x0, handle_zero);
-
-            /* now, use temp reg to check if both overflow conditions
-               satisfied */
-            tcg_gen_setcondi_tl(TCG_COND_EQ, cond2, spec_source2,
-                               (target_ulong)0xFFFFFFFFFFFFFFFF);
-                               /* divisor = -1 */
-            tcg_gen_setcondi_tl(TCG_COND_EQ, cond1, spec_source1,
-                                1L << (TARGET_LONG_BITS - 1));
-            tcg_gen_and_tl(cond1, cond1, cond2);
-
-            tcg_gen_brcondi_tl(TCG_COND_EQ, cond1, 1, handle_overflow);
-            /* normal case */
-            tcg_gen_rem_tl(spec_source1, spec_source1, spec_source2);
-            tcg_gen_br(done);
-            /* special zero case */
-            gen_set_label(handle_zero);
-            tcg_gen_mov_tl(spec_source1, spec_source1); /* even though it's a
-                                                           nop, just for
-                                                           clarity */
-            tcg_gen_br(done);
-            /* special overflow case */
-            gen_set_label(handle_overflow);
-            tcg_gen_movi_tl(spec_source1, 0);
-            /* done */
-            gen_set_label(done);
-            tcg_gen_mov_tl(source1, spec_source1);
-            tcg_temp_free(spec_source1);
-            tcg_temp_free(spec_source2);
-            tcg_temp_free(cond1);
-            tcg_temp_free(cond2);
-        }
+        /* the zero divisor case just produces source1 as result, go to done */
+        tcg_gen_brcondi_tl(TCG_COND_EQ, source2, 0x0, done);
+        /* Now, use temp reg to check if both overflow conditions satisfied.
+           Spike does not perform this check for DIVW, but that happens
+           automatically here since we cannot get 0x8000000000000000 as
+           the dividend from sign extending a 32 bit num */
+        tcg_gen_setcondi_tl(TCG_COND_EQ, cond2, source2,
+                           (target_ulong)0xFFFFFFFFFFFFFFFF);
+                           /* divisor = -1 */
+        tcg_gen_setcondi_tl(TCG_COND_EQ, cond1, source1,
+                            1L << (TARGET_LONG_BITS - 1));
+        tcg_gen_and_tl(cond1, cond1, cond2);
+        tcg_gen_brcondi_tl(TCG_COND_EQ, cond1, 1, handle_overflow);
+        /* normal case */
+        tcg_gen_rem_tl(source1, source1, source2);
+        tcg_gen_br(done);
+        /* special overflow case */
+        gen_set_label(handle_overflow);
+        tcg_gen_movi_tl(source1, 0);
+        /* done */
+        gen_set_label(done);
         break;
+#if defined(TARGET_RISCV64)
+    case OPC_RISC_REMUW:
+        tcg_gen_ext32u_tl(source1, source1);
+        tcg_gen_ext32u_tl(source2, source2);
+        /* fall through to REMU */
+#endif
     case OPC_RISC_REMU:
-        {
-            TCGv spec_source1, spec_source2;
-            TCGLabel *handle_zero = gen_new_label();
-            TCGLabel *done = gen_new_label();
-            spec_source1 = tcg_temp_local_new();
-            spec_source2 = tcg_temp_local_new();
-
-            gen_get_gpr(spec_source1, rs1);
-            gen_get_gpr(spec_source2, rs2);
-            tcg_gen_brcondi_tl(TCG_COND_EQ, spec_source2, 0x0, handle_zero);
-
-            /* normal case */
-            tcg_gen_remu_tl(spec_source1, spec_source1, spec_source2);
-            tcg_gen_br(done);
-            /* special zero case */
-            gen_set_label(handle_zero);
-            tcg_gen_mov_tl(spec_source1, spec_source1); /* even though it's a
-                                                         * nop, just for clarity
-                                                         */
-            tcg_gen_br(done);
-            /* done */
-            gen_set_label(done);
-            tcg_gen_mov_tl(source1, spec_source1);
-            tcg_temp_free(spec_source1);
-            tcg_temp_free(spec_source2);
-        }
+        /* the zero divisor case just produces source1 as result, go to done */
+        tcg_gen_brcondi_tl(TCG_COND_EQ, source2, 0x0, done);
+        /* normal case */
+        tcg_gen_remu_tl(source1, source1, source2);
+        /* done */
+        gen_set_label(done);
         break;
     default:
         kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         break;
+    }
 
+    if (opc & 0x8) { /* sign extend for W instructions */
+        tcg_gen_ext32s_tl(source1, source1);
     }
 
     /* set and free */
     gen_set_gpr(rd, source1);
     tcg_temp_free(source1);
     tcg_temp_free(source2);
+    tcg_temp_free(cond1);
+    tcg_temp_free(cond2);
+
 }
 
 /* lower 12 bits of imm are valid */
@@ -467,221 +455,6 @@ static inline void gen_arith_imm(DisasContext *ctx, uint32_t opc,
     gen_set_gpr(rd, source1);
     tcg_temp_free(source1);
 }
-
-#if defined(TARGET_RISCV64)
-static inline void gen_arith_w(DisasContext *ctx, uint32_t opc,
-                               int rd, int rs1, int rs2)
-{
-    TCGv source1, source2;
-    source1 = tcg_temp_new();
-    source2 = tcg_temp_new();
-    gen_get_gpr(source1, rs1);
-    gen_get_gpr(source2, rs2);
-
-    switch (opc) {
-    case OPC_RISC_ADDW:
-        tcg_gen_add_tl(source1, source1, source2);
-        tcg_gen_ext32s_tl(source1, source1);
-        break;
-    case OPC_RISC_SUBW:
-        tcg_gen_sub_tl(source1, source1, source2);
-        tcg_gen_ext32s_tl(source1, source1);
-        break;
-    case OPC_RISC_SLLW:
-        tcg_gen_andi_tl(source2, source2, 0x1F);
-        tcg_gen_shl_tl(source1, source1, source2);
-        tcg_gen_ext32s_tl(source1, source1);
-        break;
-    case OPC_RISC_SRLW:
-        tcg_gen_andi_tl(source1, source1,
-                        0x00000000FFFFFFFFLL); /* clear upper 32 */
-        tcg_gen_andi_tl(source2, source2, 0x1F);
-        tcg_gen_shr_tl(source1, source1, source2); /* do actual right shift */
-        tcg_gen_ext32s_tl(source1, source1); /* sign ext */
-        break;
-    case OPC_RISC_SRAW:
-        /* first, trick to get it to act like working on 32 bits (get rid of */
-        /* upper 32) */
-        tcg_gen_shli_tl(source1, source1, 32); /* clear upper 32 */
-        tcg_gen_sari_tl(source1, source1, 32); /* smear the sign bit into upper
-                                                  32 */
-        tcg_gen_andi_tl(source2, source2, 0x1F);
-        tcg_gen_sar_tl(source1, source1, source2); /* do the actual right shift
-                                                    */
-        tcg_gen_ext32s_tl(source1, source1); /* sign ext */
-        break;
-    case OPC_RISC_MULW:
-        tcg_gen_muls2_tl(source1, source2, source1, source2);
-        tcg_gen_ext32s_tl(source1, source1);
-        break;
-    case OPC_RISC_DIVW:
-        {
-            TCGv spec_source1, spec_source2;
-            TCGv cond1, cond2;
-            TCGLabel *handle_zero = gen_new_label();
-            TCGLabel *handle_overflow = gen_new_label();
-            TCGLabel *done = gen_new_label();
-            spec_source1 = tcg_temp_local_new();
-            spec_source2 = tcg_temp_local_new();
-            cond1 = tcg_temp_local_new();
-            cond2 = tcg_temp_local_new();
-
-            gen_get_gpr(spec_source1, rs1);
-            gen_get_gpr(spec_source2, rs2);
-            tcg_gen_ext32s_tl(spec_source1, spec_source1);
-            tcg_gen_ext32s_tl(spec_source2, spec_source2);
-
-            tcg_gen_brcondi_tl(TCG_COND_EQ, spec_source2, 0x0, handle_zero);
-
-            /* now, use temp reg to check if both overflow conditions
-               satisfied */
-            tcg_gen_setcondi_tl(TCG_COND_EQ, cond2, spec_source2,
-                                0xFFFFFFFFFFFFFFFF); /* divisor = -1 */
-            tcg_gen_setcondi_tl(TCG_COND_EQ, cond1, spec_source1,
-                                0x8000000000000000);
-            tcg_gen_and_tl(cond1, cond1, cond2);
-
-            tcg_gen_brcondi_tl(TCG_COND_EQ, cond1, 1, handle_overflow);
-            /* normal case */
-            tcg_gen_div_tl(spec_source1, spec_source1, spec_source2);
-            tcg_gen_br(done);
-            /* special zero case */
-            gen_set_label(handle_zero);
-            tcg_gen_movi_tl(spec_source1, -1);
-            tcg_gen_br(done);
-            /* special overflow case */
-            gen_set_label(handle_overflow);
-            tcg_gen_movi_tl(spec_source1, 0x8000000000000000);
-            /* done */
-            gen_set_label(done);
-            tcg_gen_mov_tl(source1, spec_source1);
-            tcg_temp_free(spec_source1);
-            tcg_temp_free(spec_source2);
-            tcg_temp_free(cond1);
-            tcg_temp_free(cond2);
-            tcg_gen_ext32s_tl(source1, source1);
-        }
-        break;
-    case OPC_RISC_DIVUW:
-        {
-            TCGv spec_source1, spec_source2;
-            TCGLabel *handle_zero = gen_new_label();
-            TCGLabel *done = gen_new_label();
-            spec_source1 = tcg_temp_local_new();
-            spec_source2 = tcg_temp_local_new();
-
-            gen_get_gpr(spec_source1, rs1);
-            gen_get_gpr(spec_source2, rs2);
-            tcg_gen_ext32u_tl(spec_source1, spec_source1);
-            tcg_gen_ext32u_tl(spec_source2, spec_source2);
-
-            tcg_gen_brcondi_tl(TCG_COND_EQ, spec_source2, 0x0, handle_zero);
-
-            /* normal case */
-            tcg_gen_divu_tl(spec_source1, spec_source1, spec_source2);
-            tcg_gen_br(done);
-            /* special zero case */
-            gen_set_label(handle_zero);
-            tcg_gen_movi_tl(spec_source1, -1);
-            tcg_gen_br(done);
-            /* done */
-            gen_set_label(done);
-            tcg_gen_mov_tl(source1, spec_source1);
-            tcg_temp_free(spec_source1);
-            tcg_temp_free(spec_source2);
-            tcg_gen_ext32s_tl(source1, source1);
-        }
-        break;
-    case OPC_RISC_REMW:
-        {
-            TCGv spec_source1, spec_source2;
-            TCGv cond1, cond2;
-            TCGLabel *handle_zero = gen_new_label();
-            TCGLabel *handle_overflow = gen_new_label();
-            TCGLabel *done = gen_new_label();
-            spec_source1 = tcg_temp_local_new();
-            spec_source2 = tcg_temp_local_new();
-            cond1 = tcg_temp_local_new();
-            cond2 = tcg_temp_local_new();
-
-            gen_get_gpr(spec_source1, rs1);
-            gen_get_gpr(spec_source2, rs2);
-            tcg_gen_ext32s_tl(spec_source1, spec_source1);
-            tcg_gen_ext32s_tl(spec_source2, spec_source2);
-
-            tcg_gen_brcondi_tl(TCG_COND_EQ, spec_source2, 0x0, handle_zero);
-
-            /* now, use temp reg to check if both overflow conditions
-               satisfied */
-            tcg_gen_setcondi_tl(TCG_COND_EQ, cond2, spec_source2,
-                                0xFFFFFFFFFFFFFFFF); /* divisor = -1 */
-            tcg_gen_setcondi_tl(TCG_COND_EQ, cond1, spec_source1,
-                                0x8000000000000000);
-            tcg_gen_and_tl(cond1, cond1, cond2);
-
-            tcg_gen_brcondi_tl(TCG_COND_EQ, cond1, 1, handle_overflow);
-            /* normal case */
-            tcg_gen_rem_tl(spec_source1, spec_source1, spec_source2);
-            tcg_gen_br(done);
-            /* special zero case */
-            gen_set_label(handle_zero);
-            tcg_gen_mov_tl(spec_source1, spec_source1); /* even though it's a
-                                                         * nop, just for clarity
-                                                         */
-            tcg_gen_br(done);
-            /* special overflow case */
-            gen_set_label(handle_overflow);
-            tcg_gen_movi_tl(spec_source1, 0);
-            /* done */
-            gen_set_label(done);
-            tcg_gen_mov_tl(source1, spec_source1);
-            tcg_temp_free(spec_source1);
-            tcg_temp_free(spec_source2);
-            tcg_temp_free(cond1);
-            tcg_temp_free(cond2);
-            tcg_gen_ext32s_tl(source1, source1);
-        }
-        break;
-    case OPC_RISC_REMUW:
-        {
-            TCGv spec_source1, spec_source2;
-            TCGLabel *handle_zero = gen_new_label();
-            TCGLabel *done = gen_new_label();
-            spec_source1 = tcg_temp_local_new();
-            spec_source2 = tcg_temp_local_new();
-
-            gen_get_gpr(spec_source1, rs1);
-            gen_get_gpr(spec_source2, rs2);
-            tcg_gen_ext32u_tl(spec_source1, spec_source1);
-            tcg_gen_ext32u_tl(spec_source2, spec_source2);
-
-            tcg_gen_brcondi_tl(TCG_COND_EQ, spec_source2, 0x0, handle_zero);
-            /* normal case */
-            tcg_gen_remu_tl(spec_source1, spec_source1, spec_source2);
-            tcg_gen_br(done);
-            /* special zero case */
-            gen_set_label(handle_zero);
-            tcg_gen_mov_tl(spec_source1, spec_source1); /* even though it's a
-                                                         * nop, just for clarity
-                                                         */
-            tcg_gen_br(done);
-            /* done */
-            gen_set_label(done);
-            tcg_gen_mov_tl(source1, spec_source1);
-            tcg_temp_free(spec_source1);
-            tcg_temp_free(spec_source2);
-            tcg_gen_ext32s_tl(source1, source1);
-        }
-        break;
-    default:
-        kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
-        break;
-    }
-    gen_set_gpr(rd, source1);
-    tcg_temp_free(source1);
-    tcg_temp_free(source2);
-}
-#endif
 
 static inline void gen_branch(DisasContext *ctx, uint32_t opc,
                               int rs1, int rs2, int16_t bimm)
@@ -1903,19 +1676,14 @@ static void decode_opc(CPURISCVState *env, DisasContext *ctx)
         gen_arith_imm(ctx, MASK_OP_ARITH_IMM(ctx->opcode), rd, rs1, imm);
         break;
     case OPC_RISC_ARITH:
+#if defined(TARGET_RISCV64)
+    case OPC_RISC_ARITH_W:
+#endif
         if (rd == 0) {
             break; /* NOP */
         }
         gen_arith(ctx, MASK_OP_ARITH(ctx->opcode), rd, rs1, rs2);
         break;
-#if defined(TARGET_RISCV64)
-    case OPC_RISC_ARITH_W:
-        if (rd == 0) {
-            break; /* NOP */
-        }
-        gen_arith_w(ctx, MASK_OP_ARITH_W(ctx->opcode), rd, rs1, rs2);
-        break;
-#endif
     case OPC_RISC_FENCE:
         /* standard fence is nop */
         /* fence_i flushes TB (like an icache): */
