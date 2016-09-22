@@ -42,6 +42,7 @@ static const riscv_def_t riscv_defs[] = {
         .init_misa_reg = MCPUID_RV64I | MCPUID_SUPER | MCPUID_USER | MCPUID_I
             | MCPUID_M | MCPUID_A | MCPUID_F | MCPUID_D,
 #else
+        /* RV32G */
         .init_misa_reg = MCPUID_RV32I | MCPUID_SUPER | MCPUID_USER | MCPUID_I
             | MCPUID_M | MCPUID_A | MCPUID_F | MCPUID_D,
 #endif
