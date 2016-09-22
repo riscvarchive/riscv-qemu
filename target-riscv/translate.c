@@ -926,12 +926,7 @@ static inline void gen_fp_load(DisasContext *ctx, uint32_t opc, int rd,
 
     switch (opc) {
     case OPC_RISC_FLW:
-#if defined(TARGET_RISCV64)
-        tcg_gen_qemu_ld_tl(cpu_fpr[rd], t0, ctx->mem_idx, MO_TEUL);
-#else
-        tcg_gen_qemu_ld_tl(t0, t0, ctx->mem_idx, MO_TEUL);
-        tcg_gen_extu_i32_i64(cpu_fpr[rd], t0);
-#endif
+        tcg_gen_qemu_ld_i64(cpu_fpr[rd], t0, ctx->mem_idx, MO_TEUL);
         break;
     case OPC_RISC_FLD:
         tcg_gen_qemu_ld_i64(cpu_fpr[rd], t0, ctx->mem_idx, MO_TEQ);
@@ -955,12 +950,7 @@ static inline void gen_fp_store(DisasContext *ctx, uint32_t opc, int rs1,
 
     switch (opc) {
     case OPC_RISC_FSW:
-#if defined(TARGET_RISCV64)
-        tcg_gen_qemu_st_tl(cpu_fpr[rs2], t0, ctx->mem_idx, MO_TEUL);
-#else
-        tcg_gen_extrl_i64_i32(t1, cpu_fpr[rs2]);
-        tcg_gen_qemu_st_tl(t1, t0, ctx->mem_idx, MO_TEUL);
-#endif
+        tcg_gen_qemu_st_i64(cpu_fpr[rs2], t0, ctx->mem_idx, MO_TEUL);
         break;
     case OPC_RISC_FSD:
         tcg_gen_qemu_st_i64(cpu_fpr[rs2], t0, ctx->mem_idx, MO_TEQ);
