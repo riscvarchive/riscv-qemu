@@ -507,28 +507,28 @@ static inline void gen_load(DisasContext *ctx, uint32_t opc, int rd, int rs1,
     switch (opc) {
 
     case OPC_RISC_LB:
-        tcg_gen_qemu_ld8s(t1, t0, ctx->mem_idx);
+        tcg_gen_qemu_ld_tl(t1, t0, ctx->mem_idx, MO_SB);
         break;
     case OPC_RISC_LH:
-        tcg_gen_qemu_ld16s(t1, t0, ctx->mem_idx);
+        tcg_gen_qemu_ld_tl(t1, t0, ctx->mem_idx, MO_TESW);
         break;
     case OPC_RISC_LW:
-        tcg_gen_qemu_ld32s(t1, t0, ctx->mem_idx);
+        tcg_gen_qemu_ld_tl(t1, t0, ctx->mem_idx, MO_TESL);
         break;
 #if defined(TARGET_RISCV64)
     case OPC_RISC_LD:
-        tcg_gen_qemu_ld64(t1, t0, ctx->mem_idx);
+        tcg_gen_qemu_ld_tl(t1, t0, ctx->mem_idx, MO_TEQ);
         break;
 #endif
     case OPC_RISC_LBU:
-        tcg_gen_qemu_ld8u(t1, t0, ctx->mem_idx);
+        tcg_gen_qemu_ld_tl(t1, t0, ctx->mem_idx, MO_UB);
         break;
     case OPC_RISC_LHU:
-        tcg_gen_qemu_ld16u(t1, t0, ctx->mem_idx);
+        tcg_gen_qemu_ld_tl(t1, t0, ctx->mem_idx, MO_TEUW);
         break;
 #if defined(TARGET_RISCV64)
     case OPC_RISC_LWU:
-        tcg_gen_qemu_ld32u(t1, t0, ctx->mem_idx);
+        tcg_gen_qemu_ld_tl(t1, t0, ctx->mem_idx, MO_TEUL);
         break;
 #endif
     default:
@@ -555,17 +555,17 @@ static inline void gen_store(DisasContext *ctx, uint32_t opc, int rs1, int rs2,
 
     switch (opc) {
     case OPC_RISC_SB:
-        tcg_gen_qemu_st8(dat, t0, ctx->mem_idx);
+        tcg_gen_qemu_st_tl(dat, t0, ctx->mem_idx, MO_UB);
         break;
     case OPC_RISC_SH:
-        tcg_gen_qemu_st16(dat, t0, ctx->mem_idx);
+        tcg_gen_qemu_st_tl(dat, t0, ctx->mem_idx, MO_TEUW);
         break;
     case OPC_RISC_SW:
-        tcg_gen_qemu_st32(dat, t0, ctx->mem_idx);
+        tcg_gen_qemu_st_tl(dat, t0, ctx->mem_idx, MO_TEUL);
         break;
 #if defined(TARGET_RISCV64)
     case OPC_RISC_SD:
-        tcg_gen_qemu_st64(dat, t0, ctx->mem_idx);
+        tcg_gen_qemu_st_tl(dat, t0, ctx->mem_idx, MO_TEQ);
         break;
 #endif
     default:
