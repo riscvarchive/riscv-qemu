@@ -643,7 +643,7 @@ target_ulong helper_mulhsu(CPURISCVState *env, target_ulong arg1,
 /*
  * Handle writes to CSRs and any resulting special behavior
  *
- * Note: mtohost and mfromhost are not handled here
+ * Adapted from Spike's processor_t::set_csr
  */
 inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
         target_ulong csrno)
@@ -827,7 +827,7 @@ inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
 /*
  * Handle reads to CSRs and any resulting special behavior
  *
- * Note: mtohost and mfromhost are not handled here
+ * Adapted from Spike's processor_t::get_csr
  */
 inline target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno)
 {
@@ -977,7 +977,11 @@ inline target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno)
     return 0;
 }
 
-
+/*
+ * Check that CSR access is allowed.
+ *
+ * Adapted from Spike's decode.h:validate_csr
+ */
 void validate_csr(CPURISCVState *env, uint64_t which, uint64_t write,
         uint64_t new_pc) {
     unsigned csr_priv = get_field((which), 0x300);
@@ -1020,13 +1024,14 @@ target_ulong helper_csrrc(CPURISCVState *env, target_ulong src,
 
 /*
  * This is a debug print helper for printing trace.
- * Currently calls spike-dasm, so very slow.
+ * If CALL_SPIKE_DASM defined, calls spike-dasm, so very slow.
  * Probably not useful unless you're debugging riscv-qemu
  */
 void helper_debug_print(CPURISCVState *env, target_ulong cpu_pc_deb,
         target_ulong instruction)
 {
-/*    int buflen = 100;
+#ifdef CALL_SPIKE_DASM
+    int buflen = 100;
     char runbuf[buflen];
     char path[buflen];
 
@@ -1041,11 +1046,14 @@ void helper_debug_print(CPURISCVState *env, target_ulong cpu_pc_deb,
     if (fgets(path, sizeof(path)-1, fp) != NULL) {
         fprintf(stderr, ": core   0: 0x" TARGET_FMT_lx " (0x%08lx) %s",
                 cpu_pc_deb, instruction, path);
-    } else {*/
+    } else {
+#endif
     fprintf(stderr, ": core   0: 0x" TARGET_FMT_lx " (0x" TARGET_FMT_lx ") %s",
             cpu_pc_deb, instruction, "DASM BAD RESULT\n");
-/*    }
-    pclose(fp);*/
+#ifdef CALL_SPIKE_DASM
+    }
+    pclose(fp);
+#endif
 }
 
 void helper_debug_print_reg1(CPURISCVState *env, target_ulong reg1)
@@ -1068,7 +1076,7 @@ target_ulong helper_sret(CPURISCVState *env, target_ulong cpu_pc_deb)
 
     target_ulong retpc = env->csr[CSR_SEPC];
     if (retpc & 0x3) {
-        printf("MISALIGNED INST FETCH\n");
+        printf("TODO: MISALIGNED INST FETCH\n");
         exit(1);
     }
 
@@ -1092,7 +1100,7 @@ target_ulong helper_mret(CPURISCVState *env, target_ulong cpu_pc_deb)
 
     target_ulong retpc = env->csr[CSR_MEPC];
     if (retpc & 0x3) {
-        printf("MISALIGNED INST FETCH\n");
+        printf("TODO: MISALIGNED INST FETCH\n");
         exit(1);
     }
 

@@ -21,7 +21,12 @@ It currently passes all tests from [riscv-tests].
 **Privileged Specification Version:**
 
 This version of QEMU adheres to the RISC-V v1.9 Privileged Specification as 
-described in [Technical Report No. UCB/EECS-2016-129](https://www2.eecs.berkeley.edu/Pubs/TechRpts/2016/EECS-2016-129.pdf) and commit 65da94f84a2ba5a61a8bcf3ebdd8ca57f6d899ca of riscv-tools.
+described in [Technical Report No. UCB/EECS-2016-129](https://www2.eecs.berkeley.edu/Pubs/TechRpts/2016/EECS-2016-129.pdf) and commit 745e74afb56ecba090669615d4ac9c9b9b96c653
+([the priv-1.9-rc0 release](https://github.com/riscv/riscv-tools/releases/tag/priv-1.9-rc0))
+of riscv-tools.
+
+Please note that QEMU tracks released drafts of the RISC-V Privileged 
+Specification, not work-in-progress changes like Spike does.
 
 Installation
 --------------

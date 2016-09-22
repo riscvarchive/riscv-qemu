@@ -49,10 +49,11 @@ bool riscv_cpu_exec_interrupt(CPUState *cs, int interrupt_request)
 /* get_physical_address - get the physical address for this virtual address
  *
  * Do a page table walk to obtain the physical address corresponding to a
- * virtual address.
+ * virtual address. Returns 0 if the translation was successful
  *
- * Returns 0 if the translation was successful
-*/
+ * Adapted from Spike's mmu_t::translate and mmu_t::walk
+ *
+ */
 static int get_physical_address(CPURISCVState *env, hwaddr *physical,
                                 int *prot, target_ulong address,
                                 MMUAccessType access_type, int mmu_idx)
@@ -302,7 +303,12 @@ static const char * const riscv_interrupt_names[14] = {
 };
 #endif     /* RISCV_DEBUG_INTERRUPT */
 
-/* handle traps. similar to take_trap in spike */
+/* 
+ * Handle Traps
+ *
+ * Adapted from Spike's processor_t::take_trap. 
+ *
+ */
 void riscv_cpu_do_interrupt(CPUState *cs)
 {
     RISCVCPU *cpu = RISCV_CPU(cs);
