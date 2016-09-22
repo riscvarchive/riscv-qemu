@@ -395,6 +395,7 @@ void riscv_cpu_list(FILE *f, fprintf_function cpu_fprintf);
 static int ctz(target_ulong val);
 int validate_priv(target_ulong priv);
 void set_privilege(CPURISCVState *env, target_ulong newpriv);
+unsigned int softfloat_flags_to_riscv(unsigned int flag);
 
 static inline int cpu_mmu_index(CPURISCVState *env, bool ifetch)
 {

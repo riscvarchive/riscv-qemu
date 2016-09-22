@@ -400,7 +400,7 @@ static inline void gen_arith_imm(DisasContext *ctx, uint32_t opc,
          if ((uimm >= 32)) {
             kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
          }
-        // fall through to SLLI
+        /* fall through to SLLI */
 #endif
     case OPC_RISC_SLLI:
         if (uimm < TARGET_LONG_BITS) {
@@ -416,7 +416,7 @@ static inline void gen_arith_imm(DisasContext *ctx, uint32_t opc,
         }
         tcg_gen_shli_tl(source1, source1, 32);
         extra_shamt = 32;
-        // fall through to SHIFT_RIGHT_I
+        /* fall through to SHIFT_RIGHT_I */
 #endif
     case OPC_RISC_SHIFT_RIGHT_I:
         /* differentiate on IMM */
@@ -438,7 +438,7 @@ static inline void gen_arith_imm(DisasContext *ctx, uint32_t opc,
     }
 
     if (opc & 0x8) {
-        // final sign-extension for W instructions
+        /* final sign-extension for W instructions */
         tcg_gen_ext32s_tl(source1, source1);
     }
 

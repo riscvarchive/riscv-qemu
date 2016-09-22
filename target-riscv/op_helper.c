@@ -84,14 +84,11 @@ unsigned int ieee_rm[] = {
 /* obtain rm value to use in computation
    as the last step, convert rm codes to what the softfloat library expects */
 #define RM ({ if (rm == 7) rm = env->csr[CSR_FRM]; \
-              if (rm > 4) { /* TODO throw trap*/ }; \
+              if (rm > 4) { helper_raise_exception(env, RISCV_EXCP_ILLEGAL_INST); }; \
               ieee_rm[rm]; })
 
-unsigned int softfloat_flags_to_riscv(unsigned int flag);
 
-/* convert softfloat library flag numbers to RISC-V
- * TODO better way...
- */
+/* convert softfloat library flag numbers to RISC-V */
 unsigned int softfloat_flags_to_riscv(unsigned int flag)
 {
     switch (flag) {
@@ -705,7 +702,6 @@ inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
         target_ulong mask = MIP_SSIP | MIP_STIP;
         env->csr[CSR_MIP] = (env->csr[CSR_MIP] & ~mask) |
             (val_to_write & mask);
-        //CPUState *cs = CPU(riscv_env_get_cpu(env));
         if (env->csr[CSR_MIP] & MIP_SSIP) {
             qemu_irq_raise(SSIP_IRQ);
         } else {
