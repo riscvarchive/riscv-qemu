@@ -294,7 +294,7 @@ struct CPURISCVState {
     target_ulong gpr[32];
     uint64_t fpr[32]; /* assume both F and D extensions */
     target_ulong PC;
-    target_ulong load_reservation;
+    target_ulong load_res;
 
     target_ulong csr[4096]; /* RISCV CSR registers */
     target_ulong priv;
