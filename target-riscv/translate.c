@@ -110,7 +110,7 @@ static inline void generate_exception_mbadaddr(DisasContext *ctx, int excp)
     tcg_temp_free_i32(helper_tmp);
 }
 
-/* unknown instruction / fp disabled */
+/* unknown instruction */
 static inline void kill_unknown(DisasContext *ctx, int excp)
 {
     generate_exception(ctx, excp);
@@ -123,10 +123,7 @@ static inline void gen_goto_tb(DisasContext *ctx, int n, target_ulong dest)
     tb = ctx->tb;
     if ((tb->pc & TARGET_PAGE_MASK) == (dest & TARGET_PAGE_MASK) &&
         likely(!ctx->singlestep_enabled)) {
-        /* we only allow direct chaining when the jump is to the same page
-           otherwise, we could produce incorrect chains when address spaces
-           change. see
-           http://lists.gnu.org/archive/html/qemu-devel/2007-06/msg00213.html */
+        /* chaining is only allowed when the jump is to the same page */
         tcg_gen_goto_tb(n);
         tcg_gen_movi_tl(cpu_PC, dest);
         tcg_gen_exit_tb((uintptr_t)tb + n);
@@ -359,7 +356,6 @@ static inline void gen_arith(DisasContext *ctx, uint32_t opc, int rd, int rs1,
     tcg_temp_free(source2);
     tcg_temp_free(cond1);
     tcg_temp_free(cond2);
-
 }
 
 
@@ -596,15 +592,12 @@ static inline void gen_atomic(DisasContext *ctx, uint32_t opc,
 {
     /* TODO: handle aq, rl bits? - for now just get rid of them: */
     opc = MASK_OP_ATOMIC_NO_AQ_RL(opc);
-
     TCGv source1, source2, dat;
     TCGLabel *j = gen_new_label();
     TCGLabel *done = gen_new_label();
-
     source1 = tcg_temp_local_new();
     source2 = tcg_temp_local_new();
     dat = tcg_temp_local_new();
-
     gen_get_gpr(source1, rs1);
     gen_get_gpr(source2, rs2);
 
@@ -778,9 +771,6 @@ static inline void gen_atomic(DisasContext *ctx, uint32_t opc,
 static inline void gen_system(DisasContext *ctx, uint32_t opc,
                       int rd, int rs1, int csr)
 {
-    /* get index into csr array */
-    int backup_csr = csr;
-
     TCGv source1, csr_store, dest, rs1_pass, imm_rs1;
     source1 = tcg_temp_new();
     csr_store = tcg_temp_new();
@@ -793,7 +783,7 @@ static inline void gen_system(DisasContext *ctx, uint32_t opc,
 
     switch (opc) {
     case OPC_RISC_ECALL:
-        switch (backup_csr) {
+        switch (csr) {
         case 0x0: /* ECALL */
             /* always generates U-level ECALL, fixed in do_interrupt handler */
             generate_exception(ctx, RISCV_EXCP_U_ECALL);
@@ -1346,7 +1336,6 @@ static void decode_opc(CPURISCVState *env, DisasContext *ctx)
 #endif
 
     switch (op) {
-
     case OPC_RISC_LUI:
         if (rd == 0) {
             break; /* NOP */
@@ -1426,8 +1415,7 @@ static void decode_opc(CPURISCVState *env, DisasContext *ctx)
         gen_arith(ctx, MASK_OP_ARITH(ctx->opcode), rd, rs1, rs2);
         break;
     case OPC_RISC_FENCE:
-        /* standard fence is nop */
-        /* fence_i flushes TB (like an icache): */
+        /* standard fence is nop, fence_i flushes TB (like an icache): */
         if (ctx->opcode & 0x1000) { /* FENCE_I */
             gen_helper_fence_i(cpu_env);
             tcg_gen_movi_tl(cpu_PC, ctx->pc + 4);
@@ -1488,8 +1476,8 @@ void gen_intermediate_code(CPURISCVState *env, TranslationBlock *tb)
     next_page_start = (pc_start & TARGET_PAGE_MASK) + TARGET_PAGE_SIZE;
     ctx.pc = pc_start;
 
-    /* once we have GDB, the rest of the translate.c implementation should be */
-    /* ready for singlestep */
+    /* once we have GDB, the rest of the translate.c implementation should be
+       ready for singlestep */
     ctx.singlestep_enabled = cs->singlestep_enabled;
 
     ctx.tb = tb;
@@ -1560,13 +1548,11 @@ void gen_intermediate_code(CPURISCVState *env, TranslationBlock *tb)
         case BS_STOP:
             gen_goto_tb(&ctx, 0, ctx.pc);
             break;
-        case BS_NONE:
-            /* DO NOT CHAIN. This is for END-OF-PAGE. See gen_goto_tb. */
+        case BS_NONE: /* handle end of page - DO NOT CHAIN. See gen_goto_tb. */
             tcg_gen_movi_tl(cpu_PC, ctx.pc);
             tcg_gen_exit_tb(0);
             break;
-        case BS_BRANCH:
-            /* anything using BS_BRANCH will have generated its own exit seq */
+        case BS_BRANCH: /* ops using BS_BRANCH generate own exit seq */
         default:
             break;
         }
