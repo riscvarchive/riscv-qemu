@@ -3,12 +3,12 @@
 
 /*#define DEBUG_OP */
 
+/* uncomment for lots of debug printing */
+/* #define RISCV_DEBUG_PRINT */
+
 #define TARGET_HAS_ICE 1
-
 #define ELF_MACHINE EM_RISCV
-
 #define CPUArchState struct CPURISCVState
-
 #define ALIGNED_ONLY
 
 #include "qemu-common.h"
@@ -30,15 +30,13 @@
 
 #define TRANSLATE_FAIL -1
 #define TRANSLATE_SUCCESS 0
-
 #define NB_MMU_MODES 4
 
 struct CPURISCVState;
 
-#define PGSHIFT 12
-
-/* uncomment for lots of debug printing */
-/* #define RISCV_DEBUG_PRINT */
+/* Below taken from Spike's decode.h and encoding.h.
+ * Using these directly drastically simplifies updating to new versions of the
+ * RISC-V privileged specification */
 
 #define get_field(reg, mask) (((reg) & \
                  (target_ulong)(mask)) / ((mask) & ~((mask) << 1)))
@@ -46,6 +44,7 @@ struct CPURISCVState;
                  (((target_ulong)(val) * ((mask) & ~((mask) << 1))) & \
                  (target_ulong)(mask)))
 
+#define PGSHIFT 12
 
 #define FP_RD_NE  0
 #define FP_RD_0   1
@@ -151,7 +150,6 @@ struct CPURISCVState;
 #define RISCV_EXCP_S_ECALL                 0x9
 #define RISCV_EXCP_H_ECALL                 0xa
 #define RISCV_EXCP_M_ECALL                 0xb
-/* interrupts not listed here */
 
 #define IS_RV_INTERRUPT(ival) (ival & (0x1 << 31))
 
@@ -280,6 +278,7 @@ struct CPURISCVState;
 #define PTE_PPN_SHIFT 10
 
 #define PTE_TABLE(PTE) (((PTE) & (PTE_V | PTE_R | PTE_W | PTE_X)) == PTE_V)
+/* end Spike decode.h, encoding.h section */
 
 #define SSIP_IRQ (env->irq[0])
 #define STIP_IRQ (env->irq[1])
@@ -342,7 +341,6 @@ typedef struct RISCVCPUClass {
     /*< private >*/
     CPUClass parent_class;
     /*< public >*/
-
     DeviceRealize parent_realize;
     void (*parent_reset)(CPUState *cpu);
 } RISCVCPUClass;
@@ -357,7 +355,6 @@ typedef struct RISCVCPU {
     /*< private >*/
     CPUState parent_obj;
     /*< public >*/
-
     CPURISCVState env;
 } RISCVCPU;
 
@@ -367,19 +364,18 @@ static inline RISCVCPU *riscv_env_get_cpu(CPURISCVState *env)
 }
 
 #define ENV_GET_CPU(e) CPU(riscv_env_get_cpu(e))
-
 #define ENV_OFFSET offsetof(RISCVCPU, env)
 
 void riscv_cpu_do_interrupt(CPUState *cpu);
 void riscv_cpu_dump_state(CPUState *cpu, FILE *f, fprintf_function cpu_fprintf,
-                         int flags);
+                          int flags);
 hwaddr riscv_cpu_get_phys_page_debug(CPUState *cpu, vaddr addr);
 int riscv_cpu_gdb_read_register(CPUState *cpu, uint8_t *buf, int reg);
 int riscv_cpu_gdb_write_register(CPUState *cpu, uint8_t *buf, int reg);
 bool riscv_cpu_exec_interrupt(CPUState *cs, int interrupt_request);
 void  riscv_cpu_do_unaligned_access(CPUState *cs, vaddr addr,
-                                        MMUAccessType access_type,
-                                        int mmu_idx, uintptr_t retaddr);
+                                    MMUAccessType access_type, int mmu_idx, 
+                                    uintptr_t retaddr);
 #endif
 
 #if !defined(CONFIG_USER_ONLY)
@@ -397,6 +393,10 @@ int validate_priv(target_ulong priv);
 void set_privilege(CPURISCVState *env, target_ulong newpriv);
 unsigned int softfloat_flags_to_riscv(unsigned int flag);
 
+/* 
+ * Compute mmu index
+ * Adapted from Spike's mmu_t::translate
+ */
 static inline int cpu_mmu_index(CPURISCVState *env, bool ifetch)
 {
     target_ulong mode = env->priv;
@@ -425,10 +425,11 @@ static int ctz(target_ulong val)
 /*
  * Return RISC-V IRQ number if an interrupt should be taken, else -1.
  * Used in cpu-exec.c
+ *
+ * Adapted from Spike's processor_t::take_interrupt()
  */
 static inline int cpu_riscv_hw_interrupts_pending(CPURISCVState *env)
 {
-
     target_ulong pending_interrupts = env->csr[CSR_MIP] & env->csr[CSR_MIE];
 
     target_ulong mie = get_field(env->csr[CSR_MSTATUS], MSTATUS_MIE);
@@ -445,17 +446,16 @@ static inline int cpu_riscv_hw_interrupts_pending(CPURISCVState *env)
         target_ulong counted = ctz(enabled_interrupts);
         if (counted == IRQ_HOST) {
             /* we're handing it to the cpu now, so get rid of the qemu irq */
-            qemu_irq_lower(HTIF_IRQ); /* get rid of the irq request */
+            qemu_irq_lower(HTIF_IRQ);
         } else if (counted == IRQ_M_TIMER) {
             /* we're handing it to the cpu now, so get rid of the qemu irq */
-            qemu_irq_lower(TIMER_IRQ); /* get rid of the irq request */
+            qemu_irq_lower(TIMER_IRQ);
         } else if (counted == IRQ_S_TIMER || counted == IRQ_H_TIMER) {
             /* don't lower irq here */
         }
         return counted;
     } else {
-        /* indicates no pending interrupt to handler in cpu-exec.c */
-        return -1;
+        return EXCP_NONE; /* indicates no pending interrupt */
     }
 }
 
@@ -470,7 +470,6 @@ int cpu_riscv_signal_handler(int host_signum, void *pinfo, void *puc);
 /* hw/riscv/riscv_rtc.c  - supplies instret by approximating */
 uint64_t cpu_riscv_read_instret(CPURISCVState *env);
 
-/* helper.c */
 int riscv_cpu_handle_mmu_fault(CPUState *cpu, vaddr address, MMUAccessType rw,
                               int mmu_idx);
 #if !defined(CONFIG_USER_ONLY)
