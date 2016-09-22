@@ -74,6 +74,10 @@ static const char * const fpr_regnames[] = {
   "fs8", "fs9", "fs10", "fs11", "ft8", "ft9", "ft10", "ft11"
 };
 
+/* convert riscv funct3 to qemu memop for load/store */
+static int tcg_memop_lookup[] = { MO_SB, MO_TESW, MO_TESL, MO_TEQ, MO_UB, 
+    MO_TEUW, MO_TEUL };
+
 #define RISCV_DEBUG(fmt, ...)                                                  \
     do {                                                                      \
         if (RISCV_DEBUG_DISAS) {                                               \
@@ -503,44 +507,22 @@ static inline void gen_load(DisasContext *ctx, uint32_t opc, int rd, int rs1,
     TCGv t1 = tcg_temp_new();
     gen_get_gpr(t0, rs1);
     tcg_gen_addi_tl(t0, t0, uimm); /* */
+    int memop = (opc >> 12) & 0x7;
 
-    switch (opc) {
-
-    case OPC_RISC_LB:
-        tcg_gen_qemu_ld_tl(t1, t0, ctx->mem_idx, MO_SB);
-        break;
-    case OPC_RISC_LH:
-        tcg_gen_qemu_ld_tl(t1, t0, ctx->mem_idx, MO_TESW);
-        break;
-    case OPC_RISC_LW:
-        tcg_gen_qemu_ld_tl(t1, t0, ctx->mem_idx, MO_TESL);
-        break;
 #if defined(TARGET_RISCV64)
-    case OPC_RISC_LD:
-        tcg_gen_qemu_ld_tl(t1, t0, ctx->mem_idx, MO_TEQ);
-        break;
+    if (memop == 0x7) {
+#else
+    if (memop == 0x7 || memop == 0x3 || memop == 0x6) {
 #endif
-    case OPC_RISC_LBU:
-        tcg_gen_qemu_ld_tl(t1, t0, ctx->mem_idx, MO_UB);
-        break;
-    case OPC_RISC_LHU:
-        tcg_gen_qemu_ld_tl(t1, t0, ctx->mem_idx, MO_TEUW);
-        break;
-#if defined(TARGET_RISCV64)
-    case OPC_RISC_LWU:
-        tcg_gen_qemu_ld_tl(t1, t0, ctx->mem_idx, MO_TEUL);
-        break;
-#endif
-    default:
         kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
-        break;
+    } else {
+        tcg_gen_qemu_ld_tl(t1, t0, ctx->mem_idx, tcg_memop_lookup[memop]);
     }
 
     gen_set_gpr(rd, t1);
     tcg_temp_free(t0);
     tcg_temp_free(t1);
 }
-
 
 static inline void gen_store(DisasContext *ctx, uint32_t opc, int rs1, int rs2,
         int16_t imm)
@@ -552,25 +534,16 @@ static inline void gen_store(DisasContext *ctx, uint32_t opc, int rs1, int rs2,
     gen_get_gpr(t0, rs1);
     tcg_gen_addi_tl(t0, t0, uimm);
     gen_get_gpr(dat, rs2);
+    int memop = (opc >> 12) & 0x7;
 
-    switch (opc) {
-    case OPC_RISC_SB:
-        tcg_gen_qemu_st_tl(dat, t0, ctx->mem_idx, MO_UB);
-        break;
-    case OPC_RISC_SH:
-        tcg_gen_qemu_st_tl(dat, t0, ctx->mem_idx, MO_TEUW);
-        break;
-    case OPC_RISC_SW:
-        tcg_gen_qemu_st_tl(dat, t0, ctx->mem_idx, MO_TEUL);
-        break;
 #if defined(TARGET_RISCV64)
-    case OPC_RISC_SD:
-        tcg_gen_qemu_st_tl(dat, t0, ctx->mem_idx, MO_TEQ);
-        break;
+    if (memop > 0x3) {
+#else
+    if (memop > 0x2) {
 #endif
-    default:
         kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
-        break;
+    } else {
+        tcg_gen_qemu_st_tl(dat, t0, ctx->mem_idx, tcg_memop_lookup[memop]);
     }
 
     tcg_temp_free(t0);
