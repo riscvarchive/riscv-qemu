@@ -1063,9 +1063,7 @@ void helper_debug_print_reg2(CPURISCVState *env, target_ulong reg1,
 target_ulong helper_sret(CPURISCVState *env, target_ulong cpu_pc_deb)
 {
     if (!(env->priv >= PRV_S)) {
-        /* TODO: real illegal instruction trap */
-        printf("ILLEGAL INST");
-        exit(1);
+        helper_raise_exception(env, RISCV_EXCP_ILLEGAL_INST);
     }
 
     target_ulong retpc = env->csr[CSR_SEPC];
@@ -1089,9 +1087,7 @@ target_ulong helper_sret(CPURISCVState *env, target_ulong cpu_pc_deb)
 target_ulong helper_mret(CPURISCVState *env, target_ulong cpu_pc_deb)
 {
     if (!(env->priv >= PRV_M)) {
-        /* TODO: real illegal instruction trap */
-        printf("ILLEGAL INST");
-        exit(1);
+        helper_raise_exception(env, RISCV_EXCP_ILLEGAL_INST);
     }
 
     target_ulong retpc = env->csr[CSR_MEPC];

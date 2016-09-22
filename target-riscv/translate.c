@@ -857,11 +857,12 @@ static inline void gen_system(DisasContext *ctx, uint32_t opc,
     /* get index into csr array */
     int backup_csr = csr;
 
-    TCGv source1, csr_store, dest, rs1_pass;
+    TCGv source1, csr_store, dest, rs1_pass, imm_rs1;
     source1 = tcg_temp_new();
     csr_store = tcg_temp_new();
     dest = tcg_temp_new();
     rs1_pass = tcg_temp_new();
+    imm_rs1 = tcg_temp_new();
     gen_get_gpr(source1, rs1);
     tcg_gen_movi_tl(rs1_pass, rs1);
     tcg_gen_movi_tl(csr_store, csr); /* copy into temp reg to feed to helper */
@@ -944,48 +945,39 @@ static inline void gen_system(DisasContext *ctx, uint32_t opc,
         ctx->bstate = BS_BRANCH;
         break;
     case OPC_RISC_CSRRWI:
-        {
-            tcg_gen_movi_tl(cpu_PC, ctx->pc);
-            TCGv imm_rs1 = tcg_temp_new();
-            tcg_gen_movi_tl(imm_rs1, rs1);
-            gen_helper_csrrw(dest, cpu_env, imm_rs1, csr_store, cpu_PC);
-            gen_set_gpr(rd, dest);
-            tcg_temp_free(imm_rs1);
-            /* end tb since we may be changing priv modes */
-            tcg_gen_movi_tl(cpu_PC, ctx->pc + 4);
-            tcg_gen_exit_tb(0); /* no chaining */
-            ctx->bstate = BS_BRANCH;
-        }
+        tcg_gen_movi_tl(cpu_PC, ctx->pc);
+        tcg_gen_movi_tl(imm_rs1, rs1);
+        gen_helper_csrrw(dest, cpu_env, imm_rs1, csr_store, cpu_PC);
+        gen_set_gpr(rd, dest);
+        tcg_temp_free(imm_rs1);
+        /* end tb since we may be changing priv modes */
+        tcg_gen_movi_tl(cpu_PC, ctx->pc + 4);
+        tcg_gen_exit_tb(0); /* no chaining */
+        ctx->bstate = BS_BRANCH;
         break;
     case OPC_RISC_CSRRSI:
-        {
-            tcg_gen_movi_tl(cpu_PC, ctx->pc);
-            TCGv imm_rs1 = tcg_temp_new();
-            tcg_gen_movi_tl(imm_rs1, rs1);
-            gen_helper_csrrs(dest, cpu_env, imm_rs1, csr_store, cpu_PC,
-                             rs1_pass);
-            gen_set_gpr(rd, dest);
-            tcg_temp_free(imm_rs1);
-            /* end tb since we may be changing priv modes */
-            tcg_gen_movi_tl(cpu_PC, ctx->pc + 4);
-            tcg_gen_exit_tb(0); /* no chaining */
-            ctx->bstate = BS_BRANCH;
-        }
+        tcg_gen_movi_tl(cpu_PC, ctx->pc);
+        tcg_gen_movi_tl(imm_rs1, rs1);
+        gen_helper_csrrs(dest, cpu_env, imm_rs1, csr_store, cpu_PC,
+                         rs1_pass);
+        gen_set_gpr(rd, dest);
+        tcg_temp_free(imm_rs1);
+        /* end tb since we may be changing priv modes */
+        tcg_gen_movi_tl(cpu_PC, ctx->pc + 4);
+        tcg_gen_exit_tb(0); /* no chaining */
+        ctx->bstate = BS_BRANCH;
         break;
     case OPC_RISC_CSRRCI:
-        {
-            tcg_gen_movi_tl(cpu_PC, ctx->pc);
-            TCGv imm_rs1 = tcg_temp_new();
-            tcg_gen_movi_tl(imm_rs1, rs1);
-            gen_helper_csrrc(dest, cpu_env, imm_rs1, csr_store, cpu_PC,
-                             rs1_pass);
-            gen_set_gpr(rd, dest);
-            tcg_temp_free(imm_rs1);
-            /* end tb since we may be changing priv modes */
-            tcg_gen_movi_tl(cpu_PC, ctx->pc + 4);
-            tcg_gen_exit_tb(0); /* no chaining */
-            ctx->bstate = BS_BRANCH;
-        }
+        tcg_gen_movi_tl(cpu_PC, ctx->pc);
+        tcg_gen_movi_tl(imm_rs1, rs1);
+        gen_helper_csrrc(dest, cpu_env, imm_rs1, csr_store, cpu_PC,
+                         rs1_pass);
+        gen_set_gpr(rd, dest);
+        tcg_temp_free(imm_rs1);
+        /* end tb since we may be changing priv modes */
+        tcg_gen_movi_tl(cpu_PC, ctx->pc + 4);
+        tcg_gen_exit_tb(0); /* no chaining */
+        ctx->bstate = BS_BRANCH;
         break;
     default:
         kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
@@ -996,7 +988,7 @@ static inline void gen_system(DisasContext *ctx, uint32_t opc,
     tcg_temp_free(csr_store);
     tcg_temp_free(dest);
     tcg_temp_free(rs1_pass);
-
+    tcg_temp_free(imm_rs1);
 }
 
 
