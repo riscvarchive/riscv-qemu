@@ -106,15 +106,6 @@ static inline void generate_exception_mbadaddr(DisasContext *ctx, int excp)
     tcg_temp_free_i32(helper_tmp);
 }
 
-static inline void generate_exception_err(DisasContext *ctx, int excp)
-{
-    tcg_gen_movi_tl(cpu_PC, ctx->pc);
-    TCGv_i32 helper_tmp = tcg_const_i32(excp);
-    gen_helper_raise_exception_err(cpu_env, helper_tmp, cpu_PC);
-    tcg_temp_free_i32(helper_tmp);
-}
-
-
 /* unknown instruction / fp disabled */
 static inline void kill_unknown(DisasContext *ctx, int excp)
 {
@@ -418,7 +409,6 @@ static inline void gen_arith_imm(DisasContext *ctx, uint32_t opc,
             kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         }
         break;
-
 #if defined(TARGET_RISCV64)
     case OPC_RISC_SHIFT_RIGHT_IW:
         if ((uimm & 0x3ff) >= 32) {
