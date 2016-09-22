@@ -640,11 +640,11 @@ static inline void gen_atomic(DisasContext *ctx, uint32_t opc,
     case OPC_RISC_LR_W:
         /* put addr in load_res */
         tcg_gen_mov_tl(load_res, source1);
-        tcg_gen_qemu_ld32s(source1, source1, ctx->mem_idx);
+        tcg_gen_qemu_ld_tl(source1, source1, ctx->mem_idx, MO_TESL);
         break;
     case OPC_RISC_SC_W:
         tcg_gen_brcond_tl(TCG_COND_NE, load_res, source1, j);
-        tcg_gen_qemu_st32(source2, source1, ctx->mem_idx);
+        tcg_gen_qemu_st_tl(source2, source1, ctx->mem_idx, MO_TEUL);
         tcg_gen_movi_tl(source1, 0); /*success */
         tcg_gen_br(done);
         gen_set_label(j);
@@ -652,54 +652,54 @@ static inline void gen_atomic(DisasContext *ctx, uint32_t opc,
         gen_set_label(done);
         break;
     case OPC_RISC_AMOSWAP_W:
-        tcg_gen_qemu_ld32s(dat, source1, ctx->mem_idx);
-        tcg_gen_qemu_st32(source2, source1, ctx->mem_idx);
+        tcg_gen_qemu_ld_tl(dat, source1, ctx->mem_idx, MO_TESL);
+        tcg_gen_qemu_st_tl(source2, source1, ctx->mem_idx, MO_TEUL);
         tcg_gen_mov_tl(source1, dat);
         break;
     case OPC_RISC_AMOADD_W:
-        tcg_gen_qemu_ld32s(dat, source1, ctx->mem_idx);
+        tcg_gen_qemu_ld_tl(dat, source1, ctx->mem_idx, MO_TESL);
         tcg_gen_add_tl(source2, dat, source2);
-        tcg_gen_qemu_st32(source2, source1, ctx->mem_idx);
+        tcg_gen_qemu_st_tl(source2, source1, ctx->mem_idx, MO_TEUL);
         tcg_gen_mov_tl(source1, dat);
         break;
     case OPC_RISC_AMOXOR_W:
-        tcg_gen_qemu_ld32s(dat, source1, ctx->mem_idx);
+        tcg_gen_qemu_ld_tl(dat, source1, ctx->mem_idx, MO_TESL);
         tcg_gen_xor_tl(source2, dat, source2);
-        tcg_gen_qemu_st32(source2, source1, ctx->mem_idx);
+        tcg_gen_qemu_st_tl(source2, source1, ctx->mem_idx, MO_TEUL);
         tcg_gen_mov_tl(source1, dat);
         break;
     case OPC_RISC_AMOAND_W:
-        tcg_gen_qemu_ld32s(dat, source1, ctx->mem_idx);
+        tcg_gen_qemu_ld_tl(dat, source1, ctx->mem_idx, MO_TESL);
         tcg_gen_and_tl(source2, dat, source2);
-        tcg_gen_qemu_st32(source2, source1, ctx->mem_idx);
+        tcg_gen_qemu_st_tl(source2, source1, ctx->mem_idx, MO_TEUL);
         tcg_gen_mov_tl(source1, dat);
         break;
     case OPC_RISC_AMOOR_W:
-        tcg_gen_qemu_ld32s(dat, source1, ctx->mem_idx);
+        tcg_gen_qemu_ld_tl(dat, source1, ctx->mem_idx, MO_TESL);
         tcg_gen_or_tl(source2, dat, source2);
-        tcg_gen_qemu_st32(source2, source1, ctx->mem_idx);
+        tcg_gen_qemu_st_tl(source2, source1, ctx->mem_idx, MO_TEUL);
         tcg_gen_mov_tl(source1, dat);
         break;
     case OPC_RISC_AMOMIN_W:
-        tcg_gen_qemu_ld32s(dat, source1, ctx->mem_idx);
+        tcg_gen_qemu_ld_tl(dat, source1, ctx->mem_idx, MO_TESL);
         tcg_gen_brcond_tl(TCG_COND_LT, dat, source2, j);
-        tcg_gen_qemu_st32(source2, source1, ctx->mem_idx);
+        tcg_gen_qemu_st_tl(source2, source1, ctx->mem_idx, MO_TEUL);
         tcg_gen_br(done);
         /* here we store the thing on the left */
         gen_set_label(j);
-        tcg_gen_qemu_st32(dat, source1, ctx->mem_idx);
+        tcg_gen_qemu_st_tl(dat, source1, ctx->mem_idx, MO_TEUL);
         /*done */
         gen_set_label(done);
         tcg_gen_mov_tl(source1, dat);
         break;
     case OPC_RISC_AMOMAX_W:
-        tcg_gen_qemu_ld32s(dat, source1, ctx->mem_idx);
+        tcg_gen_qemu_ld_tl(dat, source1, ctx->mem_idx, MO_TESL);
         tcg_gen_brcond_tl(TCG_COND_GT, dat, source2, j);
-        tcg_gen_qemu_st32(source2, source1, ctx->mem_idx);
+        tcg_gen_qemu_st_tl(source2, source1, ctx->mem_idx, MO_TEUL);
         tcg_gen_br(done);
         /* here we store the thing on the left */
         gen_set_label(j);
-        tcg_gen_qemu_st32(dat, source1, ctx->mem_idx);
+        tcg_gen_qemu_st_tl(dat, source1, ctx->mem_idx, MO_TEUL);
         /*done */
         gen_set_label(done);
         tcg_gen_mov_tl(source1, dat);
@@ -707,25 +707,25 @@ static inline void gen_atomic(DisasContext *ctx, uint32_t opc,
     case OPC_RISC_AMOMINU_W:
         tcg_gen_mov_tl(source1, source1);
         tcg_gen_ext32u_tl(source2, source2);
-        tcg_gen_qemu_ld32u(dat, source1, ctx->mem_idx);
+        tcg_gen_qemu_ld_tl(dat, source1, ctx->mem_idx, MO_TEUL);
         tcg_gen_brcond_tl(TCG_COND_LTU, dat, source2, j);
-        tcg_gen_qemu_st32(source2, source1, ctx->mem_idx);
+        tcg_gen_qemu_st_tl(source2, source1, ctx->mem_idx, MO_TEUL);
         tcg_gen_br(done);
         /* here we store the thing on the left */
         gen_set_label(j);
-        tcg_gen_qemu_st32(dat, source1, ctx->mem_idx);
+        tcg_gen_qemu_st_tl(dat, source1, ctx->mem_idx, MO_TEUL);
         /*done */
         gen_set_label(done);
         tcg_gen_ext32s_tl(source1, dat);
         break;
     case OPC_RISC_AMOMAXU_W:
-        tcg_gen_qemu_ld32u(dat, source1, ctx->mem_idx);
+        tcg_gen_qemu_ld_tl(dat, source1, ctx->mem_idx, MO_TEUL);
         tcg_gen_brcond_tl(TCG_COND_GTU, dat, source2, j);
-        tcg_gen_qemu_st32(source2, source1, ctx->mem_idx);
+        tcg_gen_qemu_st_tl(source2, source1, ctx->mem_idx, MO_TEUL);
         tcg_gen_br(done);
         /* here we store the thing on the left */
         gen_set_label(j);
-        tcg_gen_qemu_st32(dat, source1, ctx->mem_idx);
+        tcg_gen_qemu_st_tl(dat, source1, ctx->mem_idx, MO_TEUL);
         /*done */
         gen_set_label(done);
         tcg_gen_ext32s_tl(source1, dat);
@@ -734,11 +734,11 @@ static inline void gen_atomic(DisasContext *ctx, uint32_t opc,
     case OPC_RISC_LR_D:
         /* put addr in load_res */
         tcg_gen_mov_tl(load_res, source1);
-        tcg_gen_qemu_ld64(source1, source1, ctx->mem_idx);
+        tcg_gen_qemu_ld_tl(source1, source1, ctx->mem_idx, MO_TEQ);
         break;
     case OPC_RISC_SC_D:
         tcg_gen_brcond_tl(TCG_COND_NE, load_res, source1, j);
-        tcg_gen_qemu_st64(source2, source1, ctx->mem_idx);
+        tcg_gen_qemu_st_tl(source2, source1, ctx->mem_idx, MO_TEQ);
         tcg_gen_movi_tl(source1, 0); /*success */
         tcg_gen_br(done);
         gen_set_label(j);
@@ -746,78 +746,78 @@ static inline void gen_atomic(DisasContext *ctx, uint32_t opc,
         gen_set_label(done);
         break;
     case OPC_RISC_AMOSWAP_D:
-        tcg_gen_qemu_ld64(dat, source1, ctx->mem_idx);
-        tcg_gen_qemu_st64(source2, source1, ctx->mem_idx);
+        tcg_gen_qemu_ld_tl(dat, source1, ctx->mem_idx, MO_TEQ);
+        tcg_gen_qemu_st_tl(source2, source1, ctx->mem_idx, MO_TEQ);
         tcg_gen_mov_tl(source1, dat);
         break;
     case OPC_RISC_AMOADD_D:
-        tcg_gen_qemu_ld64(dat, source1, ctx->mem_idx);
+        tcg_gen_qemu_ld_tl(dat, source1, ctx->mem_idx, MO_TEQ);
         tcg_gen_add_tl(source2, dat, source2);
-        tcg_gen_qemu_st64(source2, source1, ctx->mem_idx);
+        tcg_gen_qemu_st_tl(source2, source1, ctx->mem_idx, MO_TEQ);
         tcg_gen_mov_tl(source1, dat);
         break;
     case OPC_RISC_AMOXOR_D:
-        tcg_gen_qemu_ld64(dat, source1, ctx->mem_idx);
+        tcg_gen_qemu_ld_tl(dat, source1, ctx->mem_idx, MO_TEQ);
         tcg_gen_xor_tl(source2, dat, source2);
-        tcg_gen_qemu_st64(source2, source1, ctx->mem_idx);
+        tcg_gen_qemu_st_tl(source2, source1, ctx->mem_idx, MO_TEQ);
         tcg_gen_mov_tl(source1, dat);
         break;
     case OPC_RISC_AMOAND_D:
-        tcg_gen_qemu_ld64(dat, source1, ctx->mem_idx);
+        tcg_gen_qemu_ld_tl(dat, source1, ctx->mem_idx, MO_TEQ);
         tcg_gen_and_tl(source2, dat, source2);
-        tcg_gen_qemu_st64(source2, source1, ctx->mem_idx);
+        tcg_gen_qemu_st_tl(source2, source1, ctx->mem_idx, MO_TEQ);
         tcg_gen_mov_tl(source1, dat);
         break;
     case OPC_RISC_AMOOR_D:
-        tcg_gen_qemu_ld64(dat, source1, ctx->mem_idx);
+        tcg_gen_qemu_ld_tl(dat, source1, ctx->mem_idx, MO_TEQ);
         tcg_gen_or_tl(source2, dat, source2);
-        tcg_gen_qemu_st64(source2, source1, ctx->mem_idx);
+        tcg_gen_qemu_st_tl(source2, source1, ctx->mem_idx, MO_TEQ);
         tcg_gen_mov_tl(source1, dat);
         break;
     case OPC_RISC_AMOMIN_D:
-        tcg_gen_qemu_ld64(dat, source1, ctx->mem_idx);
+        tcg_gen_qemu_ld_tl(dat, source1, ctx->mem_idx, MO_TEQ);
         tcg_gen_brcond_tl(TCG_COND_LT, dat, source2, j);
-        tcg_gen_qemu_st64(source2, source1, ctx->mem_idx);
+        tcg_gen_qemu_st_tl(source2, source1, ctx->mem_idx, MO_TEQ);
         tcg_gen_br(done);
         /* here we store the thing on the left */
         gen_set_label(j);
-        tcg_gen_qemu_st64(dat, source1, ctx->mem_idx);
+        tcg_gen_qemu_st_tl(dat, source1, ctx->mem_idx, MO_TEQ);
         /*done */
         gen_set_label(done);
         tcg_gen_mov_tl(source1, dat);
         break;
     case OPC_RISC_AMOMAX_D:
-        tcg_gen_qemu_ld64(dat, source1, ctx->mem_idx);
+        tcg_gen_qemu_ld_tl(dat, source1, ctx->mem_idx, MO_TEQ);
         tcg_gen_brcond_tl(TCG_COND_GT, dat, source2, j);
-        tcg_gen_qemu_st64(source2, source1, ctx->mem_idx);
+        tcg_gen_qemu_st_tl(source2, source1, ctx->mem_idx, MO_TEQ);
         tcg_gen_br(done);
         /* here we store the thing on the left */
         gen_set_label(j);
-        tcg_gen_qemu_st64(dat, source1, ctx->mem_idx);
+        tcg_gen_qemu_st_tl(dat, source1, ctx->mem_idx, MO_TEQ);
         /*done */
         gen_set_label(done);
         tcg_gen_mov_tl(source1, dat);
         break;
     case OPC_RISC_AMOMINU_D:
-        tcg_gen_qemu_ld64(dat, source1, ctx->mem_idx);
+        tcg_gen_qemu_ld_tl(dat, source1, ctx->mem_idx, MO_TEQ);
         tcg_gen_brcond_tl(TCG_COND_LTU, dat, source2, j);
-        tcg_gen_qemu_st64(source2, source1, ctx->mem_idx);
+        tcg_gen_qemu_st_tl(source2, source1, ctx->mem_idx, MO_TEQ);
         tcg_gen_br(done);
         /* here we store the thing on the left */
         gen_set_label(j);
-        tcg_gen_qemu_st64(dat, source1, ctx->mem_idx);
+        tcg_gen_qemu_st_tl(dat, source1, ctx->mem_idx, MO_TEQ);
         /*done */
         gen_set_label(done);
         tcg_gen_mov_tl(source1, dat);
         break;
     case OPC_RISC_AMOMAXU_D:
-        tcg_gen_qemu_ld64(dat, source1, ctx->mem_idx);
+        tcg_gen_qemu_ld_tl(dat, source1, ctx->mem_idx, MO_TEQ);
         tcg_gen_brcond_tl(TCG_COND_GTU, dat, source2, j);
-        tcg_gen_qemu_st64(source2, source1, ctx->mem_idx);
+        tcg_gen_qemu_st_tl(source2, source1, ctx->mem_idx, MO_TEQ);
         tcg_gen_br(done);
         /* here we store the thing on the left */
         gen_set_label(j);
-        tcg_gen_qemu_st64(dat, source1, ctx->mem_idx);
+        tcg_gen_qemu_st_tl(dat, source1, ctx->mem_idx, MO_TEQ);
         /*done */
         gen_set_label(done);
         tcg_gen_mov_tl(source1, dat);
@@ -954,14 +954,14 @@ static inline void gen_fp_load(DisasContext *ctx, uint32_t opc, int rd,
     switch (opc) {
     case OPC_RISC_FLW:
 #if defined(TARGET_RISCV64)
-        tcg_gen_qemu_ld32u(cpu_fpr[rd], t0, ctx->mem_idx);
+        tcg_gen_qemu_ld_tl(cpu_fpr[rd], t0, ctx->mem_idx, MO_TEUL);
 #else
-        tcg_gen_qemu_ld32u(t0, t0, ctx->mem_idx);
+        tcg_gen_qemu_ld_tl(t0, t0, ctx->mem_idx, MO_TEUL);
         tcg_gen_extu_i32_i64(cpu_fpr[rd], t0);
 #endif
         break;
     case OPC_RISC_FLD:
-        tcg_gen_qemu_ld64(cpu_fpr[rd], t0, ctx->mem_idx);
+        tcg_gen_qemu_ld_i64(cpu_fpr[rd], t0, ctx->mem_idx, MO_TEQ);
         break;
     default:
         kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
@@ -983,14 +983,14 @@ static inline void gen_fp_store(DisasContext *ctx, uint32_t opc, int rs1,
     switch (opc) {
     case OPC_RISC_FSW:
 #if defined(TARGET_RISCV64)
-        tcg_gen_qemu_st32(cpu_fpr[rs2], t0, ctx->mem_idx);
+        tcg_gen_qemu_st_tl(cpu_fpr[rs2], t0, ctx->mem_idx, MO_TEUL);
 #else
         tcg_gen_extrl_i64_i32(t1, cpu_fpr[rs2]);
-        tcg_gen_qemu_st32(t1, t0, ctx->mem_idx);
+        tcg_gen_qemu_st_tl(t1, t0, ctx->mem_idx, MO_TEUL);
 #endif
         break;
     case OPC_RISC_FSD:
-        tcg_gen_qemu_st64(cpu_fpr[rs2], t0, ctx->mem_idx);
+        tcg_gen_qemu_st_i64(cpu_fpr[rs2], t0, ctx->mem_idx, MO_TEQ);
         break;
     default:
         kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
