@@ -8,6 +8,10 @@ General
 -------
 - TODO: make sure all exception behavior is in line with spec (e.g. illegal
   instruction exceptions, etc)
+- TODO: memory ordering (needs a rebase for recently added required tcg ops).
+  See
+  https://github.com/qemu/qemu/commit/f65e19bc2c9e8358e634d309606144ac2a3c2936
+  and https://github.com/qemu/qemu/blob/master/tcg/README
 - TODO: gdbstub needs to be fixed post 1.9 bump
 - TODO: print useful csrs in riscv_cpu_dump_state in translate.c
 - TODO: debug mode
