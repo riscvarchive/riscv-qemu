@@ -303,10 +303,10 @@ static const char * const riscv_interrupt_names[14] = {
 };
 #endif     /* RISCV_DEBUG_INTERRUPT */
 
-/* 
+/*
  * Handle Traps
  *
- * Adapted from Spike's processor_t::take_trap. 
+ * Adapted from Spike's processor_t::take_trap.
  *
  */
 void riscv_cpu_do_interrupt(CPUState *cs)

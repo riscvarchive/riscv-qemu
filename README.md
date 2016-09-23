@@ -4,7 +4,7 @@ riscv-qemu [![Build Status](https://travis-ci.org/riscv/riscv-qemu.svg?branch=ma
 **About:**
 
 The `riscv64-softmmu` target for full system RV64G emulation is currently supported.
-It supports booting Linux from the `priv-1.9` branch of [riscv-linux] and 
+It supports booting Linux from the `priv-1.9` branch of [riscv-linux] and
 passes the compatibility tests from [riscv-tests].
 
 A `riscv32-softmmu` target for full system RV32G emulation is also supported.
@@ -20,12 +20,12 @@ It currently passes all tests from [riscv-tests].
 
 **Privileged Specification Version:**
 
-This version of QEMU adheres to the RISC-V v1.9 Privileged Specification as 
+This version of QEMU adheres to the RISC-V v1.9 Privileged Specification as
 described in [Technical Report No. UCB/EECS-2016-129](https://www2.eecs.berkeley.edu/Pubs/TechRpts/2016/EECS-2016-129.pdf) and commit 745e74afb56ecba090669615d4ac9c9b9b96c653
 ([the priv-1.9-rc0 release](https://github.com/riscv/riscv-tools/releases/tag/priv-1.9-rc0))
 of riscv-tools.
 
-Please note that QEMU tracks released drafts of the RISC-V Privileged 
+Please note that QEMU tracks released drafts of the RISC-V Privileged
 Specification, not work-in-progress changes like Spike does.
 
 **Note**
@@ -53,9 +53,9 @@ Prerequisites:
 
 ####Step 2: Obtain Images
 
-You can build `vmlinux` from the `priv-1.9` branch of the [riscv-linux] repo and 
+You can build `vmlinux` from the `priv-1.9` branch of the [riscv-linux] repo and
 create an initramfs for your root filesystem, then supply the resulting vmlinux
-as a payload for bbl. Alternatively, you can use the prebuilt copy linked 
+as a payload for bbl. Alternatively, you can use the prebuilt copy linked
 below. This single file contains bbl with the Linux kernel as a payload. The
 included copy of the Linux kernel also has an initramfs with busybox.
 
@@ -79,7 +79,7 @@ and then hit `ctrl-a x`. Otherwise, the root filesystem will likely be corrupted
 ####Current limitations:
 
 * The current RISC-V board definition provides only an HTIF console device.
-Support for other HTIF-based devices has been removed from [riscv-linux]; as a 
+Support for other HTIF-based devices has been removed from [riscv-linux]; as a
 result, QEMU no longer supports them either.
 
 ### Method 2 \(Standard Devices\):
@@ -101,7 +101,7 @@ Using QEMU to Debug RISC-V Code:
 **NOTE:** Support for QEMU + GDB is still under development for the v1.9 spec. See `target-riscv/TODO`.
 
 QEMU works with riscv-gdb to enable remote debugging. This currently requires
-building `gdb` from a special version of `riscv-gnu-toolchain`, available 
+building `gdb` from a special version of `riscv-gnu-toolchain`, available
 [here](https://github.com/riscv/riscv-gnu-toolchain/tree/binutils-submodule).
 
 To use this, start QEMU with the additional flags `-S -s`:
@@ -118,8 +118,8 @@ At the prompt, connect to QEMU:
 
     (gdb) target remote localhost:1234
 
-At this point, you can use regular gdb commands to singlestep, set breakpoints, 
-read/write registers, etc. If you type `continue` in gdb, you can return to QEMU 
+At this point, you can use regular gdb commands to singlestep, set breakpoints,
+read/write registers, etc. If you type `continue` in gdb, you can return to QEMU
 and interact with the machine as if you were using it without GDB attached.
 
 TODOs:
