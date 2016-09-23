@@ -82,9 +82,16 @@ unsigned int ieee_rm[] = {
 };
 
 /* obtain rm value to use in computation
-   as the last step, convert rm codes to what the softfloat library expects */
-#define RM ({ if (rm == 7) { rm = env->csr[CSR_FRM]; }                \
-if (rm > 4) { helper_raise_exception(env, RISCV_EXCP_ILLEGAL_INST); } \
+ * as the last step, convert rm codes to what the softfloat library expects
+ * Adapted from Spike's decode.h:RM
+ */
+#define RM ({                                             \
+if (rm == 7) {                                            \
+    rm = env->csr[CSR_FRM];                               \
+}                                                         \
+if (rm > 4) {                                             \
+    helper_raise_exception(env, RISCV_EXCP_ILLEGAL_INST); \
+}                                                         \
 ieee_rm[rm]; })
 
 /* convert softfloat library flag numbers to RISC-V */
@@ -106,6 +113,7 @@ unsigned int softfloat_flags_to_riscv(unsigned int flag)
     }
 }
 
+/* adapted from Spike's decode.h:set_fp_exceptions */
 #define set_fp_exceptions() do { \
     env->csr[CSR_FFLAGS] |= softfloat_flags_to_riscv(get_float_exception_flags(\
                             &env->fp_status)); \
@@ -837,8 +845,8 @@ inline target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno)
     case CSR_FRM:
         return env->csr[CSR_FRM];
     case CSR_FCSR:
-        return (env->csr[CSR_FFLAGS] << FSR_AEXC_SHIFT) |
-               (env->csr[CSR_FRM] << FSR_RD_SHIFT);
+        return env->csr[CSR_FFLAGS] << FSR_AEXC_SHIFT |
+               env->csr[CSR_FRM] << FSR_RD_SHIFT;
     case CSR_TIME:
     case CSR_INSTRET:
     case CSR_CYCLE:
