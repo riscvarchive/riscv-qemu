@@ -374,7 +374,7 @@ int riscv_cpu_gdb_read_register(CPUState *cpu, uint8_t *buf, int reg);
 int riscv_cpu_gdb_write_register(CPUState *cpu, uint8_t *buf, int reg);
 bool riscv_cpu_exec_interrupt(CPUState *cs, int interrupt_request);
 void  riscv_cpu_do_unaligned_access(CPUState *cs, vaddr addr,
-                                    MMUAccessType access_type, int mmu_idx, 
+                                    MMUAccessType access_type, int mmu_idx,
                                     uintptr_t retaddr);
 #endif
 
@@ -392,8 +392,10 @@ static int ctz(target_ulong val);
 int validate_priv(target_ulong priv);
 void set_privilege(CPURISCVState *env, target_ulong newpriv);
 unsigned int softfloat_flags_to_riscv(unsigned int flag);
+uint_fast16_t float32_classify(uint32_t a, float_status *status);
+uint_fast16_t float64_classify(uint64_t a, float_status *status);
 
-/* 
+/*
  * Compute mmu index
  * Adapted from Spike's mmu_t::translate
  */

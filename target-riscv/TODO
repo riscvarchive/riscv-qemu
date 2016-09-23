@@ -1,7 +1,7 @@
 Notes for RISCV, priv spec version v1.9
 -----------------------------------------------
 
-This version is designed to match with commit 
+This version is designed to match with commit
 745e74afb56ecba090669615d4ac9c9b9b96c653 of riscv-tools.
 
 General

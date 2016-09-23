@@ -83,10 +83,9 @@ unsigned int ieee_rm[] = {
 
 /* obtain rm value to use in computation
    as the last step, convert rm codes to what the softfloat library expects */
-#define RM ({ if (rm == 7) rm = env->csr[CSR_FRM]; \
-              if (rm > 4) { helper_raise_exception(env, RISCV_EXCP_ILLEGAL_INST); }; \
-              ieee_rm[rm]; })
-
+#define RM ({ if (rm == 7) { rm = env->csr[CSR_FRM]; }                \
+if (rm > 4) { helper_raise_exception(env, RISCV_EXCP_ILLEGAL_INST); } \
+ieee_rm[rm]; })
 
 /* convert softfloat library flag numbers to RISC-V */
 unsigned int softfloat_flags_to_riscv(unsigned int flag)
@@ -366,8 +365,6 @@ uint64_t helper_fcvt_s_lu(CPURISCVState *env, uint64_t rs1, uint64_t rm)
 
 union ui32_f32 { uint32_t ui; uint32_t f; };
 
-uint_fast16_t float32_classify(uint32_t a, float_status *status);
-
 uint_fast16_t float32_classify(uint32_t a, float_status *status)
 {
     union ui32_f32 uA;
@@ -592,8 +589,6 @@ uint64_t helper_fcvt_d_lu(CPURISCVState *env, uint64_t rs1, uint64_t rm)
 #define fracF64UI(a) (a & UINT64_C(0x000FFFFFFFFFFFFF))
 
 union ui64_f64 { uint64_t ui; uint64_t f; };
-
-uint_fast16_t float64_classify(uint64_t a, float_status *status);
 
 uint_fast16_t float64_classify(uint64_t a, float_status *status)
 {
@@ -1043,7 +1038,7 @@ void helper_debug_print(CPURISCVState *env, target_ulong cpu_pc_deb,
         printf("popen fail\n");
         exit(1);
     }
-    if (fgets(path, sizeof(path)-1, fp) != NULL) {
+    if (fgets(path, sizeof(path) - 1, fp) != NULL) {
         fprintf(stderr, ": core   0: 0x" TARGET_FMT_lx " (0x%08lx) %s",
                 cpu_pc_deb, instruction, path);
     } else {
