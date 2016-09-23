@@ -163,16 +163,20 @@ static inline void gen_set_gpr(int reg_num_dst, TCGv t)
 static inline void gen_arith(DisasContext *ctx, uint32_t opc, int rd, int rs1, 
         int rs2)
 {
-    TCGv source1, source2, cond1, cond2;
-    TCGLabel *handle_zero = gen_new_label();
-    TCGLabel *handle_overflow = gen_new_label();
-    TCGLabel *done = gen_new_label();
+    TCGv source1, source2, cond1, cond2, zeroreg;
+    TCGv resultopt1, resultopt2, resultopt3;
     cond1 = tcg_temp_local_new();
     cond2 = tcg_temp_local_new();
     source1 = tcg_temp_local_new();
     source2 = tcg_temp_local_new();
+    zeroreg = tcg_temp_new();
+    resultopt1 = tcg_temp_new();
+    resultopt2 = tcg_temp_new();
+    resultopt3 = tcg_temp_new();
+
     gen_get_gpr(source1, rs1);
     gen_get_gpr(source2, rs2);
+    tcg_gen_movi_tl(zeroreg, 0); // hardcoded zero for comparisions in DIV/etc
 
     switch (opc) {
 #if defined(TARGET_RISCV64)
@@ -257,7 +261,12 @@ static inline void gen_arith(DisasContext *ctx, uint32_t opc, int rd, int rs1,
         /* fall through to DIV */
 #endif
     case OPC_RISC_DIV:
-        tcg_gen_brcondi_tl(TCG_COND_EQ, source2, 0x0, handle_zero);
+        /* normal case */
+        tcg_gen_div_tl(resultopt1, source1, source2);
+        /* special zero case */
+        tcg_gen_movi_tl(resultopt2, (target_ulong)0xFFFFFFFFFFFFFFFF);
+        /* special overflow case - cannot be triggered for DIVW*/
+        tcg_gen_movi_tl(resultopt3, 1L << (TARGET_LONG_BITS - 1));
         /* Now, use temp reg to check if both overflow conditions satisfied.
            Spike does not perform this check for DIVW, but that happens
            automatically here since we cannot get 0x8000000000000000 as
@@ -268,19 +277,10 @@ static inline void gen_arith(DisasContext *ctx, uint32_t opc, int rd, int rs1,
         tcg_gen_setcondi_tl(TCG_COND_EQ, cond1, source1,
                             1L << (TARGET_LONG_BITS - 1));
         tcg_gen_and_tl(cond1, cond1, cond2);
-        tcg_gen_brcondi_tl(TCG_COND_EQ, cond1, 1, handle_overflow);
-        /* normal case */
-        tcg_gen_div_tl(source1, source1, source2);
-        tcg_gen_br(done);
-        /* special zero case */
-        gen_set_label(handle_zero);
-        tcg_gen_movi_tl(source1, (target_ulong)0xFFFFFFFFFFFFFFFF);
-        tcg_gen_br(done);
-        /* special overflow case - cannot be triggered for DIVW*/
-        gen_set_label(handle_overflow);
-        tcg_gen_movi_tl(source1, 1L << (TARGET_LONG_BITS - 1));
-        /* done */
-        gen_set_label(done);
+        // choose between normal or overflow
+        tcg_gen_movcond_tl(TCG_COND_EQ, source1, cond1, zeroreg, resultopt1, resultopt3);
+        // choose between previous result and zero
+        tcg_gen_movcond_tl(TCG_COND_EQ, source1, source2, zeroreg, resultopt2, source1);
         break;
 #if defined(TARGET_RISCV64)
     case OPC_RISC_DIVUW:
@@ -289,15 +289,11 @@ static inline void gen_arith(DisasContext *ctx, uint32_t opc, int rd, int rs1,
         /* fall through to DIVU */
 #endif
     case OPC_RISC_DIVU:
-        tcg_gen_brcondi_tl(TCG_COND_EQ, source2, 0x0, handle_zero);
-        /* normal case */
-        tcg_gen_divu_tl(source1, source1, source2);
-        tcg_gen_br(done);
-        /* special zero case */
-        gen_set_label(handle_zero);
-        tcg_gen_movi_tl(source1, (target_ulong)0xFFFFFFFFFFFFFFFF);
-        /* done */
-        gen_set_label(done);
+        // result for zero case
+        tcg_gen_movi_tl(resultopt2, (target_ulong)0xFFFFFFFFFFFFFFFF);
+        // result for regular case
+        tcg_gen_divu_tl(resultopt1, source1, source2);
+        tcg_gen_movcond_tl(TCG_COND_EQ, source1, source2, zeroreg, resultopt2, resultopt1);
         break;
 #if defined(TARGET_RISCV64)
     case OPC_RISC_REMW:
@@ -306,8 +302,12 @@ static inline void gen_arith(DisasContext *ctx, uint32_t opc, int rd, int rs1,
         /* fall through to REM */
 #endif
     case OPC_RISC_REM:
-        /* the zero divisor case just produces source1 as result, go to done */
-        tcg_gen_brcondi_tl(TCG_COND_EQ, source2, 0x0, done);
+        /* normal case */
+        tcg_gen_rem_tl(resultopt1, source1, source2);
+        /* special overflow case */
+        tcg_gen_movi_tl(resultopt2, 0);
+        /* zero divisor case */
+        tcg_gen_mov_tl(resultopt3, source1);
         /* Now, use temp reg to check if both overflow conditions satisfied.
            Spike does not perform this check for DIVW, but that happens
            automatically here since we cannot get 0x8000000000000000 as
@@ -318,15 +318,8 @@ static inline void gen_arith(DisasContext *ctx, uint32_t opc, int rd, int rs1,
         tcg_gen_setcondi_tl(TCG_COND_EQ, cond1, source1,
                             1L << (TARGET_LONG_BITS - 1));
         tcg_gen_and_tl(cond1, cond1, cond2);
-        tcg_gen_brcondi_tl(TCG_COND_EQ, cond1, 1, handle_overflow);
-        /* normal case */
-        tcg_gen_rem_tl(source1, source1, source2);
-        tcg_gen_br(done);
-        /* special overflow case */
-        gen_set_label(handle_overflow);
-        tcg_gen_movi_tl(source1, 0);
-        /* done */
-        gen_set_label(done);
+        tcg_gen_movcond_tl(TCG_COND_EQ, source1, cond1, zeroreg, resultopt1, resultopt2);
+        tcg_gen_movcond_tl(TCG_COND_EQ, source1, source2, zeroreg, resultopt3, source1);
         break;
 #if defined(TARGET_RISCV64)
     case OPC_RISC_REMUW:
@@ -335,12 +328,10 @@ static inline void gen_arith(DisasContext *ctx, uint32_t opc, int rd, int rs1,
         /* fall through to REMU */
 #endif
     case OPC_RISC_REMU:
-        /* the zero divisor case just produces source1 as result, go to done */
-        tcg_gen_brcondi_tl(TCG_COND_EQ, source2, 0x0, done);
         /* normal case */
-        tcg_gen_remu_tl(source1, source1, source2);
-        /* done */
-        gen_set_label(done);
+        tcg_gen_remu_tl(resultopt1, source1, source2);
+        /* if div by zero, just return the original dividend */
+        tcg_gen_movcond_tl(TCG_COND_EQ, source1, source2, zeroreg, source1, resultopt1);
         break;
     default:
         kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
@@ -356,6 +347,10 @@ static inline void gen_arith(DisasContext *ctx, uint32_t opc, int rd, int rs1,
     tcg_temp_free(source2);
     tcg_temp_free(cond1);
     tcg_temp_free(cond2);
+    tcg_temp_free(zeroreg);
+    tcg_temp_free(resultopt1);
+    tcg_temp_free(resultopt2);
+    tcg_temp_free(resultopt3);
 }
 
 
