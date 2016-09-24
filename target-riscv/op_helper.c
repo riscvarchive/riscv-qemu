@@ -1079,8 +1079,7 @@ target_ulong helper_sret(CPURISCVState *env, target_ulong cpu_pc_deb)
 
     target_ulong retpc = env->csr[CSR_SEPC];
     if (retpc & 0x3) {
-        printf("TODO: MISALIGNED INST FETCH\n");
-        exit(1);
+        helper_raise_exception(env, RISCV_EXCP_INST_ADDR_MIS);
     }
 
     target_ulong mstatus = env->csr[CSR_MSTATUS];
@@ -1103,8 +1102,7 @@ target_ulong helper_mret(CPURISCVState *env, target_ulong cpu_pc_deb)
 
     target_ulong retpc = env->csr[CSR_MEPC];
     if (retpc & 0x3) {
-        printf("TODO: MISALIGNED INST FETCH\n");
-        exit(1);
+        helper_raise_exception(env, RISCV_EXCP_INST_ADDR_MIS);
     }
 
     target_ulong mstatus = env->csr[CSR_MSTATUS];

@@ -6,10 +6,7 @@ This version is designed to match with commit
 
 General
 -------
-- TODO: make sure all exception behavior is in line with spec (e.g. illegal
-  instruction exceptions, etc)
-- TODO: memory ordering (needs a rebase for recently added required tcg ops).
-  See
+- TODO: memory ordering for MTTCG. See
   https://github.com/qemu/qemu/commit/f65e19bc2c9e8358e634d309606144ac2a3c2936
   and https://github.com/qemu/qemu/blob/master/tcg/README
 - TODO: gdbstub needs to be fixed post 1.9 bump

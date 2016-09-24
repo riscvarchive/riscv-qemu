@@ -418,7 +418,6 @@ static inline void gen_arith_imm(DisasContext *ctx, uint32_t opc, int rd,
 static inline void gen_branch(DisasContext *ctx, uint32_t opc, int rs1, int rs2,
         int16_t bimm)
 {
-    /* TODO: misaligned insn (see jalr) */
     TCGLabel *l = gen_new_label();
     TCGv source1, source2;
     source1 = tcg_temp_new();
@@ -459,10 +458,21 @@ static inline void gen_branch(DisasContext *ctx, uint32_t opc, int rs1, int rs2,
 #endif
     gen_set_label(l); /* branch taken */
 #ifdef DISABLE_CHAINING_BRANCH
-    tcg_gen_movi_tl(cpu_PC, ctx->pc + ubimm);
+    if ((ctx->pc + ubimm) & 0x3) {
+        /* misaligned */
+        generate_exception_mbadaddr(ctx, RISCV_EXCP_INST_ADDR_MIS);
+    } else {
+        tcg_gen_movi_tl(cpu_PC, ctx->pc + ubimm);
+    }
     tcg_gen_exit_tb(0);
 #else
-    gen_goto_tb(ctx, 0, ctx->pc + ubimm); /* must use this for safety */
+    if ((ctx->pc + ubimm) & 0x3) {
+        /* misaligned */
+        generate_exception_mbadaddr(ctx, RISCV_EXCP_INST_ADDR_MIS);
+        tcg_gen_exit_tb(0);
+    } else {
+        gen_goto_tb(ctx, 0, ctx->pc + ubimm); /* must use this for safety */
+    }
 #endif
     tcg_temp_free(source1);
     tcg_temp_free(source2);
@@ -1241,25 +1251,10 @@ static void decode_opc(CPURISCVState *env, DisasContext *ctx)
     int16_t imm;
     target_long ubimm;
 
-    /* do not do misaligned address check here, address should never be
-     * misaligned
-     *
-     * instead, all control flow instructions check for themselves
-     *
-     * this is because epc must be the address of the control flow instruction
-     * that caused us to go to the misaligned instruction access
-     *
-     * we leave this check here for now, since not all control flow
-     * instructions have been updated yet */
-
-    /* make sure instructions are on a word boundary */
-    if (unlikely(ctx->pc & 0x3)) {
-        printf("addr misaligned\n");
-        printf("misaligned instruction, not completely implemented for riscv\
-                \n");
-        exit(1);
-        return;
-    }
+    /* We do not do misaligned address check here: the address should never be
+     * misaligned at this point. Instructions that set PC must do the check,
+     * since epc must be the address of the instruction that caused us to
+     * perform the misaligned instruction fetch */
 
     op = MASK_OP_MAJOR(ctx->opcode);
     rs1 = (ctx->opcode >> 15) & 0x1f;

@@ -378,6 +378,7 @@ void riscv_cpu_do_interrupt(CPUState *cs)
 
     if (env->priv <= PRV_S && bit < 64 && ((deleg >> bit) & 1)) {
         /* handle the trap in S-mode */
+        /* No need to check STVEC for misaligned - lower 2 bits cannot be set */
         env->PC = env->csr[CSR_STVEC];
         env->csr[CSR_SCAUSE] = fixed_cause;
         env->csr[CSR_SEPC] = backup_epc;
@@ -397,6 +398,7 @@ void riscv_cpu_do_interrupt(CPUState *cs)
         csr_write_helper(env, s, CSR_MSTATUS);
         set_privilege(env, PRV_S);
     } else {
+        /* No need to check MTVEC for misaligned - lower 2 bits cannot be set */
         env->PC = env->csr[CSR_MTVEC];
         env->csr[CSR_MEPC] = backup_epc;
         env->csr[CSR_MCAUSE] = fixed_cause;
