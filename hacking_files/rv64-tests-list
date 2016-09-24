@@ -50,8 +50,6 @@ rv64ua-v-amoswap_w
 rv64ua-v-amoxor_d
 rv64ua-v-amoxor_w
 rv64ua-v-lrsc
-rv64uc-p-rvc
-rv64uc-v-rvc
 rv64ud-p-fadd
 rv64ud-p-fclass
 rv64ud-p-fcmp
