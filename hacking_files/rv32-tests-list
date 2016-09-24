@@ -33,8 +33,6 @@ rv32ua-v-amoor_w
 rv32ua-v-amoswap_w
 rv32ua-v-amoxor_w
 rv32ua-v-lrsc
-rv32uc-p-rvc
-rv32uc-v-rvc
 rv32ui-p-add
 rv32ui-p-addi
 rv32ui-p-and
