@@ -629,20 +629,15 @@ target_ulong helper_fclass_d(CPURISCVState *env, uint64_t frs1)
     return frs1;
 }
 
+#if defined(TARGET_RISCV64)
 target_ulong helper_mulhsu(CPURISCVState *env, target_ulong arg1,
                           target_ulong arg2)
 {
-#if defined(TARGET_RISCV64)
     int64_t a = arg1;
     uint64_t b = arg2;
     return (int64_t)((__int128_t)a * b >> 64);
-#else
-    int32_t a = arg1;
-    uint32_t b = arg2;
-    return (int32_t)((int64_t)a * b >> 32);
-#endif
 }
-
+#endif
 /*
  * Handle writes to CSRs and any resulting special behavior
  *
