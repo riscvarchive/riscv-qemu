@@ -9,7 +9,6 @@
 #define TARGET_HAS_ICE 1
 #define ELF_MACHINE EM_RISCV
 #define CPUArchState struct CPURISCVState
-#define ALIGNED_ONLY
 
 #include "qemu-common.h"
 

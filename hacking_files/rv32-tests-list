@@ -1,7 +1,6 @@
 rv32mi-p-breakpoint
 rv32mi-p-csr
 rv32mi-p-illegal
-rv32mi-p-ma_addr
 rv32mi-p-ma_fetch
 rv32mi-p-mcsr
 rv32mi-p-sbreak
