@@ -160,6 +160,26 @@ static inline void gen_set_gpr(int reg_num_dst, TCGv t)
     }
 }
 
+static void gen_mulhsu(TCGv ret, TCGv arg1, TCGv arg2)
+{
+#if defined(TARGET_RISCV64)
+    gen_helper_mulhsu(ret, cpu_env, arg1, arg2);
+#else
+    TCGv_i64 t0 = tcg_temp_new_i64();
+    TCGv_i64 t1 = tcg_temp_new_i64();
+
+    tcg_gen_ext_i32_i64(t0, arg1);
+    tcg_gen_extu_i32_i64(t1, arg2);
+    tcg_gen_mul_i64(t0, t0, t1);
+
+    tcg_gen_shri_i64(t0, t0, 32);
+    tcg_gen_extrl_i64_i32(ret, t0);
+
+    tcg_temp_free_i64(t0);
+    tcg_temp_free_i64(t1);
+#endif
+}
+
 static inline void gen_arith(DisasContext *ctx, uint32_t opc, int rd, int rs1,
         int rs2)
 {
@@ -245,7 +265,7 @@ static inline void gen_arith(DisasContext *ctx, uint32_t opc, int rd, int rs1,
         tcg_gen_muls2_tl(source2, source1, source1, source2);
         break;
     case OPC_RISC_MULHSU:
-        gen_helper_mulhsu(source1, cpu_env, source1, source2);
+        gen_mulhsu(source1, source1, source2);
         break;
     case OPC_RISC_MULHU:
         tcg_gen_mulu2_tl(source2, source1, source1, source2);
