@@ -580,4 +580,3 @@ target_ulong helper_fclass_d(CPURISCVState *env, uint64_t frs1)
     frs1 = float64_classify(frs1, &env->fp_status);
     return frs1;
 }
-

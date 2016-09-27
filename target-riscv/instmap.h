@@ -321,4 +321,8 @@ enum {
                                      | (((inst >> 21) & 0x3FF) << 1)\
                                      | ((((int32_t)inst) >> 31) << 20)))
 #define GET_RM(inst)                 ((inst >> 12) & 0x7)
-#define GET_RS3(inst)                ((inst >> 27) & 0x1F)
+#define GET_RS3(inst)                ((inst >> 27) & 0x1f)
+#define GET_RS1(inst)                ((inst >> 15) & 0x1f)
+#define GET_RS2(inst)                ((inst >> 20) & 0x1f)
+#define GET_RD(inst)                 ((inst >> 7) & 0x1f)
+#define GET_IMM(inst)                ((int16_t)(((int32_t)inst) >> 20))

@@ -79,6 +79,7 @@ target_ulong helper_mulhsu(CPURISCVState *env, target_ulong arg1,
     return (int64_t)((__int128_t)a * b >> 64);
 }
 #endif
+
 /*
  * Handle writes to CSRs and any resulting special behavior
  *
@@ -335,8 +336,10 @@ inline target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno)
        and letting the handler read from the RTC */
     case CSR_MCYCLE:
         return cpu_riscv_read_instret(env);
+        break;
     case CSR_MINSTRET:
         return cpu_riscv_read_instret(env);
+        break;
     case CSR_MCYCLEH:
         printf("CSR 0x%x unsupported on RV64\n", csrno2);
         exit(1);
@@ -461,52 +464,6 @@ target_ulong helper_csrrc(CPURISCVState *env, target_ulong src,
     return csr_backup;
 }
 
-/*
- * This is a debug print helper for printing trace.
- * If CALL_SPIKE_DASM defined, calls spike-dasm, so very slow.
- * Probably not useful unless you're debugging riscv-qemu
- */
-void helper_debug_print(CPURISCVState *env, target_ulong cpu_pc_deb,
-        target_ulong instruction)
-{
-#ifdef CALL_SPIKE_DASM
-    int buflen = 100;
-    char runbuf[buflen];
-    char path[buflen];
-
-    snprintf(runbuf, buflen, "echo 'DASM(%08lx)\n' | spike-dasm", instruction);
-
-    FILE *fp;
-    fp = popen(runbuf, "r");
-    if (fp == NULL) {
-        printf("popen fail\n");
-        exit(1);
-    }
-    if (fgets(path, sizeof(path) - 1, fp) != NULL) {
-        fprintf(stderr, ": core   0: 0x" TARGET_FMT_lx " (0x%08lx) %s",
-                cpu_pc_deb, instruction, path);
-    } else {
-#endif
-    fprintf(stderr, ": core   0: 0x" TARGET_FMT_lx " (0x" TARGET_FMT_lx ") %s",
-            cpu_pc_deb, instruction, "DASM BAD RESULT\n");
-#ifdef CALL_SPIKE_DASM
-    }
-    pclose(fp);
-#endif
-}
-
-void helper_debug_print_reg1(CPURISCVState *env, target_ulong reg1)
-{
-    printf("reg1: 0x" TARGET_FMT_lx "\n", reg1);
-}
-
-void helper_debug_print_reg2(CPURISCVState *env, target_ulong reg1,
-                             target_ulong reg2)
-{
-    printf("reg1: 0x" TARGET_FMT_lx "\n", reg1);
-    printf("reg2: 0x" TARGET_FMT_lx "\n", reg2);
-}
-
 target_ulong helper_sret(CPURISCVState *env, target_ulong cpu_pc_deb)
 {
     if (!(env->priv >= PRV_S)) {
@@ -561,7 +518,7 @@ void helper_fence_i(CPURISCVState *env)
     CPUState *cs = CPU(cpu);
     /* Flush QEMU's TLB */
     tlb_flush(cs, 1);
-    /* ARM port seems to not know if this is okay inside a TB...
+    /* ARM port seems to not know if this is okay inside a TB
        But we need to do it */
     tb_flush(cs);
 }

@@ -3,10 +3,10 @@ DEF_HELPER_2(raise_exception, noreturn, env, i32)
 DEF_HELPER_1(raise_exception_debug, noreturn, env)
 DEF_HELPER_3(raise_exception_mbadaddr, noreturn, env, i32, tl)
 
-/* MULHSU helper */
 #if defined(TARGET_RISCV64)
 DEF_HELPER_FLAGS_3(mulhsu, TCG_CALL_NO_RWG_SE, tl, env, tl, tl)
 #endif
+
 /* Floating Point - fused */
 DEF_HELPER_FLAGS_5(fmadd_s, TCG_CALL_NO_RWG, i64, env, i64, i64, i64, i64)
 DEF_HELPER_FLAGS_5(fmadd_d, TCG_CALL_NO_RWG, i64, env, i64, i64, i64, i64)
@@ -82,9 +82,6 @@ DEF_HELPER_5(csrrs, tl, env, tl, tl, tl, tl)
 DEF_HELPER_5(csrrc, tl, env, tl, tl, tl, tl)
 DEF_HELPER_2(sret, tl, env, tl)
 DEF_HELPER_2(mret, tl, env, tl)
-DEF_HELPER_3(debug_print, void, env, tl, tl)
-DEF_HELPER_2(debug_print_reg1, void, env, tl)
-DEF_HELPER_3(debug_print_reg2, void, env, tl, tl)
 DEF_HELPER_1(tlb_flush, void, env)
 DEF_HELPER_1(fence_i, void, env)
 #endif /* !CONFIG_USER_ONLY */

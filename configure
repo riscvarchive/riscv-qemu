@@ -5668,14 +5668,10 @@ case "$target_name" in
     echo "TARGET_ABI_MIPSN64=y" >> $config_target_mak
   ;;
   riscv32)
-    TARGET_ARCH=riscv32
     TARGET_BASE_ARCH=riscv
-    echo "TARGET_ABI_RISCV=y" >> $config_target_mak
   ;;
   riscv64)
-    TARGET_ARCH=riscv64
     TARGET_BASE_ARCH=riscv
-    echo "TARGET_ABI_RISCV=y" >> $config_target_mak
   ;;
   moxie)
   ;;
@@ -5877,10 +5873,6 @@ for i in $ARCH $TARGET_BASE_ARCH ; do
   ;;
   ppc*)
     disas_config "PPC"
-  ;;
-  riscv*)
-    echo "CONFIG_RISCV_DIS=y"  >> $config_target_mak
-    echo "CONFIG_RISCV_DIS=y"  >> config-all-disas.mak
   ;;
   s390*)
     disas_config "S390"

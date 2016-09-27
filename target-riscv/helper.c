@@ -235,10 +235,6 @@ hwaddr riscv_cpu_get_phys_page_debug(CPUState *cs, vaddr addr)
 }
 #endif
 
-/* This is called when there is no QEMU "TLB" match
- *
- * Assuming system mode, only called in target-riscv/op_helper:tlb_fill
- */
 int riscv_cpu_handle_mmu_fault(CPUState *cs, vaddr address,
         MMUAccessType access_type, int mmu_idx)
 {

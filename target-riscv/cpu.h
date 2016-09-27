@@ -412,15 +412,12 @@ static inline int cpu_mmu_index(CPURISCVState *env, bool ifetch)
     return mode;
 }
 
+/*
+ * ctz in Spike returns 0 if val == 0, wrap helper
+ */
 static int ctz(target_ulong val)
 {
-    int res = 0;
-    if (val) {
-        while ((val & 1) == 0) {
-            val >>= 1, res++;
-        }
-    }
-    return res;
+    return val ? ctz64(val) : 0;
 }
 
 /*
