@@ -31,7 +31,7 @@ Specification, not work-in-progress changes like Spike does.
 **Note**
 
 As we prepare for upstreaming, rebasing will happen regularly. Last rebase
-was Sept 23, 2016.
+was Sept 27, 2016.
 
 Installation
 --------------
