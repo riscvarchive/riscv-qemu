@@ -29,8 +29,6 @@
 
 /*#define RISCV_DEBUG_INTERRUPT */
 
-#if !defined(CONFIG_USER_ONLY)
-
 bool riscv_cpu_exec_interrupt(CPUState *cs, int interrupt_request)
 {
     if (interrupt_request & CPU_INTERRUPT_HARD) {
@@ -46,6 +44,8 @@ bool riscv_cpu_exec_interrupt(CPUState *cs, int interrupt_request)
     return false;
 }
 
+#if !defined(CONFIG_USER_ONLY)
+
 /* get_physical_address - get the physical address for this virtual address
  *
  * Do a page table walk to obtain the physical address corresponding to a
@@ -56,7 +56,7 @@ bool riscv_cpu_exec_interrupt(CPUState *cs, int interrupt_request)
  */
 static int get_physical_address(CPURISCVState *env, hwaddr *physical,
                                 int *prot, target_ulong address,
-                                MMUAccessType access_type, int mmu_idx)
+                                int access_type, int mmu_idx)
 {
     /* NOTE: the env->PC value visible here will not be
      * correct, but the value visible to the exception handler
@@ -199,6 +199,7 @@ static int get_physical_address(CPURISCVState *env, hwaddr *physical,
 }
 #endif
 
+#if !defined(CONFIG_USER_ONLY)
 static void raise_mmu_exception(CPURISCVState *env, target_ulong address,
                                 MMUAccessType access_type)
 {
@@ -219,6 +220,7 @@ static void raise_mmu_exception(CPURISCVState *env, target_ulong address,
     }
     cs->exception_index = exception;
 }
+#endif
 
 #if !defined(CONFIG_USER_ONLY)
 hwaddr riscv_cpu_get_phys_page_debug(CPUState *cs, vaddr addr)
@@ -236,19 +238,22 @@ hwaddr riscv_cpu_get_phys_page_debug(CPUState *cs, vaddr addr)
 #endif
 
 int riscv_cpu_handle_mmu_fault(CPUState *cs, vaddr address,
-        MMUAccessType access_type, int mmu_idx)
+        int access_type, int mmu_idx)
 {
     RISCVCPU *cpu = RISCV_CPU(cs);
     CPURISCVState *env = &cpu->env;
+#if !defined(CONFIG_USER_ONLY)
     hwaddr physical;
     physical = 0; /* stop gcc complaining */
     int prot;
-    int ret = 0;
+#endif
+    int ret = -1;
 
     qemu_log_mask(CPU_LOG_MMU,
             "%s pc " TARGET_FMT_lx " ad %" VADDR_PRIx " access_type %d mmu_idx \
              %d\n", __func__, env->PC, address, access_type, mmu_idx);
 
+#if !defined(CONFIG_USER_ONLY)
     ret = get_physical_address(env, &physical, &prot, address, access_type,
                                mmu_idx);
     qemu_log_mask(CPU_LOG_MMU,
@@ -262,6 +267,7 @@ int riscv_cpu_handle_mmu_fault(CPUState *cs, vaddr address,
     } else if (ret == TRANSLATE_FAIL) {
         raise_mmu_exception(env, address, access_type);
     }
+#endif
     return ret;
 }
 
@@ -307,6 +313,8 @@ static const char * const riscv_interrupt_names[14] = {
  */
 void riscv_cpu_do_interrupt(CPUState *cs)
 {
+#if !defined(CONFIG_USER_ONLY)
+
     RISCVCPU *cpu = RISCV_CPU(cs);
     CPURISCVState *env = &cpu->env;
 
@@ -415,6 +423,6 @@ void riscv_cpu_do_interrupt(CPUState *cs)
         set_privilege(env, PRV_M);
     }
     /* TODO yield load reservation  */
-
+#endif
     cs->exception_index = EXCP_NONE; /* mark handled to qemu */
 }

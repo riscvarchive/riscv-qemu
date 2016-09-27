@@ -31,6 +31,8 @@
 #define TRANSLATE_SUCCESS 0
 #define NB_MMU_MODES 4
 
+#define MMU_USER_IDX 3
+
 struct CPURISCVState;
 
 /* Below taken from Spike's decode.h and encoding.h.
@@ -468,7 +470,7 @@ int cpu_riscv_signal_handler(int host_signum, void *pinfo, void *puc);
 /* hw/riscv/riscv_rtc.c  - supplies instret by approximating */
 uint64_t cpu_riscv_read_instret(CPURISCVState *env);
 
-int riscv_cpu_handle_mmu_fault(CPUState *cpu, vaddr address, MMUAccessType rw,
+int riscv_cpu_handle_mmu_fault(CPUState *cpu, vaddr address, int rw,
                               int mmu_idx);
 #if !defined(CONFIG_USER_ONLY)
 hwaddr cpu_riscv_translate_address(CPURISCVState *env, target_ulong address,
@@ -483,11 +485,9 @@ static inline void cpu_get_tb_cpu_state(CPURISCVState *env, target_ulong *pc,
     *flags = 0; /* necessary to avoid compiler warning */
 }
 
-#ifndef CONFIG_USER_ONLY
 void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
         target_ulong csrno);
 target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno);
-#endif
 
 void validate_csr(CPURISCVState *env, uint64_t which, uint64_t write, uint64_t
         new_pc);

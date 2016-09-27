@@ -510,7 +510,6 @@ target_ulong helper_mret(CPURISCVState *env, target_ulong cpu_pc_deb)
     return retpc;
 }
 
-#ifndef CONFIG_USER_ONLY
 
 void helper_fence_i(CPURISCVState *env)
 {
@@ -528,6 +527,8 @@ void helper_tlb_flush(CPURISCVState *env)
     RISCVCPU *cpu = riscv_env_get_cpu(env);
     tlb_flush(CPU(cpu), 1);
 }
+
+#ifndef CONFIG_USER_ONLY
 
 void riscv_cpu_do_unaligned_access(CPUState *cs, vaddr addr,
                                    MMUAccessType access_type, int mmu_idx,
