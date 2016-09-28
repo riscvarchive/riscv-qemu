@@ -19,7 +19,7 @@
 #define TARGET_PHYS_ADDR_SPACE_BITS 50
 #define TARGET_VIRT_ADDR_SPACE_BITS 39
 #elif defined(TARGET_RISCV32)
-#define TARGET_LONG_BITS 32 /* this defs TCGv as TCGv_i64 in tcg/tcg-op.h */
+#define TARGET_LONG_BITS 32 /* this defs TCGv as TCGv_i32 in tcg/tcg-op.h */
 #define TARGET_PHYS_ADDR_SPACE_BITS 34
 #define TARGET_VIRT_ADDR_SPACE_BITS 32
 #endif
