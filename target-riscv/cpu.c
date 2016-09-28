@@ -54,6 +54,12 @@ static bool riscv_cpu_has_work(CPUState *cs)
     return has_work;
 }
 
+void restore_state_to_opc(CPURISCVState *env, TranslationBlock *tb,
+                          target_ulong *data)
+{
+    env->PC = data[0];
+}
+
 static void riscv_cpu_reset(CPUState *s)
 {
     RISCVCPU *cpu = RISCV_CPU(s);

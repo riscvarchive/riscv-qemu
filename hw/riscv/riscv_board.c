@@ -119,7 +119,7 @@ static void riscv_board_init(MachineState *args)
 
     /* init CPUs */
     if (cpu_model == NULL) {
-        cpu_model = "riscv";
+        cpu_model = "any";
     }
 
     for (i = 0; i < smp_cpus; i++) {

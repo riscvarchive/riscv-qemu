@@ -68,7 +68,8 @@
 #if defined(TARGET_I386) || defined(TARGET_ARM) || defined(TARGET_SH4) \
     || defined(TARGET_M68K) || defined(TARGET_CRIS) \
     || defined(TARGET_UNICORE32) || defined(TARGET_S390X) \
-    || defined(TARGET_OPENRISC) || defined(TARGET_TILEGX)
+    || defined(TARGET_OPENRISC) || defined(TARGET_TILEGX) \
+    || defined(TARGET_RISCV)
 
 #define TARGET_IOC_SIZEBITS	14
 #define TARGET_IOC_DIRBITS	2
@@ -387,7 +388,7 @@ int do_sigaction(int sig, const struct target_sigaction *act,
     || defined(TARGET_M68K) || defined(TARGET_ALPHA) || defined(TARGET_CRIS) \
     || defined(TARGET_MICROBLAZE) || defined(TARGET_UNICORE32) \
     || defined(TARGET_S390X) || defined(TARGET_OPENRISC) \
-    || defined(TARGET_TILEGX)
+    || defined(TARGET_TILEGX) || defined(TARGET_RISCV)
 
 #if defined(TARGET_SPARC)
 #define TARGET_SA_NOCLDSTOP    8u
@@ -1944,7 +1945,7 @@ struct target_stat {
     abi_ulong  target_st_ctime_nsec;
     unsigned int __unused[2];
 };
-#elif defined(TARGET_OPENRISC) || defined(TARGET_TILEGX)
+#elif defined(TARGET_OPENRISC) || defined(TARGET_TILEGX) || defined(TARGET_RISCV)
 
 /* These are the asm-generic versions of the stat and stat64 structures */
 
@@ -1971,6 +1972,7 @@ struct target_stat {
     unsigned int __unused5;
 };
 
+#if !defined(TARGET_RISCV64)
 #define TARGET_HAS_STRUCT_STAT64
 struct target_stat64 {
     uint64_t st_dev;
@@ -1994,6 +1996,7 @@ struct target_stat64 {
     unsigned int __unused4;
     unsigned int __unused5;
 };
+#endif
 
 #else
 #error unsupported CPU
@@ -2053,7 +2056,7 @@ struct target_statfs64 {
 	uint32_t	f_spare[6];
 };
 #elif (defined(TARGET_PPC64) || defined(TARGET_X86_64) || \
-       defined(TARGET_SPARC64) || defined(TARGET_AARCH64)) && \
+       defined(TARGET_SPARC64) || defined(TARGET_AARCH64) || defined(TARGET_RISCV)) && \
        !defined(TARGET_ABI32)
 struct target_statfs {
 	abi_long f_type;

@@ -36,6 +36,7 @@ static TCGv_ptr cpu_env;
 static TCGv cpu_gpr[32], cpu_PC;
 static TCGv_i64 cpu_fpr[32]; /* assume F and D extensions */
 static TCGv load_res;
+static TCGv_i32 cpu_amoinsn;
 
 #include "exec/gen-icount.h"
 
@@ -644,6 +645,7 @@ static inline void gen_fp_store(DisasContext *ctx, uint32_t opc, int rs1,
 static inline void gen_atomic(DisasContext *ctx, uint32_t opc,
                       int rd, int rs1, int rs2)
 {
+#if !defined(CONFIG_USER_ONLY)
     /* TODO: handle aq, rl bits? - for now just get rid of them: */
     opc = MASK_OP_ATOMIC_NO_AQ_RL(opc);
     TCGv source1, source2, dat;
@@ -790,6 +792,10 @@ static inline void gen_atomic(DisasContext *ctx, uint32_t opc,
     tcg_temp_free(source1);
     tcg_temp_free(source2);
     tcg_temp_free(dat);
+#else
+    tcg_gen_movi_i32(cpu_amoinsn, ctx->opcode);
+    generate_exception(ctx, QEMU_USER_EXCP_ATOMIC);
+#endif
 }
 
 static inline void gen_fp_fmadd(DisasContext *ctx, uint32_t opc, int rd,
@@ -1571,88 +1577,9 @@ void riscv_tcg_init(void)
     cpu_PC = tcg_global_mem_new(cpu_env, offsetof(CPURISCVState, PC), "PC");
     load_res = tcg_global_mem_new(cpu_env, offsetof(CPURISCVState, load_res),
                              "load_res");
+
+    cpu_amoinsn = tcg_global_mem_new_i32(cpu_env,
+                    offsetof(CPURISCVState, amoinsn),
+                    "amoinsn");
     inited = 1;
-}
-
-#define MCPUID_RV64I   (2L << (TARGET_LONG_BITS - 2))
-#define MCPUID_RV32I   (1L << (TARGET_LONG_BITS - 2))
-#define MCPUID_SUPER   (1L << ('S' - 'A'))
-#define MCPUID_USER    (1L << ('U' - 'A'))
-#define MCPUID_I       (1L << ('I' - 'A'))
-#define MCPUID_M       (1L << ('M' - 'A'))
-#define MCPUID_A       (1L << ('A' - 'A'))
-#define MCPUID_F       (1L << ('F' - 'A'))
-#define MCPUID_D       (1L << ('D' - 'A'))
-
-struct riscv_def_t {
-    const char *name;
-    uint64_t init_misa_reg;
-};
-
-/* RISC-V CPU definitions */
-static const riscv_def_t riscv_defs[] = {
-    {
-        .name = "riscv",
-#if defined(TARGET_RISCV64)
-        /* RV64G */
-        .init_misa_reg = MCPUID_RV64I | MCPUID_SUPER | MCPUID_USER | MCPUID_I
-            | MCPUID_M | MCPUID_A | MCPUID_F | MCPUID_D,
-#else
-        /* RV32G */
-        .init_misa_reg = MCPUID_RV32I | MCPUID_SUPER | MCPUID_USER | MCPUID_I
-            | MCPUID_M | MCPUID_A | MCPUID_F | MCPUID_D,
-#endif
-    },
-};
-
-static const riscv_def_t *cpu_riscv_find_by_name(const char *name)
-{
-    int i;
-    for (i = 0; i < ARRAY_SIZE(riscv_defs); i++) {
-        if (strcasecmp(name, riscv_defs[i].name) == 0) {
-            return &riscv_defs[i];
-        }
-    }
-    return NULL;
-}
-
-void riscv_cpu_list(FILE *f, fprintf_function cpu_fprintf)
-{
-    int i;
-    for (i = 0; i < ARRAY_SIZE(riscv_defs); i++) {
-        (*cpu_fprintf)(f, "RISCV '%s'\n", riscv_defs[i].name);
-    }
-}
-
-RISCVCPU *cpu_riscv_init(const char *cpu_model)
-{
-    RISCVCPU *cpu;
-    CPURISCVState *env;
-    const riscv_def_t *def;
-
-    def = cpu_riscv_find_by_name(cpu_model);
-    if (!def) {
-        return NULL;
-    }
-    cpu = RISCV_CPU(object_new(TYPE_RISCV_CPU));
-    env = &cpu->env;
-    env->cpu_model = def;
-
-    memset(env->csr, 0, 4096 * sizeof(target_ulong));
-    env->priv = PRV_M;
-
-    /* set mcpuid from def */
-    env->csr[CSR_MISA] = def->init_misa_reg;
-    object_property_set_bool(OBJECT(cpu), true, "realized", NULL);
-
-    /* fpu flags: */
-    set_default_nan_mode(1, &env->fp_status);
-
-    return cpu;
-}
-
-void restore_state_to_opc(CPURISCVState *env, TranslationBlock *tb,
-                          target_ulong *data)
-{
-    env->PC = data[0];
 }
