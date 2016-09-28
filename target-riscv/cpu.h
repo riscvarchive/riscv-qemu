@@ -92,9 +92,6 @@ struct CPURISCVState {
     QEMUTimer *timer; /* Internal timer */
 };
 
-#ifndef QEMU_RISCV_CPU_QOM_H
-#define QEMU_RISCV_CPU_QOM_H
-
 #include "qom/cpu.h"
 
 #define TYPE_RISCV_CPU "riscv-cpu"
@@ -155,8 +152,6 @@ bool riscv_cpu_exec_interrupt(CPUState *cs, int interrupt_request);
 void  riscv_cpu_do_unaligned_access(CPUState *cs, vaddr addr,
                                     MMUAccessType access_type, int mmu_idx,
                                     uintptr_t retaddr);
-#endif
-
 #if !defined(CONFIG_USER_ONLY)
 void riscv_cpu_unassigned_access(CPUState *cpu, hwaddr addr, bool is_write,
         bool is_exec, int unused, unsigned size);
