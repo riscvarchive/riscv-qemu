@@ -36,6 +36,7 @@ static TCGv_ptr cpu_env;
 static TCGv cpu_gpr[32], cpu_PC;
 static TCGv_i64 cpu_fpr[32]; /* assume F and D extensions */
 static TCGv load_res;
+static TCGv_i32 cpu_amoinsn;
 
 #include "exec/gen-icount.h"
 
@@ -644,6 +645,7 @@ static inline void gen_fp_store(DisasContext *ctx, uint32_t opc, int rs1,
 static inline void gen_atomic(DisasContext *ctx, uint32_t opc,
                       int rd, int rs1, int rs2)
 {
+#if !defined(CONFIG_USER_ONLY)
     /* TODO: handle aq, rl bits? - for now just get rid of them: */
     opc = MASK_OP_ATOMIC_NO_AQ_RL(opc);
     TCGv source1, source2, dat;
@@ -790,6 +792,10 @@ static inline void gen_atomic(DisasContext *ctx, uint32_t opc,
     tcg_temp_free(source1);
     tcg_temp_free(source2);
     tcg_temp_free(dat);
+#else
+    tcg_gen_movi_i32(cpu_amoinsn, ctx->opcode);
+    generate_exception(ctx, QEMU_USER_EXCP_ATOMIC);
+#endif
 }
 
 static inline void gen_fp_fmadd(DisasContext *ctx, uint32_t opc, int rd,
@@ -1571,6 +1577,10 @@ void riscv_tcg_init(void)
     cpu_PC = tcg_global_mem_new(cpu_env, offsetof(CPURISCVState, PC), "PC");
     load_res = tcg_global_mem_new(cpu_env, offsetof(CPURISCVState, load_res),
                              "load_res");
+
+    cpu_amoinsn = tcg_global_mem_new_i32(cpu_env,
+                    offsetof(CPURISCVState, amoinsn),
+                    "amoinsn");
     inited = 1;
 }
 
@@ -1592,7 +1602,7 @@ struct riscv_def_t {
 /* RISC-V CPU definitions */
 static const riscv_def_t riscv_defs[] = {
     {
-        .name = "riscv",
+        .name = "any",
 #if defined(TARGET_RISCV64)
         /* RV64G */
         .init_misa_reg = MCPUID_RV64I | MCPUID_SUPER | MCPUID_USER | MCPUID_I

@@ -299,6 +299,9 @@ struct CPURISCVState {
     target_ulong csr[4096]; /* RISCV CSR registers */
     target_ulong priv;
     target_ulong badaddr;
+    uint32_t amoinsn;
+    target_long amoaddr;
+    target_long amotest;
 
     /* temporary htif regs */
     uint64_t mfromhost;
@@ -491,6 +494,8 @@ target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno);
 
 void validate_csr(CPURISCVState *env, uint64_t which, uint64_t write, uint64_t
         new_pc);
+
+#include "cpu_user.h"
 
 #include "exec/exec-all.h"
 

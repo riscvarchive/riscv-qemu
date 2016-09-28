@@ -5667,12 +5667,6 @@ case "$target_name" in
     TARGET_BASE_ARCH=mips
     echo "TARGET_ABI_MIPSN64=y" >> $config_target_mak
   ;;
-  riscv32)
-    TARGET_BASE_ARCH=riscv
-  ;;
-  riscv64)
-    TARGET_BASE_ARCH=riscv
-  ;;
   moxie)
   ;;
   or32)
@@ -5704,6 +5698,14 @@ case "$target_name" in
     TARGET_ABI_DIR=ppc
     echo "TARGET_ABI32=y" >> $config_target_mak
     gdb_xml_files="power64-core.xml power-fpu.xml power-altivec.xml power-spe.xml power-vsx.xml"
+  ;;
+  riscv32)
+    TARGET_BASE_ARCH=riscv
+    TARGET_ABI_DIR=riscv
+  ;;
+  riscv64)
+    TARGET_BASE_ARCH=riscv
+    TARGET_ABI_DIR=riscv
   ;;
   sh4|sh4eb)
     TARGET_ARCH=sh4

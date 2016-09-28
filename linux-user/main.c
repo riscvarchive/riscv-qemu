@@ -3767,6 +3767,119 @@ void cpu_loop(CPUTLGState *env)
 
 #endif
 
+#ifdef TARGET_RISCV
+
+void cpu_loop(CPURISCVState *env)
+{
+    CPUState *cs = CPU(riscv_env_get_cpu(env));
+    int trapnr, signum, sigcode;
+    target_ulong sigaddr;
+    target_ulong ret;
+
+    for (;;) {
+        cpu_exec_start(cs);
+        trapnr = cpu_exec(cs);
+        cpu_exec_end(cs);
+
+        signum = 0;
+        sigcode = 0;
+        sigaddr = 0;
+
+        switch (trapnr) {
+        case EXCP_INTERRUPT:
+            /* just indicate that signals should be handled asap */
+            break;
+        case RISCV_EXCP_U_ECALL:
+            env->PC += 4;
+            if(env->gpr[xA7] == TARGET_NR_arch_specific_syscall) {
+                /* kernel-assisted AMO not suitable for do_syscall */
+                start_exclusive();
+                ret = riscv_arch_specific_syscall(env,
+                                 env->gpr[xA7],
+                                 env->gpr[xA0],
+                                 env->gpr[xA1],
+                                 env->gpr[xA2],
+                                 env->gpr[xA3]);
+                end_exclusive();
+            } else {
+                ret = do_syscall(env,
+                                 env->gpr[xA7],
+                                 env->gpr[xA0],
+                                 env->gpr[xA1],
+                                 env->gpr[xA2],
+                                 env->gpr[xA3],
+                                 env->gpr[xA4],
+                                 env->gpr[xA5],
+                                 0, 0);
+            }
+            if (ret == -TARGET_ERESTARTSYS) {
+                env->PC -= 4;
+            } else if (ret != -TARGET_QEMU_ESIGRETURN) {
+                env->gpr[xA0] = ret;
+            } if(cs->singlestep_enabled) {
+                /* TODO GDB */
+                /* goto gdbstep; */
+            }
+            break;
+
+       case QEMU_USER_EXCP_ATOMIC:
+            start_exclusive();
+            switch(riscv_cpu_do_usermode_amo(cs)) {
+                case RISCV_AMO_OK:
+                    env->PC += 4;
+                    break;
+                case RISCV_AMO_BADADDR:
+                    signum = TARGET_SIGSEGV;
+                    sigcode = TARGET_SEGV_MAPERR;
+                    sigaddr = env->badaddr;
+                case RISCV_AMO_BADINSN:
+                default:
+                    signum = TARGET_SIGILL;
+                    sigcode = TARGET_ILL_ILLOPC;
+            }
+            end_exclusive();
+            if(cs->singlestep_enabled) {
+                /* TODO GDB */
+                /* goto gdbstep; */
+            }
+            break;
+        case RISCV_EXCP_ILLEGAL_INST:
+            signum = TARGET_SIGILL;
+            sigcode = TARGET_ILL_ILLOPC;
+            break;
+        case QEMU_USER_EXCP_FAULT:
+            signum = TARGET_SIGSEGV;
+            sigcode = TARGET_SEGV_MAPERR;
+            break;
+            /* TODO GDB
+        case EXCP_DEBUG:
+        gdbstep:
+            signum = gdb_handlesig(cs, TARGET_SIGTRAP);
+            sigcode = TARGET_TRAP_BRKPT;
+            break;
+            */
+        default:
+            EXCP_DUMP(env, "\nqemu: unhandled CPU exception %#x - aborting\n",
+                     trapnr);
+            exit(EXIT_FAILURE);
+        }
+
+        if(signum) {
+            target_siginfo_t info = {
+                .si_signo = signum,
+                .si_errno = 0,
+                .si_code = sigcode,
+                ._sifields._sigfault._addr = sigaddr
+            };
+            queue_signal(env, info.si_signo, QEMU_SI_KILL, &info);
+        }
+
+        process_pending_signals(env);
+    }
+}
+
+#endif /* TARGET_RISCV */
+
 THREAD CPUState *thread_cpu;
 
 void task_settid(TaskState *ts)
@@ -4721,6 +4834,11 @@ int main(int argc, char **argv, char **envp)
 
         env->sr = regs->sr;
         env->pc = regs->pc;
+    }
+#elif defined(TARGET_RISCV)
+    {
+        env->PC = regs->sepc;
+        env->gpr[xSP] = regs->sp;
     }
 #elif defined(TARGET_SH4)
     {
