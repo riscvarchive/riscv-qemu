@@ -293,8 +293,7 @@ void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
         target_ulong csrno);
 target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno);
 
-void validate_csr(CPURISCVState *env, uint64_t which, uint64_t write, uint64_t
-        new_pc);
+void validate_csr(CPURISCVState *env, uint64_t which, uint64_t write);
 
 #include "exec/exec-all.h"
 

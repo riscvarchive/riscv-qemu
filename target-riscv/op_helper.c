@@ -434,29 +434,29 @@ inline target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno)
  *
  * Adapted from Spike's decode.h:validate_csr
  */
-void validate_csr(CPURISCVState *env, uint64_t which, uint64_t write,
-        uint64_t new_pc) {
+void validate_csr(CPURISCVState *env, uint64_t which, uint64_t write)
+{
     unsigned csr_priv = get_field((which), 0x300);
     unsigned csr_read_only = get_field((which), 0xC00) == 3;
     if (((write) && csr_read_only) || (env->priv < csr_priv)) {
-        do_raise_exception_err(env, RISCV_EXCP_ILLEGAL_INST, new_pc);
+        do_raise_exception_err(env, RISCV_EXCP_ILLEGAL_INST, env->pc);
     }
     return;
 }
 
 target_ulong helper_csrrw(CPURISCVState *env, target_ulong src,
-        target_ulong csr, target_ulong new_pc)
+        target_ulong csr)
 {
-    validate_csr(env, csr, 1, new_pc);
+    validate_csr(env, csr, 1);
     uint64_t csr_backup = csr_read_helper(env, csr);
     csr_write_helper(env, src, csr);
     return csr_backup;
 }
 
 target_ulong helper_csrrs(CPURISCVState *env, target_ulong src,
-        target_ulong csr, target_ulong new_pc, target_ulong rs1_pass)
+        target_ulong csr, target_ulong rs1_pass)
 {
-    validate_csr(env, csr, rs1_pass != 0, new_pc);
+    validate_csr(env, csr, rs1_pass != 0);
     uint64_t csr_backup = csr_read_helper(env, csr);
     if (rs1_pass != 0) {
         csr_write_helper(env, src | csr_backup, csr);
@@ -465,8 +465,9 @@ target_ulong helper_csrrs(CPURISCVState *env, target_ulong src,
 }
 
 target_ulong helper_csrrc(CPURISCVState *env, target_ulong src,
-        target_ulong csr, target_ulong new_pc, target_ulong rs1_pass) {
-    validate_csr(env, csr, rs1_pass != 0, new_pc);
+        target_ulong csr, target_ulong rs1_pass)
+{
+    validate_csr(env, csr, rs1_pass != 0);
     uint64_t csr_backup = csr_read_helper(env, csr);
     if (rs1_pass != 0) {
         csr_write_helper(env, (~src) & csr_backup, csr);

@@ -1174,6 +1174,7 @@ static inline void gen_system(DisasContext *ctx, uint32_t opc,
     rs1_pass = tcg_temp_new();
     imm_rs1 = tcg_temp_new();
     gen_get_gpr(source1, rs1);
+    tcg_gen_movi_tl(cpu_pc, ctx->pc);
     tcg_gen_movi_tl(rs1_pass, rs1);
     tcg_gen_movi_tl(csr_store, csr); /* copy into temp reg to feed to helper */
 
@@ -1196,7 +1197,6 @@ static inline void gen_system(DisasContext *ctx, uint32_t opc,
             exit(1);
             break;
         case 0x102: /* SRET */
-            tcg_gen_movi_tl(cpu_pc, ctx->pc);
             gen_helper_sret(cpu_pc, cpu_env, cpu_pc);
             tcg_gen_exit_tb(0); /* no chaining */
             ctx->bstate = BS_BRANCH;
@@ -1206,7 +1206,6 @@ static inline void gen_system(DisasContext *ctx, uint32_t opc,
             exit(1);
             break;
         case 0x302: /* MRET */
-            tcg_gen_movi_tl(cpu_pc, ctx->pc);
             gen_helper_mret(cpu_pc, cpu_env, cpu_pc);
             tcg_gen_exit_tb(0); /* no chaining */
             ctx->bstate = BS_BRANCH;
@@ -1227,30 +1226,25 @@ static inline void gen_system(DisasContext *ctx, uint32_t opc,
         }
         break;
     default:
-        tcg_gen_movi_tl(cpu_pc, ctx->pc);
         tcg_gen_movi_tl(imm_rs1, rs1);
         switch (opc) {
         case OPC_RISC_CSRRW:
-            gen_helper_csrrw(dest, cpu_env, source1, csr_store, cpu_pc);
+            gen_helper_csrrw(dest, cpu_env, source1, csr_store);
             break;
         case OPC_RISC_CSRRS:
-            gen_helper_csrrs(dest, cpu_env, source1, csr_store, cpu_pc,
-                    rs1_pass);
+            gen_helper_csrrs(dest, cpu_env, source1, csr_store, rs1_pass);
             break;
         case OPC_RISC_CSRRC:
-            gen_helper_csrrc(dest, cpu_env, source1, csr_store, cpu_pc,
-                    rs1_pass);
+            gen_helper_csrrc(dest, cpu_env, source1, csr_store, rs1_pass);
             break;
         case OPC_RISC_CSRRWI:
-            gen_helper_csrrw(dest, cpu_env, imm_rs1, csr_store, cpu_pc);
+            gen_helper_csrrw(dest, cpu_env, imm_rs1, csr_store);
             break;
         case OPC_RISC_CSRRSI:
-            gen_helper_csrrs(dest, cpu_env, imm_rs1, csr_store, cpu_pc,
-                             rs1_pass);
+            gen_helper_csrrs(dest, cpu_env, imm_rs1, csr_store, rs1_pass);
             break;
         case OPC_RISC_CSRRCI:
-            gen_helper_csrrc(dest, cpu_env, imm_rs1, csr_store, cpu_pc,
-                             rs1_pass);
+            gen_helper_csrrc(dest, cpu_env, imm_rs1, csr_store, rs1_pass);
             break;
         default:
             kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);

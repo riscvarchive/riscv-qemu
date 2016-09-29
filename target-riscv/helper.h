@@ -76,9 +76,9 @@ DEF_HELPER_FLAGS_3(fcvt_d_lu, TCG_CALL_NO_RWG, i64, env, i64, i64)
 DEF_HELPER_FLAGS_2(fclass_d, TCG_CALL_NO_RWG, tl, env, i64)
 
 /* Special functions */
-DEF_HELPER_4(csrrw, tl, env, tl, tl, tl)
-DEF_HELPER_5(csrrs, tl, env, tl, tl, tl, tl)
-DEF_HELPER_5(csrrc, tl, env, tl, tl, tl, tl)
+DEF_HELPER_3(csrrw, tl, env, tl, tl)
+DEF_HELPER_4(csrrs, tl, env, tl, tl, tl)
+DEF_HELPER_4(csrrc, tl, env, tl, tl, tl)
 DEF_HELPER_2(sret, tl, env, tl)
 DEF_HELPER_2(mret, tl, env, tl)
 DEF_HELPER_1(tlb_flush, void, env)
