@@ -72,7 +72,7 @@ static void riscv_cpu_reset(CPUState *s)
 
     env->priv = PRV_M;
     env->pc = DEFAULT_RSTVEC;
-    env->csr[CSR_MTVEC] = DEFAULT_MTVEC;
+    env->mtvec = DEFAULT_MTVEC;
     cs->exception_index = EXCP_NONE;
 }
 

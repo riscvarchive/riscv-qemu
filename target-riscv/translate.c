@@ -1533,9 +1533,9 @@ void riscv_cpu_dump_state(CPUState *cs, FILE *f, fprintf_function cpu_fprintf,
     }
 
     cpu_fprintf(f, " %s " TARGET_FMT_lx "\n", "MSTATUS ",
-                env->csr[CSR_MSTATUS]);
-    cpu_fprintf(f, " %s " TARGET_FMT_lx "\n", "MIP     ", env->csr[CSR_MIP]);
-    cpu_fprintf(f, " %s " TARGET_FMT_lx "\n", "MIE     ", env->csr[CSR_MIE]);
+                env->mstatus);
+    cpu_fprintf(f, " %s " TARGET_FMT_lx "\n", "MIP     ", env->mip);
+    cpu_fprintf(f, " %s " TARGET_FMT_lx "\n", "MIE     ", env->mie);
 
     for (i = 0; i < 32; i++) {
         if ((i & 3) == 0) {

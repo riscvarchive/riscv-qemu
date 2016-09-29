@@ -68,12 +68,43 @@ struct CPURISCVState {
     target_ulong pc;
     target_ulong load_res;
 
-    target_ulong csr[4096]; /* RISCV CSR registers */
-    target_ulong priv;
+    target_ulong frm;
+    target_ulong fstatus;
+    target_ulong fflags;
+
     target_ulong badaddr;
+
     uint32_t amoinsn;
     target_long amoaddr;
     target_long amotest;
+
+    target_ulong priv;
+
+    target_ulong misa;
+    target_ulong mstatus;
+
+    target_ulong mip;
+    target_ulong mie;
+    target_ulong mideleg;
+
+    target_ulong sptbr;
+    target_ulong sbadaddr;
+    target_ulong mbadaddr;
+    target_ulong medeleg;
+
+    target_ulong stvec;
+    target_ulong sepc;
+    target_ulong scause;
+
+    target_ulong mtvec;
+    target_ulong mepc;
+    target_ulong mcause;
+
+    target_ulong mucounteren;
+    target_ulong mscounteren;
+
+    target_ulong sscratch;
+    target_ulong mscratch;
 
     /* temporary htif regs */
     uint64_t mfromhost;
@@ -177,11 +208,11 @@ static inline int cpu_mmu_index(CPURISCVState *env, bool ifetch)
 {
     target_ulong mode = env->priv;
     if (!ifetch) {
-        if (get_field(env->csr[CSR_MSTATUS], MSTATUS_MPRV)) {
-            mode = get_field(env->csr[CSR_MSTATUS], MSTATUS_MPP);
+        if (get_field(env->mstatus, MSTATUS_MPRV)) {
+            mode = get_field(env->mstatus, MSTATUS_MPP);
         }
     }
-    if (get_field(env->csr[CSR_MSTATUS], MSTATUS_VM) == VM_MBARE) {
+    if (get_field(env->mstatus, MSTATUS_VM) == VM_MBARE) {
         mode = PRV_M;
     }
     return mode;
@@ -203,16 +234,16 @@ static int ctz(target_ulong val)
  */
 static inline int cpu_riscv_hw_interrupts_pending(CPURISCVState *env)
 {
-    target_ulong pending_interrupts = env->csr[CSR_MIP] & env->csr[CSR_MIE];
+    target_ulong pending_interrupts = env->mip & env->mie;
 
-    target_ulong mie = get_field(env->csr[CSR_MSTATUS], MSTATUS_MIE);
+    target_ulong mie = get_field(env->mstatus, MSTATUS_MIE);
     target_ulong m_enabled = env->priv < PRV_M || (env->priv == PRV_M && mie);
     target_ulong enabled_interrupts = pending_interrupts &
-                                      ~env->csr[CSR_MIDELEG] & -m_enabled;
+                                      ~env->mideleg & -m_enabled;
 
-    target_ulong sie = get_field(env->csr[CSR_MSTATUS], MSTATUS_SIE);
+    target_ulong sie = get_field(env->mstatus, MSTATUS_SIE);
     target_ulong s_enabled = env->priv < PRV_S || (env->priv == PRV_S && sie);
-    enabled_interrupts |= pending_interrupts & env->csr[CSR_MIDELEG] &
+    enabled_interrupts |= pending_interrupts & env->mideleg &
                           -s_enabled;
 
     if (enabled_interrupts) {

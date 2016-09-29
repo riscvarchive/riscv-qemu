@@ -65,11 +65,10 @@ RISCVCPU *cpu_riscv_init(const char *cpu_model)
     env = &cpu->env;
     env->cpu_model = def;
 
-    memset(env->csr, 0, 4096 * sizeof(target_ulong));
     env->priv = PRV_M;
 
     /* set mcpuid from def */
-    env->csr[CSR_MISA] = def->init_misa_reg;
+    env->misa = def->init_misa_reg;
     object_property_set_bool(OBJECT(cpu), true, "realized", NULL);
 
     /* fpu flags: */
