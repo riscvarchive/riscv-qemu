@@ -40,7 +40,7 @@ Prerequisites:
 
     $ sudo apt-get install gcc libc6-dev pkg-config bridge-utils uml-utilities zlib1g-dev libglib2.0-dev autoconf automake libtool libsdl1.2-dev
 
-Jump to Method 1 if you want full-system simulation, or Method 2 for linux-user 
+Jump to Method 1 if you want full-system simulation, or Method 2a/b for linux-user 
 mode.
 
 ### Method 1 \(Full-System Simulation\):
@@ -85,7 +85,11 @@ and then hit `ctrl-a x`. Otherwise, the root filesystem will likely be corrupted
 Support for other HTIF-based devices has been removed from [riscv-linux]; as a
 result, QEMU no longer supports them either.
 
-### Method 2 \(User Mode Simulation\):
+### Method 2a \(Fedora 24 Userland with User Mode Simulation, Recommended\):
+
+To avoid having to build the RISC-V toolchain and programs yourself, use Stefan O'Rear's [RISC-V Fedora Docker Image](https://hub.docker.com/r/sorear/fedora-riscv-wip/) to obtain a Fedora 24 Userland for RISC-V, packaged with riscv-qemu.
+
+### Method 2b \(Manual User Mode Simulation\):
 
 ####Step 1: Build QEMU
 
