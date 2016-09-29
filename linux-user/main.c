@@ -3790,7 +3790,7 @@ void cpu_loop(CPURISCVState *env)
             /* just indicate that signals should be handled asap */
             break;
         case RISCV_EXCP_U_ECALL:
-            env->PC += 4;
+            env->pc += 4;
             if(env->gpr[xA7] == TARGET_NR_arch_specific_syscall) {
                 /* kernel-assisted AMO not suitable for do_syscall */
                 start_exclusive();
@@ -3813,7 +3813,7 @@ void cpu_loop(CPURISCVState *env)
                                  0, 0);
             }
             if (ret == -TARGET_ERESTARTSYS) {
-                env->PC -= 4;
+                env->pc -= 4;
             } else if (ret != -TARGET_QEMU_ESIGRETURN) {
                 env->gpr[xA0] = ret;
             } if(cs->singlestep_enabled) {
@@ -3826,7 +3826,7 @@ void cpu_loop(CPURISCVState *env)
             start_exclusive();
             switch(riscv_cpu_do_usermode_amo(cs)) {
                 case RISCV_AMO_OK:
-                    env->PC += 4;
+                    env->pc += 4;
                     break;
                 case RISCV_AMO_BADADDR:
                     signum = TARGET_SIGSEGV;
@@ -4837,7 +4837,7 @@ int main(int argc, char **argv, char **envp)
     }
 #elif defined(TARGET_RISCV)
     {
-        env->PC = regs->sepc;
+        env->pc = regs->sepc;
         env->gpr[xSP] = regs->sp;
     }
 #elif defined(TARGET_SH4)

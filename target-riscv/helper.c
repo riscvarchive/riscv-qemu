@@ -58,7 +58,7 @@ static int get_physical_address(CPURISCVState *env, hwaddr *physical,
                                 int *prot, target_ulong address,
                                 int access_type, int mmu_idx)
 {
-    /* NOTE: the env->PC value visible here will not be
+    /* NOTE: the env->pc value visible here will not be
      * correct, but the value visible to the exception handler
      * (riscv_cpu_do_interrupt) is correct */
 
@@ -251,7 +251,7 @@ int riscv_cpu_handle_mmu_fault(CPUState *cs, vaddr address,
 
     qemu_log_mask(CPU_LOG_MMU,
             "%s pc " TARGET_FMT_lx " ad %" VADDR_PRIx " access_type %d mmu_idx \
-             %d\n", __func__, env->PC, address, access_type, mmu_idx);
+             %d\n", __func__, env->pc, address, access_type, mmu_idx);
 
 #if !defined(CONFIG_USER_ONLY)
     ret = get_physical_address(env, &physical, &prot, address, access_type,
@@ -322,10 +322,10 @@ void riscv_cpu_do_interrupt(CPUState *cs)
     if (cs->exception_index & 0x70000000) {
         fprintf(stderr, "core   0: exception trap_%s, epc 0x" TARGET_FMT_lx "\n"
                 , riscv_interrupt_names[cs->exception_index & 0x0fffffff],
-                env->PC);
+                env->pc);
     } else {
         fprintf(stderr, "core   0: exception trap_%s, epc 0x" TARGET_FMT_lx "\n"
-                , riscv_excp_names[cs->exception_index], env->PC);
+                , riscv_excp_names[cs->exception_index], env->pc);
     }
     #endif
 
@@ -363,7 +363,7 @@ void riscv_cpu_do_interrupt(CPUState *cs)
         }
     }
 
-    target_ulong backup_epc = env->PC;
+    target_ulong backup_epc = env->pc;
 
     target_ulong bit = fixed_cause;
     target_ulong deleg = env->csr[CSR_MEDELEG];
@@ -383,7 +383,7 @@ void riscv_cpu_do_interrupt(CPUState *cs)
     if (env->priv <= PRV_S && bit < 64 && ((deleg >> bit) & 1)) {
         /* handle the trap in S-mode */
         /* No need to check STVEC for misaligned - lower 2 bits cannot be set */
-        env->PC = env->csr[CSR_STVEC];
+        env->pc = env->csr[CSR_STVEC];
         env->csr[CSR_SCAUSE] = fixed_cause;
         env->csr[CSR_SEPC] = backup_epc;
 
@@ -403,7 +403,7 @@ void riscv_cpu_do_interrupt(CPUState *cs)
         set_privilege(env, PRV_S);
     } else {
         /* No need to check MTVEC for misaligned - lower 2 bits cannot be set */
-        env->PC = env->csr[CSR_MTVEC];
+        env->pc = env->csr[CSR_MTVEC];
         env->csr[CSR_MEPC] = backup_epc;
         env->csr[CSR_MCAUSE] = fixed_cause;
 

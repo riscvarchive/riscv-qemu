@@ -65,7 +65,7 @@ typedef struct CPURISCVState CPURISCVState;
 struct CPURISCVState {
     target_ulong gpr[32];
     uint64_t fpr[32]; /* assume both F and D extensions */
-    target_ulong PC;
+    target_ulong pc;
     target_ulong load_res;
 
     target_ulong csr[4096]; /* RISCV CSR registers */
@@ -253,7 +253,7 @@ hwaddr cpu_riscv_translate_address(CPURISCVState *env, target_ulong address,
 static inline void cpu_get_tb_cpu_state(CPURISCVState *env, target_ulong *pc,
                                         target_ulong *cs_base, uint32_t *flags)
 {
-    *pc = env->PC;
+    *pc = env->pc;
     *cs_base = 0;
     *flags = 0; /* necessary to avoid compiler warning */
 }
