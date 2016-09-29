@@ -247,7 +247,7 @@ int riscv_cpu_handle_mmu_fault(CPUState *cs, vaddr address,
     physical = 0; /* stop gcc complaining */
     int prot;
 #endif
-    int ret = -1;
+    int ret = TRANSLATE_FAIL;
 
     qemu_log_mask(CPU_LOG_MMU,
             "%s pc " TARGET_FMT_lx " ad %" VADDR_PRIx " access_type %d mmu_idx \
@@ -267,6 +267,8 @@ int riscv_cpu_handle_mmu_fault(CPUState *cs, vaddr address,
     } else if (ret == TRANSLATE_FAIL) {
         raise_mmu_exception(env, address, access_type);
     }
+#else
+    cs->exception_index = QEMU_USER_EXCP_FAULT;
 #endif
     return ret;
 }

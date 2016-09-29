@@ -45,7 +45,7 @@
 #define RISCV_EXCP_M_ECALL                 0xb
 
 
-#define TRANSLATE_FAIL -1
+#define TRANSLATE_FAIL 1
 #define TRANSLATE_SUCCESS 0
 #define NB_MMU_MODES 4
 
