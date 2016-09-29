@@ -29,20 +29,12 @@ int validate_priv(target_ulong priv)
     return priv == PRV_U || priv == PRV_S || priv == PRV_M;
 }
 
-void set_privilege(CPURISCVState *env, target_ulong newpriv)
-{
-    if (!validate_priv(newpriv)) {
-        printf("INVALID PRIV SET\n");
-        exit(1);
-    }
-    helper_tlb_flush(env);
-    env->priv = newpriv;
-}
-
+#ifndef CONFIG_USER_ONLY
 static int validate_vm(target_ulong vm)
 {
     return vm == VM_SV32 || vm == VM_SV39 || vm == VM_SV48 || vm == VM_MBARE;
 }
+#endif
 
 /* Exceptions processing helpers */
 static inline void QEMU_NORETURN do_raise_exception_err(CPURISCVState *env,
@@ -93,23 +85,32 @@ inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
     fprintf(stderr, "Write CSR val: 0x" TARGET_FMT_lx "\n", val_to_write);
     #endif
 
+#ifndef CONFIG_USER_ONLY
     uint64_t delegable_ints = MIP_SSIP | MIP_STIP | MIP_SEIP | (1 << IRQ_COP);
     uint64_t all_ints = delegable_ints | MIP_MSIP | MIP_MTIP;
+#endif
 
     switch (csrno) {
     case CSR_FFLAGS:
+#ifndef CONFIG_USER_ONLY
         env->mstatus |= MSTATUS_FS | MSTATUS64_SD;
+#endif
         env->fflags = val_to_write & (FSR_AEXC >> FSR_AEXC_SHIFT);
         break;
     case CSR_FRM:
+#ifndef CONFIG_USER_ONLY
         env->mstatus |= MSTATUS_FS | MSTATUS64_SD;
+#endif
         env->frm = val_to_write & (FSR_RD >> FSR_RD_SHIFT);
         break;
     case CSR_FCSR:
+#ifndef CONFIG_USER_ONLY
         env->mstatus |= MSTATUS_FS | MSTATUS64_SD;
+#endif
         env->fflags = (val_to_write & FSR_AEXC) >> FSR_AEXC_SHIFT;
         env->frm = (val_to_write & FSR_RD) >> FSR_RD_SHIFT;
         break;
+#ifndef CONFIG_USER_ONLY
     case CSR_MSTATUS: {
         target_ulong mstatus = env->mstatus;
         if ((val_to_write ^ mstatus) &
@@ -249,6 +250,7 @@ inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
     case CSR_MBADADDR:
         env->mbadaddr = val_to_write;
         break;
+#endif
     default:
         helper_raise_exception(env, RISCV_EXCP_ILLEGAL_INST);
     }
@@ -274,6 +276,7 @@ inline target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno)
     case CSR_FCSR:
         return env->fflags << FSR_AEXC_SHIFT |
                env->frm << FSR_RD_SHIFT;
+#ifndef CONFIG_USER_ONLY
     case CSR_TIME:
     case CSR_INSTRET:
     case CSR_CYCLE:
@@ -307,21 +310,9 @@ inline target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno)
     /* notice the lack of CSR_MTIME - this is handled by throwing an exception
        and letting the handler read from the RTC */
     case CSR_MCYCLE:
-#if !defined(CONFIG_USER_ONLY)
         return cpu_riscv_read_instret(env);
-#else
-        /* TODO: instret for user mode */
-        return 0;
-#endif
-        break;
     case CSR_MINSTRET:
-#if !defined(CONFIG_USER_ONLY)
         return cpu_riscv_read_instret(env);
-#else
-        /* TODO: instret for user mode */
-        return 0;
-#endif
-        break;
     case CSR_SSTATUS: {
         target_ulong mask = SSTATUS_SIE | SSTATUS_SPIE | SSTATUS_SPP
                             | SSTATUS_FS | SSTATUS_XS | SSTATUS_PUM;
@@ -380,6 +371,7 @@ inline target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno)
         return env->mideleg;
     case CSR_TDRSELECT:
         return 0; /* as spike does */
+#endif
     }
     /* used by e.g. MTIME read */
     helper_raise_exception(env, RISCV_EXCP_ILLEGAL_INST);
@@ -393,12 +385,13 @@ inline target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno)
  */
 void validate_csr(CPURISCVState *env, uint64_t which, uint64_t write)
 {
+#ifndef CONFIG_USER_ONLY
     unsigned csr_priv = get_field((which), 0x300);
     unsigned csr_read_only = get_field((which), 0xC00) == 3;
     if (((write) && csr_read_only) || (env->priv < csr_priv)) {
         do_raise_exception_err(env, RISCV_EXCP_ILLEGAL_INST, env->pc);
     }
-    return;
+#endif
 }
 
 target_ulong helper_csrrw(CPURISCVState *env, target_ulong src,
@@ -430,6 +423,18 @@ target_ulong helper_csrrc(CPURISCVState *env, target_ulong src,
         csr_write_helper(env, (~src) & csr_backup, csr);
     }
     return csr_backup;
+}
+
+#ifndef CONFIG_USER_ONLY
+
+void set_privilege(CPURISCVState *env, target_ulong newpriv)
+{
+    if (!validate_priv(newpriv)) {
+        printf("INVALID PRIV SET\n");
+        exit(1);
+    }
+    helper_tlb_flush(env);
+    env->priv = newpriv;
 }
 
 target_ulong helper_sret(CPURISCVState *env, target_ulong cpu_pc_deb)
@@ -495,8 +500,6 @@ void helper_tlb_flush(CPURISCVState *env)
     RISCVCPU *cpu = riscv_env_get_cpu(env);
     tlb_flush(CPU(cpu), 1);
 }
-
-#ifndef CONFIG_USER_ONLY
 
 void riscv_cpu_do_unaligned_access(CPUState *cs, vaddr addr,
                                    MMUAccessType access_type, int mmu_idx,

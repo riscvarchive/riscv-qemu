@@ -74,10 +74,11 @@ struct CPURISCVState {
 
     target_ulong badaddr;
 
+#ifdef CONFIG_USER_ONLY
     uint32_t amoinsn;
     target_long amoaddr;
     target_long amotest;
-
+#else
     target_ulong priv;
 
     target_ulong misa;
@@ -109,8 +110,9 @@ struct CPURISCVState {
     /* temporary htif regs */
     uint64_t mfromhost;
     uint64_t mtohost;
-
     uint64_t timecmp;
+#endif
+
     float_status fp_status;
 
     /* QEMU */
@@ -193,7 +195,6 @@ void riscv_cpu_list(FILE *f, fprintf_function cpu_fprintf);
 #define cpu_signal_handler cpu_riscv_signal_handler
 #define cpu_list riscv_cpu_list
 
-static int ctz(target_ulong val);
 int validate_priv(target_ulong priv);
 void set_privilege(CPURISCVState *env, target_ulong newpriv);
 unsigned int softfloat_flags_to_riscv(unsigned int flag);
@@ -204,6 +205,12 @@ uint_fast16_t float64_classify(uint64_t a, float_status *status);
  * Compute mmu index
  * Adapted from Spike's mmu_t::translate
  */
+#ifdef CONFIG_USER_ONLY
+static inline int cpu_mmu_index(CPURISCVState *env, bool ifetch)
+{
+    return 0;
+}
+#else
 static inline int cpu_mmu_index(CPURISCVState *env, bool ifetch)
 {
     target_ulong mode = env->priv;
@@ -217,7 +224,9 @@ static inline int cpu_mmu_index(CPURISCVState *env, bool ifetch)
     }
     return mode;
 }
+#endif
 
+#ifndef CONFIG_USER_ONLY
 /*
  * ctz in Spike returns 0 if val == 0, wrap helper
  */
@@ -262,6 +271,7 @@ static inline int cpu_riscv_hw_interrupts_pending(CPURISCVState *env)
         return EXCP_NONE; /* indicates no pending interrupt */
     }
 }
+#endif
 
 #include "exec/cpu-all.h"
 

@@ -36,7 +36,9 @@ static TCGv_ptr cpu_env;
 static TCGv cpu_gpr[32], cpu_pc;
 static TCGv_i64 cpu_fpr[32]; /* assume F and D extensions */
 static TCGv load_res;
+#ifdef CONFIG_USER_ONLY
 static TCGv_i32 cpu_amoinsn;
+#endif
 
 #include "exec/gen-icount.h"
 
@@ -1192,6 +1194,7 @@ static inline void gen_system(DisasContext *ctx, uint32_t opc,
             tcg_gen_exit_tb(0); /* no chaining */
             ctx->bstate = BS_BRANCH;
             break;
+#ifndef CONFIG_USER_ONLY
         case 0x002: /* URET */
             printf("URET unimplemented\n");
             exit(1);
@@ -1220,6 +1223,7 @@ static inline void gen_system(DisasContext *ctx, uint32_t opc,
         case 0x104: /* SFENCE.VM */
             gen_helper_tlb_flush(cpu_env);
             break;
+#endif
         default:
             kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
             break;
@@ -1393,6 +1397,7 @@ static void decode_opc(CPURISCVState *env, DisasContext *ctx)
                      GET_RM(ctx->opcode));
         break;
     case OPC_RISC_FENCE:
+#ifndef CONFIG_USER_ONLY
         /* standard fence is nop, fence_i flushes TB (like an icache): */
         if (ctx->opcode & 0x1000) { /* FENCE_I */
             gen_helper_fence_i(cpu_env);
@@ -1400,6 +1405,7 @@ static void decode_opc(CPURISCVState *env, DisasContext *ctx)
             tcg_gen_exit_tb(0); /* no chaining */
             ctx->bstate = BS_BRANCH;
         }
+#endif
         break;
     case OPC_RISC_SYSTEM:
         gen_system(ctx, MASK_OP_SYSTEM(ctx->opcode), rd, rs1,
@@ -1526,10 +1532,12 @@ void riscv_cpu_dump_state(CPUState *cs, FILE *f, fprintf_function cpu_fprintf,
         }
     }
 
+#ifndef CONFIG_USER_ONLY
     cpu_fprintf(f, " %s " TARGET_FMT_lx "\n", "MSTATUS ",
                 env->mstatus);
     cpu_fprintf(f, " %s " TARGET_FMT_lx "\n", "MIP     ", env->mip);
     cpu_fprintf(f, " %s " TARGET_FMT_lx "\n", "MIE     ", env->mie);
+#endif
 
     for (i = 0; i < 32; i++) {
         if ((i & 3) == 0) {
@@ -1572,8 +1580,10 @@ void riscv_tcg_init(void)
     load_res = tcg_global_mem_new(cpu_env, offsetof(CPURISCVState, load_res),
                              "load_res");
 
+#ifdef CONFIG_USER_ONLY
     cpu_amoinsn = tcg_global_mem_new_i32(cpu_env,
                     offsetof(CPURISCVState, amoinsn),
                     "amoinsn");
+#endif
     inited = 1;
 }

@@ -29,6 +29,12 @@
 
 /*#define RISCV_DEBUG_INTERRUPT */
 
+#ifdef CONFIG_USER_ONLY
+bool riscv_cpu_exec_interrupt(CPUState *cs, int interrupt_request)
+{
+    return false;
+}
+#else
 bool riscv_cpu_exec_interrupt(CPUState *cs, int interrupt_request)
 {
     if (interrupt_request & CPU_INTERRUPT_HARD) {
@@ -43,6 +49,7 @@ bool riscv_cpu_exec_interrupt(CPUState *cs, int interrupt_request)
     }
     return false;
 }
+#endif
 
 #if !defined(CONFIG_USER_ONLY)
 
