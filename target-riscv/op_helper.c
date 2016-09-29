@@ -249,18 +249,8 @@ inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
     case CSR_MBADADDR:
         env->mbadaddr = val_to_write;
         break;
-    case CSR_DCSR:
-        printf("DEBUG NOT SUPPORTED\n");
-        exit(1);
-        break;
-    case CSR_DPC:
-        printf("DEBUG NOT SUPPORTED\n");
-        exit(1);
-        break;
-    case CSR_DSCRATCH:
-        printf("DEBUG NOT SUPPORTED\n");
-        exit(1);
-        break;
+    default:
+        helper_raise_exception(env, RISCV_EXCP_ILLEGAL_INST);
     }
 }
 
@@ -314,24 +304,6 @@ inline target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno)
         return 0; /* as spike does */
     case CSR_MSINSTRET_DELTA:
         return 0; /* as spike does */
-    case CSR_MUCYCLE_DELTAH:
-        printf("CSR 0x%x unsupported on RV64\n", csrno2);
-        exit(1);
-    case CSR_MUTIME_DELTAH:
-        printf("CSR 0x%x unsupported on RV64\n", csrno2);
-        exit(1);
-    case CSR_MUINSTRET_DELTAH:
-        printf("CSR 0x%x unsupported on RV64\n", csrno2);
-        exit(1);
-    case CSR_MSCYCLE_DELTAH:
-        printf("CSR 0x%x unsupported on RV64\n", csrno2);
-        exit(1);
-    case CSR_MSTIME_DELTAH:
-        printf("CSR 0x%x unsupported on RV64\n", csrno2);
-        exit(1);
-    case CSR_MSINSTRET_DELTAH:
-        printf("CSR 0x%x unsupported on RV64\n", csrno2);
-        exit(1);
     /* notice the lack of CSR_MTIME - this is handled by throwing an exception
        and letting the handler read from the RTC */
     case CSR_MCYCLE:
@@ -350,12 +322,6 @@ inline target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno)
         return 0;
 #endif
         break;
-    case CSR_MCYCLEH:
-        printf("CSR 0x%x unsupported on RV64\n", csrno2);
-        exit(1);
-    case CSR_MINSTRETH:
-        printf("CSR 0x%x unsupported on RV64\n", csrno2);
-        exit(1);
     case CSR_SSTATUS: {
         target_ulong mask = SSTATUS_SIE | SSTATUS_SPIE | SSTATUS_SPP
                             | SSTATUS_FS | SSTATUS_XS | SSTATUS_PUM;
@@ -414,15 +380,6 @@ inline target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno)
         return env->mideleg;
     case CSR_TDRSELECT:
         return 0; /* as spike does */
-    case CSR_DCSR:
-        printf("DEBUG NOT IMPLEMENTED\n");
-        exit(1);
-    case CSR_DPC:
-        printf("DEBUG NOT IMPLEMENTED\n");
-        exit(1);
-    case CSR_DSCRATCH:
-        printf("DEBUG NOT IMPLEMENTED\n");
-        exit(1);
     }
     /* used by e.g. MTIME read */
     helper_raise_exception(env, RISCV_EXCP_ILLEGAL_INST);
