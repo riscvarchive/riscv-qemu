@@ -250,6 +250,8 @@ inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
     case CSR_MBADADDR:
         env->mbadaddr = val_to_write;
         break;
+    case CSR_TDRSELECT:
+        break; /* emulate a sink, do not raise ILLEGAL */
 #endif
     default:
         helper_raise_exception(env, RISCV_EXCP_ILLEGAL_INST);
