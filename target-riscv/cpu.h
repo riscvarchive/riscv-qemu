@@ -65,21 +65,54 @@ typedef struct CPURISCVState CPURISCVState;
 struct CPURISCVState {
     target_ulong gpr[32];
     uint64_t fpr[32]; /* assume both F and D extensions */
-    target_ulong PC;
+    target_ulong pc;
     target_ulong load_res;
 
-    target_ulong csr[4096]; /* RISCV CSR registers */
-    target_ulong priv;
+    target_ulong frm;
+    target_ulong fstatus;
+    target_ulong fflags;
+
     target_ulong badaddr;
+
+#ifdef CONFIG_USER_ONLY
     uint32_t amoinsn;
     target_long amoaddr;
     target_long amotest;
+#else
+    target_ulong priv;
+
+    target_ulong misa;
+    target_ulong mstatus;
+
+    target_ulong mip;
+    target_ulong mie;
+    target_ulong mideleg;
+
+    target_ulong sptbr;
+    target_ulong sbadaddr;
+    target_ulong mbadaddr;
+    target_ulong medeleg;
+
+    target_ulong stvec;
+    target_ulong sepc;
+    target_ulong scause;
+
+    target_ulong mtvec;
+    target_ulong mepc;
+    target_ulong mcause;
+
+    target_ulong mucounteren;
+    target_ulong mscounteren;
+
+    target_ulong sscratch;
+    target_ulong mscratch;
 
     /* temporary htif regs */
     uint64_t mfromhost;
     uint64_t mtohost;
-
     uint64_t timecmp;
+#endif
+
     float_status fp_status;
 
     /* QEMU */
@@ -162,7 +195,6 @@ void riscv_cpu_list(FILE *f, fprintf_function cpu_fprintf);
 #define cpu_signal_handler cpu_riscv_signal_handler
 #define cpu_list riscv_cpu_list
 
-static int ctz(target_ulong val);
 int validate_priv(target_ulong priv);
 void set_privilege(CPURISCVState *env, target_ulong newpriv);
 unsigned int softfloat_flags_to_riscv(unsigned int flag);
@@ -173,20 +205,28 @@ uint_fast16_t float64_classify(uint64_t a, float_status *status);
  * Compute mmu index
  * Adapted from Spike's mmu_t::translate
  */
+#ifdef CONFIG_USER_ONLY
+static inline int cpu_mmu_index(CPURISCVState *env, bool ifetch)
+{
+    return 0;
+}
+#else
 static inline int cpu_mmu_index(CPURISCVState *env, bool ifetch)
 {
     target_ulong mode = env->priv;
     if (!ifetch) {
-        if (get_field(env->csr[CSR_MSTATUS], MSTATUS_MPRV)) {
-            mode = get_field(env->csr[CSR_MSTATUS], MSTATUS_MPP);
+        if (get_field(env->mstatus, MSTATUS_MPRV)) {
+            mode = get_field(env->mstatus, MSTATUS_MPP);
         }
     }
-    if (get_field(env->csr[CSR_MSTATUS], MSTATUS_VM) == VM_MBARE) {
+    if (get_field(env->mstatus, MSTATUS_VM) == VM_MBARE) {
         mode = PRV_M;
     }
     return mode;
 }
+#endif
 
+#ifndef CONFIG_USER_ONLY
 /*
  * ctz in Spike returns 0 if val == 0, wrap helper
  */
@@ -203,16 +243,16 @@ static int ctz(target_ulong val)
  */
 static inline int cpu_riscv_hw_interrupts_pending(CPURISCVState *env)
 {
-    target_ulong pending_interrupts = env->csr[CSR_MIP] & env->csr[CSR_MIE];
+    target_ulong pending_interrupts = env->mip & env->mie;
 
-    target_ulong mie = get_field(env->csr[CSR_MSTATUS], MSTATUS_MIE);
+    target_ulong mie = get_field(env->mstatus, MSTATUS_MIE);
     target_ulong m_enabled = env->priv < PRV_M || (env->priv == PRV_M && mie);
     target_ulong enabled_interrupts = pending_interrupts &
-                                      ~env->csr[CSR_MIDELEG] & -m_enabled;
+                                      ~env->mideleg & -m_enabled;
 
-    target_ulong sie = get_field(env->csr[CSR_MSTATUS], MSTATUS_SIE);
+    target_ulong sie = get_field(env->mstatus, MSTATUS_SIE);
     target_ulong s_enabled = env->priv < PRV_S || (env->priv == PRV_S && sie);
-    enabled_interrupts |= pending_interrupts & env->csr[CSR_MIDELEG] &
+    enabled_interrupts |= pending_interrupts & env->mideleg &
                           -s_enabled;
 
     if (enabled_interrupts) {
@@ -231,6 +271,7 @@ static inline int cpu_riscv_hw_interrupts_pending(CPURISCVState *env)
         return EXCP_NONE; /* indicates no pending interrupt */
     }
 }
+#endif
 
 #include "exec/cpu-all.h"
 
@@ -253,7 +294,7 @@ hwaddr cpu_riscv_translate_address(CPURISCVState *env, target_ulong address,
 static inline void cpu_get_tb_cpu_state(CPURISCVState *env, target_ulong *pc,
                                         target_ulong *cs_base, uint32_t *flags)
 {
-    *pc = env->PC;
+    *pc = env->pc;
     *cs_base = 0;
     *flags = 0; /* necessary to avoid compiler warning */
 }
@@ -262,8 +303,7 @@ void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
         target_ulong csrno);
 target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno);
 
-void validate_csr(CPURISCVState *env, uint64_t which, uint64_t write, uint64_t
-        new_pc);
+void validate_csr(CPURISCVState *env, uint64_t which, uint64_t write);
 
 #include "exec/exec-all.h"
 

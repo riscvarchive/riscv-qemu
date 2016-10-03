@@ -5951,7 +5951,7 @@ static void setup_sigcontext(struct target_sigcontext *sc, CPURISCVState *env)
 {
     int i;
 
-    __put_user(env->PC, &sc->pc);
+    __put_user(env->pc, &sc->pc);
 
     for(i = 1; i < 32; i++)
         __put_user(env->gpr[i], &sc->gpr[i]);
@@ -6006,7 +6006,7 @@ static void setup_rt_frame(int sig, struct target_sigaction *ka,
     tswap_siginfo(&frame->info, info);
     install_sigtramp(frame->tramp);
 
-    env->PC = ka->_sa_handler;
+    env->pc = ka->_sa_handler;
     env->gpr[xSP] = frame_addr;
     env->gpr[xA0] = sig;
     env->gpr[xA1] = frame_addr + offsetof(struct target_rt_sigframe, info);
@@ -6026,7 +6026,7 @@ static void restore_sigcontext(CPURISCVState *env, struct target_sigcontext *sc)
 {
     int i;
 
-    __get_user(env->PC, &sc->pc);
+    __get_user(env->pc, &sc->pc);
 
     for (i = 1; i < 32; ++i)
         __get_user(env->gpr[i], &sc->gpr[i]);

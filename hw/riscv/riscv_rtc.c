@@ -69,7 +69,7 @@ static inline void cpu_riscv_timer_update(CPURISCVState *env)
     if (env->timecmp <= rtc_r) {
         /* if we're setting an MTIMECMP value in the "past",
            immediately raise the timer interrupt */
-        env->csr[CSR_MIP] |= MIP_MTIP;
+        env->mip |= MIP_MTIP;
         qemu_irq_raise(env->irq[3]);
         return;
     }
@@ -89,7 +89,7 @@ static inline void cpu_riscv_timer_update(CPURISCVState *env)
 static inline void cpu_riscv_timer_expire(CPURISCVState *env)
 {
     /* do not call update here */
-    env->csr[CSR_MIP] |= MIP_MTIP;
+    env->mip |= MIP_MTIP;
     qemu_irq_raise(env->irq[3]);
 }
 
@@ -108,7 +108,7 @@ inline void write_timecmp(CPURISCVState *env, uint64_t value)
     #endif
 
     env->timecmp = value;
-    env->csr[CSR_MIP] &= ~MIP_MTIP;
+    env->mip &= ~MIP_MTIP;
     cpu_riscv_timer_update(env);
 }
 

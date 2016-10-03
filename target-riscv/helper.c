@@ -29,6 +29,12 @@
 
 /*#define RISCV_DEBUG_INTERRUPT */
 
+#ifdef CONFIG_USER_ONLY
+bool riscv_cpu_exec_interrupt(CPUState *cs, int interrupt_request)
+{
+    return false;
+}
+#else
 bool riscv_cpu_exec_interrupt(CPUState *cs, int interrupt_request)
 {
     if (interrupt_request & CPU_INTERRUPT_HARD) {
@@ -43,6 +49,7 @@ bool riscv_cpu_exec_interrupt(CPUState *cs, int interrupt_request)
     }
     return false;
 }
+#endif
 
 #if !defined(CONFIG_USER_ONLY)
 
@@ -58,7 +65,7 @@ static int get_physical_address(CPURISCVState *env, hwaddr *physical,
                                 int *prot, target_ulong address,
                                 int access_type, int mmu_idx)
 {
-    /* NOTE: the env->PC value visible here will not be
+    /* NOTE: the env->pc value visible here will not be
      * correct, but the value visible to the exception handler
      * (riscv_cpu_do_interrupt) is correct */
 
@@ -67,11 +74,11 @@ static int get_physical_address(CPURISCVState *env, hwaddr *physical,
 
     target_ulong mode = env->priv;
     if (access_type != MMU_INST_FETCH) {
-        if (get_field(env->csr[CSR_MSTATUS], MSTATUS_MPRV)) {
-            mode = get_field(env->csr[CSR_MSTATUS], MSTATUS_MPP);
+        if (get_field(env->mstatus, MSTATUS_MPRV)) {
+            mode = get_field(env->mstatus, MSTATUS_MPP);
         }
     }
-    if (get_field(env->csr[CSR_MSTATUS], MSTATUS_VM) == VM_MBARE) {
+    if (get_field(env->mstatus, MSTATUS_VM) == VM_MBARE) {
         mode = PRV_M;
     }
 
@@ -91,11 +98,11 @@ static int get_physical_address(CPURISCVState *env, hwaddr *physical,
 
     target_ulong addr = address;
     int supervisor = mode == PRV_S;
-    int pum = get_field(env->csr[CSR_MSTATUS], MSTATUS_PUM);
-    int mxr = get_field(env->csr[CSR_MSTATUS], MSTATUS_MXR);
+    int pum = get_field(env->mstatus, MSTATUS_PUM);
+    int mxr = get_field(env->mstatus, MSTATUS_MXR);
 
     int levels, ptidxbits, ptesize;
-    switch (get_field(env->csr[CSR_MSTATUS], MSTATUS_VM)) {
+    switch (get_field(env->mstatus, MSTATUS_VM)) {
     case VM_SV32:
       levels = 2;
       ptidxbits = 10;
@@ -123,7 +130,7 @@ static int get_physical_address(CPURISCVState *env, hwaddr *physical,
         return TRANSLATE_FAIL;
     }
 
-    target_ulong base = env->csr[CSR_SPTBR] << PGSHIFT;
+    target_ulong base = env->sptbr << PGSHIFT;
     int ptshift = (levels - 1) * ptidxbits;
     int i;
     for (i = 0; i < levels; i++, ptshift -= ptidxbits) {
@@ -251,7 +258,7 @@ int riscv_cpu_handle_mmu_fault(CPUState *cs, vaddr address,
 
     qemu_log_mask(CPU_LOG_MMU,
             "%s pc " TARGET_FMT_lx " ad %" VADDR_PRIx " access_type %d mmu_idx \
-             %d\n", __func__, env->PC, address, access_type, mmu_idx);
+             %d\n", __func__, env->pc, address, access_type, mmu_idx);
 
 #if !defined(CONFIG_USER_ONLY)
     ret = get_physical_address(env, &physical, &prot, address, access_type,
@@ -324,10 +331,10 @@ void riscv_cpu_do_interrupt(CPUState *cs)
     if (cs->exception_index & 0x70000000) {
         fprintf(stderr, "core   0: exception trap_%s, epc 0x" TARGET_FMT_lx "\n"
                 , riscv_interrupt_names[cs->exception_index & 0x0fffffff],
-                env->PC);
+                env->pc);
     } else {
         fprintf(stderr, "core   0: exception trap_%s, epc 0x" TARGET_FMT_lx "\n"
-                , riscv_excp_names[cs->exception_index], env->PC);
+                , riscv_excp_names[cs->exception_index], env->pc);
     }
     #endif
 
@@ -365,10 +372,10 @@ void riscv_cpu_do_interrupt(CPUState *cs)
         }
     }
 
-    target_ulong backup_epc = env->PC;
+    target_ulong backup_epc = env->pc;
 
     target_ulong bit = fixed_cause;
-    target_ulong deleg = env->csr[CSR_MEDELEG];
+    target_ulong deleg = env->medeleg;
 
     int hasbadaddr =
         (fixed_cause == RISCV_EXCP_INST_ADDR_MIS) ||
@@ -379,25 +386,25 @@ void riscv_cpu_do_interrupt(CPUState *cs)
         (fixed_cause == RISCV_EXCP_STORE_AMO_ACCESS_FAULT);
 
     if (bit & ((target_ulong)1 << (TARGET_LONG_BITS - 1))) {
-        deleg = env->csr[CSR_MIDELEG], bit &= ~(1L << (TARGET_LONG_BITS - 1));
+        deleg = env->mideleg, bit &= ~(1L << (TARGET_LONG_BITS - 1));
     }
 
     if (env->priv <= PRV_S && bit < 64 && ((deleg >> bit) & 1)) {
         /* handle the trap in S-mode */
         /* No need to check STVEC for misaligned - lower 2 bits cannot be set */
-        env->PC = env->csr[CSR_STVEC];
-        env->csr[CSR_SCAUSE] = fixed_cause;
-        env->csr[CSR_SEPC] = backup_epc;
+        env->pc = env->stvec;
+        env->scause = fixed_cause;
+        env->sepc = backup_epc;
 
         if (hasbadaddr) {
             #ifdef RISCV_DEBUG_INTERRUPT
             fprintf(stderr, "core   0: badaddr 0x" TARGET_FMT_lx "\n",
                     env->badaddr);
             #endif
-            env->csr[CSR_SBADADDR] = env->badaddr;
+            env->sbadaddr = env->badaddr;
         }
 
-        target_ulong s = env->csr[CSR_MSTATUS];
+        target_ulong s = env->mstatus;
         s = set_field(s, MSTATUS_SPIE, get_field(s, MSTATUS_UIE << env->priv));
         s = set_field(s, MSTATUS_SPP, env->priv);
         s = set_field(s, MSTATUS_SIE, 0);
@@ -405,19 +412,19 @@ void riscv_cpu_do_interrupt(CPUState *cs)
         set_privilege(env, PRV_S);
     } else {
         /* No need to check MTVEC for misaligned - lower 2 bits cannot be set */
-        env->PC = env->csr[CSR_MTVEC];
-        env->csr[CSR_MEPC] = backup_epc;
-        env->csr[CSR_MCAUSE] = fixed_cause;
+        env->pc = env->mtvec;
+        env->mepc = backup_epc;
+        env->mcause = fixed_cause;
 
         if (hasbadaddr) {
             #ifdef RISCV_DEBUG_INTERRUPT
             fprintf(stderr, "core   0: badaddr 0x" TARGET_FMT_lx "\n",
                     env->badaddr);
             #endif
-            env->csr[CSR_MBADADDR] = env->badaddr;
+            env->mbadaddr = env->badaddr;
         }
 
-        target_ulong s = env->csr[CSR_MSTATUS];
+        target_ulong s = env->mstatus;
         s = set_field(s, MSTATUS_MPIE, get_field(s, MSTATUS_UIE << env->priv));
         s = set_field(s, MSTATUS_MPP, env->priv);
         s = set_field(s, MSTATUS_MIE, 0);

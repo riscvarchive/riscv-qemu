@@ -28,16 +28,22 @@ static void riscv_cpu_set_pc(CPUState *cs, vaddr value)
 {
     RISCVCPU *cpu = RISCV_CPU(cs);
     CPURISCVState *env = &cpu->env;
-    env->PC = value;
+    env->pc = value;
 }
 
 static void riscv_cpu_synchronize_from_tb(CPUState *cs, TranslationBlock *tb)
 {
     RISCVCPU *cpu = RISCV_CPU(cs);
     CPURISCVState *env = &cpu->env;
-    env->PC = tb->pc;
+    env->pc = tb->pc;
 }
 
+#ifdef CONFIG_USER_ONLY
+static bool riscv_cpu_has_work(CPUState *cs)
+{
+    return 0;
+}
+#else
 static bool riscv_cpu_has_work(CPUState *cs)
 {
     RISCVCPU *cpu = RISCV_CPU(cs);
@@ -53,11 +59,12 @@ static bool riscv_cpu_has_work(CPUState *cs)
 
     return has_work;
 }
+#endif
 
 void restore_state_to_opc(CPURISCVState *env, TranslationBlock *tb,
                           target_ulong *data)
 {
-    env->PC = data[0];
+    env->pc = data[0];
 }
 
 static void riscv_cpu_reset(CPUState *s)
@@ -68,11 +75,12 @@ static void riscv_cpu_reset(CPUState *s)
     CPUState *cs = CPU(cpu);
 
     mcc->parent_reset(s);
+#ifndef CONFIG_USER_ONLY
     tlb_flush(s, 1);
-
     env->priv = PRV_M;
-    env->PC = DEFAULT_RSTVEC;
-    env->csr[CSR_MTVEC] = DEFAULT_MTVEC;
+    env->mtvec = DEFAULT_MTVEC;
+#endif
+    env->pc = DEFAULT_RSTVEC;
     cs->exception_index = EXCP_NONE;
 }
 
