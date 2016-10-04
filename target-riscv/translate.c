@@ -1293,15 +1293,13 @@ static void decode_opc(CPURISCVState *env, DisasContext *ctx)
         if (rd == 0) {
             break; /* NOP */
         }
-        tcg_gen_movi_tl(cpu_gpr[rd], (ctx->opcode & 0xFFFFF000));
-        tcg_gen_ext32s_tl(cpu_gpr[rd], cpu_gpr[rd]);
+        tcg_gen_movi_tl(cpu_gpr[rd], sextract32(ctx->opcode, 12, 20) << 12);
         break;
     case OPC_RISC_AUIPC:
         if (rd == 0) {
             break; /* NOP */
         }
-        tcg_gen_movi_tl(cpu_gpr[rd], (ctx->opcode & 0xFFFFF000));
-        tcg_gen_ext32s_tl(cpu_gpr[rd], cpu_gpr[rd]);
+        tcg_gen_movi_tl(cpu_gpr[rd], sextract32(ctx->opcode, 12, 20) << 12);
         tcg_gen_addi_tl(cpu_gpr[rd], cpu_gpr[rd], ctx->pc);
         break;
     case OPC_RISC_JAL: {
