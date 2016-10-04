@@ -309,20 +309,22 @@ enum {
 
 /* THIS BUILDS 13 bit imm (implicit zero is tacked on here), also note that bit
    #12 is obtained in a special way to get sign extension */
-#define GET_B_IMM(inst)              ((int16_t)((((inst >> 25) & 0x3F) << 5)\
-                                     | ((((int32_t)inst) >> 31) << 12)      \
-                                     | (((inst >> 8) & 0xF) << 1)           \
-                                     | (((inst >> 7) & 0x1) << 11)))
+#define GET_B_IMM(inst) (extract32(inst, 8, 4) << 1)    \
+                        | (extract32(inst, 25, 6) << 5) \
+                        | (extract32(inst, 7, 1) << 11) \
+                        | (sextract32(inst, 31, 1) << 12)
 
-#define GET_STORE_IMM(inst)          ((int16_t)(((((int32_t)inst) >> 25) << 5)\
-                                     | ((inst >> 7) & 0x1F)))
-#define GET_JAL_IMM(inst)            ((int32_t)((inst & 0xFF000) \
-                                     | (((inst >> 20) & 0x1) << 11)\
-                                     | (((inst >> 21) & 0x3FF) << 1)\
-                                     | ((((int32_t)inst) >> 31) << 20)))
-#define GET_RM(inst)                 ((inst >> 12) & 0x7)
-#define GET_RS3(inst)                ((inst >> 27) & 0x1f)
-#define GET_RS1(inst)                ((inst >> 15) & 0x1f)
-#define GET_RS2(inst)                ((inst >> 20) & 0x1f)
-#define GET_RD(inst)                 ((inst >> 7) & 0x1f)
-#define GET_IMM(inst)                ((int16_t)(((int32_t)inst) >> 20))
+#define GET_STORE_IMM(inst) (extract32(inst, 7, 5))        \
+                            | (sextract32(inst, 25, 7) << 5)
+
+#define GET_JAL_IMM(inst) (extract32(inst, 21, 10) << 1)   \
+                          | (extract32(inst, 20, 1) << 11) \
+                          | (extract32(inst, 12, 8) << 12) \
+                          | (sextract64(inst, 31, 1) << 20)
+
+#define GET_RM(inst)   extract32(inst, 12, 3)
+#define GET_RS3(inst)  extract32(inst, 27, 5)
+#define GET_RS1(inst)  extract32(inst, 15, 5)
+#define GET_RS2(inst)  extract32(inst, 20, 5)
+#define GET_RD(inst)   extract32(inst, 7, 5)
+#define GET_IMM(inst)  sextract32(inst, 20, 12)
