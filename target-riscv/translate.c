@@ -176,7 +176,7 @@ static void gen_mulhsu(TCGv ret, TCGv arg1, TCGv arg2)
     tcg_temp_free(rh);
 }
 
-static inline void gen_arith(DisasContext *ctx, uint32_t opc, int rd, int rs1,
+static void gen_arith(DisasContext *ctx, uint32_t opc, int rd, int rs1,
         int rs2)
 {
     TCGv source1, source2, cond1, cond2, zeroreg, resultopt1;
@@ -385,7 +385,7 @@ static inline void gen_arith(DisasContext *ctx, uint32_t opc, int rd, int rs1,
     tcg_temp_free(source2);
 }
 
-static inline void gen_arith_imm(DisasContext *ctx, uint32_t opc, int rd,
+static void gen_arith_imm(DisasContext *ctx, uint32_t opc, int rd,
         int rs1, int16_t imm)
 {
     TCGv source1;
@@ -468,7 +468,7 @@ static inline void gen_arith_imm(DisasContext *ctx, uint32_t opc, int rd,
     tcg_temp_free(source1);
 }
 
-static inline void gen_jalr(DisasContext *ctx, uint32_t opc, int rd, int rs1,
+static void gen_jalr(DisasContext *ctx, uint32_t opc, int rd, int rs1,
         int16_t imm)
 {
     /* no chaining with JALR */
@@ -502,7 +502,7 @@ static inline void gen_jalr(DisasContext *ctx, uint32_t opc, int rd, int rs1,
     tcg_temp_free(t0);
 }
 
-static inline void gen_branch(DisasContext *ctx, uint32_t opc, int rs1, int rs2,
+static void gen_branch(DisasContext *ctx, uint32_t opc, int rs1, int rs2,
         int16_t bimm)
 {
     TCGLabel *l = gen_new_label();
@@ -561,7 +561,7 @@ static inline void gen_branch(DisasContext *ctx, uint32_t opc, int rs1, int rs2,
     ctx->bstate = BS_BRANCH;
 }
 
-static inline void gen_load(DisasContext *ctx, uint32_t opc, int rd, int rs1,
+static void gen_load(DisasContext *ctx, uint32_t opc, int rd, int rs1,
         int16_t imm)
 {
     target_long uimm = (target_long)imm; /* sign ext 16->64 bits */
@@ -586,7 +586,7 @@ static inline void gen_load(DisasContext *ctx, uint32_t opc, int rd, int rs1,
     tcg_temp_free(t1);
 }
 
-static inline void gen_store(DisasContext *ctx, uint32_t opc, int rs1, int rs2,
+static void gen_store(DisasContext *ctx, uint32_t opc, int rs1, int rs2,
         int16_t imm)
 {
     target_long uimm = (target_long)imm; /* sign ext 16->64 bits */
@@ -612,7 +612,7 @@ static inline void gen_store(DisasContext *ctx, uint32_t opc, int rs1, int rs2,
     tcg_temp_free(dat);
 }
 
-static inline void gen_fp_load(DisasContext *ctx, uint32_t opc, int rd,
+static void gen_fp_load(DisasContext *ctx, uint32_t opc, int rd,
         int rs1, int16_t imm)
 {
     target_long uimm = (target_long)imm; /* sign ext 16->64 bits */
@@ -634,7 +634,7 @@ static inline void gen_fp_load(DisasContext *ctx, uint32_t opc, int rd,
     tcg_temp_free(t0);
 }
 
-static inline void gen_fp_store(DisasContext *ctx, uint32_t opc, int rs1,
+static void gen_fp_store(DisasContext *ctx, uint32_t opc, int rs1,
         int rs2, int16_t imm)
 {
     target_long uimm = (target_long)imm; /* sign ext 16->64 bits */
@@ -660,7 +660,7 @@ static inline void gen_fp_store(DisasContext *ctx, uint32_t opc, int rs1,
     tcg_temp_free(t1);
 }
 
-static inline void gen_atomic(DisasContext *ctx, uint32_t opc,
+static void gen_atomic(DisasContext *ctx, uint32_t opc,
                       int rd, int rs1, int rs2)
 {
 #if !defined(CONFIG_USER_ONLY)
@@ -816,7 +816,7 @@ static inline void gen_atomic(DisasContext *ctx, uint32_t opc,
 #endif
 }
 
-static inline void gen_fp_fmadd(DisasContext *ctx, uint32_t opc, int rd,
+static void gen_fp_fmadd(DisasContext *ctx, uint32_t opc, int rd,
         int rs1, int rs2, int rs3, int rm)
 {
     TCGv_i64 rm_reg = tcg_temp_new_i64();
@@ -839,7 +839,7 @@ static inline void gen_fp_fmadd(DisasContext *ctx, uint32_t opc, int rd,
 
 }
 
-static inline void gen_fp_fmsub(DisasContext *ctx, uint32_t opc, int rd,
+static void gen_fp_fmsub(DisasContext *ctx, uint32_t opc, int rd,
         int rs1, int rs2, int rs3, int rm)
 {
     TCGv_i64 rm_reg = tcg_temp_new_i64();
@@ -861,7 +861,7 @@ static inline void gen_fp_fmsub(DisasContext *ctx, uint32_t opc, int rd,
     tcg_temp_free_i64(rm_reg);
 }
 
-static inline void gen_fp_fnmsub(DisasContext *ctx, uint32_t opc, int rd,
+static void gen_fp_fnmsub(DisasContext *ctx, uint32_t opc, int rd,
         int rs1, int rs2, int rs3, int rm)
 {
     TCGv_i64 rm_reg = tcg_temp_new_i64();
@@ -883,7 +883,7 @@ static inline void gen_fp_fnmsub(DisasContext *ctx, uint32_t opc, int rd,
     tcg_temp_free_i64(rm_reg);
 }
 
-static inline void gen_fp_fnmadd(DisasContext *ctx, uint32_t opc, int rd,
+static void gen_fp_fnmadd(DisasContext *ctx, uint32_t opc, int rd,
         int rs1, int rs2, int rs3, int rm)
 {
     TCGv_i64 rm_reg = tcg_temp_new_i64();
@@ -905,7 +905,7 @@ static inline void gen_fp_fnmadd(DisasContext *ctx, uint32_t opc, int rd,
     tcg_temp_free_i64(rm_reg);
 }
 
-static inline void gen_fp_arith(DisasContext *ctx, uint32_t opc, int rd,
+static void gen_fp_arith(DisasContext *ctx, uint32_t opc, int rd,
         int rs1, int rs2, int rm)
 {
     TCGv_i64 rm_reg = tcg_temp_new_i64();
@@ -1182,7 +1182,7 @@ static inline void gen_fp_arith(DisasContext *ctx, uint32_t opc, int rd,
     tcg_temp_free(write_int_rd);
 }
 
-static inline void gen_system(DisasContext *ctx, uint32_t opc,
+static void gen_system(DisasContext *ctx, uint32_t opc,
                       int rd, int rs1, int csr)
 {
     TCGv source1, csr_store, dest, rs1_pass, imm_rs1;
