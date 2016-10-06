@@ -186,6 +186,44 @@ static void gen_mulhsu(TCGv ret, TCGv arg1, TCGv arg2)
     tcg_temp_free(rh);
 }
 
+static void gen_fsgnj(DisasContext *ctx, uint32_t rd, uint32_t rs1, uint32_t rs2,
+                     int rm, uint64_t min)
+{
+    TCGv_i64 src1 = tcg_temp_new_i64();
+    TCGv_i64 src2 = tcg_temp_new_i64();
+
+    tcg_gen_mov_i64(src1, cpu_fpr[rs1]);
+    tcg_gen_mov_i64(src2, cpu_fpr[rs2]);
+
+    switch (rm) {
+    case 0: /* fsgnj */
+
+        if (rs1 == rs2) { /* FMOV */
+            tcg_gen_mov_i64(cpu_fpr[rd], src1);
+        }
+
+        tcg_gen_andi_i64(src1, src1, ~min);
+        tcg_gen_andi_i64(src2, src2, min);
+        tcg_gen_or_i64(cpu_fpr[rd], src1, src2);
+        break;
+    case 1: /* fsgnjn */
+        tcg_gen_andi_i64(src1, src1, ~min);
+        tcg_gen_not_i64(src2, src2);
+        tcg_gen_andi_i64(src2, src2, min);
+        tcg_gen_or_i64(cpu_fpr[rd], src1, src2);
+        break;
+    case 2: /* fsgnjx */
+        tcg_gen_andi_i64(src2, src2, min);
+        tcg_gen_xor_i64(cpu_fpr[rd], src1, src2);
+        break;
+    default:
+        kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
+    }
+
+    tcg_temp_free_i64(src1);
+    tcg_temp_free_i64(src2);
+}
+
 static void gen_arith(DisasContext *ctx, uint32_t opc, int rd, int rs1,
         int rs2)
 {
@@ -932,19 +970,7 @@ static void gen_fp_arith(DisasContext *ctx, uint32_t opc, int rd,
                           rm_reg);
         break;
     case OPC_RISC_FSGNJ_S:
-        /* also handles: OPC_RISC_FSGNJN_S, OPC_RISC_FSGNJX_S */
-        if (rm == 0x0) {
-            gen_helper_fsgnj_s(cpu_fpr[rd], cpu_env, cpu_fpr[rs1],
-                               cpu_fpr[rs2]);
-        } else if (rm == 0x1) {
-            gen_helper_fsgnjn_s(cpu_fpr[rd], cpu_env, cpu_fpr[rs1],
-                                cpu_fpr[rs2]);
-        } else if (rm == 0x2) {
-            gen_helper_fsgnjx_s(cpu_fpr[rd], cpu_env, cpu_fpr[rs1],
-                                cpu_fpr[rs2]);
-        } else {
-            kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
-        }
+        gen_fsgnj(ctx, rd, rs1, rs2, rm, INT32_MIN);
         break;
     case OPC_RISC_FMIN_S:
         /* also handles: OPC_RISC_FMAX_S */
@@ -1059,19 +1085,7 @@ static void gen_fp_arith(DisasContext *ctx, uint32_t opc, int rd,
                           rm_reg);
         break;
     case OPC_RISC_FSGNJ_D:
-        /* also OPC_RISC_FSGNJN_D, OPC_RISC_FSGNJX_D */
-        if (rm == 0x0) {
-            gen_helper_fsgnj_d(cpu_fpr[rd], cpu_env, cpu_fpr[rs1],
-                               cpu_fpr[rs2]);
-        } else if (rm == 0x1) {
-            gen_helper_fsgnjn_d(cpu_fpr[rd], cpu_env, cpu_fpr[rs1],
-                                cpu_fpr[rs2]);
-        } else if (rm == 0x2) {
-            gen_helper_fsgnjx_d(cpu_fpr[rd], cpu_env, cpu_fpr[rs1],
-                                cpu_fpr[rs2]);
-        } else {
-            kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
-        }
+        gen_fsgnj(ctx, rd, rs1, rs2, rm, INT64_MIN);
         break;
     case OPC_RISC_FMIN_D:
         /* also OPC_RISC_FMAX_D */
