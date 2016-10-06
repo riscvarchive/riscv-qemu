@@ -186,24 +186,6 @@ uint64_t helper_fdiv_s(CPURISCVState *env, uint64_t frs1, uint64_t frs2,
     return frs1;
 }
 
-uint64_t helper_fsgnj_s(CPURISCVState *env, uint64_t frs1, uint64_t frs2)
-{
-    frs1 = (frs1 & ~(uint32_t)INT32_MIN) | (frs2 & (uint32_t)INT32_MIN);
-    return frs1;
-}
-
-uint64_t helper_fsgnjn_s(CPURISCVState *env, uint64_t frs1, uint64_t frs2)
-{
-    frs1 = (frs1 & ~(uint32_t)INT32_MIN) | ((~frs2) & (uint32_t)INT32_MIN);
-    return frs1;
-}
-
-uint64_t helper_fsgnjx_s(CPURISCVState *env, uint64_t frs1, uint64_t frs2)
-{
-    frs1 = frs1 ^ (frs2 & (uint32_t)INT32_MIN);
-    return frs1;
-}
-
 uint64_t helper_fmin_s(CPURISCVState *env, uint64_t frs1, uint64_t frs2)
 {
     frs1 = float32_is_any_nan(frs2) ||
@@ -389,24 +371,6 @@ uint64_t helper_fdiv_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2,
     set_float_rounding_mode(RM, &env->fp_status);
     frs1 = float64_div(frs1, frs2, &env->fp_status);
     set_fp_exceptions();
-    return frs1;
-}
-
-uint64_t helper_fsgnj_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2)
-{
-    frs1 = (frs1 & ~INT64_MIN) | (frs2 & INT64_MIN);
-    return frs1;
-}
-
-uint64_t helper_fsgnjn_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2)
-{
-    frs1 = (frs1 & ~INT64_MIN) | ((~frs2) & INT64_MIN);
-    return frs1;
-}
-
-uint64_t helper_fsgnjx_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2)
-{
-    frs1 = frs1 ^ (frs2 & INT64_MIN);
     return frs1;
 }
 
