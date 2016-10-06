@@ -157,22 +157,17 @@ static inline void gen_set_gpr(int reg_num_dst, TCGv t)
 
 static void gen_mulhsu(TCGv ret, TCGv arg1, TCGv arg2)
 {
-#if defined(TARGET_RISCV64)
-    gen_helper_mulhsu(ret, cpu_env, arg1, arg2);
-#else
-    TCGv_i64 t0 = tcg_temp_new_i64();
-    TCGv_i64 t1 = tcg_temp_new_i64();
+    TCGv rl = tcg_temp_new();
+    TCGv rh = tcg_temp_new();
 
-    tcg_gen_ext_i32_i64(t0, arg1);
-    tcg_gen_extu_i32_i64(t1, arg2);
-    tcg_gen_mul_i64(t0, t0, t1);
+    tcg_gen_mulu2_tl(rl, rh, arg1, arg2);
+    /* fix up for one negative */
+    tcg_gen_sari_tl(rl, arg1, TARGET_LONG_BITS - 1);
+    tcg_gen_and_tl(rl, rl, arg2);
+    tcg_gen_sub_tl(ret, rh, rl);
 
-    tcg_gen_shri_i64(t0, t0, 32);
-    tcg_gen_extrl_i64_i32(ret, t0);
-
-    tcg_temp_free_i64(t0);
-    tcg_temp_free_i64(t1);
-#endif
+    tcg_temp_free(rl);
+    tcg_temp_free(rh);
 }
 
 static inline void gen_arith(DisasContext *ctx, uint32_t opc, int rd, int rs1,
