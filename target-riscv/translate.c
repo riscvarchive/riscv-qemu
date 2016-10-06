@@ -76,8 +76,18 @@ static const char * const fpr_regnames[] = {
 };
 
 /* convert riscv funct3 to qemu memop for load/store */
-static int tcg_memop_lookup[] = { MO_SB, MO_TESW, MO_TESL, MO_TEQ, MO_UB,
-    MO_TEUW, MO_TEUL };
+static const int tcg_memop_lookup[8] = {
+    [0 ... 7] = -1,
+    [0] = MO_SB,
+    [1] = MO_TESW,
+    [2] = MO_TESL,
+    [4] = MO_UB,
+    [5] = MO_TEUW,
+#ifdef TARGET_RISCV64
+    [3] = MO_TEQ,
+    [6] = MO_TEUL,
+#endif
+};
 
 #ifdef TARGET_RISCV64
 #define CASE_OP_32_64(X) case X: case glue(X, W)
@@ -569,16 +579,12 @@ static void gen_load(DisasContext *ctx, uint32_t opc, int rd, int rs1,
     TCGv t1 = tcg_temp_new();
     gen_get_gpr(t0, rs1);
     tcg_gen_addi_tl(t0, t0, uimm); /* */
-    int memop = (opc >> 12) & 0x7;
+    int memop = tcg_memop_lookup[(opc >> 12) & 0x7];
 
-#if defined(TARGET_RISCV64)
-    if (memop == 0x7) {
-#else
-    if (memop == 0x7 || memop == 0x3 || memop == 0x6) {
-#endif
+    if (memop < 0) {
         kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
     } else {
-        tcg_gen_qemu_ld_tl(t1, t0, ctx->mem_idx, tcg_memop_lookup[memop]);
+        tcg_gen_qemu_ld_tl(t1, t0, ctx->mem_idx, memop);
     }
 
     gen_set_gpr(rd, t1);
@@ -596,16 +602,12 @@ static void gen_store(DisasContext *ctx, uint32_t opc, int rs1, int rs2,
     gen_get_gpr(t0, rs1);
     tcg_gen_addi_tl(t0, t0, uimm);
     gen_get_gpr(dat, rs2);
-    int memop = (opc >> 12) & 0x7;
+    int memop = tcg_memop_lookup[(opc >> 12) & 0x7];
 
-#if defined(TARGET_RISCV64)
-    if (memop > 0x3) {
-#else
-    if (memop > 0x2) {
-#endif
+    if (memop < 0) {
         kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
     } else {
-        tcg_gen_qemu_st_tl(dat, t0, ctx->mem_idx, tcg_memop_lookup[memop]);
+        tcg_gen_qemu_st_tl(dat, t0, ctx->mem_idx, memop);
     }
 
     tcg_temp_free(t0);
