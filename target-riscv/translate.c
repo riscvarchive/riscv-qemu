@@ -473,29 +473,25 @@ static inline void gen_jalr(DisasContext *ctx, uint32_t opc, int rd, int rs1,
 {
     /* no chaining with JALR */
     TCGLabel *misaligned = gen_new_label();
-    TCGLabel *done = gen_new_label();
     target_long uimm = (target_long)imm; /* sign ext 16->64 bits */
-    TCGv t0, t1, t2, t3;
-    t0 = tcg_temp_local_new();
-    t1 = tcg_temp_local_new();
-    t2 = tcg_temp_local_new(); /* old_pc */
-    t3 = tcg_temp_local_new();
+    TCGv t0;
+    t0 = tcg_temp_new();
 
     switch (opc) {
     case OPC_RISC_JALR:
-        gen_get_gpr(t0, rs1);
-        tcg_gen_addi_tl(t0, t0, uimm);
-        tcg_gen_andi_tl(t0, t0, (target_ulong)0xFFFFFFFFFFFFFFFEll);
-        tcg_gen_andi_tl(t3, t0, 0x2);
-        tcg_gen_movi_tl(t2, ctx->pc);
-        tcg_gen_brcondi_tl(TCG_COND_NE, t3, 0x0, misaligned);
-        tcg_gen_mov_tl(cpu_pc, t0);
-        tcg_gen_addi_tl(t1, t2, 4);
-        gen_set_gpr(rd, t1);
-        tcg_gen_br(done);
+        gen_get_gpr(cpu_pc, rs1);
+        tcg_gen_addi_tl(cpu_pc, cpu_pc, uimm);
+        tcg_gen_andi_tl(cpu_pc, cpu_pc, (target_ulong)-2);
+        tcg_gen_andi_tl(t0, cpu_pc, 0x2);
+        tcg_gen_brcondi_tl(TCG_COND_NE, t0, 0x0, misaligned);
+
+        if (rd != 0) {
+            tcg_gen_movi_tl(cpu_gpr[rd], ctx->pc + 4);
+        }
+        tcg_gen_exit_tb(0);
+
         gen_set_label(misaligned);
         generate_exception_mbadaddr(ctx, RISCV_EXCP_INST_ADDR_MIS);
-        gen_set_label(done);
         tcg_gen_exit_tb(0);
         ctx->bstate = BS_BRANCH;
         break;
@@ -504,9 +500,6 @@ static inline void gen_jalr(DisasContext *ctx, uint32_t opc, int rd, int rs1,
         break;
     }
     tcg_temp_free(t0);
-    tcg_temp_free(t1);
-    tcg_temp_free(t2);
-    tcg_temp_free(t3);
 }
 
 static inline void gen_branch(DisasContext *ctx, uint32_t opc, int rs1, int rs2,
