@@ -174,15 +174,10 @@ static inline void gen_arith(DisasContext *ctx, uint32_t opc, int rd, int rs1,
         int rs2)
 {
     TCGv source1, source2, cond1, cond2, zeroreg, resultopt1;
-    cond1 = tcg_temp_new();
-    cond2 = tcg_temp_new();
     source1 = tcg_temp_new();
     source2 = tcg_temp_new();
-    zeroreg = tcg_temp_new();
-    resultopt1 = tcg_temp_new();
     gen_get_gpr(source1, rs1);
     gen_get_gpr(source2, rs2);
-    tcg_gen_movi_tl(zeroreg, 0); /* hardcoded zero for compare in DIV, etc */
 
     switch (opc) {
 #if defined(TARGET_RISCV64)
@@ -270,6 +265,11 @@ static inline void gen_arith(DisasContext *ctx, uint32_t opc, int rd, int rs1,
         /* Handle by altering args to tcg_gen_div to produce req'd results:
          * For overflow: want source1 in source1 and 1 in source2
          * For div by zero: want -1 in source1 and 1 in source2 -> -1 result */
+        cond1 = tcg_temp_new();
+        cond2 = tcg_temp_new();
+        zeroreg = tcg_const_tl(0);
+        resultopt1 = tcg_temp_new();
+
         tcg_gen_movi_tl(resultopt1, (target_ulong)0xFFFFFFFFFFFFFFFF);
         tcg_gen_setcondi_tl(TCG_COND_EQ, cond2, source2, (target_ulong)(~0L));
         tcg_gen_setcondi_tl(TCG_COND_EQ, cond1, source1,
@@ -285,6 +285,11 @@ static inline void gen_arith(DisasContext *ctx, uint32_t opc, int rd, int rs1,
         tcg_gen_movcond_tl(TCG_COND_EQ, source2, cond1, zeroreg, source2,
                 resultopt1);
         tcg_gen_div_tl(source1, source1, source2);
+
+        tcg_temp_free(cond1);
+        tcg_temp_free(cond2);
+        tcg_temp_free(zeroreg);
+        tcg_temp_free(resultopt1);
         break;
 #if defined(TARGET_RISCV64)
     case OPC_RISC_DIVUW:
@@ -293,6 +298,10 @@ static inline void gen_arith(DisasContext *ctx, uint32_t opc, int rd, int rs1,
         /* fall through to DIVU */
 #endif
     case OPC_RISC_DIVU:
+        cond1 = tcg_temp_new();
+        zeroreg = tcg_const_tl(0);
+        resultopt1 = tcg_temp_new();
+
         tcg_gen_setcondi_tl(TCG_COND_EQ, cond1, source2, 0);
         tcg_gen_movi_tl(resultopt1, (target_ulong)(~0L));
         tcg_gen_movcond_tl(TCG_COND_EQ, source1, cond1, zeroreg, source1,
@@ -301,6 +310,10 @@ static inline void gen_arith(DisasContext *ctx, uint32_t opc, int rd, int rs1,
         tcg_gen_movcond_tl(TCG_COND_EQ, source2, cond1, zeroreg, source2,
                 resultopt1);
         tcg_gen_divu_tl(source1, source1, source2);
+
+        tcg_temp_free(cond1);
+        tcg_temp_free(zeroreg);
+        tcg_temp_free(resultopt1);
         break;
 #if defined(TARGET_RISCV64)
     case OPC_RISC_REMW:
@@ -309,6 +322,11 @@ static inline void gen_arith(DisasContext *ctx, uint32_t opc, int rd, int rs1,
         /* fall through to REM */
 #endif
     case OPC_RISC_REM:
+        cond1 = tcg_temp_new();
+        cond2 = tcg_temp_new();
+        zeroreg = tcg_const_tl(0);
+        resultopt1 = tcg_temp_new();
+
         tcg_gen_movi_tl(resultopt1, 1L);
         tcg_gen_setcondi_tl(TCG_COND_EQ, cond2, source2, (target_ulong)(~0L));
         tcg_gen_setcondi_tl(TCG_COND_EQ, cond1, source1,
@@ -323,6 +341,11 @@ static inline void gen_arith(DisasContext *ctx, uint32_t opc, int rd, int rs1,
         /* if div by zero, just return the original dividend */
         tcg_gen_movcond_tl(TCG_COND_EQ, source1, cond1, zeroreg, resultopt1,
                 source1);
+
+        tcg_temp_free(cond1);
+        tcg_temp_free(cond2);
+        tcg_temp_free(zeroreg);
+        tcg_temp_free(resultopt1);
         break;
 #if defined(TARGET_RISCV64)
     case OPC_RISC_REMUW:
@@ -331,6 +354,10 @@ static inline void gen_arith(DisasContext *ctx, uint32_t opc, int rd, int rs1,
         /* fall through to REMU */
 #endif
     case OPC_RISC_REMU:
+        cond1 = tcg_temp_new();
+        zeroreg = tcg_const_tl(0);
+        resultopt1 = tcg_temp_new();
+
         tcg_gen_movi_tl(resultopt1, 1L);
         tcg_gen_setcondi_tl(TCG_COND_EQ, cond1, source2, 0);
         tcg_gen_movcond_tl(TCG_COND_EQ, source2, cond1, zeroreg, source2,
@@ -339,6 +366,10 @@ static inline void gen_arith(DisasContext *ctx, uint32_t opc, int rd, int rs1,
         /* if div by zero, just return the original dividend */
         tcg_gen_movcond_tl(TCG_COND_EQ, source1, cond1, zeroreg, resultopt1,
                 source1);
+
+        tcg_temp_free(cond1);
+        tcg_temp_free(zeroreg);
+        tcg_temp_free(resultopt1);
         break;
     default:
         kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
@@ -352,10 +383,6 @@ static inline void gen_arith(DisasContext *ctx, uint32_t opc, int rd, int rs1,
     gen_set_gpr(rd, source1);
     tcg_temp_free(source1);
     tcg_temp_free(source2);
-    tcg_temp_free(cond1);
-    tcg_temp_free(cond2);
-    tcg_temp_free(zeroreg);
-    tcg_temp_free(resultopt1);
 }
 
 static inline void gen_arith_imm(DisasContext *ctx, uint32_t opc, int rd,
