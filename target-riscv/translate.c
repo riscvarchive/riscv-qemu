@@ -1276,6 +1276,7 @@ static void decode_opc(CPURISCVState *env, DisasContext *ctx)
     uint32_t op;
     int16_t imm;
     target_long ubimm;
+    target_ulong next_pc;
 
     /* We do not do misaligned address check here: the address should never be
      * misaligned at this point. Instructions that set PC must do the check,
@@ -1302,35 +1303,20 @@ static void decode_opc(CPURISCVState *env, DisasContext *ctx)
         tcg_gen_movi_tl(cpu_gpr[rd], (sextract64(ctx->opcode, 12, 20) << 12) +
                ctx->pc);
         break;
-    case OPC_RISC_JAL: {
-            TCGv nextpc = tcg_temp_local_new();
-            TCGv testpc = tcg_temp_local_new();
-            TCGLabel *misaligned = gen_new_label();
-            TCGLabel *done = gen_new_label();
-            ubimm = (target_long) (GET_JAL_IMM(ctx->opcode));
-            tcg_gen_movi_tl(nextpc, ctx->pc + ubimm);
-            /* check misaligned: */
-            tcg_gen_andi_tl(testpc, nextpc, 0x3);
-            tcg_gen_brcondi_tl(TCG_COND_NE, testpc, 0x0, misaligned);
-            if (rd != 0) {
-                tcg_gen_movi_tl(cpu_gpr[rd], ctx->pc + 4);
-            }
-
-#ifdef DISABLE_CHAINING_JAL
-            tcg_gen_mov_tl(cpu_pc, nextpc);
-            tcg_gen_exit_tb(0);
-#else
-            gen_goto_tb(ctx, 0, ctx->pc + ubimm); /* must use this for safety */
-#endif
-            tcg_gen_br(done);
-            gen_set_label(misaligned);
-            /* throw exception for misaligned case */
+    case OPC_RISC_JAL:
+        ubimm = (target_long) (GET_JAL_IMM(ctx->opcode));
+        /* check misaligned: */
+        next_pc = ctx->pc + ubimm;
+        if ((next_pc & 0x3) != 0) {
             generate_exception_mbadaddr(ctx, RISCV_EXCP_INST_ADDR_MIS);
-            gen_set_label(done);
-            ctx->bstate = BS_BRANCH;
-            tcg_temp_free(nextpc);
-            tcg_temp_free(testpc);
         }
+
+        if (rd != 0) {
+            tcg_gen_movi_tl(cpu_gpr[rd], ctx->pc + 4);
+        }
+
+        gen_goto_tb(ctx, 0, ctx->pc + ubimm); /* must use this for safety */
+        ctx->bstate = BS_BRANCH;
         break;
     case OPC_RISC_JALR:
         gen_jalr(ctx, MASK_OP_JALR(ctx->opcode), rd, rs1, imm);
