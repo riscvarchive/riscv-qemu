@@ -62,16 +62,6 @@ void helper_raise_exception_mbadaddr(CPURISCVState *env, uint32_t exception,
     do_raise_exception_err(env, exception, 0);
 }
 
-#if defined(TARGET_RISCV64)
-target_ulong helper_mulhsu(CPURISCVState *env, target_ulong arg1,
-                          target_ulong arg2)
-{
-    int64_t a = arg1;
-    uint64_t b = arg2;
-    return (int64_t)((__int128_t)a * b >> 64);
-}
-#endif
-
 /*
  * Handle writes to CSRs and any resulting special behavior
  *
