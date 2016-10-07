@@ -829,6 +829,8 @@
 # An enumeration of cpu types that enable additional information during
 # @query-cpus.
 #
+# @riscv: Since 2.8
+#
 # Since: 2.6
 ##
 { 'enum': 'CpuInfoArch',
@@ -932,9 +934,9 @@
 #
 # Additional information about a virtual RISCV CPU
 #
-# @PC: the instruction pointer
+# @pc: the instruction pointer
 #
-# Since 2.6
+# Since 2.8
 ##
 { 'struct': 'CpuInfoRISCV', 'data': { 'pc': 'int' } }
 
