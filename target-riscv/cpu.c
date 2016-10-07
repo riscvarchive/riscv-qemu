@@ -132,6 +132,10 @@ static void riscv_cpu_class_init(ObjectClass *c, void *data)
     cc->dump_state = riscv_cpu_dump_state;
     cc->set_pc = riscv_cpu_set_pc;
     cc->synchronize_from_tb = riscv_cpu_synchronize_from_tb;
+    cc->gdb_read_register = riscv_cpu_gdb_read_register;
+    cc->gdb_write_register = riscv_cpu_gdb_write_register;
+    cc->gdb_num_core_regs = 65;
+    cc->gdb_stop_before_watchpoint = true;
 #ifdef CONFIG_USER_ONLY
     cc->handle_mmu_fault = riscv_cpu_handle_mmu_fault;
 #else

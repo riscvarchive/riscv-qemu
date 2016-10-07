@@ -279,6 +279,8 @@ inline target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno)
         return env->fflags << FSR_AEXC_SHIFT |
                env->frm << FSR_RD_SHIFT;
 #ifndef CONFIG_USER_ONLY
+        /* TODO fix TIME, INSTRET, CYCLE in user mode */
+        /* 32-bit TIMEH, CYCLEH, INSTRETH, other H stuff */
     case CSR_TIME:
     case CSR_INSTRET:
     case CSR_CYCLE:

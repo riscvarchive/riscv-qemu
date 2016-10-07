@@ -132,21 +132,17 @@ Please see [riscv-qemu-tests].
 Using QEMU to Debug RISC-V Code:
 --------------------------------
 
-**NOTE:** Support for QEMU + GDB is still under development for the v1.9 spec. See `target-riscv/TODO`.
-
-QEMU works with riscv-gdb to enable remote debugging. This currently requires
-building `gdb` from a special version of `riscv-gnu-toolchain`, available
-[here](https://github.com/riscv/riscv-gnu-toolchain/tree/binutils-submodule).
+QEMU works with RISC-V GDB to enable remote debugging.
 
 To use this, start QEMU with the additional flags `-S -s`:
 
-    $ ./riscv-softmmu/qemu-system-riscv -S -s -kernel bbl -append vmlinux -drive file=rootfs.ext2,format=raw -nographic
+    $ ./riscv64-softmmu/qemu-system-riscv64 -S -s -kernel PROGRAM -nographic
 
 This will start QEMU, but immediately pause and wait for a gdb connection.
 
 Separately, start `riscv64-unknown-elf-gdb`:
 
-    $ riscv64-unknown-elf-gdb [optional binary, e.g. vmlinux]
+    $ riscv64-unknown-elf-gdb [optional binary]
 
 At the prompt, connect to QEMU:
 
