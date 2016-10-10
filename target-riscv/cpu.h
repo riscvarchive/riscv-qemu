@@ -278,7 +278,8 @@ static inline int cpu_riscv_hw_interrupts_pending(CPURISCVState *env)
 void riscv_tcg_init(void);
 RISCVCPU *cpu_riscv_init(const char *cpu_model);
 int cpu_riscv_signal_handler(int host_signum, void *pinfo, void *puc);
-
+void QEMU_NORETURN do_raise_exception_err(CPURISCVState *env,
+                                          uint32_t exception, uintptr_t pc);
 #define cpu_init(cpu_model) CPU(cpu_riscv_init(cpu_model))
 
 /* hw/riscv/riscv_rtc.c  - supplies instret by approximating */

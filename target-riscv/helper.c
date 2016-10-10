@@ -29,14 +29,9 @@
 
 /*#define RISCV_DEBUG_INTERRUPT */
 
-#ifdef CONFIG_USER_ONLY
 bool riscv_cpu_exec_interrupt(CPUState *cs, int interrupt_request)
 {
-    return false;
-}
-#else
-bool riscv_cpu_exec_interrupt(CPUState *cs, int interrupt_request)
-{
+#if !defined(CONFIG_USER_ONLY)
     if (interrupt_request & CPU_INTERRUPT_HARD) {
         RISCVCPU *cpu = RISCV_CPU(cs);
         CPURISCVState *env = &cpu->env;
@@ -47,9 +42,9 @@ bool riscv_cpu_exec_interrupt(CPUState *cs, int interrupt_request)
             return true;
         }
     }
+#endif
     return false;
 }
-#endif
 
 #if !defined(CONFIG_USER_ONLY)
 
@@ -204,9 +199,7 @@ static int get_physical_address(CPURISCVState *env, hwaddr *physical,
     }
     return TRANSLATE_FAIL;
 }
-#endif
 
-#if !defined(CONFIG_USER_ONLY)
 static void raise_mmu_exception(CPURISCVState *env, target_ulong address,
                                 MMUAccessType access_type)
 {
@@ -227,9 +220,7 @@ static void raise_mmu_exception(CPURISCVState *env, target_ulong address,
     }
     cs->exception_index = exception;
 }
-#endif
 
-#if !defined(CONFIG_USER_ONLY)
 hwaddr riscv_cpu_get_phys_page_debug(CPUState *cs, vaddr addr)
 {
     RISCVCPU *cpu = RISCV_CPU(cs);
@@ -242,6 +233,52 @@ hwaddr riscv_cpu_get_phys_page_debug(CPUState *cs, vaddr addr)
     }
     return phys_addr;
 }
+
+void riscv_cpu_do_unaligned_access(CPUState *cs, vaddr addr,
+                                   MMUAccessType access_type, int mmu_idx,
+                                   uintptr_t retaddr)
+{
+    RISCVCPU *cpu = RISCV_CPU(cs);
+    CPURISCVState *env = &cpu->env;
+    if (access_type == MMU_INST_FETCH) {
+        fprintf(stderr, "unaligned inst fetch not handled here. should not "
+                "trigger\n");
+        exit(1);
+    } else if (access_type == MMU_DATA_STORE) {
+        cs->exception_index = RISCV_EXCP_STORE_AMO_ADDR_MIS;
+        env->badaddr = addr;
+    } else if (access_type == MMU_DATA_LOAD) {
+        cs->exception_index = RISCV_EXCP_LOAD_ADDR_MIS;
+        env->badaddr = addr;
+    } else {
+        fprintf(stderr, "Invalid MMUAccessType\n");
+        exit(1);
+    }
+    do_raise_exception_err(env, cs->exception_index, retaddr);
+}
+
+/* called by qemu's softmmu to fill the qemu tlb */
+void tlb_fill(CPUState *cs, target_ulong addr, MMUAccessType access_type,
+        int mmu_idx, uintptr_t retaddr)
+{
+    int ret;
+    ret = riscv_cpu_handle_mmu_fault(cs, addr, access_type, mmu_idx);
+    if (ret == TRANSLATE_FAIL) {
+        RISCVCPU *cpu = RISCV_CPU(cs);
+        CPURISCVState *env = &cpu->env;
+        do_raise_exception_err(env, cs->exception_index, retaddr);
+    }
+}
+
+void riscv_cpu_unassigned_access(CPUState *cs, hwaddr addr, bool is_write,
+        bool is_exec, int unused, unsigned size)
+{
+    printf("unassigned address not implemented for riscv\n");
+    printf("are you trying to fetch instructions from an MMIO page?\n");
+    printf("unassigned Address: %016lX\n", addr);
+    exit(1);
+}
+
 #endif
 
 int riscv_cpu_handle_mmu_fault(CPUState *cs, vaddr address,
@@ -250,8 +287,7 @@ int riscv_cpu_handle_mmu_fault(CPUState *cs, vaddr address,
     RISCVCPU *cpu = RISCV_CPU(cs);
     CPURISCVState *env = &cpu->env;
 #if !defined(CONFIG_USER_ONLY)
-    hwaddr physical;
-    physical = 0; /* stop gcc complaining */
+    hwaddr physical = 0;
     int prot;
 #endif
     int ret = TRANSLATE_FAIL;

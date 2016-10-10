@@ -37,7 +37,7 @@ static int validate_vm(target_ulong vm)
 #endif
 
 /* Exceptions processing helpers */
-static inline void QEMU_NORETURN do_raise_exception_err(CPURISCVState *env,
+inline void QEMU_NORETURN do_raise_exception_err(CPURISCVState *env,
                                           uint32_t exception, uintptr_t pc)
 {
     CPUState *cs = CPU(riscv_env_get_cpu(env));
@@ -493,51 +493,6 @@ void helper_tlb_flush(CPURISCVState *env)
 {
     RISCVCPU *cpu = riscv_env_get_cpu(env);
     tlb_flush(CPU(cpu), 1);
-}
-
-void riscv_cpu_do_unaligned_access(CPUState *cs, vaddr addr,
-                                   MMUAccessType access_type, int mmu_idx,
-                                   uintptr_t retaddr)
-{
-    RISCVCPU *cpu = RISCV_CPU(cs);
-    CPURISCVState *env = &cpu->env;
-    if (access_type == MMU_INST_FETCH) {
-        fprintf(stderr, "unaligned inst fetch not handled here. should not "
-                "trigger\n");
-        exit(1);
-    } else if (access_type == MMU_DATA_STORE) {
-        cs->exception_index = RISCV_EXCP_STORE_AMO_ADDR_MIS;
-        env->badaddr = addr;
-    } else if (access_type == MMU_DATA_LOAD) {
-        cs->exception_index = RISCV_EXCP_LOAD_ADDR_MIS;
-        env->badaddr = addr;
-    } else {
-        fprintf(stderr, "Invalid MMUAccessType\n");
-        exit(1);
-    }
-    do_raise_exception_err(env, cs->exception_index, retaddr);
-}
-
-/* called by qemu's softmmu to fill the qemu tlb */
-void tlb_fill(CPUState *cs, target_ulong addr, MMUAccessType access_type,
-        int mmu_idx, uintptr_t retaddr)
-{
-    int ret;
-    ret = riscv_cpu_handle_mmu_fault(cs, addr, access_type, mmu_idx);
-    if (ret == TRANSLATE_FAIL) {
-        RISCVCPU *cpu = RISCV_CPU(cs);
-        CPURISCVState *env = &cpu->env;
-        do_raise_exception_err(env, cs->exception_index, retaddr);
-    }
-}
-
-void riscv_cpu_unassigned_access(CPUState *cs, hwaddr addr, bool is_write,
-        bool is_exec, int unused, unsigned size)
-{
-    printf("unassigned address not implemented for riscv\n");
-    printf("are you trying to fetch instructions from an MMIO page?\n");
-    printf("unassigned Address: %016lX\n", addr);
-    exit(1);
 }
 
 #endif /* !CONFIG_USER_ONLY */
