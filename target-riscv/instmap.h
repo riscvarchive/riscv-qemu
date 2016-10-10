@@ -307,8 +307,6 @@ enum {
     OPC_RISC_FMV_D_X   = OPC_RISC_FP_ARITH | (0x79 << 25),
 };
 
-/* THIS BUILDS 13 bit imm (implicit zero is tacked on here), also note that bit
-   #12 is obtained in a special way to get sign extension */
 #define GET_B_IMM(inst) (extract32(inst, 8, 4) << 1)    \
                         | (extract32(inst, 25, 6) << 5) \
                         | (extract32(inst, 7, 1) << 11) \

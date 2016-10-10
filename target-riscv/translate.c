@@ -585,24 +585,14 @@ static void gen_branch(DisasContext *ctx, uint32_t opc, int rs1, int rs2,
         break;
     }
 
-#ifdef DISABLE_CHAINING_BRANCH
-    tcg_gen_movi_tl(cpu_pc, ctx->pc + 4);
-    tcg_gen_exit_tb(0);
-#else
-    gen_goto_tb(ctx, 1, ctx->pc + 4); /* must use this for safety */
-#endif
+    gen_goto_tb(ctx, 1, ctx->pc + 4);
     gen_set_label(l); /* branch taken */
     if ((ctx->pc + ubimm) & 0x3) {
         /* misaligned */
         generate_exception_mbadaddr(ctx, RISCV_EXCP_INST_ADDR_MIS);
         tcg_gen_exit_tb(0);
     } else {
-#ifdef DISABLE_CHAINING_BRANCH
-        tcg_gen_movi_tl(cpu_pc, ctx->pc + ubimm);
-        tcg_gen_exit_tb(0);
-#else
-        gen_goto_tb(ctx, 0, ctx->pc + ubimm); /* must use this for safety */
-#endif
+        gen_goto_tb(ctx, 0, ctx->pc + ubimm);
     }
     tcg_temp_free(source1);
     tcg_temp_free(source2);
