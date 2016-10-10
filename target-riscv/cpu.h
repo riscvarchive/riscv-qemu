@@ -228,14 +228,6 @@ static inline int cpu_mmu_index(CPURISCVState *env, bool ifetch)
 
 #ifndef CONFIG_USER_ONLY
 /*
- * ctz in Spike returns 0 if val == 0, wrap helper
- */
-static int ctz(target_ulong val)
-{
-    return val ? ctz64(val) : 0;
-}
-
-/*
  * Return RISC-V IRQ number if an interrupt should be taken, else -1.
  * Used in cpu-exec.c
  *
@@ -256,7 +248,7 @@ static inline int cpu_riscv_hw_interrupts_pending(CPURISCVState *env)
                           -s_enabled;
 
     if (enabled_interrupts) {
-        target_ulong counted = ctz(enabled_interrupts);
+        target_ulong counted = ctz64(enabled_interrupts); /* since non-zero */
         if (counted == IRQ_HOST) {
             /* we're handing it to the cpu now, so get rid of the qemu irq */
             qemu_irq_lower(HTIF_IRQ);
