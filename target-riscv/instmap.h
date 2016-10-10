@@ -310,10 +310,10 @@ enum {
 #define GET_B_IMM(inst) (extract32(inst, 8, 4) << 1)    \
                         | (extract32(inst, 25, 6) << 5) \
                         | (extract32(inst, 7, 1) << 11) \
-                        | (sextract32(inst, 31, 1) << 12)
+                        | (sextract64(inst, 31, 1) << 12)
 
 #define GET_STORE_IMM(inst) (extract32(inst, 7, 5))        \
-                            | (sextract32(inst, 25, 7) << 5)
+                            | (sextract64(inst, 25, 7) << 5)
 
 #define GET_JAL_IMM(inst) (extract32(inst, 21, 10) << 1)   \
                           | (extract32(inst, 20, 1) << 11) \
@@ -325,4 +325,4 @@ enum {
 #define GET_RS1(inst)  extract32(inst, 15, 5)
 #define GET_RS2(inst)  extract32(inst, 20, 5)
 #define GET_RD(inst)   extract32(inst, 7, 5)
-#define GET_IMM(inst)  sextract32(inst, 20, 12)
+#define GET_IMM(inst)  sextract64(inst, 20, 12)
