@@ -1,14 +1,11 @@
 /*
- * QEMU RISC-V Generic Board Support
+ * QEMU RISC-V SiFive U500 SDK Compatible Board
  *
  * Author: Sagar Karandikar, sagark@eecs.berkeley.edu
  *
  * This provides a RISC-V Board with the following devices:
  *
- * 0) HTIF Test Pass/Fail Reporting (no syscall proxy)
- * 1) HTIF Console
- *
- * These are created by htif_mm_init below.
+ * 0) UART comptible with that expected by the SiFive U500 SDK
  *
  * This board currently uses a hardcoded devicetree that indicates one hart.
  *
@@ -52,7 +49,7 @@
 #include "qemu/error-report.h"
 #include "sysemu/block-backend.h"
 
-#define TYPE_RISCV_SIFIVE_BOARD "riscv"
+#define TYPE_RISCV_SIFIVE_BOARD "sifive_board"
 #define RISCV_SIFIVE_BOARD(obj) OBJECT_CHECK(BoardState, (obj), TYPE_RISCV_SIFIVE_BOARD)
 
 typedef struct {
@@ -265,7 +262,7 @@ static const TypeInfo riscv_sifive_board_device = {
 
 static void riscv_sifive_board_machine_init(MachineClass *mc)
 {
-    mc->desc = "RISC-V SiFive Dev Kit Board (Incomplete)";
+    mc->desc = "RISC-V Board compatible with SiFive U500 SDK (incomplete)";
     mc->init = riscv_sifive_board_init;
     mc->max_cpus = 1;
 }
