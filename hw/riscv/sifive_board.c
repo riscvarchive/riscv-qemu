@@ -52,8 +52,8 @@
 #include "qemu/error-report.h"
 #include "sysemu/block-backend.h"
 
-#define TYPE_RISCV_SPIKE_BOARD "spike"
-#define RISCV_SPIKE_BOARD(obj) OBJECT_CHECK(BoardState, (obj), TYPE_RISCV_SPIKE_BOARD)
+#define TYPE_RISCV_SIFIVE_BOARD "riscv"
+#define RISCV_SIFIVE_BOARD(obj) OBJECT_CHECK(BoardState, (obj), TYPE_RISCV_SIFIVE_BOARD)
 
 typedef struct {
     SysBusDevice parent_obj;
@@ -93,7 +93,7 @@ static void main_cpu_reset(void *opaque)
     cpu_reset(CPU(cpu));
 }
 
-static void riscv_spike_board_init(MachineState *args)
+static void riscv_sifive_board_init(MachineState *args)
 {
     ram_addr_t ram_size = args->ram_size;
     const char *cpu_model = args->cpu_model;
@@ -105,7 +105,7 @@ static void riscv_spike_board_init(MachineState *args)
     RISCVCPU *cpu;
     CPURISCVState *env;
     int i;
-    DeviceState *dev = qdev_create(NULL, TYPE_RISCV_SPIKE_BOARD);
+    DeviceState *dev = qdev_create(NULL, TYPE_RISCV_SIFIVE_BOARD);
     object_property_set_bool(OBJECT(dev), true, "realized", NULL);
 
     /* Make sure the first 3 serial ports are associated with a device. */
@@ -139,7 +139,7 @@ static void riscv_spike_board_init(MachineState *args)
     env = &cpu->env;
 
     /* register system main memory (actual RAM) */
-    memory_region_init_ram(main_mem, NULL, "riscv_spike_board.ram", 2147483648L +
+    memory_region_init_ram(main_mem, NULL, "riscv_sifive_board.ram", 2147483648L +
                            ram_size, &error_fatal);
     /* for phys mem size check in page table walk */
     env->memsize = ram_size;
@@ -228,37 +228,36 @@ static void riscv_spike_board_init(MachineState *args)
     /* TODO: VIRTIO */
 }
 
-static int riscv_spike_board_sysbus_device_init(SysBusDevice *sysbusdev)
+static int riscv_sifive_board_sysbus_device_init(SysBusDevice *sysbusdev)
 {
     return 0;
 }
 
-static void riscv_spike_board_class_init(ObjectClass *klass, void *data)
+static void riscv_sifive_board_class_init(ObjectClass *klass, void *data)
 {
     SysBusDeviceClass *k = SYS_BUS_DEVICE_CLASS(klass);
-    k->init = riscv_spike_board_sysbus_device_init;
+    k->init = riscv_sifive_board_sysbus_device_init;
 }
 
-static const TypeInfo riscv_spike_board_device = {
-    .name          = TYPE_RISCV_SPIKE_BOARD,
+static const TypeInfo riscv_sifive_board_device = {
+    .name          = TYPE_RISCV_SIFIVE_BOARD,
     .parent        = TYPE_SYS_BUS_DEVICE,
     .instance_size = sizeof(BoardState),
-    .class_init    = riscv_spike_board_class_init,
+    .class_init    = riscv_sifive_board_class_init,
 };
 
-static void riscv_spike_board_machine_init(MachineClass *mc)
+static void riscv_sifive_board_machine_init(MachineClass *mc)
 {
-    mc->desc = "RISC-V Generic Board (matching 'Spike')";
-    mc->init = riscv_spike_board_init;
+    mc->desc = "RISC-V SiFive Dev Kit Board (Incomplete)";
+    mc->init = riscv_sifive_board_init;
     mc->max_cpus = 1;
-    mc->is_default = 1;
 }
 
-DEFINE_MACHINE("spike", riscv_spike_board_machine_init)
+DEFINE_MACHINE("sifive", riscv_sifive_board_machine_init)
 
-static void riscv_spike_board_register_types(void)
+static void riscv_sifive_board_register_types(void)
 {
-    type_register_static(&riscv_spike_board_device);
+    type_register_static(&riscv_sifive_board_device);
 }
 
-type_init(riscv_spike_board_register_types);
+type_init(riscv_sifive_board_register_types);
