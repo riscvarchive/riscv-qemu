@@ -34,7 +34,6 @@
 #include "qemu/osdep.h"
 #include "hw/hw.h"
 #include "hw/char/serial.h"
-#include "hw/riscv/htif/htif.h"
 #include "hw/riscv/riscv_rtc.h"
 #include "hw/boards.h"
 #include "hw/riscv/cpudevs.h"
@@ -237,12 +236,6 @@ static void riscv_sifive_board_init(MachineState *args)
         stb_p(memory_region_get_ram_ptr(main_mem) + reset_vec[3] + q,
               config_string[q]);
     }
-
-    /* add memory mapped htif registers at location specified in the symbol
-       table of the elf being loaded (thus kernel_filename is passed to the
-       init rather than an address) */
-    htif_mm_init(system_memory, kernel_filename, env->irq[4], main_mem,
-            env, serial_hds[0]);
 
     sifive_uart_create(0x40002000, serial_hds[0]);
 
