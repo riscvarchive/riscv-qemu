@@ -5,9 +5,6 @@
 
 /* Definitions for RISCV CPU internal devices.  */
 
-/* riscv_board.c */
-uint64_t identity_translate(void *opaque, uint64_t addr);
-
 /* riscv_int.c */
 void cpu_riscv_irq_init_cpu(CPURISCVState *env);
 

@@ -1,14 +1,11 @@
 /*
- * QEMU RISC-V Generic Board Support
+ * QEMU RISC-V SiFive U500 SDK Compatible Board
  *
  * Author: Sagar Karandikar, sagark@eecs.berkeley.edu
  *
  * This provides a RISC-V Board with the following devices:
  *
- * 0) HTIF Test Pass/Fail Reporting (no syscall proxy)
- * 1) HTIF Console
- *
- * These are created by htif_mm_init below.
+ * 0) UART comptible with that expected by the SiFive U500 SDK
  *
  * This board currently uses a hardcoded devicetree that indicates one hart.
  *
@@ -34,7 +31,6 @@
 #include "qemu/osdep.h"
 #include "hw/hw.h"
 #include "hw/char/serial.h"
-#include "hw/riscv/htif/htif.h"
 #include "hw/riscv/riscv_rtc.h"
 #include "hw/boards.h"
 #include "hw/riscv/cpudevs.h"
@@ -45,6 +41,7 @@
 #include "elf.h"
 #include "exec/address-spaces.h"
 #include "hw/sysbus.h"             /* SysBusDevice */
+#include "hw/riscv/sifive_uart.h"
 #include "qemu/host-utils.h"
 #include "sysemu/qtest.h"
 #include "qemu/error-report.h"
@@ -52,8 +49,8 @@
 #include "qemu/error-report.h"
 #include "sysemu/block-backend.h"
 
-#define TYPE_RISCV_SPIKE_BOARD "spike"
-#define RISCV_SPIKE_BOARD(obj) OBJECT_CHECK(BoardState, (obj), TYPE_RISCV_SPIKE_BOARD)
+#define TYPE_RISCV_SIFIVE_BOARD "sifive_board"
+#define RISCV_SIFIVE_BOARD(obj) OBJECT_CHECK(BoardState, (obj), TYPE_RISCV_SIFIVE_BOARD)
 
 typedef struct {
     SysBusDevice parent_obj;
@@ -93,7 +90,7 @@ static void main_cpu_reset(void *opaque)
     cpu_reset(CPU(cpu));
 }
 
-static void riscv_spike_board_init(MachineState *args)
+static void riscv_sifive_board_init(MachineState *args)
 {
     ram_addr_t ram_size = args->ram_size;
     const char *cpu_model = args->cpu_model;
@@ -105,7 +102,7 @@ static void riscv_spike_board_init(MachineState *args)
     RISCVCPU *cpu;
     CPURISCVState *env;
     int i;
-    DeviceState *dev = qdev_create(NULL, TYPE_RISCV_SPIKE_BOARD);
+    DeviceState *dev = qdev_create(NULL, TYPE_RISCV_SIFIVE_BOARD);
     object_property_set_bool(OBJECT(dev), true, "realized", NULL);
 
     /* Make sure the first 3 serial ports are associated with a device. */
@@ -139,7 +136,7 @@ static void riscv_spike_board_init(MachineState *args)
     env = &cpu->env;
 
     /* register system main memory (actual RAM) */
-    memory_region_init_ram(main_mem, NULL, "riscv_spike_board.ram", 2147483648L +
+    memory_region_init_ram(main_mem, NULL, "riscv_sifive_board.ram", 2147483648L +
                            ram_size, &error_fatal);
     /* for phys mem size check in page table walk */
     env->memsize = ram_size;
@@ -168,8 +165,29 @@ static void riscv_spike_board_init(MachineState *args)
         "  vendor ucb;\n"
         "  arch spike;\n"
         "};\n"
+        "plic { \n"
+        "  interface \"plic\"; \n"
+        "  ndevs 2; \n"
+        "  priority { mem { 0x60000000 0x60000fff; }; }; \n"
+        "  pending  { mem { 0x60001000 0x6000107f; }; }; \n"
+        "  0 { \n"
+        "    0 { \n"
+        "      m { \n"
+        "        ie  { mem { 0x60002000 0x6000207f; }; }; \n"
+        "        ctl { mem { 0x60200000 0x60200007; }; }; \n"
+        "      }; \n"
+        "      s { \n"
+        "        ie  { mem { 0x60002080 0x600020ff; }; }; \n"
+        "        ctl { mem { 0x60201000 0x60201007; }; }; \n"
+        "      }; \n"
+        "    }; \n"
+        "  }; \n"
+        "}; \n"
         "rtc {\n"
         "  addr 0x" "40000000" ";\n"
+        "};\n"
+        "uart {\n"
+        "  addr 0x40002000;\n"
         "};\n"
         "ram {\n"
         "  0 {\n"
@@ -216,11 +234,7 @@ static void riscv_spike_board_init(MachineState *args)
               config_string[q]);
     }
 
-    /* add memory mapped htif registers at location specified in the symbol
-       table of the elf being loaded (thus kernel_filename is passed to the
-       init rather than an address) */
-    htif_mm_init(system_memory, kernel_filename, env->irq[4], main_mem,
-            env, serial_hds[0]);
+    sifive_uart_create(0x40002000, serial_hds[0]);
 
     /* timer device at 0x40000000, as specified in the config string above */
     timer_mm_init(system_memory, 0x40000000, env);
@@ -228,37 +242,36 @@ static void riscv_spike_board_init(MachineState *args)
     /* TODO: VIRTIO */
 }
 
-static int riscv_spike_board_sysbus_device_init(SysBusDevice *sysbusdev)
+static int riscv_sifive_board_sysbus_device_init(SysBusDevice *sysbusdev)
 {
     return 0;
 }
 
-static void riscv_spike_board_class_init(ObjectClass *klass, void *data)
+static void riscv_sifive_board_class_init(ObjectClass *klass, void *data)
 {
     SysBusDeviceClass *k = SYS_BUS_DEVICE_CLASS(klass);
-    k->init = riscv_spike_board_sysbus_device_init;
+    k->init = riscv_sifive_board_sysbus_device_init;
 }
 
-static const TypeInfo riscv_spike_board_device = {
-    .name          = TYPE_RISCV_SPIKE_BOARD,
+static const TypeInfo riscv_sifive_board_device = {
+    .name          = TYPE_RISCV_SIFIVE_BOARD,
     .parent        = TYPE_SYS_BUS_DEVICE,
     .instance_size = sizeof(BoardState),
-    .class_init    = riscv_spike_board_class_init,
+    .class_init    = riscv_sifive_board_class_init,
 };
 
-static void riscv_spike_board_machine_init(MachineClass *mc)
+static void riscv_sifive_board_machine_init(MachineClass *mc)
 {
-    mc->desc = "RISC-V Generic Board (matching 'Spike')";
-    mc->init = riscv_spike_board_init;
+    mc->desc = "RISC-V Board compatible with SiFive U500 SDK (incomplete)";
+    mc->init = riscv_sifive_board_init;
     mc->max_cpus = 1;
-    mc->is_default = 1;
 }
 
-DEFINE_MACHINE("spike", riscv_spike_board_machine_init)
+DEFINE_MACHINE("sifive", riscv_sifive_board_machine_init)
 
-static void riscv_spike_board_register_types(void)
+static void riscv_sifive_board_register_types(void)
 {
-    type_register_static(&riscv_spike_board_device);
+    type_register_static(&riscv_sifive_board_device);
 }
 
-type_init(riscv_spike_board_register_types);
+type_init(riscv_sifive_board_register_types);

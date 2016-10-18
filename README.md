@@ -43,7 +43,7 @@ Prerequisites:
 Jump to Method 1 if you want full-system simulation, or Method 2a/b for linux-user 
 mode.
 
-### Method 1 \(Full-System Simulation\):
+### Method 1a \(Full-System Simulation using the Spike board\):
 
 ####Step 1: Build QEMU
 
@@ -85,9 +85,79 @@ and then hit `ctrl-a x`. Otherwise, the root filesystem will likely be corrupted
 Support for other HTIF-based devices has been removed from [riscv-linux]; as a
 result, QEMU no longer supports them either.
 
+### Method 1b \(Full-System Simulation compatible with the SiFive U500 SDK \):
+
+(this is very incomplete, and is based mostly on software reverse engineering)
+
+#### Step 1: Build QEMU
+
+(The same QEMU build supports both boards.)
+
+    $ git clone https://github.com/riscv/riscv-qemu
+    $ cd riscv-qemu
+    $ git submodule update --init pixman
+    $ ./configure --target-list=riscv64-softmmu,riscv32-softmmu [--prefix=INSTALL_LOCATION]
+    $ make
+    $ [make install] # if you supplied prefix above
+
+#### Step 2: Compile the boot image
+
+The following packages are used above and beyond what is in a minimal Fedora 24 image:
+
+```
+dnf install @buildsys-build git wget texinfo bison flex bc python perl-Thread-Queue vim-common
+```
+
+Download the SDK (this is tested for rev f3a86d9664d821408318602d7f99e6aaf1e2cb4b):
+
+```
+git clone --recursive https://github.com/sifive/freedom-u-sdk
+```
+
+Patch to allow the image to boot on emulated hardware that supports floating point, apply this in the `riscv-pk` directory:
+
+```
+diff --git a/Makefile.in b/Makefile.in
+index f885b30..8babada 100644
+--- a/Makefile.in
++++ b/Makefile.in
+@@ -84,7 +84,7 @@ VPATH := $(addprefix $(src_dir)/, $(sprojs_enabled))
+ #  - CXXFLAGS : flags for C++ compiler (eg. -Wall,-g,-O3)
+
+ CC            := @CC@
+-CFLAGS        := @CFLAGS@ $(CFLAGS) -DBBL_PAYLOAD=\"$(bbl_payload)\" -msoft-float
++CFLAGS        := @CFLAGS@ $(CFLAGS) -DBBL_PAYLOAD=\"$(bbl_payload)\"
+ COMPILE       := $(CC) -MMD -MP $(CFLAGS) \
+                  $(sprojs_include)
+ # Linker
+```
+
+Build:
+
+```
+make -j4
+```
+
+(This step took roughly 20 minutes and created 9.3G of files.)
+
+#### Step 3: Run QEMU
+
+To boot Linux (assuming you are in the `riscv-qemu` directory):
+
+    $ ./riscv64-softmmu/qemu-system-riscv64 -kernel freedom-u-sdk/work/riscv-pk/bbl -nographic -machine sifive
+
+Notes about arguments:
+* `-kernel bblvmlinuxinitramfs_dynamic`: This is the path to the binary to run. In this case, it contains the bbl bootloader, vmlinux, and an initramfs containing busybox.
+
+Useful optional arguments:
+* `-m 2048M`: Set size of memory, in this example, 2048 MB
+
+<!--**IMPORTANT**: To cleanly exit this system, you must enter `halt` at the prompt
+and then hit `ctrl-a x`. Otherwise, the root filesystem will likely be corrupted.-->
+
 ### Method 2a \(Fedora 24 Userland with User Mode Simulation, Recommended\):
 
-To avoid having to build the RISC-V toolchain and programs yourself, use Stefan O'Rear's [RISC-V Fedora Docker Image](https://hub.docker.com/r/sorear/fedora-riscv-wip/) to obtain a Fedora 24 Userland for RISC-V, packaged with riscv-qemu.
+To avoid having to build the RISC-V toolchain and programs yourself, use Stefan O'Rear's [RISC-V Fedora Docker Image](https://hub.docker.com/r/sorear/fedora-riscv-wip/) to obtain a Fedora 25 Userland for RISC-V, packaged with riscv-qemu.
 
 ### Method 2b \(Manual User Mode Simulation\):
 
