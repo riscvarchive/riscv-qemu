@@ -254,7 +254,7 @@ int do_sigprocmask(int how, const sigset_t *set, sigset_t *oldset)
 }
 
 #if !defined(TARGET_OPENRISC) && !defined(TARGET_UNICORE32) && \
-    !defined(TARGET_X86_64) && !defined(TARGET_RISCV)
+    !defined(TARGET_X86_64)
 /* Just set the guest's signal mask to the specified value; the
  * caller is assumed to have called block_signals() already.
  */
@@ -5940,7 +5940,7 @@ static abi_ulong get_sigframe(struct target_sigaction *ka,
 
     /* If we are on the alternate signal stack and would overflow it, don't.
        Return an always-bogus address instead so we will die with SIGSEGV. */
-    if (onsigstack && unlikely(on_sig_stack(sp))) {
+    if (onsigstack && !likely(on_sig_stack(sp))) {
         return -1L;
     }
 
@@ -6035,7 +6035,7 @@ static void restore_sigcontext(CPURISCVState *env, struct target_sigcontext *sc)
 
     uint32_t fcsr;
     __get_user(fcsr, &sc->fcsr);
-    csr_write_helper(env, CSR_FCSR, fcsr);
+    csr_write_helper(env, fcsr, CSR_FCSR);
 }
 
 static void restore_ucontext(CPURISCVState* env, struct target_ucontext* uc)
@@ -6044,10 +6044,12 @@ static void restore_ucontext(CPURISCVState* env, struct target_ucontext* uc)
     target_sigset_t target_set;
     int i;
 
+    target_sigemptyset(&target_set);
     for(i = 0; i < TARGET_NSIG_WORDS; i++)
         __get_user(target_set.sig[i], &(uc->uc_sigmask.sig[i]));
 
     target_to_host_sigset_internal(&blocked, &target_set);
+    set_sigmask(&blocked);
 
     restore_sigcontext(env, &uc->uc_mcontext);
 }
@@ -6064,9 +6066,16 @@ long do_rt_sigreturn(CPURISCVState *env)
 
     restore_ucontext(env, &frame->uc);
 
+    if (do_sigaltstack(frame_addr + offsetof(struct target_rt_sigframe, uc.uc_stack), 0,
+                       get_sp_from_cpustate(env)) == -EFAULT) {
+        goto badframe;
+    }
+
+    unlock_user_struct(frame, frame_addr, 0);
     return -TARGET_QEMU_ESIGRETURN;
 
 badframe:
+    unlock_user_struct(frame, frame_addr, 0);
     force_sig(TARGET_SIGSEGV);
     return 0;
 }
