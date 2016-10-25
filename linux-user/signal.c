@@ -254,7 +254,7 @@ int do_sigprocmask(int how, const sigset_t *set, sigset_t *oldset)
 }
 
 #if !defined(TARGET_OPENRISC) && !defined(TARGET_UNICORE32) && \
-    !defined(TARGET_X86_64) && !defined(TARGET_RISCV)
+    !defined(TARGET_X86_64)
 /* Just set the guest's signal mask to the specified value; the
  * caller is assumed to have called block_signals() already.
  */
@@ -6044,10 +6044,12 @@ static void restore_ucontext(CPURISCVState* env, struct target_ucontext* uc)
     target_sigset_t target_set;
     int i;
 
+    target_sigemptyset(&target_set);
     for(i = 0; i < TARGET_NSIG_WORDS; i++)
         __get_user(target_set.sig[i], &(uc->uc_sigmask.sig[i]));
 
     target_to_host_sigset_internal(&blocked, &target_set);
+    set_sigmask(&blocked);
 
     restore_sigcontext(env, &uc->uc_mcontext);
 }
