@@ -6035,7 +6035,7 @@ static void restore_sigcontext(CPURISCVState *env, struct target_sigcontext *sc)
 
     uint32_t fcsr;
     __get_user(fcsr, &sc->fcsr);
-    csr_write_helper(env, CSR_FCSR, fcsr);
+    csr_write_helper(env, fcsr, CSR_FCSR);
 }
 
 static void restore_ucontext(CPURISCVState* env, struct target_ucontext* uc)
