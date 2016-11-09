@@ -43,8 +43,8 @@
 
 static int rv_do_lr(ENV, int rd, int rs1, int rs2, int width)
 {
-    uint64_t val64;
-    uint32_t val32;
+    int64_t val64;
+    int32_t val32;
     target_long val;
     int fault;
 
@@ -54,8 +54,8 @@ static int rv_do_lr(ENV, int rd, int rs1, int rs2, int width)
         return RISCV_AMO_BADINSN;
 
     switch(width) {
-        case /* 010 */ 2: fault = get_user_u32(val32, addr); val = val32; break;
-        case /* 011 */ 3: fault = get_user_u64(val64, addr); val = val64; break;
+        case /* 010 */ 2: fault = get_user_s32(val32, addr); val = val32; break;
+        case /* 011 */ 3: fault = get_user_s64(val64, addr); val = val64; break;
         default: return RISCV_AMO_BADINSN;
     }
 
@@ -75,8 +75,8 @@ static int rv_do_lr(ENV, int rd, int rs1, int rs2, int width)
 
 static int rv_do_sc(ENV, int rd, int rs1, int rs2, int width)
 {
-    uint64_t val64;
-    uint32_t val32;
+    int64_t val64;
+    int32_t val32;
     target_long val;
     int fault;
 
@@ -89,8 +89,8 @@ static int rv_do_sc(ENV, int rd, int rs1, int rs2, int width)
 
     /* Load and test */
     switch(width) {
-        case /* 010 */ 2: fault = get_user_u32(val32, addr); val = val32; break;
-        case /* 011 */ 3: fault = get_user_u64(val64, addr); val = val64; break;
+        case /* 010 */ 2: fault = get_user_s32(val32, addr); val = val32; break;
+        case /* 011 */ 3: fault = get_user_s64(val64, addr); val = val64; break;
         default: return RISCV_AMO_BADINSN;
     }
 
@@ -102,8 +102,8 @@ static int rv_do_sc(ENV, int rd, int rs1, int rs2, int width)
     /* Store */
     val = env->gpr[rs2];
     switch(width) {
-        case /* 010 */ 2: val32 = val; fault = put_user_u32(val32, addr); break;
-        case /* 011 */ 3: val64 = val; fault = put_user_u64(val64, addr); break;
+        case /* 010 */ 2: val32 = val; fault = put_user_s32(val32, addr); break;
+        case /* 011 */ 3: val64 = val; fault = put_user_s64(val64, addr); break;
         default: return RISCV_AMO_BADINSN; /* should not happen */
     }
 
