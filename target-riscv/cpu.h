@@ -82,6 +82,7 @@ struct CPURISCVState {
     target_ulong priv;
 
     target_ulong misa;
+    target_ulong max_isa;
     target_ulong mstatus;
 
     target_ulong mip;
@@ -101,8 +102,8 @@ struct CPURISCVState {
     target_ulong mepc;
     target_ulong mcause;
 
-    target_ulong mucounteren;
-    target_ulong mscounteren;
+    uint32_t mucounteren;
+    uint32_t mscounteren;
 
     target_ulong sscratch;
     target_ulong mscratch;
@@ -195,7 +196,6 @@ void riscv_cpu_list(FILE *f, fprintf_function cpu_fprintf);
 #define cpu_signal_handler cpu_riscv_signal_handler
 #define cpu_list riscv_cpu_list
 
-int validate_priv(target_ulong priv);
 void set_privilege(CPURISCVState *env, target_ulong newpriv);
 unsigned int softfloat_flags_to_riscv(unsigned int flag);
 uint_fast16_t float32_classify(uint32_t a, float_status *status);

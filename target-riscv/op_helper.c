@@ -24,11 +24,6 @@
 #include "qemu/host-utils.h"
 #include "exec/helper-proto.h"
 
-int validate_priv(target_ulong priv)
-{
-    return priv == PRV_U || priv == PRV_S || priv == PRV_M;
-}
-
 #ifndef CONFIG_USER_ONLY
 static int validate_vm(target_ulong vm)
 {
@@ -112,13 +107,10 @@ inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
         /* no extension support */
         target_ulong mask = MSTATUS_SIE | MSTATUS_SPIE | MSTATUS_MIE
             | MSTATUS_MPIE | MSTATUS_SPP | MSTATUS_FS | MSTATUS_MPRV
-            | MSTATUS_PUM | MSTATUS_MXR;
+            | MSTATUS_PUM | MSTATUS_MPP | MSTATUS_MXR;
 
         if (validate_vm(get_field(val_to_write, MSTATUS_VM))) {
             mask |= MSTATUS_VM;
-        }
-        if (validate_priv(get_field(val_to_write, MSTATUS_MPP))) {
-            mask |= MSTATUS_MPP;
         }
 
         mstatus = (mstatus & ~mask) | (val_to_write & mask);
@@ -177,11 +169,26 @@ inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
                                 | (val_to_write & mask);
         break;
     }
+    case CSR_MINSTRET:
+    case CSR_MCYCLE:
+#if defined(TARGET_RISCV32)
+        printf("minstret write todo\n");
+        exit(1);
+#else
+        printf("minstret write todo\n");
+        exit(1);
+#endif
+        break;
+    case CSR_MINSTRETH:
+    case CSR_MCYCLEH:
+        printf("minstret write todo\n");
+        exit(1);
+        break;
     case CSR_MUCOUNTEREN:
-        env->mucounteren = val_to_write & 7;
+        env->mucounteren = val_to_write;
         break;
     case CSR_MSCOUNTEREN:
-        env->mscounteren = val_to_write & 7;
+        env->mscounteren = val_to_write;
         break;
     case CSR_SSTATUS: {
         target_ulong ms = env->mstatus;
@@ -240,8 +247,39 @@ inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
     case CSR_MBADADDR:
         env->mbadaddr = val_to_write;
         break;
-    case CSR_TDRSELECT:
-        break; /* emulate a sink, do not raise ILLEGAL */
+    case CSR_MISA: {
+        if (!(val_to_write & (1L << ('F' - 'A')))) {
+            val_to_write &= ~(1L << ('D' - 'A'));
+        }
+
+        // allow MAFDC bits in MISA to be modified
+        target_ulong mask = 0;
+        mask |= 1L << ('M' - 'A');
+        mask |= 1L << ('A' - 'A');
+        mask |= 1L << ('F' - 'A');
+        mask |= 1L << ('D' - 'A');
+        mask |= 1L << ('C' - 'A');
+        mask &= env->max_isa;
+
+        env->misa = (val_to_write & mask) | (env->misa & ~mask);
+        break;
+    }
+    case CSR_TSELECT:
+        printf("CSR_TSELECT write not implemented.\n");
+        exit(1);
+        break;
+    case CSR_TDATA1:
+        printf("CSR_TDATA1 write not implemented.\n");
+        exit(1);
+        break;
+    case CSR_TDATA2:
+        printf("CSR_TDATA2 write not implemented.\n");
+        exit(1);
+        break;
+    case CSR_DCSR:
+        printf("CSR_DCSR write not implemented.\n");
+        exit(1);
+        break;
 #endif
     default:
         helper_raise_exception(env, RISCV_EXCP_ILLEGAL_INST);
@@ -255,12 +293,31 @@ inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
  */
 inline target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno)
 {
-    int csrno2 = (int)csrno;
     #ifdef RISCV_DEBUG_PRINT
-    fprintf(stderr, "READ CSR 0x%x\n", csrno2);
+    fprintf(stderr, "READ CSR 0x%x\n", csrno);
     #endif
+    target_ulong ctr_en = env->priv == PRV_U ? env->mucounteren :
+                   env->priv == PRV_S ? env->mscounteren : -1U;
+    target_ulong ctr_ok = (ctr_en >> (csrno & 31)) & 1;
 
-    switch (csrno2) {
+    if (ctr_ok) {
+        if (csrno >= CSR_HPMCOUNTER3 && csrno <= CSR_HPMCOUNTER31)
+          return 0;
+#if defined(TARGET_RISCV32)
+        if (csrno >= CSR_HPMCOUNTER3H && csrno <= CSR_HPMCOUNTER31H)
+          return 0;
+#endif
+    }
+    if (csrno >= CSR_MHPMCOUNTER3 && csrno <= CSR_MHPMCOUNTER31)
+      return 0;
+#if defined(TARGET_RISCV32)
+    if (csrno >= CSR_MHPMCOUNTER3 && csrno <= CSR_MHPMCOUNTER31)
+      return 0;
+#endif
+    if (csrno >= CSR_MHPMEVENT3 && csrno <= CSR_MHPMEVENT31)
+      return 0;
+
+    switch (csrno) {
     case CSR_FFLAGS:
         return env->fflags;
     case CSR_FRM:
@@ -271,42 +328,25 @@ inline target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno)
 #ifndef CONFIG_USER_ONLY
         /* TODO fix TIME, INSTRET, CYCLE in user mode */
         /* 32-bit TIMEH, CYCLEH, INSTRETH, other H stuff */
-    case CSR_TIME:
     case CSR_INSTRET:
     case CSR_CYCLE:
-        if ((env->mucounteren >> (csrno2 & (63))) & 1) {
-            return csr_read_helper(env, csrno2 + (CSR_MCYCLE - CSR_CYCLE));
+        if (ctr_ok) {
+            return cpu_riscv_read_instret(env);
         }
         break;
-    case CSR_STIME:
-    case CSR_SINSTRET:
-    case CSR_SCYCLE:
-        if ((env->mscounteren >> (csrno2 & (63))) & 1) {
-            return csr_read_helper(env, csrno2 + (CSR_MCYCLE - CSR_SCYCLE));
-        }
+    case CSR_MINSTRET:
+    case CSR_MCYCLE:
+        return cpu_riscv_read_instret(env);
+    case CSR_MINSTRETH:
+    case CSR_MCYCLEH:
+#if defined(TARGET_RISCV32)
+        return cpu_riscv_read_instret(env) >> 32;
+#endif
         break;
     case CSR_MUCOUNTEREN:
         return env->mucounteren;
     case CSR_MSCOUNTEREN:
         return env->mscounteren;
-    case CSR_MUCYCLE_DELTA:
-        return 0; /* as spike does */
-    case CSR_MUTIME_DELTA:
-        return 0; /* as spike does */
-    case CSR_MUINSTRET_DELTA:
-        return 0; /* as spike does */
-    case CSR_MSCYCLE_DELTA:
-        return 0; /* as spike does */
-    case CSR_MSTIME_DELTA:
-        return 0; /* as spike does */
-    case CSR_MSINSTRET_DELTA:
-        return 0; /* as spike does */
-    /* notice the lack of CSR_MTIME - this is handled by throwing an exception
-       and letting the handler read from the RTC */
-    case CSR_MCYCLE:
-        return cpu_riscv_read_instret(env);
-    case CSR_MINSTRET:
-        return cpu_riscv_read_instret(env);
     case CSR_SSTATUS: {
         target_ulong mask = SSTATUS_SIE | SSTATUS_SPIE | SSTATUS_SPP
                             | SSTATUS_FS | SSTATUS_XS | SSTATUS_PUM;
@@ -363,8 +403,25 @@ inline target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno)
         return env->medeleg;
     case CSR_MIDELEG:
         return env->mideleg;
-    case CSR_TDRSELECT:
-        return 0; /* as spike does */
+    case CSR_TSELECT:
+        printf("CSR_TSELECT read not implemented.\n");
+        exit(1);
+    case CSR_TDATA1:
+        printf("CSR_TDATA1 read not implemented.\n");
+        exit(1);
+        break;
+    case CSR_TDATA2:
+        printf("CSR_TDATA2 read not implemented.\n");
+        exit(1);
+        break;
+    case CSR_TDATA3:
+        printf("CSR_TDATA3 read not implemented.\n");
+        exit(1);
+        break;
+    case CSR_DCSR:
+        printf("CSR_DCSR read not implemented.\n");
+        exit(1);
+        break;
 #endif
     }
     /* used by e.g. MTIME read */
@@ -423,9 +480,12 @@ target_ulong helper_csrrc(CPURISCVState *env, target_ulong src,
 
 void set_privilege(CPURISCVState *env, target_ulong newpriv)
 {
-    if (!validate_priv(newpriv)) {
+    if (!(newpriv <= PRV_M)) {
         printf("INVALID PRIV SET\n");
         exit(1);
+    }
+    if (newpriv == PRV_H) {
+        newpriv = PRV_U;
     }
     helper_tlb_flush(env);
     env->priv = newpriv;
