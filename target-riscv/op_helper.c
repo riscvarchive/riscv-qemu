@@ -296,8 +296,12 @@ inline target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno)
     #ifdef RISCV_DEBUG_PRINT
     fprintf(stderr, "READ CSR 0x%x\n", csrno);
     #endif
+#ifndef CONFIG_USER_ONLY
     target_ulong ctr_en = env->priv == PRV_U ? env->mucounteren :
                    env->priv == PRV_S ? env->mscounteren : -1U;
+#else
+    target_ulong ctr_en = env->mucounteren;
+#endif
     target_ulong ctr_ok = (ctr_en >> (csrno & 31)) & 1;
 
     if (ctr_ok) {

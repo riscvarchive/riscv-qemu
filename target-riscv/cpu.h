@@ -74,6 +74,8 @@ struct CPURISCVState {
 
     target_ulong badaddr;
 
+    uint32_t mucounteren;
+
 #ifdef CONFIG_USER_ONLY
     uint32_t amoinsn;
     target_long amoaddr;
@@ -102,7 +104,6 @@ struct CPURISCVState {
     target_ulong mepc;
     target_ulong mcause;
 
-    uint32_t mucounteren;
     uint32_t mscounteren;
 
     target_ulong sscratch;
