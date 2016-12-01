@@ -301,21 +301,26 @@ inline target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno)
     target_ulong ctr_ok = (ctr_en >> (csrno & 31)) & 1;
 
     if (ctr_ok) {
-        if (csrno >= CSR_HPMCOUNTER3 && csrno <= CSR_HPMCOUNTER31)
-          return 0;
+        if (csrno >= CSR_HPMCOUNTER3 && csrno <= CSR_HPMCOUNTER31) {
+            return 0;
+        }
 #if defined(TARGET_RISCV32)
-        if (csrno >= CSR_HPMCOUNTER3H && csrno <= CSR_HPMCOUNTER31H)
-          return 0;
+        if (csrno >= CSR_HPMCOUNTER3H && csrno <= CSR_HPMCOUNTER31H) {
+            return 0;
+        }
 #endif
     }
-    if (csrno >= CSR_MHPMCOUNTER3 && csrno <= CSR_MHPMCOUNTER31)
-      return 0;
+    if (csrno >= CSR_MHPMCOUNTER3 && csrno <= CSR_MHPMCOUNTER31) {
+        return 0;
+    }
 #if defined(TARGET_RISCV32)
-    if (csrno >= CSR_MHPMCOUNTER3 && csrno <= CSR_MHPMCOUNTER31)
-      return 0;
+    if (csrno >= CSR_MHPMCOUNTER3 && csrno <= CSR_MHPMCOUNTER31) {
+        return 0;
+    }
 #endif
-    if (csrno >= CSR_MHPMEVENT3 && csrno <= CSR_MHPMEVENT31)
-      return 0;
+    if (csrno >= CSR_MHPMEVENT3 && csrno <= CSR_MHPMEVENT31) {
+        return 0;
+    }
 
     switch (csrno) {
     case CSR_FFLAGS:
