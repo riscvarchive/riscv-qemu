@@ -5904,7 +5904,7 @@ long do_rt_sigreturn(CPUTLGState *env)
 
 struct target_sigcontext {
     abi_long pc;
-    abi_long gpr[31];
+    abi_long gpr[31]; /* x0 is not present, so all offsets must be -1 */
     uint64_t fpr[32];
     uint32_t fcsr;
 }; /* cf. riscv-linux:arch/riscv/include/uapi/asm/ptrace.h */
@@ -5954,7 +5954,7 @@ static void setup_sigcontext(struct target_sigcontext *sc, CPURISCVState *env)
     __put_user(env->pc, &sc->pc);
 
     for(i = 1; i < 32; i++)
-        __put_user(env->gpr[i], &sc->gpr[i]);
+        __put_user(env->gpr[i], &sc->gpr[i - 1]);
     for(i = 0; i < 32; i++)
         __put_user(env->fpr[i], &sc->fpr[i]);
 
@@ -6029,7 +6029,7 @@ static void restore_sigcontext(CPURISCVState *env, struct target_sigcontext *sc)
     __get_user(env->pc, &sc->pc);
 
     for (i = 1; i < 32; ++i)
-        __get_user(env->gpr[i], &sc->gpr[i]);
+        __get_user(env->gpr[i], &sc->gpr[i - 1]);
     for (i = 0; i < 32; ++i)
         __get_user(env->fpr[i], &sc->fpr[i]);
 
