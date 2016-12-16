@@ -136,7 +136,7 @@ static void riscv_sifive_board_init(MachineState *args)
     env = &cpu->env;
 
     /* register system main memory (actual RAM) */
-    memory_region_init_ram(main_mem, NULL, "riscv_sifive_board.ram", 2147483648L +
+    memory_region_init_ram(main_mem, NULL, "riscv_sifive_board.ram", 2147483648ll +
                            ram_size, &error_fatal);
     /* for phys mem size check in page table walk */
     env->memsize = ram_size;
@@ -212,7 +212,7 @@ static void riscv_sifive_board_init(MachineState *args)
     /* build config string with supplied memory size */
     uint64_t rsz = ram_size;
     char *ramsize_as_hex_str = malloc(17);
-    sprintf(ramsize_as_hex_str, "%016lx", rsz);
+    sprintf(ramsize_as_hex_str, "%016" PRIx64, rsz);
     char *config_string = malloc(strlen(config_string1) +
                                   strlen(ramsize_as_hex_str) +
                                   strlen(config_string2) + 1);

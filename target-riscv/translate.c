@@ -1538,7 +1538,7 @@ void riscv_cpu_dump_state(CPUState *cs, FILE *f, fprintf_function cpu_fprintf,
         if ((i & 3) == 0) {
             cpu_fprintf(f, "FPR%02d:", i);
         }
-        cpu_fprintf(f, " %s %016lx", fpr_regnames[i], env->fpr[i]);
+        cpu_fprintf(f, " %s %016" PRIx64, fpr_regnames[i], env->fpr[i]);
         if ((i & 3) == 3) {
             cpu_fprintf(f, "\n");
         }

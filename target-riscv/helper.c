@@ -275,7 +275,7 @@ void riscv_cpu_unassigned_access(CPUState *cs, hwaddr addr, bool is_write,
 {
     printf("unassigned address not implemented for riscv\n");
     printf("are you trying to fetch instructions from an MMIO page?\n");
-    printf("unassigned Address: %016lX\n", addr);
+    printf("unassigned Address: %016" PRIx64 "\n", addr);
     exit(1);
 }
 
