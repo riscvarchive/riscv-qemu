@@ -108,10 +108,13 @@ The following packages are used above and beyond what is in a minimal Fedora 24 
 dnf install @buildsys-build git wget texinfo bison flex bc python perl-Thread-Queue vim-common
 ```
 
-Download the SDK (this is tested for rev f3a86d9664d821408318602d7f99e6aaf1e2cb4b):
+Download the SDK; the version given is the most recent which is compatible with QEMU (privilege spec 1.9):
 
 ```
-git clone --recursive https://github.com/sifive/freedom-u-sdk
+git clone https://github.com/sifive/freedom-u-sdk
+cd freedom-u-sdk
+git reset --hard 5d38ed5d
+git submodule update --init --recursive
 ```
 
 Patch to allow the image to boot on emulated hardware that supports floating point, apply this in the `riscv-pk` directory:
