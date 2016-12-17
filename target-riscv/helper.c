@@ -84,7 +84,7 @@ static int get_physical_address(CPURISCVState *env, hwaddr *physical,
     }
 
     if (mode == PRV_M) {
-        target_ulong msb_mask = (2UL << (TARGET_LONG_BITS - 1)) - 1;
+        target_ulong msb_mask = (((target_ulong)2) << (TARGET_LONG_BITS - 1)) - 1;
                                         /*0x7FFFFFFFFFFFFFFF; */
         *physical = address & msb_mask;
         *prot = PAGE_READ | PAGE_WRITE | PAGE_EXEC;
@@ -385,7 +385,7 @@ void riscv_cpu_do_interrupt(CPUState *cs)
         /* hacky for now. the MSB (bit 63) indicates interrupt but cs->exception
            index is only 32 bits wide */
         fixed_cause = cs->exception_index & 0x0FFFFFFF;
-        fixed_cause |= (1L << 63);
+        fixed_cause |= ((target_ulong)1) << (TARGET_LONG_BITS - 1);
     } else {
         /* fixup User ECALL -> correct priv ECALL */
         if (cs->exception_index == RISCV_EXCP_U_ECALL) {
@@ -422,7 +422,7 @@ void riscv_cpu_do_interrupt(CPUState *cs)
         (fixed_cause == RISCV_EXCP_STORE_AMO_ACCESS_FAULT);
 
     if (bit & ((target_ulong)1 << (TARGET_LONG_BITS - 1))) {
-        deleg = env->mideleg, bit &= ~(1L << (TARGET_LONG_BITS - 1));
+        deleg = env->mideleg, bit &= ~((target_ulong)1 << (TARGET_LONG_BITS - 1));
     }
 
     if (env->priv <= PRV_S && bit < 64 && ((deleg >> bit) & 1)) {
