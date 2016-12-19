@@ -340,7 +340,7 @@ static void gen_arith(DisasContext *ctx, uint32_t opc, int rd, int rs1,
         tcg_gen_movi_tl(resultopt1, (target_ulong)-1);
         tcg_gen_setcondi_tl(TCG_COND_EQ, cond2, source2, (target_ulong)(~0L));
         tcg_gen_setcondi_tl(TCG_COND_EQ, cond1, source1,
-                            1L << (TARGET_LONG_BITS - 1));
+                            ((target_ulong)1) << (TARGET_LONG_BITS - 1));
         tcg_gen_and_tl(cond1, cond1, cond2); /* cond1 = overflow */
         tcg_gen_setcondi_tl(TCG_COND_EQ, cond2, source2, 0); /* cond2 = div 0 */
         /* if div by zero, set source1 to -1, otherwise don't change */
@@ -1672,7 +1672,7 @@ void riscv_cpu_dump_state(CPUState *cs, FILE *f, fprintf_function cpu_fprintf,
         if ((i & 3) == 0) {
             cpu_fprintf(f, "FPR%02d:", i);
         }
-        cpu_fprintf(f, " %s %016lx", fpr_regnames[i], env->fpr[i]);
+        cpu_fprintf(f, " %s %016" PRIx64, fpr_regnames[i], env->fpr[i]);
         if ((i & 3) == 3) {
             cpu_fprintf(f, "\n");
         }
