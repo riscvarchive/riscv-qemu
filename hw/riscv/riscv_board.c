@@ -102,6 +102,8 @@ static void riscv_spike_board_init(MachineState *args)
     const char *initrd_filename = args->initrd_filename;
     MemoryRegion *system_memory = get_system_memory();
     MemoryRegion *main_mem = g_new(MemoryRegion, 1);
+    MemoryRegion *boot_rom = g_new(MemoryRegion, 1);
+    MemoryRegion *dummy_ipi = g_new(MemoryRegion, 1);
     RISCVCPU *cpu;
     CPURISCVState *env;
     int i;
@@ -139,12 +141,23 @@ static void riscv_spike_board_init(MachineState *args)
     env = &cpu->env;
 
     /* register system main memory (actual RAM) */
-    memory_region_init_ram(main_mem, NULL, "riscv_spike_board.ram", 2147483648L +
+    memory_region_init_ram(main_mem, NULL, "riscv_spike_board.ram",
                            ram_size, &error_fatal);
     /* for phys mem size check in page table walk */
     env->memsize = ram_size;
     vmstate_register_ram_global(main_mem);
-    memory_region_add_subregion(system_memory, 0x0, main_mem);
+    memory_region_add_subregion(system_memory, 0x80000000, main_mem);
+
+    /* boot rom */
+    memory_region_init_ram(boot_rom, NULL, "riscv_spike_board.bootrom",
+                           0x40000, &error_fatal);
+    vmstate_register_ram_global(boot_rom);
+    memory_region_add_subregion(system_memory, 0x0, boot_rom);
+
+    /* allocate dummy ram region for "nop" IPI */
+    memory_region_init_ram(dummy_ipi, NULL, "riscv_spike_board.dummyipi",
+                           8, &error_fatal);
+    memory_region_add_subregion(system_memory, 0x40001000, dummy_ipi);
 
     if (kernel_filename) {
         loaderparams.ram_size = ram_size;
@@ -186,7 +199,7 @@ static void riscv_spike_board_init(MachineState *args)
           "    " "0 {\n"
           "      isa " "rv64imafd" ";\n"
           "      timecmp 0x" "40000008" ";\n"
-          "      ipi 0x" "40001000" ";\n"
+          "      ipi 0x" "40001000" ";\n" // this must match dummy ipi region above
           "    };\n"
           "  };\n"
           "};\n";
@@ -206,20 +219,20 @@ static void riscv_spike_board_init(MachineState *args)
     /* copy in the reset vec and configstring */
     int q;
     for (q = 0; q < sizeof(reset_vec) / sizeof(reset_vec[0]); q++) {
-        stl_p(memory_region_get_ram_ptr(main_mem) + 0x1000 + q * 4,
+        stl_p(memory_region_get_ram_ptr(boot_rom) + 0x1000 + q * 4,
               reset_vec[q]);
     }
 
     int confstrlen = strlen(config_string);
     for (q = 0; q < confstrlen; q++) {
-        stb_p(memory_region_get_ram_ptr(main_mem) + reset_vec[3] + q,
+        stb_p(memory_region_get_ram_ptr(boot_rom) + reset_vec[3] + q,
               config_string[q]);
     }
 
     /* add memory mapped htif registers at location specified in the symbol
        table of the elf being loaded (thus kernel_filename is passed to the
        init rather than an address) */
-    htif_mm_init(system_memory, kernel_filename, env->irq[4], main_mem,
+    htif_mm_init(system_memory, kernel_filename, env->irq[4], boot_rom,
             env, serial_hds[0]);
 
     /* timer device at 0x40000000, as specified in the config string above */
