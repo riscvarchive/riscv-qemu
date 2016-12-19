@@ -4,7 +4,7 @@ riscv-qemu [![Build Status](https://travis-ci.org/riscv/riscv-qemu.svg?branch=ma
 **About:**
 
 The `riscv64-softmmu` target for full system RV64G emulation is currently
-supported.  It supports booting Linux from the `priv-1.9` branch of
+supported.  It supports booting Linux from the `master` branch of
 [riscv-linux] and passes the compatibility tests from [riscv-tests].
 A `riscv32-softmmu` target for full system RV32G emulation is also supported.
 It currently passes all tests from [riscv-tests]. See Method 1 below.
@@ -25,13 +25,12 @@ These pass the tests from [riscv-qemu-tests]. See Method 2 below.
 
 **Privileged Specification Version:**
 
-This version of QEMU adheres to the RISC-V v1.9 Privileged Specification as
-described in [Technical Report No. UCB/EECS-2016-129](https://www2.eecs.berkeley.edu/Pubs/TechRpts/2016/EECS-2016-129.pdf)
-and commit 745e74afb56ecba090669615d4ac9c9b9b96c653 ([the priv-1.9-rc0 release](https://github.com/riscv/riscv-tools/releases/tag/priv-1.9-rc0))
-of riscv-tools.
+This version of QEMU adheres to the RISC-V v1.9.1 Privileged Specification as
+described in [Technical Report No. UCB/EECS-2016-161](https://www2.eecs.berkeley.edu/Pubs/TechRpts/2016/EECS-2016-161.html)
+and commit ad9ebb8557e32241bfca047f2bc628a2bc1c18cb (master) of riscv-tools.
 
 Please note that QEMU tracks released drafts of the RISC-V Privileged
-Specification, not work-in-progress changes like Spike does.
+Specification, not work-in-progress changes as Spike does.
 
 Installation
 --------------
@@ -56,13 +55,13 @@ mode.
 
 ####Step 2: Obtain Images
 
-You can build `vmlinux` from the `priv-1.9` branch of the [riscv-linux] repo and
+You can build `vmlinux` from the `master` branch of the [riscv-linux] repo and
 create an initramfs for your root filesystem, then supply the resulting vmlinux
 as a payload for bbl. Alternatively, you can use the prebuilt copy linked
 below. This single file contains bbl with the Linux kernel as a payload. The
 included copy of the Linux kernel also has an initramfs with busybox.
 
-**a)** [bblvmlinuxinitramfs_dynamic](https://people.eecs.berkeley.edu/~skarandikar/host/qemu/1.9/bblvmlinuxinitramfs_dynamic)
+**a)** [bblvmlinuxinitramfs_dynamic](https://people.eecs.berkeley.edu/~skarandikar/host/qemu/1.9.1/bblvmlinuxinitramfs_dynamic)
 
 ####Step 3: Run QEMU
 

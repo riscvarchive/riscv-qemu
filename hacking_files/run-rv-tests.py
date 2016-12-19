@@ -7,7 +7,7 @@ import sys
 # else run the specific test
 
 bitslist = ['64', '32']
-tests_dir = "/scratch/sagark/qemu-newpriv1.9-3/riscv-tools/riscv-tests/isa/"
+tests_dir = "/scratch/sagark/qemu-bump-latest/riscv-tools/riscv-tests/isa/"
 
 if len(sys.argv) == 1:
 
