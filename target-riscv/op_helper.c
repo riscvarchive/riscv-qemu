@@ -265,8 +265,7 @@ inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
         break;
     }
     case CSR_TSELECT:
-        printf("CSR_TSELECT write not implemented.\n");
-        exit(1);
+        // TSELECT is hardwired in this implementation
         break;
     case CSR_TDATA1:
         printf("CSR_TDATA1 write not implemented.\n");
@@ -413,8 +412,10 @@ inline target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno)
     case CSR_MIDELEG:
         return env->mideleg;
     case CSR_TSELECT:
-        printf("CSR_TSELECT read not implemented.\n");
-        exit(1);
+        // indicate only usable in debug mode (which we don't have)
+        // i.e. software can't use it
+        // see: https://dev.sifive.com/documentation/risc-v-external-debug-support-0-11/
+        return (1L << (TARGET_LONG_BITS - 5));
     case CSR_TDATA1:
         printf("CSR_TDATA1 read not implemented.\n");
         exit(1);
