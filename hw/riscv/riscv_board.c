@@ -207,7 +207,7 @@ static void riscv_spike_board_init(MachineState *args)
     /* build config string with supplied memory size */
     uint64_t rsz = ram_size;
     char *ramsize_as_hex_str = malloc(17);
-    sprintf(ramsize_as_hex_str, "%016lx", rsz);
+    sprintf(ramsize_as_hex_str, "%016" PRIx64, rsz);
     char *config_string = malloc(strlen(config_string1) +
                                   strlen(ramsize_as_hex_str) +
                                   strlen(config_string2) + 1);

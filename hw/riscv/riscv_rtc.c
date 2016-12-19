@@ -175,7 +175,8 @@ static uint64_t timer_mm_read(void *opaque, hwaddr addr, unsigned size)
         printf("TIMECMP READ NOT IMPL\n");
         exit(1);
     } else {
-        printf("Invalid timer register address %016lx\n", (uint64_t)addr);
+        printf("Invalid timer register address %016" PRIx64 "\n",
+               (uint64_t)addr);
         exit(1);
     }
 }
@@ -201,7 +202,8 @@ static void timer_mm_write(void *opaque, hwaddr addr, uint64_t value,
         write_timecmp(timerstate->env, value << 32 |
                 timerstate->timecmp_lower);
     } else {
-        printf("Invalid timer register address %016lx\n", (uint64_t)addr);
+        printf("Invalid timer register address %016" PRIx64 "\n",
+               (uint64_t)addr);
         exit(1);
     }
 }

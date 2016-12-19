@@ -163,7 +163,7 @@ static void htif_handle_tohost_write(HTIFState *htifstate, uint64_t val_written)
             if (payload & 0x1) {
                 /* test result */
                 if (payload >> 1) {
-                    printf("*** FAILED *** (exitcode = %016lx)\n",
+                    printf("*** FAILED *** (exitcode = %016" PRIx64 ")\n",
                            payload >> 1);
                 } else {
                     printf("TEST PASSED\n");
@@ -243,8 +243,8 @@ static void htif_handle_tohost_write(HTIFState *htifstate, uint64_t val_written)
         resp = 0x1; /* write to indicate device name placed */
     } else {
         fprintf(stderr, "HTIF UNKNOWN DEVICE OR COMMAND!\n");
-        fprintf(stderr, "-device: %d\n-cmd: %d\n-what: %02lx\n-payload: \
-                         %016lx\n", device, cmd, payload & 0xFF, payload);
+        fprintf(stderr, "-device: %d\n-cmd: %d\n-what: %02" PRIx64 "\n-payload: \
+                         %016" PRIx64 "\n", device, cmd, payload & 0xFF, payload);
         exit(1);
     }
     while (!htifstate->fromhost_inprogress &&
@@ -277,7 +277,8 @@ static uint64_t htif_mm_read(void *opaque, hwaddr addr, unsigned size)
     } else if (addr == FROMHOST_OFFSET2) {
         return (htifstate->env->mfromhost >> 32) & 0xFFFFFFFF;
     } else {
-        printf("Invalid htif register address %016lx\n", (uint64_t)addr);
+        printf("Invalid htif register address %016" PRIx64 "\n",
+               (uint64_t)addr);
         exit(1);
     }
 }
@@ -318,7 +319,8 @@ static void htif_mm_write(void *opaque, hwaddr addr,
         }
         htifstate->fromhost_inprogress = 0;
     } else {
-        printf("Invalid htif register address %016lx\n", (uint64_t)addr);
+        printf("Invalid htif register address %016" PRIx64 "\n",
+               (uint64_t)addr);
         exit(1);
     }
 }

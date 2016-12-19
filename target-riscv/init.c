@@ -1,8 +1,8 @@
 #include "qemu/osdep.h"
 #include "cpu.h"
 
-#define MCPUID_RV64I   (2L << (TARGET_LONG_BITS - 2))
-#define MCPUID_RV32I   (1L << (TARGET_LONG_BITS - 2))
+#define MCPUID_RV64I   ((target_ulong)2 << (TARGET_LONG_BITS - 2))
+#define MCPUID_RV32I   ((target_ulong)1 << (TARGET_LONG_BITS - 2))
 #define MCPUID_SUPER   (1L << ('S' - 'A'))
 #define MCPUID_USER    (1L << ('U' - 'A'))
 #define MCPUID_I       (1L << ('I' - 'A'))
