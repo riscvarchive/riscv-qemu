@@ -84,7 +84,7 @@ and then hit `ctrl-a x`. Otherwise, the root filesystem will likely be corrupted
 Support for other HTIF-based devices has been removed from [riscv-linux]; as a
 result, QEMU no longer supports them either.
 
-### Method 1b \(Full-System Simulation compatible with the SiFive U500 SDK \):
+<!--### Method 1b \(Full-System Simulation compatible with the SiFive U500 SDK \):
 
 (this is very incomplete, and is based mostly on software reverse engineering)
 
@@ -141,6 +141,7 @@ make -j4
 ```
 
 (This step took roughly 20 minutes and created 9.3G of files.)
+-->
 
 #### Step 3: Run QEMU
 
