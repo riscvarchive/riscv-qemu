@@ -16,7 +16,7 @@ OBJDUMP = $(CROSS)objdump
 
 RSRC_PATH = $(SRC_PATH)/tests/tcg/riscv
 
-CFLAGS  = -static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles
+CFLAGS  = -static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles -I$(SRC_PATH)/include
 OBJDUMP_FLAGS = --disassemble-all --disassemble-zeroes --section=.text \
 		--section=.text.startup --section=.text.init --section=.data
 
