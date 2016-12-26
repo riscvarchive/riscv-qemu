@@ -1021,7 +1021,7 @@ print_insn_args (const char *d, insn_t l, bfd_vma pc, disassemble_info *info)
   struct riscv_private_data *pd = info->private_data;
   int rs1 = (l >> OP_SH_RS1) & OP_MASK_RS1;
   int rd = (l >> OP_SH_RD) & OP_MASK_RD;
-  fprintf_ftype print = info->fprintf_func;
+  fprintf_function print = info->fprintf_func;
 
   if (*d != '\0')
     print (info->stream, "\t");
@@ -1242,7 +1242,7 @@ print_insn_args (const char *d, insn_t l, bfd_vma pc, disassemble_info *info)
 
 	default:
 	  /* xgettext:c-format */
-	  print (info->stream, _("# internal error, undefined modifier (%c)"),
+	  print (info->stream, "# internal error, undefined modifier (%c)",
 		 *d);
 	  return;
 	}
