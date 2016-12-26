@@ -84,6 +84,10 @@ static void riscv_cpu_reset(CPUState *s)
     cs->exception_index = EXCP_NONE;
 }
 
+static void riscv_cpu_disas_set_info(CPUState *s, disassemble_info *info) {
+    info->print_insn = print_insn_riscv;
+}
+
 static void riscv_cpu_realizefn(DeviceState *dev, Error **errp)
 {
     CPUState *cs = CPU(dev);
@@ -136,6 +140,7 @@ static void riscv_cpu_class_init(ObjectClass *c, void *data)
     cc->gdb_write_register = riscv_cpu_gdb_write_register;
     cc->gdb_num_core_regs = 65;
     cc->gdb_stop_before_watchpoint = true;
+    cc->disas_set_info = riscv_cpu_disas_set_info;
 #ifdef CONFIG_USER_ONLY
     cc->handle_mmu_fault = riscv_cpu_handle_mmu_fault;
 #else
