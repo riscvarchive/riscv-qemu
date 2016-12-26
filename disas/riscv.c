@@ -953,6 +953,7 @@ set_default_riscv_dis_options (void)
   no_aliases = 0;
 }
 
+#if 0
 static void
 parse_riscv_dis_option (const char *option)
 {
@@ -986,6 +987,7 @@ parse_riscv_dis_options (const char *opts_in)
 
   free (opts);
 }
+#endif
 
 /* Print one argument from an array.  */
 
@@ -1277,15 +1279,17 @@ riscv_disassemble_insn (bfd_vma memaddr, insn_t word, disassemble_info *info)
     {
       int i;
 
-      pd = info->private_data = xcalloc (1, sizeof (struct riscv_private_data));
+      pd = info->private_data = g_malloc0(sizeof (struct riscv_private_data));
       pd->gp = -1;
       pd->print_addr = -1;
       for (i = 0; i < (int)ARRAY_SIZE (pd->hi_addr); i++)
 	pd->hi_addr[i] = -1;
 
+#if 0
       for (i = 0; i < info->symtab_size; i++)
 	if (strcmp (bfd_asymbol_name (info->symtab[i]), "_gp") == 0)
 	  pd->gp = bfd_asymbol_value (info->symtab[i]);
+#endif
     }
   else
     pd = info->private_data;
@@ -1307,12 +1311,14 @@ riscv_disassemble_insn (bfd_vma memaddr, insn_t word, disassemble_info *info)
     {
       int xlen = 0;
 
+#if 0
       /* The incoming section might not always be complete.  */
       if (info->section != NULL)
 	{
 	  Elf_Internal_Ehdr *ehdr = elf_elfheader (info->section->owner);
 	  xlen = ehdr->e_ident[EI_CLASS] == ELFCLASS64 ? 64 : 32;
 	}
+#endif
 
       for (; op->name; op++)
 	{
@@ -1330,6 +1336,7 @@ riscv_disassemble_insn (bfd_vma memaddr, insn_t word, disassemble_info *info)
 	  (*info->fprintf_func) (info->stream, "%s", op->name);
 	  print_insn_args (op->args, word, memaddr, info);
 
+#if 0
 	  /* Try to disassemble multi-instruction addressing sequences.  */
 	  if (pd->print_addr != (bfd_vma)-1)
 	    {
@@ -1338,6 +1345,7 @@ riscv_disassemble_insn (bfd_vma memaddr, insn_t word, disassemble_info *info)
 	      (*info->print_address_func) (info->target, info);
 	      pd->print_addr = -1;
 	    }
+#endif
 
 	  return insnlen;
 	}
@@ -1357,6 +1365,7 @@ print_insn_riscv (bfd_vma memaddr, struct disassemble_info *info)
   bfd_vma n;
   int status;
 
+#if 0
   if (info->disassembler_options != NULL)
     {
       parse_riscv_dis_options (info->disassembler_options);
@@ -1364,6 +1373,7 @@ print_insn_riscv (bfd_vma memaddr, struct disassemble_info *info)
       info->disassembler_options = NULL;
     }
   else if (riscv_gpr_names == NULL)
+#endif
     set_default_riscv_dis_options ();
 
   /* Instructions are a sequence of 2-byte packets in little-endian order.  */
@@ -1385,6 +1395,7 @@ print_insn_riscv (bfd_vma memaddr, struct disassemble_info *info)
   return riscv_disassemble_insn (memaddr, insn, info);
 }
 
+#if 0
 void
 print_riscv_disassembler_options (FILE *stream)
 {
@@ -1401,3 +1412,4 @@ with the -M switch (multiple options should be separated by commas):\n"));
 
   fprintf (stream, _("\n"));
 }
+#endif
