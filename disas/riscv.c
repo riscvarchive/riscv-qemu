@@ -20,17 +20,12 @@
    along with this program; see the file COPYING3. If not,
    see <http://www.gnu.org/licenses/>.  */
 
-#include "sysdep.h"
-#include "dis-asm.h"
-#include "libiberty.h"
-#include "opcode/riscv.h"
-#include "opintl.h"
-#include "elf-bfd.h"
-#include "elf/riscv.h"
+#include "qemu/osdep.h"
+#include "disas/bfd.h"
 
-#include <stdint.h>
-#include <ctype.h>
-
+#define MATCH_FIELD
+#include "disas/riscv-opc.h"
+#undef MATCH_FIELD
 
 /*
  * definition from include/opcode/riscv.h
