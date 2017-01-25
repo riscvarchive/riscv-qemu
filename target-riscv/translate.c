@@ -537,6 +537,27 @@ static void gen_arith_imm(DisasContext *ctx, uint32_t opc, int rd,
     tcg_temp_free(source1);
 }
 
+static void gen_jal(CPURISCVState *env, DisasContext *ctx, int rd,
+                    target_ulong imm)
+{
+    target_ulong next_pc;
+
+    /* check misaligned: */
+    next_pc = ctx->pc + imm;
+    if (!riscv_feature(env, RISCV_FEATURE_RVC)) {
+        if ((next_pc & 0x3) != 0) {
+            generate_exception_mbadaddr(ctx, RISCV_EXCP_INST_ADDR_MIS);
+        }
+    }
+    if (rd != 0) {
+        tcg_gen_movi_tl(cpu_gpr[rd], ctx->next_pc);
+    }
+
+    gen_goto_tb(ctx, 0, ctx->pc + imm); /* must use this for safety */
+    ctx->bstate = BS_BRANCH;
+
+}
+
 static void gen_jalr(DisasContext *ctx, uint32_t opc, int rd, int rs1,
         target_long imm)
 {
@@ -1430,7 +1451,6 @@ static void decode_RV32_64G(CPURISCVState *env, DisasContext *ctx)
     int rd;
     uint32_t op;
     target_long imm;
-    target_ulong next_pc;
 
     /* We do not do misaligned address check here: the address should never be
      * misaligned at this point. Instructions that set PC must do the check,
@@ -1459,18 +1479,7 @@ static void decode_RV32_64G(CPURISCVState *env, DisasContext *ctx)
         break;
     case OPC_RISC_JAL:
         imm = GET_JAL_IMM(ctx->opcode);
-        /* check misaligned: */
-        next_pc = ctx->pc + imm;
-        if ((next_pc & 0x3) != 0) {
-            generate_exception_mbadaddr(ctx, RISCV_EXCP_INST_ADDR_MIS);
-        }
-
-        if (rd != 0) {
-            tcg_gen_movi_tl(cpu_gpr[rd], ctx->next_pc);
-        }
-
-        gen_goto_tb(ctx, 0, ctx->pc + imm); /* must use this for safety */
-        ctx->bstate = BS_BRANCH;
+        gen_jal(env, ctx, rd, imm);
         break;
     case OPC_RISC_JALR:
         gen_jalr(ctx, MASK_OP_JALR(ctx->opcode), rd, rs1, imm);
