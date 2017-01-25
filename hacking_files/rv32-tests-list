@@ -122,3 +122,5 @@ rv32um-v-mulhsu
 rv32um-v-mulhu
 rv32um-v-rem
 rv32um-v-remu
+rv32uc-p-rvc
+rv32uc-v-rvc
