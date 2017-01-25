@@ -11,7 +11,6 @@ General
   and https://github.com/qemu/qemu/blob/master/tcg/README
 - TODO: print useful csrs in riscv_cpu_dump_state in translate.c
 - TODO: debug mode
-- TODO: rvc
 - TODO: migration
 
 Testing
