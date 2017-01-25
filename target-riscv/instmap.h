@@ -326,3 +326,52 @@ enum {
 #define GET_RS2(inst)  extract32(inst, 20, 5)
 #define GET_RD(inst)   extract32(inst, 7, 5)
 #define GET_IMM(inst)  sextract64(inst, 20, 12)
+
+/* RVC decoding macros */
+#define GET_C_IMM(inst)             (extract32(inst, 2, 5) \
+                                    | (sextract64(inst, 12, 1) << 5))
+#define GET_C_ZIMM(inst)            (extract32(inst, 2, 5) \
+                                    | (extract32(inst, 12, 1) << 5))
+#define GET_C_ADDI4SPN_IMM(inst)    ((extract32(inst, 6, 1) << 2) \
+                                    | (extract32(inst, 5, 1) << 3) \
+                                    | (extract32(inst, 11, 2) << 4) \
+                                    | (extract32(inst, 7, 4) << 6))
+#define GET_C_ADDI16SP_IMM(inst)    ((extract32(inst, 6, 1) << 4) \
+                                    | (extract32(inst, 2, 1) << 5) \
+                                    | (extract32(inst, 5, 1) << 6) \
+                                    | (extract32(inst, 3, 2) << 7) \
+                                    | (sextract64(inst, 12, 1) << 9))
+#define GET_C_LWSP_IMM(inst)        ((extract32(inst, 4, 3) << 2) \
+                                    | (extract32(inst, 12, 1) << 5) \
+                                    | (extract32(inst, 2, 2) << 6))
+#define GET_C_LDSP_IMM(inst)        ((extract32(inst, 5, 2) << 3) \
+                                    | (extract32(inst, 12, 1) << 5) \
+                                    | (extract32(inst, 2, 3) << 6))
+#define GET_C_SWSP_IMM(inst)        ((extract32(inst, 9, 4) << 2) \
+                                    | (extract32(inst, 7, 2) << 6))
+#define GET_C_SDSP_IMM(inst)        ((extract32(inst, 10, 3) << 3) \
+                                    | (extract32(inst, 7, 3) << 6))
+#define GET_C_LW_IMM(inst)          ((extract32(inst, 6, 1) << 2) \
+                                    | (extract32(inst, 10, 3) << 3) \
+                                    | (extract32(inst, 5, 1) << 6))
+#define GET_C_LD_IMM(inst)          ((extract32(inst, 10, 3) << 3) \
+                                    | (extract32(inst, 5, 2) << 6))
+#define GET_C_J_IMM(inst)           ((extract32(inst, 3, 3) << 1) \
+                                    | (extract32(inst, 11, 1) << 4) \
+                                    | (extract32(inst, 2, 1) << 5) \
+                                    | (extract32(inst, 7, 1) << 6) \
+                                    | (extract32(inst, 6, 1) << 7) \
+                                    | (extract32(inst, 9, 2) << 8) \
+                                    | (extract32(inst, 8, 1) << 10) \
+                                    | (sextract64(inst, 12, 1) << 11))
+#define GET_C_B_IMM(inst)           ((extract32(inst, 3, 2) << 1) \
+                                    | (extract32(inst, 10, 2) << 3) \
+                                    | (extract32(inst, 2, 1) << 5) \
+                                    | (extract32(inst, 5, 2) << 6) \
+                                    | (sextract64(inst, 12, 1) << 8))
+#define GET_C_SIMM3(inst)           extract32(inst, 10, 3)
+#define GET_C_RD(inst)              GET_RD(inst)
+#define GET_C_RS1(inst)             GET_RD(inst)
+#define GET_C_RS2(inst)             extract32(inst, 2, 5)
+#define GET_C_RS1S(inst)            (8 + extract32(inst, 7, 3))
+#define GET_C_RS2S(inst)            (8 + extract32(inst, 2, 3))
