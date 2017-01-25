@@ -558,8 +558,8 @@ static void gen_jal(CPURISCVState *env, DisasContext *ctx, int rd,
 
 }
 
-static void gen_jalr(DisasContext *ctx, uint32_t opc, int rd, int rs1,
-        target_long imm)
+static void gen_jalr(CPURISCVState *env, DisasContext *ctx, uint32_t opc,
+                     int rd, int rs1, target_long imm)
 {
     /* no chaining with JALR */
     TCGLabel *misaligned = gen_new_label();
@@ -571,8 +571,11 @@ static void gen_jalr(DisasContext *ctx, uint32_t opc, int rd, int rs1,
         gen_get_gpr(cpu_pc, rs1);
         tcg_gen_addi_tl(cpu_pc, cpu_pc, imm);
         tcg_gen_andi_tl(cpu_pc, cpu_pc, (target_ulong)-2);
-        tcg_gen_andi_tl(t0, cpu_pc, 0x2);
-        tcg_gen_brcondi_tl(TCG_COND_NE, t0, 0x0, misaligned);
+
+        if (!riscv_feature(env, RISCV_FEATURE_RVC)) {
+            tcg_gen_andi_tl(t0, cpu_pc, 0x2);
+            tcg_gen_brcondi_tl(TCG_COND_NE, t0, 0x0, misaligned);
+        }
 
         if (rd != 0) {
             tcg_gen_movi_tl(cpu_gpr[rd], ctx->next_pc);
@@ -591,8 +594,8 @@ static void gen_jalr(DisasContext *ctx, uint32_t opc, int rd, int rs1,
     tcg_temp_free(t0);
 }
 
-static void gen_branch(DisasContext *ctx, uint32_t opc, int rs1, int rs2,
-        target_long bimm)
+static void gen_branch(CPURISCVState *env, DisasContext *ctx, uint32_t opc,
+                       int rs1, int rs2, target_long bimm)
 {
     TCGLabel *l = gen_new_label();
     TCGv source1, source2;
@@ -627,7 +630,7 @@ static void gen_branch(DisasContext *ctx, uint32_t opc, int rs1, int rs2,
 
     gen_goto_tb(ctx, 1, ctx->next_pc);
     gen_set_label(l); /* branch taken */
-    if ((ctx->pc + bimm) & 0x3) {
+    if (!riscv_feature(env, RISCV_FEATURE_RVC) && ((ctx->pc + bimm) & 0x3)) {
         /* misaligned */
         generate_exception_mbadaddr(ctx, RISCV_EXCP_INST_ADDR_MIS);
         tcg_gen_exit_tb(0);
@@ -1482,10 +1485,10 @@ static void decode_RV32_64G(CPURISCVState *env, DisasContext *ctx)
         gen_jal(env, ctx, rd, imm);
         break;
     case OPC_RISC_JALR:
-        gen_jalr(ctx, MASK_OP_JALR(ctx->opcode), rd, rs1, imm);
+        gen_jalr(env, ctx, MASK_OP_JALR(ctx->opcode), rd, rs1, imm);
         break;
     case OPC_RISC_BRANCH:
-        gen_branch(ctx, MASK_OP_BRANCH(ctx->opcode), rs1, rs2,
+        gen_branch(env, ctx, MASK_OP_BRANCH(ctx->opcode), rs1, rs2,
                    GET_B_IMM(ctx->opcode));
         break;
     case OPC_RISC_LOAD:
