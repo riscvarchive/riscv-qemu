@@ -1527,7 +1527,7 @@ static void decode_RV32_64C1(CPURISCVState *env, DisasContext *ctx)
                       GET_C_IMM(ctx->opcode));
 #else
         /* C.JAL(RV32) -> jal x1, offset[11:1] */
-        gen_jal(env, ctx, 1, GET_C_IMM(ctx->opcode));
+        gen_jal(env, ctx, 1, GET_C_J_IMM(ctx->opcode));
 #endif
         break;
     case 2:
