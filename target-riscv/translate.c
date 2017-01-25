@@ -48,6 +48,7 @@ static TCGv_i32 cpu_amoinsn;
 typedef struct DisasContext {
     struct TranslationBlock *tb;
     target_ulong pc;
+    target_ulong next_pc;
     uint32_t opcode;
     int singlestep_enabled;
     int mem_idx;
@@ -553,7 +554,7 @@ static void gen_jalr(DisasContext *ctx, uint32_t opc, int rd, int rs1,
         tcg_gen_brcondi_tl(TCG_COND_NE, t0, 0x0, misaligned);
 
         if (rd != 0) {
-            tcg_gen_movi_tl(cpu_gpr[rd], ctx->pc + 4);
+            tcg_gen_movi_tl(cpu_gpr[rd], ctx->next_pc);
         }
         tcg_gen_exit_tb(0);
 
@@ -603,7 +604,7 @@ static void gen_branch(DisasContext *ctx, uint32_t opc, int rs1, int rs2,
         break;
     }
 
-    gen_goto_tb(ctx, 1, ctx->pc + 4);
+    gen_goto_tb(ctx, 1, ctx->next_pc);
     gen_set_label(l); /* branch taken */
     if ((ctx->pc + bimm) & 0x3) {
         /* misaligned */
@@ -1405,7 +1406,7 @@ static void gen_system(DisasContext *ctx, uint32_t opc,
         }
         gen_set_gpr(rd, dest);
         /* end tb since we may be changing priv modes, to get mmu_index right */
-        tcg_gen_movi_tl(cpu_pc, ctx->pc + 4);
+        tcg_gen_movi_tl(cpu_pc, ctx->next_pc);
         tcg_gen_exit_tb(0); /* no chaining */
         ctx->bstate = BS_BRANCH;
         break;
@@ -1417,7 +1418,12 @@ static void gen_system(DisasContext *ctx, uint32_t opc,
     tcg_temp_free(imm_rs1);
 }
 
-static void decode_opc(CPURISCVState *env, DisasContext *ctx)
+static void decode_RV32_64C(CPURISCVState *env, DisasContext *ctx)
+{
+
+}
+
+static void decode_RV32_64G(CPURISCVState *env, DisasContext *ctx)
 {
     int rs1;
     int rs2;
@@ -1460,7 +1466,7 @@ static void decode_opc(CPURISCVState *env, DisasContext *ctx)
         }
 
         if (rd != 0) {
-            tcg_gen_movi_tl(cpu_gpr[rd], ctx->pc + 4);
+            tcg_gen_movi_tl(cpu_gpr[rd], ctx->next_pc);
         }
 
         gen_goto_tb(ctx, 0, ctx->pc + imm); /* must use this for safety */
@@ -1533,7 +1539,7 @@ static void decode_opc(CPURISCVState *env, DisasContext *ctx)
         /* standard fence is nop, fence_i flushes TB (like an icache): */
         if (ctx->opcode & 0x1000) { /* FENCE_I */
             gen_helper_fence_i(cpu_env);
-            tcg_gen_movi_tl(cpu_pc, ctx->pc + 4);
+            tcg_gen_movi_tl(cpu_pc, ctx->next_pc);
             tcg_gen_exit_tb(0); /* no chaining */
             ctx->bstate = BS_BRANCH;
         }
@@ -1546,6 +1552,22 @@ static void decode_opc(CPURISCVState *env, DisasContext *ctx)
     default:
         kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
         break;
+    }
+}
+
+static void decode_opc(CPURISCVState *env, DisasContext *ctx)
+{
+    /* check for compressed insn */
+    if (extract32(ctx->opcode, 0, 2) != 3) {
+        if (!riscv_feature(env, RISCV_FEATURE_RVC)) {
+            kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
+        } else {
+            ctx->next_pc = ctx->pc + 2;
+            decode_RV32_64C(env, ctx);
+        }
+    } else {
+        ctx->next_pc = ctx->pc + 4;
+        decode_RV32_64G(env, ctx);
     }
 }
 
@@ -1602,7 +1624,7 @@ void gen_intermediate_code(CPURISCVState *env, TranslationBlock *tb)
 
         ctx.opcode = cpu_ldl_code(env, ctx.pc);
         decode_opc(env, &ctx);
-        ctx.pc += 4;
+        ctx.pc = ctx.next_pc;
 
         if (cs->singlestep_enabled) {
             break;
