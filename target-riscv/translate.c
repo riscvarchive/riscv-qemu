@@ -1442,9 +1442,83 @@ static void gen_system(DisasContext *ctx, uint32_t opc,
     tcg_temp_free(imm_rs1);
 }
 
+static void decode_RV32_64C0(DisasContext *ctx)
+{
+    uint8_t funct3 = extract32(ctx->opcode, 13, 3);
+    uint8_t rd_rs2 = GET_C_RS2S(ctx->opcode);
+    uint8_t rs1s = GET_C_RS1S(ctx->opcode);
+
+    switch (funct3) {
+    case 0:
+        /* illegal */
+        if (ctx->opcode == 0) {
+            kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
+        } else {
+            /* C.ADDI4SPN -> addi rd', x2, zimm[9:2]*/
+            gen_arith_imm(ctx, OPC_RISC_ADDI, rd_rs2, 2,
+                          GET_C_ADDI4SPN_IMM(ctx->opcode));
+        }
+        break;
+    case 1:
+        /* C.FLD -> fld rd', offset[7:3](rs1')*/
+        gen_fp_load(ctx, OPC_RISC_FLD, rd_rs2, rs1s,
+                    GET_C_LD_IMM(ctx->opcode));
+        /* C.LQ(RV128) */
+        break;
+    case 2:
+        /* C.LW -> lw rd', offset[6:2](rs1') */
+        gen_load(ctx, OPC_RISC_LW, rd_rs2, rs1s,
+                 GET_C_LW_IMM(ctx->opcode));
+        break;
+    case 3:
+#if defined(TARGET_RISCV64)
+        /* C.LD(RV64/128) -> ld rd', offset[7:3](rs1')*/
+        gen_load(ctx, OPC_RISC_LD, rd_rs2, rs1s,
+                 GET_C_LD_IMM(ctx->opcode));
+#else
+        /* C.FLW (RV32) -> flw rd', offset[6:2](rs1')*/
+        gen_fp_load(ctx, OPC_RISC_FLW, rd_rs2, rs1s,
+                    GET_C_LW_IMM(ctx->opcode));
+#endif
+        break;
+    case 4:
+        /* reserved */
+        kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
+        break;
+    case 5:
+        /* C.FSD(RV32/64) -> fsd rs2', offset[7:3](rs1') */
+        gen_fp_store(ctx, OPC_RISC_FSD, rs1s, rd_rs2,
+                     GET_C_LD_IMM(ctx->opcode));
+        /* C.SQ (RV128) */
+        break;
+    case 6:
+        /* C.SW -> sw rs2', offset[6:2](rs1')*/
+        gen_store(ctx, OPC_RISC_SW, rs1s, rd_rs2,
+                  GET_C_LW_IMM(ctx->opcode));
+        break;
+    case 7:
+#if defined(TARGET_RISCV64)
+        /* C.SD (RV64/128) -> sd rs2', offset[7:3](rs1')*/
+        gen_store(ctx, OPC_RISC_SD, rs1s, rd_rs2,
+                  GET_C_LD_IMM(ctx->opcode));
+#else
+        /* C.FSW (RV32) -> fsw rs2', offset[6:2](rs1')*/
+        gen_fp_store(ctx, OPC_RISC_FSW, rs1s, rd_rs2,
+                     GET_C_LW_IMM(ctx->opcode));
+#endif
+        break;
+    }
+}
+
 static void decode_RV32_64C(CPURISCVState *env, DisasContext *ctx)
 {
+    uint8_t op = extract32(ctx->opcode, 0, 2);
 
+    switch (op) {
+    case 0:
+        decode_RV32_64C0(ctx);
+        break;
+    }
 }
 
 static void decode_RV32_64G(CPURISCVState *env, DisasContext *ctx)
