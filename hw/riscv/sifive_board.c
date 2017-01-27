@@ -101,6 +101,7 @@ static void riscv_sifive_board_init(MachineState *args)
     MemoryRegion *main_mem = g_new(MemoryRegion, 1);
     MemoryRegion *boot_rom = g_new(MemoryRegion, 1);
     MemoryRegion *dummy_ipi = g_new(MemoryRegion, 1);
+    MemoryRegion *dummy_plic = g_new(MemoryRegion, 1);
     RISCVCPU *cpu;
     CPURISCVState *env;
     int i;
@@ -156,6 +157,11 @@ static void riscv_sifive_board_init(MachineState *args)
     memory_region_init_ram(dummy_ipi, NULL, "riscv_sifive_board.dummyipi",
                            8, &error_fatal);
     memory_region_add_subregion(system_memory, 0x40001000, dummy_ipi);
+
+    /* allocate dummy ram regions for PLIC */
+    memory_region_init_ram(dummy_plic, NULL, "riscv_sifive_board.dummyplic",
+                           0x202000, &error_fatal);
+    memory_region_add_subregion(system_memory, 0x60000000, dummy_plic);
 
     if (kernel_filename) {
         loaderparams.ram_size = ram_size;
