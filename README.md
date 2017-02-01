@@ -32,6 +32,10 @@ and commit ad9ebb8557e32241bfca047f2bc628a2bc1c18cb (master) of riscv-tools.
 Please note that QEMU tracks released drafts of the RISC-V Privileged
 Specification, not work-in-progress changes as Spike does.
 
+**Contributing:**
+
+If you're interested in contributing to riscv-qemu, the github issues with the "help wanted" label are a good place to start. If you're working on a new feature, create an issue about the feature and mention that you're working on it.
+
 Installation
 --------------
 
