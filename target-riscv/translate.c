@@ -1677,7 +1677,7 @@ static void decode_RV32_64C2(CPURISCVState *env, DisasContext *ctx)
         break;
     case 5:
         /* C.FSDSP -> fsd rs2, offset[8:3](x2)*/
-        gen_fp_store(ctx, OPC_RISC_FSD, GET_C_RS2(ctx->opcode), 2,
+        gen_fp_store(ctx, OPC_RISC_FSD, 2, GET_C_RS2(ctx->opcode),
                      GET_C_SDSP_IMM(ctx->opcode));
         /* C.SQSP */
         break;
