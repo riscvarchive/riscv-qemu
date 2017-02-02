@@ -24,8 +24,11 @@
 #include "tcg-op.h"
 #include "exec/cpu_ldst.h"
 
+
 #include "exec/helper-proto.h"
 #include "exec/helper-gen.h"
+
+#include "exec/log.h"
 
 #include "instmap.h"
 
@@ -1644,6 +1647,15 @@ done_generating:
     gen_tb_end(tb, num_insns);
     tb->size = ctx.pc - pc_start;
     tb->icount = num_insns;
+
+#ifdef DEBUG_DISAS
+    if (qemu_loglevel_mask(CPU_LOG_TB_IN_ASM)
+        && qemu_log_in_addr_range(pc_start)) {
+        qemu_log("IN: %s\n", lookup_symbol(pc_start));
+        log_target_disas(cs, pc_start, ctx.pc - pc_start, 0);
+        qemu_log("\n");
+    }
+#endif
 }
 
 void riscv_cpu_dump_state(CPUState *cs, FILE *f, fprintf_function cpu_fprintf,
