@@ -1459,7 +1459,7 @@ static void decode_RV32_64C0(DisasContext *ctx)
     case 1:
         /* C.FLD -> fld rd', offset[7:3](rs1')*/
         gen_fp_load(ctx, OPC_RISC_FLD, rd_rs2, rs1s,
-                    GET_C_LDSP_IMM(ctx->opcode));
+                    GET_C_LD_IMM(ctx->opcode));
         /* C.LQ(RV128) */
         break;
     case 2:
