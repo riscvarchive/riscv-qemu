@@ -227,3 +227,5 @@ rv64um-v-rem
 rv64um-v-remu
 rv64um-v-remuw
 rv64um-v-remw
+rv64uc-p-rvc
+rv64uc-v-rvc
