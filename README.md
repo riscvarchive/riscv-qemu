@@ -3,10 +3,10 @@ riscv-qemu [![Build Status](https://travis-ci.org/riscv/riscv-qemu.svg?branch=ma
 
 **About:**
 
-The `riscv64-softmmu` target for full system RV64G emulation is currently
+The `riscv64-softmmu` target for full system RV64GC emulation is currently
 supported.  It supports booting Linux from the `master` branch of
 [riscv-linux] and passes the compatibility tests from [riscv-tests].
-A `riscv32-softmmu` target for full system RV32G emulation is also supported.
+A `riscv32-softmmu` target for full system RV32GC emulation is also supported.
 It currently passes all tests from [riscv-tests]. See Method 1 below.
 
 Support for `riscv64-linux-user` and `riscv32-linux-user` is also present.
