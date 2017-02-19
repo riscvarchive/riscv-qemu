@@ -26,17 +26,23 @@
 #include "hw/sysbus.h"
 #include "sysemu/char.h"
 
-/* I have no documentation on the part/IP block, this is reverse engineered
- * from the driver.  Structually derived from hw/char/xilinx_uartlite.c.
- */
+/* See https://github.com/sifive/sifive-blocks/tree/072d0c1b58/src/main/scala/devices/uart */
+
+/* Not yet implemented: TXFIFO / async writing, interrupt generation, divisor */
 
 #define DUART(x)
 
-#define R_DATA          0
-#define R_TXCNT         1
-#define R_RXCNT         2
-#define R_DIV           3
-#define R_MAX           4
+#define R_TXFIFO        0
+#define R_RXFIFO        4
+#define R_TXCTRL        8
+#define R_TXMARK        10
+#define R_RXCTRL        12
+#define R_RXMARK        14
+#define R_IE            16
+#define R_IP            20
+#define R_DIV           24
+
+#define R_MAX           32
 
 #define TYPE_SIFIVE_UART "riscv.sifive-uart"
 #define SIFIVE_UART(obj) \
@@ -61,9 +67,9 @@ uart_read(void *opaque, hwaddr addr, unsigned int size)
 {
     SiFiveUART *s = opaque;
     unsigned char r;
-    switch (addr >> 2)
+    switch (addr)
     {
-        case R_DATA:
+        case R_RXFIFO:
             if (s->rx_fifo_len) {
                 r = s->rx_fifo[0];
                 memmove(s->rx_fifo, s->rx_fifo + 1, s->rx_fifo_len - 1);
@@ -71,16 +77,14 @@ uart_read(void *opaque, hwaddr addr, unsigned int size)
                 qemu_chr_accept_input(s->chr);
                 return r;
             }
-            return 0;
+            return 0x80000000;
 
-        case R_RXCNT:
-            return s->rx_fifo_len;
-
-        default:
-            hw_error("%s: bad read: addr=%x\n", __func__, (int)addr);
-            return 0;
+        case R_TXFIFO:
+            return 0; /* Should check tx fifo */
     }
-    return r;
+
+    hw_error("%s: bad read: addr=%x\n", __func__, (int)addr);
+    return 0;
 }
 
 static void
@@ -91,19 +95,19 @@ uart_write(void *opaque, hwaddr addr,
     uint32_t value = val64;
     unsigned char ch = value;
 
-    switch (addr >> 2)
+    switch (addr)
     {
-        case R_DATA:
+        case R_TXFIFO:
             if (s->chr)
                 /* XXX this blocks entire thread. Rewrite to use
                  * qemu_chr_fe_write and background I/O callbacks */
                 qemu_chr_fe_write_all(s->chr, &ch, 1);
-            break;
-
-        default:
-            hw_error("%s: bad write: addr=%x v=%x\n", __func__, (int)addr, (int)value);
-            break;
+            return;
+        case R_TXCTRL:
+        case R_RXCTRL:
+            return;
     }
+    hw_error("%s: bad write: addr=%x v=%x\n", __func__, (int)addr, (int)value);
 }
 
 static const MemoryRegionOps uart_ops = {
@@ -157,7 +161,7 @@ static void sifive_uart_init(Object *obj)
     SiFiveUART *s = SIFIVE_UART(obj);
 
     memory_region_init_io(&s->mmio, obj, &uart_ops, s,
-                          "riscv.sifive_uart", R_MAX * 4);
+                          "riscv.sifive_uart", R_MAX);
     sysbus_init_mmio(SYS_BUS_DEVICE(obj), &s->mmio);
 }
 
