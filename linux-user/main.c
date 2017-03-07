@@ -3846,6 +3846,11 @@ void cpu_loop(CPURISCVState *env)
             signum = TARGET_SIGILL;
             sigcode = TARGET_ILL_ILLOPC;
             break;
+        case RISCV_EXCP_BREAKPOINT:
+            signum = TARGET_SIGTRAP;
+            sigcode = TARGET_TRAP_BRKPT;
+            sigaddr = env->pc;
+            break;
         case QEMU_USER_EXCP_FAULT:
             signum = TARGET_SIGSEGV;
             sigcode = TARGET_SEGV_MAPERR;
