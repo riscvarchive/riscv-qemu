@@ -22,6 +22,7 @@
 #include <stdlib.h>
 #include "cpu.h"
 #include "qemu/host-utils.h"
+#include "qemu/timer.h"
 #include "exec/helper-proto.h"
 
 #ifndef CONFIG_USER_ONLY
@@ -333,6 +334,19 @@ inline target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno)
     case CSR_FCSR:
         return env->fflags << FSR_AEXC_SHIFT |
                env->frm << FSR_RD_SHIFT;
+#ifdef CONFIG_USER_ONLY
+    case CSR_TIME:
+    case CSR_CYCLE:
+    case CSR_INSTRET:
+        return (target_ulong)cpu_get_host_ticks();
+    case CSR_TIMEH:
+    case CSR_CYCLEH:
+    case CSR_INSTRETH:
+#if defined(TARGET_RISCV32)
+        return (target_ulong)(cpu_get_host_ticks() >> 32);
+#endif
+        break;
+#endif
 #ifndef CONFIG_USER_ONLY
         /* TODO fix TIME, INSTRET, CYCLE in user mode */
         /* 32-bit TIMEH, CYCLEH, INSTRETH, other H stuff */
