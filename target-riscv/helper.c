@@ -78,10 +78,7 @@ static int get_physical_address(CPURISCVState *env, hwaddr *physical,
     }
 
     /* check to make sure that mmu_idx and mode that we get matches */
-    if (unlikely(mode != mmu_idx)) {
-        fprintf(stderr, "MODE, mmu_idx mismatch\n");
-        exit(1);
-    }
+    assert(mode == mmu_idx);
 
     if (mode == PRV_M) {
         target_ulong msb_mask = (((target_ulong)2) << (TARGET_LONG_BITS - 1)) - 1;
@@ -95,6 +92,9 @@ static int get_physical_address(CPURISCVState *env, hwaddr *physical,
     int supervisor = mode == PRV_S;
     int pum = get_field(env->mstatus, MSTATUS_PUM);
     int mxr = get_field(env->mstatus, MSTATUS_MXR);
+    /* TODO(sorear): This logic is broken.  PUM and MXR need to be encoded
+       in the mmu_idx so that translations with different rules do not
+       cross-contaminate. */
 
     int levels, ptidxbits, ptesize;
     switch (get_field(env->mstatus, MSTATUS_VM)) {

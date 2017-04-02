@@ -1,6 +1,6 @@
-/* Below taken from Spike's decode.h and encoding.h.
- * Using these directly drastically simplifies updating to new versions of the
- * RISC-V privileged specification */
+/* Below taken from Spike's decode.h and encoding.h. */
+/* As we move towards concurrent support of multiple privileged architectures
+ * it will not stay in sync. */
 
 #define get_field(reg, mask) (((reg) & \
                  (target_ulong)(mask)) / ((mask) & ~((mask) << 1)))
@@ -81,6 +81,17 @@
 
 #define SIP_SSIP MIP_SSIP
 #define SIP_STIP MIP_STIP
+
+#define MISA_RV64I          ((target_ulong)2 << (TARGET_LONG_BITS - 2))
+#define MISA_RV32I          ((target_ulong)1 << (TARGET_LONG_BITS - 2))
+#define MISA_I              (1 << ('I' - 'A'))
+#define MISA_M              (1 << ('M' - 'A'))
+#define MISA_A              (1 << ('A' - 'A'))
+#define MISA_F              (1 << ('F' - 'A'))
+#define MISA_D              (1 << ('D' - 'A'))
+#define MISA_C              (1 << ('C' - 'A'))
+#define MISA_S              (1 << ('S' - 'A'))
+#define MISA_U              (1 << ('U' - 'A'))
 
 #define PRV_U 0
 #define PRV_S 1

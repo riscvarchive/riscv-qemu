@@ -1,16 +1,6 @@
 #include "qemu/osdep.h"
 #include "cpu.h"
 
-#define MCPUID_RV64I   ((target_ulong)2 << (TARGET_LONG_BITS - 2))
-#define MCPUID_RV32I   ((target_ulong)1 << (TARGET_LONG_BITS - 2))
-#define MCPUID_SUPER   (1L << ('S' - 'A'))
-#define MCPUID_USER    (1L << ('U' - 'A'))
-#define MCPUID_I       (1L << ('I' - 'A'))
-#define MCPUID_M       (1L << ('M' - 'A'))
-#define MCPUID_A       (1L << ('A' - 'A'))
-#define MCPUID_F       (1L << ('F' - 'A'))
-#define MCPUID_D       (1L << ('D' - 'A'))
-
 struct riscv_def_t {
     const char *name;
     uint64_t init_misa_reg;
@@ -22,12 +12,12 @@ static const riscv_def_t riscv_defs[] = {
         .name = "any",
 #if defined(TARGET_RISCV64)
         /* RV64G */
-        .init_misa_reg = MCPUID_RV64I | MCPUID_SUPER | MCPUID_USER | MCPUID_I
-            | MCPUID_M | MCPUID_A | MCPUID_F | MCPUID_D,
+        .init_misa_reg = MISA_RV64I | MISA_S | MISA_U | MISA_I
+            | MISA_M | MISA_A | MISA_F | MISA_D | MISA_C,
 #else
         /* RV32G */
-        .init_misa_reg = MCPUID_RV32I | MCPUID_SUPER | MCPUID_USER | MCPUID_I
-            | MCPUID_M | MCPUID_A | MCPUID_F | MCPUID_D,
+        .init_misa_reg = MISA_RV32I | MISA_S | MISA_U | MISA_I
+            | MISA_M | MISA_A | MISA_F | MISA_D | MISA_C,
 #endif
     },
 };
@@ -70,6 +60,7 @@ RISCVCPU *cpu_riscv_init(const char *cpu_model)
     /* set mcpuid from def */
     env->misa = def->init_misa_reg;
     env->max_isa = def->init_misa_reg;
+    cpu_riscv_set_tb_flags(env);
 #endif
 
     object_property_set_bool(OBJECT(cpu), true, "realized", NULL);

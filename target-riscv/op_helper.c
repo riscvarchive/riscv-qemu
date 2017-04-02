@@ -120,6 +120,7 @@ inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
         dirty |= (mstatus & MSTATUS_XS) == MSTATUS_XS;
         mstatus = set_field(mstatus, MSTATUS64_SD, dirty);
         env->mstatus = mstatus;
+        cpu_riscv_set_tb_flags(env);
         break;
     }
     case CSR_MIP: {
@@ -263,6 +264,7 @@ inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
         mask &= env->max_isa;
 
         env->misa = (val_to_write & mask) | (env->misa & ~mask);
+        cpu_riscv_set_tb_flags(env);
         break;
     }
     case CSR_TSELECT:
@@ -513,6 +515,7 @@ void set_privilege(CPURISCVState *env, target_ulong newpriv)
     }
     helper_tlb_flush(env);
     env->priv = newpriv;
+    cpu_riscv_set_tb_flags(env);
 }
 
 target_ulong helper_sret(CPURISCVState *env, target_ulong cpu_pc_deb)
@@ -522,8 +525,8 @@ target_ulong helper_sret(CPURISCVState *env, target_ulong cpu_pc_deb)
     }
 
     target_ulong retpc = env->sepc;
-    if (!riscv_feature(env, RISCV_FEATURE_RVC) && (retpc & 0x3)) {
-        helper_raise_exception(env, RISCV_EXCP_INST_ADDR_MIS);
+    if (!(env->misa & (1 << ('C' - 'A')))) {
+        retpc &= ~3;
     }
 
     target_ulong mstatus = env->mstatus;
@@ -545,8 +548,8 @@ target_ulong helper_mret(CPURISCVState *env, target_ulong cpu_pc_deb)
     }
 
     target_ulong retpc = env->mepc;
-    if (!riscv_feature(env, RISCV_FEATURE_RVC) && (retpc & 0x3)) {
-        helper_raise_exception(env, RISCV_EXCP_INST_ADDR_MIS);
+    if (!(env->misa & (1 << ('C' - 'A')))) {
+        retpc &= ~3;
     }
 
     target_ulong mstatus = env->mstatus;

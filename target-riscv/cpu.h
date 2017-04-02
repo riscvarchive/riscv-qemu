@@ -51,6 +51,26 @@
 
 #define MMU_USER_IDX 3
 
+/* tb_flags must contain all information that affects execution of ordinary
+ * instructions (helpers can look at the CPURISCVState) */
+
+#define RISCV_TF_MISA_M    (1 << 0)
+#define RISCV_TF_MISA_A    (1 << 1)
+#define RISCV_TF_MISA_F    (1 << 2)
+#define RISCV_TF_MISA_D    (1 << 3)
+#define RISCV_TF_MISA_C    (1 << 4)
+
+#define RISCV_TF_IAT_SHIFT 5
+#define RISCV_TF_IAT_MASK  (7 << 5)
+
+#define RISCV_TF_DAT_SHIFT 8
+#define RISCV_TF_DAT_MASK  (7 << 8)
+
+#define RISCV_TF_XLEN32    (0 << 11)
+#define RISCV_TF_XLEN64    (1 << 11)
+#define RISCV_TF_XLEN128   (2 << 11)
+#define RISCV_TF_XLEN_MASK (3 << 11)
+
 struct CPURISCVState;
 
 #define SSIP_IRQ (env->irq[0])
@@ -76,6 +96,7 @@ struct CPURISCVState {
     target_ulong badaddr;
 
     uint32_t mucounteren;
+    uint32_t tb_flags;
 
 #ifdef CONFIG_USER_ONLY
     uint32_t amoinsn;
@@ -117,9 +138,6 @@ struct CPURISCVState {
 #endif
 
     float_status fp_status;
-
-    /* Internal CPU feature flags. */
-    uint64_t features;
 
     /* QEMU */
     CPU_COMMON
@@ -173,19 +191,6 @@ typedef struct RISCVCPU {
 static inline RISCVCPU *riscv_env_get_cpu(CPURISCVState *env)
 {
     return container_of(env, RISCVCPU, env);
-}
-
-enum riscv_features {
-    RISCV_FEATURE_RVM,
-    RISCV_FEATURE_RVA,
-    RISCV_FEATURE_RVF,
-    RISCV_FEATURE_RVD,
-    RISCV_FEATURE_RVC,
-};
-
-static inline int riscv_feature(CPURISCVState *env, int feature)
-{
-    return (env->features & (1ULL << feature)) != 0;
 }
 
 #include "cpu_user.h"
@@ -242,6 +247,29 @@ static inline int cpu_mmu_index(CPURISCVState *env, bool ifetch)
     }
     return mode;
 }
+
+static inline void cpu_riscv_set_tb_flags(CPURISCVState *env)
+{
+    env->tb_flags = 0;
+    if (env->misa & (1L << ('A' - 'A'))) {
+        env->tb_flags |= RISCV_TF_MISA_A;
+    }
+    if (env->misa & (1L << ('D' - 'A'))) {
+        env->tb_flags |= RISCV_TF_MISA_D;
+    }
+    if (env->misa & (1L << ('F' - 'A'))) {
+        env->tb_flags |= RISCV_TF_MISA_F;
+    }
+    if (env->misa & (1L << ('M' - 'A'))) {
+        env->tb_flags |= RISCV_TF_MISA_M;
+    }
+    if (env->misa & (1L << ('C' - 'A'))) {
+        env->tb_flags |= RISCV_TF_MISA_C;
+    }
+    env->tb_flags |= cpu_mmu_index(env, true) << RISCV_TF_IAT_SHIFT;
+    env->tb_flags |= cpu_mmu_index(env, false) << RISCV_TF_DAT_SHIFT;
+}
+
 #endif
 
 #ifndef CONFIG_USER_ONLY
@@ -307,7 +335,7 @@ static inline void cpu_get_tb_cpu_state(CPURISCVState *env, target_ulong *pc,
 {
     *pc = env->pc;
     *cs_base = 0;
-    *flags = 0; /* necessary to avoid compiler warning */
+    *flags = env->tb_flags;
 }
 
 void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
