@@ -1,5 +1,5 @@
 /*
- * QEMU model of the UART on the SiFive U500 SoC (identity unknown).
+ * QEMU model of the SiFive Inc UART
  *
  * Copyright (c) 2016 Stefan O'Rear
  *

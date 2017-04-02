@@ -226,7 +226,13 @@ static void riscv_riscvemu_board_init(MachineState *args)
     /* timer device at 0x40000000, as specified in the config string above */
     timer_mm_init(system_memory, 0x40000000, env);
 
-    /* TODO: VIRTIO */
+    /* virtio devices */
+    DeviceState *plic = sysbus_create_simple("riscv.plic", 0x40002000, env->irq[5]); /* SEIP */
+
+    sysbus_create_simple("virtio-mmio", 0x40010000, qdev_get_gpio_in(plic, 1));
+    sysbus_create_simple("virtio-mmio", 0x40011000, qdev_get_gpio_in(plic, 2));
+    sysbus_create_simple("virtio-mmio", 0x40012000, qdev_get_gpio_in(plic, 3));
+    sysbus_create_simple("virtio-mmio", 0x40013000, qdev_get_gpio_in(plic, 4));
 }
 
 static int riscv_riscvemu_board_sysbus_device_init(SysBusDevice *sysbusdev)
