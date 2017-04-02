@@ -139,6 +139,7 @@ trace-events-y += hw/display/trace-events
 trace-events-y += hw/input/trace-events
 trace-events-y += hw/timer/trace-events
 trace-events-y += hw/dma/trace-events
+trace-events-y += hw/riscv/trace-events
 trace-events-y += hw/sparc/trace-events
 trace-events-y += hw/sd/trace-events
 trace-events-y += hw/isa/trace-events

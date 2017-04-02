@@ -58,6 +58,7 @@ struct CPURISCVState;
 #define MSIP_IRQ (env->irq[2])
 #define TIMER_IRQ (env->irq[3])
 #define HTIF_IRQ (env->irq[4])
+#define SEIP_IRQ (env->irq[5])
 
 typedef struct riscv_def_t riscv_def_t;
 

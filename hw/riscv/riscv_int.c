@@ -35,14 +35,23 @@ static void cpu_riscv_irq_request(void *opaque, int irq, int level)
     CPUState *cs = CPU(cpu);
 
     /* current irqs:
+       5: Supervisor external. Set from PLIC, we need to set MIP here
        4: Host Interrupt. mfromhost should have a nonzero value
        3: Machine Timer. MIP_MTIP should have already been set
        2, 1, 0: Interrupts triggered by the CPU. At least one of
        MIP_STIP, MIP_SSIP, MIP_MSIP should already be set */
-    if (unlikely(!(irq < 5 && irq >= 0))) {
+    if (unlikely(!(irq < 6 && irq >= 0))) {
         printf("IRQNO: %d\n", irq);
         fprintf(stderr, "Unused IRQ was raised.\n");
         exit(1);
+    }
+
+    if (irq == 5) {
+        if (level) {
+            env->mip |= MIP_SEIP;
+        } else {
+            env->mip &= ~MIP_SEIP;
+        }
     }
 
     if (level) {
