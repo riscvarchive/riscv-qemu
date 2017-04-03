@@ -35,7 +35,7 @@ bool riscv_cpu_exec_interrupt(CPUState *cs, int interrupt_request)
     if (interrupt_request & CPU_INTERRUPT_HARD) {
         RISCVCPU *cpu = RISCV_CPU(cs);
         CPURISCVState *env = &cpu->env;
-        int interruptno = cpu_riscv_hw_interrupts_pending(env);
+        int interruptno = cpu_riscv_hw_interrupts_pending(env, false);
         if (interruptno + 1) {
             cs->exception_index = 0x70000000U | interruptno;
             riscv_cpu_do_interrupt(cs);

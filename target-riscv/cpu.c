@@ -51,7 +51,7 @@ static bool riscv_cpu_has_work(CPUState *cs)
     bool has_work = false;
 
     if (cs->interrupt_request & CPU_INTERRUPT_HARD) {
-        int interruptno = cpu_riscv_hw_interrupts_pending(env);
+        int interruptno = cpu_riscv_hw_interrupts_pending(env, true);
         if (interruptno + 1) {
             has_work = true;
         }

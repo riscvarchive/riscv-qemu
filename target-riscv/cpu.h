@@ -310,32 +310,22 @@ static inline void cpu_riscv_set_tb_flags(CPURISCVState *env)
  *
  * Adapted from Spike's processor_t::take_interrupt()
  */
-static inline int cpu_riscv_hw_interrupts_pending(CPURISCVState *env)
+static inline int cpu_riscv_hw_interrupts_pending(CPURISCVState *env, bool nostatus)
 {
     target_ulong pending_interrupts = env->mip & env->mie;
 
     target_ulong mie = get_field(env->mstatus, MSTATUS_MIE);
-    target_ulong m_enabled = env->priv < PRV_M || (env->priv == PRV_M && mie);
+    target_ulong m_enabled = nostatus || env->priv < PRV_M || (env->priv == PRV_M && mie);
     target_ulong enabled_interrupts = pending_interrupts &
                                       ~env->mideleg & -m_enabled;
 
     target_ulong sie = get_field(env->mstatus, MSTATUS_SIE);
-    target_ulong s_enabled = env->priv < PRV_S || (env->priv == PRV_S && sie);
+    target_ulong s_enabled = nostatus || env->priv < PRV_S || (env->priv == PRV_S && sie);
     enabled_interrupts |= pending_interrupts & env->mideleg &
                           -s_enabled;
 
     if (enabled_interrupts) {
-        target_ulong counted = ctz64(enabled_interrupts); /* since non-zero */
-        if (counted == IRQ_HOST) {
-            /* we're handing it to the cpu now, so get rid of the qemu irq */
-            qemu_irq_lower(HTIF_IRQ);
-        } else if (counted == IRQ_M_TIMER) {
-            /* we're handing it to the cpu now, so get rid of the qemu irq */
-            qemu_irq_lower(TIMER_IRQ);
-        } else if (counted == IRQ_S_TIMER || counted == IRQ_H_TIMER) {
-            /* don't lower irq here */
-        }
-        return counted;
+        return ctz64(enabled_interrupts); /* since non-zero */
     } else {
         return EXCP_NONE; /* indicates no pending interrupt */
     }
