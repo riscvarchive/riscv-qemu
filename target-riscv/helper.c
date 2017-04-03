@@ -58,7 +58,7 @@ bool riscv_cpu_exec_interrupt(CPUState *cs, int interrupt_request)
  */
 static int get_physical_address(CPURISCVState *env, hwaddr *physical,
                                 int *prot, target_ulong address,
-                                int access_type, int mmu_idx)
+                                int access_type, int want_mmu_idx)
 {
     /* NOTE: the env->pc value visible here will not be
      * correct, but the value visible to the exception handler
@@ -73,28 +73,32 @@ static int get_physical_address(CPURISCVState *env, hwaddr *physical,
             mode = get_field(env->mstatus, MSTATUS_MPP);
         }
     }
-    if (get_field(env->mstatus, MSTATUS_VM) == VM_MBARE) {
-        mode = PRV_M;
+    int mmu_idx;
+    if (mode == PRV_M || get_field(env->mstatus, MSTATUS_VM) == VM_MBARE) {
+        mmu_idx = MMU_BARE_IDX;
+    } else {
+        mmu_idx = 0;
+        if (mode == PRV_U) {
+            mmu_idx |= MMU_BIT_DENYSUPER;
+        }
+        if (mode == PRV_S && get_field(env->mstatus, MSTATUS_PUM)) {
+            mmu_idx |= MMU_BIT_DENYUSER;
+        }
+        if (get_field(env->mstatus, MSTATUS_MXR)) {
+            mmu_idx |= MMU_BIT_MXR;
+        }
     }
 
-    /* check to make sure that mmu_idx and mode that we get matches */
-    assert(mode == mmu_idx);
+    /* check to make sure that mmu_idx and want_mmu_idx that we get matches */
+    assert(want_mmu_idx == mmu_idx);
 
-    if (mode == PRV_M) {
-        target_ulong msb_mask = (((target_ulong)2) << (TARGET_LONG_BITS - 1)) - 1;
-                                        /*0x7FFFFFFFFFFFFFFF; */
-        *physical = address & msb_mask;
+    if (mmu_idx == MMU_BARE_IDX) {
+        *physical = address;
         *prot = PAGE_READ | PAGE_WRITE | PAGE_EXEC;
         return TRANSLATE_SUCCESS;
     }
 
     target_ulong addr = address;
-    int supervisor = mode == PRV_S;
-    int pum = get_field(env->mstatus, MSTATUS_PUM);
-    int mxr = get_field(env->mstatus, MSTATUS_MXR);
-    /* TODO(sorear): This logic is broken.  PUM and MXR need to be encoded
-       in the mmu_idx so that translations with different rules do not
-       cross-contaminate. */
 
     int levels, ptidxbits, ptesize;
     switch (get_field(env->mstatus, MSTATUS_VM)) {
@@ -114,8 +118,7 @@ static int get_physical_address(CPURISCVState *env, hwaddr *physical,
       ptesize = 8;
       break;
     default:
-      printf("unsupported MSTATUS_VM value\n");
-      exit(1);
+      g_assert_not_reached();
     }
 
     int va_bits = PGSHIFT + levels * ptidxbits;
@@ -135,27 +138,35 @@ static int get_physical_address(CPURISCVState *env, hwaddr *physical,
         /* check that physical address of PTE is legal */
         target_ulong pte_addr = base + idx * ptesize;
 
-        /* PTE must reside in memory */
-        if (!(pte_addr >= DRAM_BASE && pte_addr < (DRAM_BASE + env->memsize))) {
-            printf("PTE was not in DRAM region\n");
-            exit(1);
-            break;
-        }
-
         target_ulong pte = ldq_phys(cs->as, pte_addr);
         target_ulong ppn = pte >> PTE_PPN_SHIFT;
 
-        if (PTE_TABLE(pte)) { /* next level of page table */
+        if (PTE_TABLE(pte)) {
+            /* next level of page table */
             base = ppn << PGSHIFT;
-        } else if ((pte & PTE_U) ? supervisor && pum : !supervisor) {
+        } else if (mmu_idx & ((pte & PTE_U) ? MMU_BIT_DENYUSER : MMU_BIT_DENYSUPER)) {
             break;
         } else if (!(pte & PTE_V) || (!(pte & PTE_R) && (pte & PTE_W))) {
             break;
-        } else if (access_type == MMU_INST_FETCH ? !(pte & PTE_X) :
-                  access_type == MMU_DATA_LOAD ?  !(pte & PTE_R) &&
-                  !(mxr && (pte & PTE_X)) : !((pte & PTE_R) && (pte & PTE_W))) {
-            break;
         } else {
+            /* real valid PTE - compute access */
+            int read_ok = (pte & PTE_R) || ((mmu_idx & MMU_BIT_MXR) && (pte & PTE_X));
+            if (access_type == MMU_DATA_LOAD && !read_ok) {
+                break;
+            }
+
+            /* if the PTE needs to be dirtied, and we're not dirtying it right
+               now, mark it unwriteable so we'll know to return */
+            int write_ok = (pte & PTE_W) && (access_type == MMU_DATA_STORE || (pte & PTE_D));
+            if (access_type == MMU_DATA_STORE && !write_ok) {
+                break;
+            }
+
+            int exec_ok = (pte & PTE_X);
+            if (access_type == MMU_INST_FETCH && !exec_ok) {
+                break;
+            }
+
             /* set accessed and possibly dirty bits.
                we only put it in the TLB if it has the right stuff */
             stq_phys(cs->as, pte_addr, ldq_phys(cs->as, pte_addr) | PTE_A |
@@ -166,33 +177,14 @@ static int get_physical_address(CPURISCVState *env, hwaddr *physical,
             target_ulong vpn = addr >> PGSHIFT;
             *physical = (ppn | (vpn & ((1L << ptshift) - 1))) << PGSHIFT;
 
-            /* we do not give all prots indicated by the PTE
-             * this is because future accesses need to do things like set the
-             * dirty bit on the PTE
-             *
-             * at this point, we assume that protection checks have occurred */
-            if (supervisor) {
-                if ((pte & PTE_X) && access_type == MMU_INST_FETCH) {
-                    *prot |= PAGE_EXEC;
-                } else if ((pte & PTE_W) && access_type == MMU_DATA_STORE) {
-                    *prot |= PAGE_WRITE;
-                } else if ((pte & PTE_R) && access_type == MMU_DATA_LOAD) {
-                    *prot |= PAGE_READ;
-                } else {
-                    printf("err in translation prots");
-                    exit(1);
-                }
-            } else {
-                if ((pte & PTE_X) && access_type == MMU_INST_FETCH) {
-                    *prot |= PAGE_EXEC;
-                } else if ((pte & PTE_W) && access_type == MMU_DATA_STORE) {
-                    *prot |= PAGE_WRITE;
-                } else if ((pte & PTE_R) && access_type == MMU_DATA_LOAD) {
-                    *prot |= PAGE_READ;
-                } else {
-                    printf("err in translation prots");
-                    exit(1);
-                }
+            if (exec_ok) {
+                *prot |= PAGE_EXEC;
+            }
+            if (read_ok) {
+                *prot |= PAGE_READ;
+            }
+            if (write_ok) {
+                *prot |= PAGE_WRITE;
             }
             return TRANSLATE_SUCCESS;
         }

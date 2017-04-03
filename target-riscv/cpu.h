@@ -47,9 +47,28 @@
 
 #define TRANSLATE_FAIL 1
 #define TRANSLATE_SUCCESS 0
-#define NB_MMU_MODES 4
 
-#define MMU_USER_IDX 3
+#define NB_MMU_MODES 7
+#define MMU_KUSER_IDX      0  /* kernel with PUM=0 */
+#define MMU_KUSER_MXR_IDX  1  /* kernel with PUM=0 MXR=1 */
+#define MMU_USER_IDX       2  /* normal user mode */
+#define MMU_USER_MXR_IDX   3  /* user mode with MXR=1 - rare */
+#define MMU_KONLY_IDX      4  /* normal kernel mode */
+#define MMU_KONLY_MXR_IDX  5  /* kernel mode with MXR=1 - rare */
+#define MMU_BARE_IDX       6  /* machine mode or paging disabled */
+
+/* modes other than BARE have logical struture */
+#define MMU_BIT_MXR       1
+#define MMU_BIT_DENYSUPER 2
+#define MMU_BIT_DENYUSER  4
+
+#define MMU_MODE0_SUFFIX _kernel_sum
+#define MMU_MODE1_SUFFIX _kernel_sum_mxr
+#define MMU_MODE2_SUFFIX _user
+#define MMU_MODE3_SUFFIX _user_mxr
+#define MMU_MODE4_SUFFIX _kernel
+#define MMU_MODE5_SUFFIX _kernel_mxr
+#define MMU_MODE6_SUFFIX _bare
 
 /* tb_flags must contain all information that affects execution of ordinary
  * instructions (helpers can look at the CPURISCVState) */
@@ -242,10 +261,22 @@ static inline int cpu_mmu_index(CPURISCVState *env, bool ifetch)
             mode = get_field(env->mstatus, MSTATUS_MPP);
         }
     }
-    if (get_field(env->mstatus, MSTATUS_VM) == VM_MBARE) {
-        mode = PRV_M;
+    int mmu_idx;
+    if (mode == PRV_M || get_field(env->mstatus, MSTATUS_VM) == VM_MBARE) {
+        mmu_idx = MMU_BARE_IDX;
+    } else {
+        mmu_idx = 0;
+        if (mode == PRV_U) {
+            mmu_idx |= MMU_BIT_DENYSUPER;
+        }
+        if (mode == PRV_S && get_field(env->mstatus, MSTATUS_PUM)) {
+            mmu_idx |= MMU_BIT_DENYUSER;
+        }
+        if (get_field(env->mstatus, MSTATUS_MXR)) {
+            mmu_idx |= MMU_BIT_MXR;
+        }
     }
-    return mode;
+    return mmu_idx;
 }
 
 static inline void cpu_riscv_set_tb_flags(CPURISCVState *env)

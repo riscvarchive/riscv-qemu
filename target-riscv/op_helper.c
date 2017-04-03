@@ -99,9 +99,7 @@ inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
 #ifndef CONFIG_USER_ONLY
     case CSR_MSTATUS: {
         target_ulong mstatus = env->mstatus;
-        if ((val_to_write ^ mstatus) &
-            (MSTATUS_VM | MSTATUS_MPP | MSTATUS_MPRV | MSTATUS_PUM |
-             MSTATUS_MXR)) {
+        if ((val_to_write ^ mstatus) & MSTATUS_VM) {
             helper_tlb_flush(env);
         }
 
@@ -513,7 +511,6 @@ void set_privilege(CPURISCVState *env, target_ulong newpriv)
     if (newpriv == PRV_H) {
         newpriv = PRV_U;
     }
-    helper_tlb_flush(env);
     env->priv = newpriv;
     cpu_riscv_set_tb_flags(env);
 }
@@ -569,8 +566,6 @@ void helper_fence_i(CPURISCVState *env)
 {
     RISCVCPU *cpu = riscv_env_get_cpu(env);
     CPUState *cs = CPU(cpu);
-    /* Flush QEMU's TLB */
-    tlb_flush(cs, 1);
     /* ARM port seems to not know if this is okay inside a TB
        But we need to do it */
     tb_flush(cs);
