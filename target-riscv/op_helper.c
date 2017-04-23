@@ -99,9 +99,7 @@ inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
 #ifndef CONFIG_USER_ONLY
     case CSR_MSTATUS: {
         target_ulong mstatus = env->mstatus;
-        if ((val_to_write ^ mstatus) &
-            (MSTATUS_VM | MSTATUS_MPP | MSTATUS_MPRV | MSTATUS_PUM |
-             MSTATUS_MXR)) {
+        if ((val_to_write ^ mstatus) & MSTATUS_VM) {
             helper_tlb_flush(env);
         }
 
@@ -120,6 +118,7 @@ inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
         dirty |= (mstatus & MSTATUS_XS) == MSTATUS_XS;
         mstatus = set_field(mstatus, MSTATUS64_SD, dirty);
         env->mstatus = mstatus;
+        cpu_riscv_set_tb_flags(env);
         break;
     }
     case CSR_MIP: {
@@ -249,20 +248,16 @@ inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
         env->mbadaddr = val_to_write;
         break;
     case CSR_MISA: {
-        if (!(val_to_write & (1L << ('F' - 'A')))) {
-            val_to_write &= ~(1L << ('D' - 'A'));
+        if (!(val_to_write & MISA_F)) {
+            val_to_write &= ~MISA_D;
         }
 
         // allow MAFDC bits in MISA to be modified
-        target_ulong mask = 0;
-        mask |= 1L << ('M' - 'A');
-        mask |= 1L << ('A' - 'A');
-        mask |= 1L << ('F' - 'A');
-        mask |= 1L << ('D' - 'A');
-        mask |= 1L << ('C' - 'A');
+        target_ulong mask = MISA_M | MISA_A | MISA_F | MISA_D | MISA_C;
         mask &= env->max_isa;
 
         env->misa = (val_to_write & mask) | (env->misa & ~mask);
+        cpu_riscv_set_tb_flags(env);
         break;
     }
     case CSR_TSELECT:
@@ -511,8 +506,8 @@ void set_privilege(CPURISCVState *env, target_ulong newpriv)
     if (newpriv == PRV_H) {
         newpriv = PRV_U;
     }
-    helper_tlb_flush(env);
     env->priv = newpriv;
+    cpu_riscv_set_tb_flags(env);
 }
 
 target_ulong helper_sret(CPURISCVState *env, target_ulong cpu_pc_deb)
@@ -522,8 +517,8 @@ target_ulong helper_sret(CPURISCVState *env, target_ulong cpu_pc_deb)
     }
 
     target_ulong retpc = env->sepc;
-    if (!riscv_feature(env, RISCV_FEATURE_RVC) && (retpc & 0x3)) {
-        helper_raise_exception(env, RISCV_EXCP_INST_ADDR_MIS);
+    if (!(env->misa & MISA_C)) {
+        retpc &= ~3;
     }
 
     target_ulong mstatus = env->mstatus;
@@ -545,8 +540,8 @@ target_ulong helper_mret(CPURISCVState *env, target_ulong cpu_pc_deb)
     }
 
     target_ulong retpc = env->mepc;
-    if (!riscv_feature(env, RISCV_FEATURE_RVC) && (retpc & 0x3)) {
-        helper_raise_exception(env, RISCV_EXCP_INST_ADDR_MIS);
+    if (!(env->misa & MISA_C)) {
+        retpc &= ~3;
     }
 
     target_ulong mstatus = env->mstatus;
@@ -562,12 +557,19 @@ target_ulong helper_mret(CPURISCVState *env, target_ulong cpu_pc_deb)
 }
 
 
+void helper_wfi(CPURISCVState *env)
+{
+    CPUState *cs = CPU(riscv_env_get_cpu(env));
+
+    cs->halted = 1;
+    cs->exception_index = EXCP_HLT;
+    cpu_loop_exit(cs);
+}
+
 void helper_fence_i(CPURISCVState *env)
 {
     RISCVCPU *cpu = riscv_env_get_cpu(env);
     CPUState *cs = CPU(cpu);
-    /* Flush QEMU's TLB */
-    tlb_flush(cs, 1);
     /* ARM port seems to not know if this is okay inside a TB
        But we need to do it */
     tb_flush(cs);

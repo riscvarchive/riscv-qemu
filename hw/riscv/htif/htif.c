@@ -334,7 +334,7 @@ static const MemoryRegionOps htif_mm_ops[3] = {
 };
 
 HTIFState *htif_mm_init(MemoryRegion *address_space,
-           const char *kernel_filename, qemu_irq irq, MemoryRegion *main_mem,
+           const char *kernel_filename, hwaddr htif_base, qemu_irq irq, MemoryRegion *main_mem,
            CPURISCVState *env, CharDriverState *chr)
 {
     uint64_t fromhost_addr = 0;
@@ -382,6 +382,12 @@ HTIFState *htif_mm_init(MemoryRegion *address_space,
             curr_sym = elf_nextsym32(e, curr_sym);
 #endif
         }
+    } else if (htif_base != 0) {
+        /* RISCVEMU compatible fixed-HTIF */
+        tohost_addr = htif_base;
+        tohost_size = 8;
+        fromhost_addr = htif_base + 8;
+        fromhost_size = 8;
     }
 
     /* now setup HTIF device */

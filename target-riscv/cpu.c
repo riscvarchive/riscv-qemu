@@ -24,11 +24,6 @@
 #include "qemu-common.h"
 #include "migration/vmstate.h"
 
-static inline void set_feature(CPURISCVState *env, int feature)
-{
-    env->features |= 1ULL << feature;
-}
-
 static void riscv_cpu_set_pc(CPUState *cs, vaddr value)
 {
     RISCVCPU *cpu = RISCV_CPU(cs);
@@ -56,7 +51,7 @@ static bool riscv_cpu_has_work(CPUState *cs)
     bool has_work = false;
 
     if (cs->interrupt_request & CPU_INTERRUPT_HARD) {
-        int interruptno = cpu_riscv_hw_interrupts_pending(env);
+        int interruptno = cpu_riscv_hw_interrupts_pending(env, true);
         if (interruptno + 1) {
             has_work = true;
         }
@@ -83,6 +78,7 @@ static void riscv_cpu_reset(CPUState *s)
 #ifndef CONFIG_USER_ONLY
     tlb_flush(s, 1);
     env->priv = PRV_M;
+    cpu_riscv_set_tb_flags(env);
     env->mtvec = DEFAULT_MTVEC;
 #endif
     env->pc = DEFAULT_RSTVEC;
@@ -96,16 +92,7 @@ static void riscv_cpu_disas_set_info(CPUState *s, disassemble_info *info) {
 static void riscv_cpu_realizefn(DeviceState *dev, Error **errp)
 {
     CPUState *cs = CPU(dev);
-    RISCVCPU *cpu = RISCV_CPU(dev);
     RISCVCPUClass *mcc = RISCV_CPU_GET_CLASS(dev);
-    CPURISCVState *env = &cpu->env;
-
-    /* Enable GC ISA */
-    set_feature(env, RISCV_FEATURE_RVM);
-    set_feature(env, RISCV_FEATURE_RVA);
-    set_feature(env, RISCV_FEATURE_RVF);
-    set_feature(env, RISCV_FEATURE_RVD);
-    set_feature(env, RISCV_FEATURE_RVC);
 
     cpu_reset(cs);
     qemu_init_vcpu(cs);

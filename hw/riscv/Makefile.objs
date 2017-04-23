@@ -3,5 +3,7 @@ obj-y += riscv_int.o
 obj-y += htif/elf_symb.o
 obj-y += htif/htif.o
 obj-y += riscv_board.o
+obj-y += riscv_plic.o
+obj-y += riscvemu_board.o
 obj-y += sifive_board.o
 obj-y += sifive_uart.o

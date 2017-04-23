@@ -52,8 +52,8 @@
 #include "qemu/error-report.h"
 #include "sysemu/block-backend.h"
 
-#define TYPE_RISCV_SPIKE_BOARD "spike"
-#define RISCV_SPIKE_BOARD(obj) OBJECT_CHECK(BoardState, (obj), TYPE_RISCV_SPIKE_BOARD)
+#define TYPE_RISCV_RISCVEMU_BOARD "riscvemu"
+#define RISCV_RISCVEMU_BOARD(obj) OBJECT_CHECK(BoardState, (obj), TYPE_RISCV_RISCVEMU_BOARD)
 
 typedef struct {
     SysBusDevice parent_obj;
@@ -66,25 +66,13 @@ static struct _loaderparams {
     const char *initrd_filename;
 } loaderparams;
 
-static uint64_t identity_translate(void *opaque, uint64_t addr)
+static void load_kernel(void)
 {
-    return addr;
-}
-
-static int64_t load_kernel(void)
-{
-    int64_t kernel_entry, kernel_high;
-    int big_endian;
-    big_endian = 0;
-
-    if (load_elf(loaderparams.kernel_filename, identity_translate, NULL,
-                 (uint64_t *)&kernel_entry, NULL, (uint64_t *)&kernel_high,
-                 big_endian, ELF_MACHINE, 1, 0) < 0) {
+    if (load_image_targphys(loaderparams.kernel_filename, DRAM_BASE, loaderparams.ram_size) < 0) {
         fprintf(stderr, "qemu: could not load kernel '%s'\n",
                 loaderparams.kernel_filename);
         exit(1);
     }
-    return kernel_entry;
 }
 
 static void main_cpu_reset(void *opaque)
@@ -93,7 +81,7 @@ static void main_cpu_reset(void *opaque)
     cpu_reset(CPU(cpu));
 }
 
-static void riscv_spike_board_init(MachineState *args)
+static void riscv_riscvemu_board_init(MachineState *args)
 {
     ram_addr_t ram_size = args->ram_size;
     const char *cpu_model = args->cpu_model;
@@ -107,7 +95,7 @@ static void riscv_spike_board_init(MachineState *args)
     RISCVCPU *cpu;
     CPURISCVState *env;
     int i;
-    DeviceState *dev = qdev_create(NULL, TYPE_RISCV_SPIKE_BOARD);
+    DeviceState *dev = qdev_create(NULL, TYPE_RISCV_RISCVEMU_BOARD);
     object_property_set_bool(OBJECT(dev), true, "realized", NULL);
 
     /* Make sure the first 3 serial ports are associated with a device. */
@@ -141,7 +129,7 @@ static void riscv_spike_board_init(MachineState *args)
     env = &cpu->env;
 
     /* register system main memory (actual RAM) */
-    memory_region_init_ram(main_mem, NULL, "riscv_spike_board.ram",
+    memory_region_init_ram(main_mem, NULL, "riscv_riscvemu_board.ram",
                            ram_size, &error_fatal);
     /* for phys mem size check in page table walk */
     env->memsize = ram_size;
@@ -149,13 +137,13 @@ static void riscv_spike_board_init(MachineState *args)
     memory_region_add_subregion(system_memory, 0x80000000, main_mem);
 
     /* boot rom */
-    memory_region_init_ram(boot_rom, NULL, "riscv_spike_board.bootrom",
+    memory_region_init_ram(boot_rom, NULL, "riscv_riscvemu_board.bootrom",
                            0x40000, &error_fatal);
     vmstate_register_ram_global(boot_rom);
     memory_region_add_subregion(system_memory, 0x0, boot_rom);
 
     /* allocate dummy ram region for "nop" IPI */
-    memory_region_init_ram(dummy_ipi, NULL, "riscv_spike_board.dummyipi",
+    memory_region_init_ram(dummy_ipi, NULL, "riscv_riscvemu_board.dummyipi",
                            8, &error_fatal);
     memory_region_add_subregion(system_memory, 0x40001000, dummy_ipi);
 
@@ -179,7 +167,7 @@ static void riscv_spike_board_init(MachineState *args)
     /* part one of config string - before memory size specified */
     const char *config_string1 = "platform {\n"
         "  vendor ucb;\n"
-        "  arch spike;\n"
+        "  arch riscvemu;\n"
         "};\n"
         "rtc {\n"
         "  addr 0x" "40000000" ";\n"
@@ -232,46 +220,52 @@ static void riscv_spike_board_init(MachineState *args)
     /* add memory mapped htif registers at location specified in the symbol
        table of the elf being loaded (thus kernel_filename is passed to the
        init rather than an address) */
-    htif_mm_init(system_memory, kernel_filename, 0, env->irq[4], boot_rom,
+    htif_mm_init(system_memory, NULL, 0x40008000, env->irq[4], boot_rom,
             env, serial_hds[0]);
 
     /* timer device at 0x40000000, as specified in the config string above */
     timer_mm_init(system_memory, 0x40000000, env);
 
-    /* TODO: VIRTIO */
+    /* virtio devices */
+    DeviceState *plic = sysbus_create_simple("riscv.plic", 0x40002000, env->irq[5]); /* SEIP */
+
+    sysbus_create_simple("virtio-mmio", 0x40010000, qdev_get_gpio_in(plic, 1));
+    sysbus_create_simple("virtio-mmio", 0x40011000, qdev_get_gpio_in(plic, 2));
+    sysbus_create_simple("virtio-mmio", 0x40012000, qdev_get_gpio_in(plic, 3));
+    sysbus_create_simple("virtio-mmio", 0x40013000, qdev_get_gpio_in(plic, 4));
 }
 
-static int riscv_spike_board_sysbus_device_init(SysBusDevice *sysbusdev)
+static int riscv_riscvemu_board_sysbus_device_init(SysBusDevice *sysbusdev)
 {
     return 0;
 }
 
-static void riscv_spike_board_class_init(ObjectClass *klass, void *data)
+static void riscv_riscvemu_board_class_init(ObjectClass *klass, void *data)
 {
     SysBusDeviceClass *k = SYS_BUS_DEVICE_CLASS(klass);
-    k->init = riscv_spike_board_sysbus_device_init;
+    k->init = riscv_riscvemu_board_sysbus_device_init;
 }
 
-static const TypeInfo riscv_spike_board_device = {
-    .name          = TYPE_RISCV_SPIKE_BOARD,
+static const TypeInfo riscv_riscvemu_board_device = {
+    .name          = TYPE_RISCV_RISCVEMU_BOARD,
     .parent        = TYPE_SYS_BUS_DEVICE,
     .instance_size = sizeof(BoardState),
-    .class_init    = riscv_spike_board_class_init,
+    .class_init    = riscv_riscvemu_board_class_init,
 };
 
-static void riscv_spike_board_machine_init(MachineClass *mc)
+static void riscv_riscvemu_board_machine_init(MachineClass *mc)
 {
     mc->desc = "RISC-V Generic Board (matching 'Spike')";
-    mc->init = riscv_spike_board_init;
+    mc->init = riscv_riscvemu_board_init;
     mc->max_cpus = 1;
     mc->is_default = 1;
 }
 
-DEFINE_MACHINE("spike", riscv_spike_board_machine_init)
+DEFINE_MACHINE("riscvemu", riscv_riscvemu_board_machine_init)
 
-static void riscv_spike_board_register_types(void)
+static void riscv_riscvemu_board_register_types(void)
 {
-    type_register_static(&riscv_spike_board_device);
+    type_register_static(&riscv_riscvemu_board_device);
 }
 
-type_init(riscv_spike_board_register_types);
+type_init(riscv_riscvemu_board_register_types);

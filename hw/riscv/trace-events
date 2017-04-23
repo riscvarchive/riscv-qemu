@@ -1,0 +1,7 @@
+# See docs/tracing.txt for syntax documentation.
+
+# hw/riscv/riscv_plic.c
+riscv_plic_unclaimed(int target, int source) "target %d source %d"
+riscv_plic_interrupt(int irq, int level) "irq %d level %d"
+riscv_plic_read(int addr, unsigned int data) "addr %x data %u"
+riscv_plic_write(int addr, unsigned int data) "addr %x data %u"

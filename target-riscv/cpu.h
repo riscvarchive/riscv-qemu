@@ -47,9 +47,48 @@
 
 #define TRANSLATE_FAIL 1
 #define TRANSLATE_SUCCESS 0
-#define NB_MMU_MODES 4
 
-#define MMU_USER_IDX 3
+#define NB_MMU_MODES 7
+#define MMU_KUSER_IDX      0  /* kernel with PUM=0 */
+#define MMU_KUSER_MXR_IDX  1  /* kernel with PUM=0 MXR=1 */
+#define MMU_USER_IDX       2  /* normal user mode */
+#define MMU_USER_MXR_IDX   3  /* user mode with MXR=1 - rare */
+#define MMU_KONLY_IDX      4  /* normal kernel mode */
+#define MMU_KONLY_MXR_IDX  5  /* kernel mode with MXR=1 - rare */
+#define MMU_BARE_IDX       6  /* machine mode or paging disabled */
+
+/* modes other than BARE have logical struture */
+#define MMU_BIT_MXR       1
+#define MMU_BIT_DENYSUPER 2
+#define MMU_BIT_DENYUSER  4
+
+#define MMU_MODE0_SUFFIX _kernel_sum
+#define MMU_MODE1_SUFFIX _kernel_sum_mxr
+#define MMU_MODE2_SUFFIX _user
+#define MMU_MODE3_SUFFIX _user_mxr
+#define MMU_MODE4_SUFFIX _kernel
+#define MMU_MODE5_SUFFIX _kernel_mxr
+#define MMU_MODE6_SUFFIX _bare
+
+/* tb_flags must contain all information that affects execution of ordinary
+ * instructions (helpers can look at the CPURISCVState) */
+
+#define RISCV_TF_MISA_M    (1 << 0)
+#define RISCV_TF_MISA_A    (1 << 1)
+#define RISCV_TF_MISA_F    (1 << 2)
+#define RISCV_TF_MISA_D    (1 << 3)
+#define RISCV_TF_MISA_C    (1 << 4)
+
+#define RISCV_TF_IAT_SHIFT 5
+#define RISCV_TF_IAT_MASK  (7 << 5)
+
+#define RISCV_TF_DAT_SHIFT 8
+#define RISCV_TF_DAT_MASK  (7 << 8)
+
+#define RISCV_TF_XLEN32    (0 << 11)
+#define RISCV_TF_XLEN64    (1 << 11)
+#define RISCV_TF_XLEN128   (2 << 11)
+#define RISCV_TF_XLEN_MASK (3 << 11)
 
 struct CPURISCVState;
 
@@ -58,6 +97,7 @@ struct CPURISCVState;
 #define MSIP_IRQ (env->irq[2])
 #define TIMER_IRQ (env->irq[3])
 #define HTIF_IRQ (env->irq[4])
+#define SEIP_IRQ (env->irq[5])
 
 typedef struct riscv_def_t riscv_def_t;
 
@@ -75,6 +115,7 @@ struct CPURISCVState {
     target_ulong badaddr;
 
     uint32_t mucounteren;
+    uint32_t tb_flags;
 
 #ifdef CONFIG_USER_ONLY
     uint32_t amoinsn;
@@ -116,9 +157,6 @@ struct CPURISCVState {
 #endif
 
     float_status fp_status;
-
-    /* Internal CPU feature flags. */
-    uint64_t features;
 
     /* QEMU */
     CPU_COMMON
@@ -174,19 +212,6 @@ static inline RISCVCPU *riscv_env_get_cpu(CPURISCVState *env)
     return container_of(env, RISCVCPU, env);
 }
 
-enum riscv_features {
-    RISCV_FEATURE_RVM,
-    RISCV_FEATURE_RVA,
-    RISCV_FEATURE_RVF,
-    RISCV_FEATURE_RVD,
-    RISCV_FEATURE_RVC,
-};
-
-static inline int riscv_feature(CPURISCVState *env, int feature)
-{
-    return (env->features & (1ULL << feature)) != 0;
-}
-
 #include "cpu_user.h"
 #include "cpu_bits.h"
 
@@ -236,11 +261,46 @@ static inline int cpu_mmu_index(CPURISCVState *env, bool ifetch)
             mode = get_field(env->mstatus, MSTATUS_MPP);
         }
     }
-    if (get_field(env->mstatus, MSTATUS_VM) == VM_MBARE) {
-        mode = PRV_M;
+    int mmu_idx;
+    if (mode == PRV_M || get_field(env->mstatus, MSTATUS_VM) == VM_MBARE) {
+        mmu_idx = MMU_BARE_IDX;
+    } else {
+        mmu_idx = 0;
+        if (mode == PRV_U) {
+            mmu_idx |= MMU_BIT_DENYSUPER;
+        }
+        if (mode == PRV_S && get_field(env->mstatus, MSTATUS_PUM)) {
+            mmu_idx |= MMU_BIT_DENYUSER;
+        }
+        if (get_field(env->mstatus, MSTATUS_MXR)) {
+            mmu_idx |= MMU_BIT_MXR;
+        }
     }
-    return mode;
+    return mmu_idx;
 }
+
+static inline void cpu_riscv_set_tb_flags(CPURISCVState *env)
+{
+    env->tb_flags = 0;
+    if (env->misa & MISA_A) {
+        env->tb_flags |= RISCV_TF_MISA_A;
+    }
+    if (env->misa & MISA_D) {
+        env->tb_flags |= RISCV_TF_MISA_D;
+    }
+    if (env->misa & MISA_F) {
+        env->tb_flags |= RISCV_TF_MISA_F;
+    }
+    if (env->misa & MISA_M) {
+        env->tb_flags |= RISCV_TF_MISA_M;
+    }
+    if (env->misa & MISA_C) {
+        env->tb_flags |= RISCV_TF_MISA_C;
+    }
+    env->tb_flags |= cpu_mmu_index(env, true) << RISCV_TF_IAT_SHIFT;
+    env->tb_flags |= cpu_mmu_index(env, false) << RISCV_TF_DAT_SHIFT;
+}
+
 #endif
 
 #ifndef CONFIG_USER_ONLY
@@ -250,32 +310,22 @@ static inline int cpu_mmu_index(CPURISCVState *env, bool ifetch)
  *
  * Adapted from Spike's processor_t::take_interrupt()
  */
-static inline int cpu_riscv_hw_interrupts_pending(CPURISCVState *env)
+static inline int cpu_riscv_hw_interrupts_pending(CPURISCVState *env, bool nostatus)
 {
     target_ulong pending_interrupts = env->mip & env->mie;
 
     target_ulong mie = get_field(env->mstatus, MSTATUS_MIE);
-    target_ulong m_enabled = env->priv < PRV_M || (env->priv == PRV_M && mie);
+    target_ulong m_enabled = nostatus || env->priv < PRV_M || (env->priv == PRV_M && mie);
     target_ulong enabled_interrupts = pending_interrupts &
                                       ~env->mideleg & -m_enabled;
 
     target_ulong sie = get_field(env->mstatus, MSTATUS_SIE);
-    target_ulong s_enabled = env->priv < PRV_S || (env->priv == PRV_S && sie);
+    target_ulong s_enabled = nostatus || env->priv < PRV_S || (env->priv == PRV_S && sie);
     enabled_interrupts |= pending_interrupts & env->mideleg &
                           -s_enabled;
 
     if (enabled_interrupts) {
-        target_ulong counted = ctz64(enabled_interrupts); /* since non-zero */
-        if (counted == IRQ_HOST) {
-            /* we're handing it to the cpu now, so get rid of the qemu irq */
-            qemu_irq_lower(HTIF_IRQ);
-        } else if (counted == IRQ_M_TIMER) {
-            /* we're handing it to the cpu now, so get rid of the qemu irq */
-            qemu_irq_lower(TIMER_IRQ);
-        } else if (counted == IRQ_S_TIMER || counted == IRQ_H_TIMER) {
-            /* don't lower irq here */
-        }
-        return counted;
+        return ctz64(enabled_interrupts); /* since non-zero */
     } else {
         return EXCP_NONE; /* indicates no pending interrupt */
     }
@@ -306,7 +356,7 @@ static inline void cpu_get_tb_cpu_state(CPURISCVState *env, target_ulong *pc,
 {
     *pc = env->pc;
     *cs_base = 0;
-    *flags = 0; /* necessary to avoid compiler warning */
+    *flags = env->tb_flags;
 }
 
 void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
