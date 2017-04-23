@@ -248,17 +248,12 @@ inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
         env->mbadaddr = val_to_write;
         break;
     case CSR_MISA: {
-        if (!(val_to_write & (1L << ('F' - 'A')))) {
-            val_to_write &= ~(1L << ('D' - 'A'));
+        if (!(val_to_write & MISA_F)) {
+            val_to_write &= ~MISA_D;
         }
 
         // allow MAFDC bits in MISA to be modified
-        target_ulong mask = 0;
-        mask |= 1L << ('M' - 'A');
-        mask |= 1L << ('A' - 'A');
-        mask |= 1L << ('F' - 'A');
-        mask |= 1L << ('D' - 'A');
-        mask |= 1L << ('C' - 'A');
+        target_ulong mask = MISA_M | MISA_A | MISA_F | MISA_D | MISA_C;
         mask &= env->max_isa;
 
         env->misa = (val_to_write & mask) | (env->misa & ~mask);
@@ -522,7 +517,7 @@ target_ulong helper_sret(CPURISCVState *env, target_ulong cpu_pc_deb)
     }
 
     target_ulong retpc = env->sepc;
-    if (!(env->misa & (1 << ('C' - 'A')))) {
+    if (!(env->misa & MISA_C)) {
         retpc &= ~3;
     }
 
@@ -545,7 +540,7 @@ target_ulong helper_mret(CPURISCVState *env, target_ulong cpu_pc_deb)
     }
 
     target_ulong retpc = env->mepc;
-    if (!(env->misa & (1 << ('C' - 'A')))) {
+    if (!(env->misa & MISA_C)) {
         retpc &= ~3;
     }
 

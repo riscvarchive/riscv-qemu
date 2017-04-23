@@ -282,19 +282,19 @@ static inline int cpu_mmu_index(CPURISCVState *env, bool ifetch)
 static inline void cpu_riscv_set_tb_flags(CPURISCVState *env)
 {
     env->tb_flags = 0;
-    if (env->misa & (1L << ('A' - 'A'))) {
+    if (env->misa & MISA_A) {
         env->tb_flags |= RISCV_TF_MISA_A;
     }
-    if (env->misa & (1L << ('D' - 'A'))) {
+    if (env->misa & MISA_D) {
         env->tb_flags |= RISCV_TF_MISA_D;
     }
-    if (env->misa & (1L << ('F' - 'A'))) {
+    if (env->misa & MISA_F) {
         env->tb_flags |= RISCV_TF_MISA_F;
     }
-    if (env->misa & (1L << ('M' - 'A'))) {
+    if (env->misa & MISA_M) {
         env->tb_flags |= RISCV_TF_MISA_M;
     }
-    if (env->misa & (1L << ('C' - 'A'))) {
+    if (env->misa & MISA_C) {
         env->tb_flags |= RISCV_TF_MISA_C;
     }
     env->tb_flags |= cpu_mmu_index(env, true) << RISCV_TF_IAT_SHIFT;
