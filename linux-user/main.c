@@ -3775,6 +3775,7 @@ void cpu_loop(CPURISCVState *env)
     int trapnr, signum, sigcode;
     target_ulong sigaddr;
     target_ulong ret;
+    int syscall_num;
 
     for (;;) {
         cpu_exec_start(cs);
@@ -3791,11 +3792,16 @@ void cpu_loop(CPURISCVState *env)
             break;
         case RISCV_EXCP_U_ECALL:
             env->pc += 4;
-            if(env->gpr[xA7] == TARGET_NR_arch_specific_syscall) {
+            if (env->rve) {
+                syscall_num = xT0;
+            } else {
+                syscall_num = xA7;
+            }
+            if(env->gpr[syscall_num] == TARGET_NR_arch_specific_syscall) {
                 /* kernel-assisted AMO not suitable for do_syscall */
                 start_exclusive();
                 ret = riscv_arch_specific_syscall(env,
-                                 env->gpr[xA7],
+                                 env->gpr[syscall_num],
                                  env->gpr[xA0],
                                  env->gpr[xA1],
                                  env->gpr[xA2],
@@ -3803,7 +3809,7 @@ void cpu_loop(CPURISCVState *env)
                 end_exclusive();
             } else {
                 ret = do_syscall(env,
-                                 env->gpr[xA7],
+                                 env->gpr[syscall_num],
                                  env->gpr[xA0],
                                  env->gpr[xA1],
                                  env->gpr[xA2],
@@ -4841,6 +4847,9 @@ int main(int argc, char **argv, char **envp)
     {
         env->pc = regs->sepc;
         env->gpr[xSP] = regs->sp;
+        if (info->elf_flags & EF_RISCV_RVE) {
+            env->rve = 1;
+        }
     }
 #elif defined(TARGET_SH4)
     {
