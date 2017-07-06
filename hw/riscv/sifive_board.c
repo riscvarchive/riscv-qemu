@@ -194,11 +194,11 @@ static void riscv_sifive_board_init(MachineState *args)
         "    0 { \n"
         "      m { \n"
         "        ie  { mem { 0x60002000 0x6000207f; }; }; \n"
-        "        ctl { mem { 0x60200000 0x60200007; }; }; \n"
+        "        ctl { mem { 0x60006000 0x60006007; }; }; \n"
         "      }; \n"
         "      s { \n"
         "        ie  { mem { 0x60002080 0x600020ff; }; }; \n"
-        "        ctl { mem { 0x60201000 0x60201007; }; }; \n"
+        "        ctl { mem { 0x60006008 0x6000600f; }; }; \n"
         "      }; \n"
         "    }; \n"
         "  }; \n"
@@ -253,6 +253,20 @@ static void riscv_sifive_board_init(MachineState *args)
         stb_p(memory_region_get_ram_ptr(boot_rom) + reset_vec[3] + q,
               config_string[q]);
     }
+
+    /* PLIC */
+    DeviceState *plic = qdev_create(NULL, "riscv_plic");
+    qdev_init_nofail(plic);
+    SysBusDevice *plic_bd = SYS_BUS_DEVICE(plic);
+    sysbus_connect_irq(plic_bd, 0, env->irq[5]);
+    sysbus_connect_irq(plic_bd, 1, env->irq[6]);
+    memory_region_add_subregion(system_memory, 0x60000000,
+        sysbus_mmio_get_region(plic_bd, 0));
+    memory_region_add_subregion(system_memory, 0x60002000,
+        sysbus_mmio_get_region(plic_bd, 1));
+    memory_region_add_subregion(system_memory, 0x60006000,
+        sysbus_mmio_get_region(plic_bd, 2));
+
 
     sifive_uart_create(0x40002000, serial_hds[0]);
 
