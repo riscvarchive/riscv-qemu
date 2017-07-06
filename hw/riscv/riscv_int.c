@@ -35,20 +35,31 @@ static void cpu_riscv_irq_request(void *opaque, int irq, int level)
     CPUState *cs = CPU(cpu);
 
     /* current irqs:
+       6: External interrupt (S mode)
+       5: External interrupt (M mode)
        4: Host Interrupt. mfromhost should have a nonzero value
        3: Machine Timer. MIP_MTIP should have already been set
        2, 1, 0: Interrupts triggered by the CPU. At least one of
        MIP_STIP, MIP_SSIP, MIP_MSIP should already be set */
-    if (unlikely(!(irq < 5 && irq >= 0))) {
+    if (unlikely(!(irq < 7 && irq >= 0))) {
         printf("IRQNO: %d\n", irq);
         fprintf(stderr, "Unused IRQ was raised.\n");
         exit(1);
     }
 
+    if ((irq == 5) || (irq == 6)) {
+        target_ulong mask = (irq == 5)?MIP_MEIP:MIP_SEIP;
+        if (level) {
+            env->mip |= mask;
+        } else {
+            env->mip &= ~mask;
+        }
+    }
+
     if (level) {
         cpu_interrupt(cs, CPU_INTERRUPT_HARD);
     } else {
-        if (!env->mip && !env->mfromhost) {
+        if (!env->mip && !env->mfromhost && !((irq == 5) || (irq == 6))) {
             /* no interrupts pending, no host interrupt for HTIF, reset */
             cpu_reset_interrupt(cs, CPU_INTERRUPT_HARD);
         }
