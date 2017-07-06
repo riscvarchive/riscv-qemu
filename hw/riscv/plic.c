@@ -86,12 +86,13 @@ typedef struct PLICState {
 
 static void plic_update(PLICState *s)
 {
-    for (int i = 0; i < s->ntargets; i++)
+    int i, j;
+    for (i = 0; i < s->ntargets; i++)
     {
         PLICTarget *t = &s->targets[i];
 
         t->interrupt_id = 0;
-        for (int j = 0; j < s->ninputs; j += 32)
+        for (j = 0; j < s->ninputs; j += 32)
         {
             uint32_t p = t->enables[j] & s->pending[j];
             if (p)
@@ -248,12 +249,13 @@ static const MemoryRegionOps plic_ctl_ops = {
 static void plic_reset(DeviceState *d)
 {
     PLICState *s = PLIC(d);
+    int i;
 
     memset(s->pending, 0, sizeof(s->pending));
     memset(s->ready, 0xff, sizeof(s->ready));
     memset(s->level, 0, sizeof(s->level));
 
-    for (int i = 0; i < s->ntargets; i++)
+    for (i = 0; i < s->ntargets; i++)
     {
         PLICTarget *t = &s->targets[i];
         memset(t->enables, 0xff, sizeof(t->enables));
@@ -267,12 +269,13 @@ static void plic_init(Object *obj)
     DeviceState *dev = DEVICE(obj);
     PLICState *s = PLIC(obj);
     SysBusDevice *sbd = SYS_BUS_DEVICE(obj);
+    int i;
 
     s->ninputs = 32;
     s->ntargets = 2;
 
     s->targets = malloc(sizeof(PLICTarget) * s->ntargets);
-    for (int i = 0; i < s->ntargets; i++)
+    for (i = 0; i < s->ntargets; i++)
     {
         PLICTarget *t = &s->targets[i];
         sysbus_init_irq(sbd, &t->irq);
