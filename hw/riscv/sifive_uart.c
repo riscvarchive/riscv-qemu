@@ -25,6 +25,7 @@
 #include "qemu/osdep.h"
 #include "hw/sysbus.h"
 #include "sysemu/char.h"
+#include "qemu/fifo8.h"
 
 /* See https://github.com/sifive/sifive-blocks/tree/072d0c1b58/src/main/scala/devices/uart */
 
@@ -48,36 +49,42 @@
 #define SIFIVE_UART(obj) \
     OBJECT_CHECK(SiFiveUART, (obj), TYPE_SIFIVE_UART)
 
+#define UART_FIFO_LENGTH    8
+
 typedef struct SiFiveUART {
     SysBusDevice parent_obj;
 
     MemoryRegion mmio;
     CharDriverState *chr;
 
-    uint8_t rx_fifo[8];
-    unsigned int rx_fifo_len;
+    Fifo8 recv_fifo;
 } SiFiveUART;
 
 static void sifive_uart_reset(DeviceState *dev)
 {
+    SiFiveUART *s = SIFIVE_UART(dev);
+
+    fifo8_reset(&s->recv_fifo);
 }
 
 static uint64_t
 uart_read(void *opaque, hwaddr addr, unsigned int size)
 {
     SiFiveUART *s = opaque;
-    unsigned char r;
+    uint64_t t;
+
     switch (addr)
     {
         case R_RXFIFO:
-            if (s->rx_fifo_len) {
-                r = s->rx_fifo[0];
-                memmove(s->rx_fifo, s->rx_fifo + 1, s->rx_fifo_len - 1);
-                s->rx_fifo_len--;
-                qemu_chr_accept_input(s->chr);
-                return r;
+            if (fifo8_is_empty(&s->recv_fifo)) {
+                t = 0x80000000;
+            } else {
+                t = fifo8_pop(&s->recv_fifo);
             }
-            return 0x80000000;
+
+            qemu_chr_accept_input(s->chr);
+
+            return t;
 
         case R_TXFIFO:
             return 0; /* Should check tx fifo */
@@ -128,20 +135,23 @@ static Property sifive_uart_properties[] = {
 static void uart_rx(void *opaque, const uint8_t *buf, int size)
 {
     SiFiveUART *s = opaque;
+    int i;
 
-    /* Got a byte.  */
-    if (s->rx_fifo_len >= sizeof(s->rx_fifo)) {
-        printf("WARNING: UART dropped char.\n");
-        return;
+    for (i = 0; i < size; i++) {
+        if (fifo8_is_full(&s->recv_fifo)) {
+            printf("WARNING: UART dropped char.\n");
+            return;
+        }
+
+        fifo8_push(&s->recv_fifo, buf[i]);
     }
-    s->rx_fifo[s->rx_fifo_len++] = *buf;
 }
 
 static int uart_can_rx(void *opaque)
 {
     SiFiveUART *s = opaque;
 
-    return s->rx_fifo_len < sizeof(s->rx_fifo);
+    return fifo8_num_free(&s->recv_fifo) > 0;
 }
 
 static void uart_event(void *opaque, int event)
@@ -154,6 +164,8 @@ static void sifive_uart_realize(DeviceState *dev, Error **errp)
 
     if (s->chr)
         qemu_chr_add_handlers(s->chr, uart_can_rx, uart_rx, uart_event, s);
+
+    fifo8_create(&s->recv_fifo, UART_FIFO_LENGTH);
 }
 
 static void sifive_uart_init(Object *obj)
