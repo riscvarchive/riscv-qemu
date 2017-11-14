@@ -43,7 +43,9 @@
 #define RISCV_EXCP_S_ECALL                 0x9
 #define RISCV_EXCP_H_ECALL                 0xa
 #define RISCV_EXCP_M_ECALL                 0xb
-
+#define RISCV_EXCP_INST_PAGE_FAULT         0xc
+#define RISCV_EXCP_LOAD_PAGE_FAULT         0xd
+#define RISCV_EXCP_STORE_PAGE_FAULT        0xf
 
 #define TRANSLATE_FAIL 1
 #define TRANSLATE_SUCCESS 0
@@ -56,8 +58,12 @@ struct CPURISCVState;
 #define SSIP_IRQ (env->irq[0])
 #define STIP_IRQ (env->irq[1])
 #define MSIP_IRQ (env->irq[2])
-#define TIMER_IRQ (env->irq[3])
+#define MTIP_IRQ (env->irq[3])
 #define HTIF_IRQ (env->irq[4])
+#define SEIP_IRQ (env->irq[5])
+#define MEIP_IRQ (env->irq[6])
+
+#define MAX_RISCV_IRQ (7)
 
 typedef struct riscv_def_t riscv_def_t;
 
@@ -91,7 +97,7 @@ struct CPURISCVState {
     target_ulong mie;
     target_ulong mideleg;
 
-    target_ulong sptbr;
+    target_ulong satp;
     target_ulong sbadaddr;
     target_ulong mbadaddr;
     target_ulong medeleg;
@@ -128,6 +134,8 @@ struct CPURISCVState {
     size_t memsize;
     void *irq[8];
     QEMUTimer *timer; /* Internal timer */
+    uint32_t hart_index;
+    uint32_t num_harts;
 };
 
 #include "qom/cpu.h"
@@ -236,7 +244,7 @@ static inline int cpu_mmu_index(CPURISCVState *env, bool ifetch)
             mode = get_field(env->mstatus, MSTATUS_MPP);
         }
     }
-    if (get_field(env->mstatus, MSTATUS_VM) == VM_MBARE) {
+    if (get_field(env->satp, SATP64_MODE) == VM_MBARE) {
         mode = PRV_M;
     }
     return mode;
@@ -266,12 +274,16 @@ static inline int cpu_riscv_hw_interrupts_pending(CPURISCVState *env)
 
     if (enabled_interrupts) {
         target_ulong counted = ctz64(enabled_interrupts); /* since non-zero */
-        if (counted == IRQ_HOST) {
+        if(1 != ctpop64(enabled_interrupts)) {
+	  //TODO EMDALO INVESTIGATE fprintf(stderr, "QEMU: %s: HARTID: %d, oops %d interrupts enabled (%lx)\n", __func__, env->cpu_index, ctpop64(enabled_interrupts), enabled_interrupts);
+		//exit(-1);
+	}
+        if (counted == IRQ_RESER5) {
             /* we're handing it to the cpu now, so get rid of the qemu irq */
             qemu_irq_lower(HTIF_IRQ);
         } else if (counted == IRQ_M_TIMER) {
             /* we're handing it to the cpu now, so get rid of the qemu irq */
-            qemu_irq_lower(TIMER_IRQ);
+            qemu_irq_lower(MTIP_IRQ);
         } else if (counted == IRQ_S_TIMER || counted == IRQ_H_TIMER) {
             /* don't lower irq here */
         }
@@ -293,6 +305,7 @@ void QEMU_NORETURN do_raise_exception_err(CPURISCVState *env,
 
 /* hw/riscv/riscv_rtc.c  - supplies instret by approximating */
 uint64_t cpu_riscv_read_instret(CPURISCVState *env);
+uint64_t cpu_riscv_read_rtc(CPURISCVState *env);
 
 int riscv_cpu_handle_mmu_fault(CPUState *cpu, vaddr address, int rw,
                               int mmu_idx);

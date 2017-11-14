@@ -51,9 +51,14 @@
 #define MSTATUS_FS          0x00006000
 #define MSTATUS_XS          0x00018000
 #define MSTATUS_MPRV        0x00020000
-#define MSTATUS_PUM         0x00040000
+#define MSTATUS_SUM         0x00040000
 #define MSTATUS_MXR         0x00080000
-#define MSTATUS_VM          0x1F000000
+#define MSTATUS_TVM         0x00100000
+#define MSTATUS_TW          0x20000000
+#define MSTATUS_TSR         0x40000000
+
+#define MSTATUS64_UXL       0x0000000300000000
+#define MSTATUS64_SXL       0x0000000C00000000
 
 #define MSTATUS32_SD        0x80000000
 #define MSTATUS64_SD        0x8000000000000000
@@ -65,7 +70,7 @@
 #define SSTATUS_SPP         0x00000100
 #define SSTATUS_FS          0x00006000
 #define SSTATUS_XS          0x00018000
-#define SSTATUS_PUM         0x00040000
+#define SSTATUS_SUM         0x00040000
 #define SSTATUS32_SD        0x80000000
 #define SSTATUS64_SD        0x8000000000000000
 
@@ -81,6 +86,7 @@
 
 #define SIP_SSIP MIP_SSIP
 #define SIP_STIP MIP_STIP
+#define SIP_SEIP MIP_SEIP
 
 #define PRV_U 0
 #define PRV_S 1
@@ -88,23 +94,23 @@
 #define PRV_M 3
 
 #define VM_MBARE 0
-#define VM_MBB   1
-#define VM_MBBID 2
-#define VM_SV32  8
-#define VM_SV39  9
-#define VM_SV48  10
+#define VM_SV39 8
+#define VM_SV48 9
 
+#define IRQ_RESER1   0
 #define IRQ_S_SOFT   1
 #define IRQ_H_SOFT   2
 #define IRQ_M_SOFT   3
+#define IRQ_RESER2   4
 #define IRQ_S_TIMER  5
 #define IRQ_H_TIMER  6
 #define IRQ_M_TIMER  7
+#define IRQ_RESER3   8
 #define IRQ_S_EXT    9
 #define IRQ_H_EXT    10
 #define IRQ_M_EXT    11
-#define IRQ_COP      12
-#define IRQ_HOST     13
+#define IRQ_RESER4   12
+#define IRQ_RESER5   13
 
 #define DEFAULT_RSTVEC     0x00001000
 #define DEFAULT_NMIVEC     0x00001004
@@ -112,6 +118,10 @@
 #define CONFIG_STRING_ADDR 0x0000100C
 #define EXT_IO_BASE        0x40000000
 #define DRAM_BASE          0x80000000
+
+#define SATP64_MODE 0xF000000000000000
+#define SATP64_ASID 0x0FFFF00000000000
+#define SATP64_PPN  0x00000FFFFFFFFFFF
 
 /* breakpoint control fields */
 #define BPCONTROL_X           0x00000001

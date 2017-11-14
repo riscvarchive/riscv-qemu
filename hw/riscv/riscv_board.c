@@ -53,7 +53,8 @@
 #include "sysemu/block-backend.h"
 
 #define TYPE_RISCV_SPIKE_BOARD "spike"
-#define RISCV_SPIKE_BOARD(obj) OBJECT_CHECK(BoardState, (obj), TYPE_RISCV_SPIKE_BOARD)
+#define RISCV_SPIKE_BOARD(obj) \
+    OBJECT_CHECK(BoardState, (obj), TYPE_RISCV_SPIKE_BOARD)
 
 typedef struct {
     SysBusDevice parent_obj;
@@ -199,7 +200,8 @@ static void riscv_spike_board_init(MachineState *args)
           "    " "0 {\n"
           "      isa " "rv64imafd" ";\n"
           "      timecmp 0x" "40000008" ";\n"
-          "      ipi 0x" "40001000" ";\n" // this must match dummy ipi region above
+          "      ipi 0x" "40001000" ";\n" /* this must match dummy ipi region
+                                          * above */
           "    };\n"
           "  };\n"
           "};\n";
@@ -232,7 +234,7 @@ static void riscv_spike_board_init(MachineState *args)
     /* add memory mapped htif registers at location specified in the symbol
        table of the elf being loaded (thus kernel_filename is passed to the
        init rather than an address) */
-    htif_mm_init(system_memory, kernel_filename, env->irq[4], boot_rom,
+    htif_mm_init(system_memory, kernel_filename, HTIF_IRQ, boot_rom,
             env, serial_hds[0]);
 
     /* timer device at 0x40000000, as specified in the config string above */
