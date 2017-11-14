@@ -30,6 +30,24 @@ static const riscv_def_t riscv_defs[] = {
             | MCPUID_M | MCPUID_A | MCPUID_F | MCPUID_D,
 #endif
     },
+    {
+        .name = "E51",
+#if defined(TARGET_RISCV64)
+        /* RV64G */
+        .init_misa_reg = MCPUID_RV64I | MCPUID_SUPER | MCPUID_I
+            | MCPUID_M | MCPUID_A | MCPUID_F | MCPUID_D,
+#else
+#endif
+    },
+    {
+        .name = "U54",
+#if defined(TARGET_RISCV64)
+        /* RV64G */
+        .init_misa_reg = MCPUID_RV64I | MCPUID_SUPER | MCPUID_USER | MCPUID_I
+            | MCPUID_M | MCPUID_A | MCPUID_F | MCPUID_D,
+#else
+#endif
+    },
 };
 
 static const riscv_def_t *cpu_riscv_find_by_name(const char *name)

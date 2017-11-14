@@ -21,15 +21,18 @@
 #include "qemu/osdep.h"
 #include <stdlib.h>
 #include "cpu.h"
+#include "hw/riscv/riscv_pmp.h"
 #include "qemu/host-utils.h"
 #include "qemu/timer.h"
 #include "exec/helper-proto.h"
 
 #ifndef CONFIG_USER_ONLY
+#if 0
 static int validate_vm(target_ulong vm)
 {
     return vm == VM_SV32 || vm == VM_SV39 || vm == VM_SV48 || vm == VM_MBARE;
 }
+#endif
 #endif
 
 /* Exceptions processing helpers */
@@ -72,7 +75,7 @@ inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
     #endif
 
 #ifndef CONFIG_USER_ONLY
-    uint64_t delegable_ints = MIP_SSIP | MIP_STIP | MIP_SEIP | (1 << IRQ_COP);
+    uint64_t delegable_ints = MIP_SSIP | MIP_STIP | MIP_SEIP | (1 << IRQ_RESER4);
     uint64_t all_ints = delegable_ints | MIP_MSIP | MIP_MTIP;
 #endif
 
@@ -99,8 +102,27 @@ inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
 #ifndef CONFIG_USER_ONLY
     case CSR_MSTATUS: {
         target_ulong mstatus = env->mstatus;
+
+#if 0
         if ((val_to_write ^ mstatus) &
             (MSTATUS_VM | MSTATUS_MPP | MSTATUS_MPRV | MSTATUS_PUM |
+             MSTATUS_MXR)) {
+            helper_tlb_flush(env);
+        }
+#endif
+
+// TODO: INVERT MSTATUS_SUM
+#if 0
+        if ((val_to_write ^ mstatus) &
+            (MSTATUS_MPP | MSTATUS_MPRV | MSTATUS_SUM |
+             MSTATUS_MXR)) {
+            helper_tlb_flush(env);
+        }
+#endif
+
+        // No need to invert, the logic is any change trips a helper_tlb_flush()
+        if ((val_to_write ^ mstatus) &
+            (MSTATUS_MPP | MSTATUS_MPRV | MSTATUS_SUM |
              MSTATUS_MXR)) {
             helper_tlb_flush(env);
         }
@@ -108,11 +130,13 @@ inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
         /* no extension support */
         target_ulong mask = MSTATUS_SIE | MSTATUS_SPIE | MSTATUS_MIE
             | MSTATUS_MPIE | MSTATUS_SPP | MSTATUS_FS | MSTATUS_MPRV
-            | MSTATUS_PUM | MSTATUS_MPP | MSTATUS_MXR;
+            | MSTATUS_SUM | MSTATUS_MPP | MSTATUS_MXR;
 
+#if 0
         if (validate_vm(get_field(val_to_write, MSTATUS_VM))) {
             mask |= MSTATUS_VM;
         }
+#endif
 
         mstatus = (mstatus & ~mask) | (val_to_write & mask);
 
@@ -126,6 +150,9 @@ inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
         target_ulong mask = MIP_SSIP | MIP_STIP;
         env->mip = (env->mip & ~mask) |
             (val_to_write & mask);
+//if((val_to_write | mask) != mask) {
+	//EMDALO: TODO INVESTIGATE: fprintf(stderr, "QEMU: %s: oops: trying to set CSR_MIP: %lx\n", __func__, val_to_write);
+//}
         if (env->mip & MIP_SSIP) {
             qemu_irq_raise(SSIP_IRQ);
         } else {
@@ -166,6 +193,9 @@ inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
         mask |= 1ULL << (RISCV_EXCP_S_ECALL);
         mask |= 1ULL << (RISCV_EXCP_H_ECALL);
         mask |= 1ULL << (RISCV_EXCP_M_ECALL);
+        mask |= 1ULL << (RISCV_EXCP_INST_PAGE_FAULT);
+        mask |= 1ULL << (RISCV_EXCP_LOAD_PAGE_FAULT);
+        mask |= 1ULL << (RISCV_EXCP_STORE_PAGE_FAULT);
         env->medeleg = (env->medeleg & ~mask)
                                 | (val_to_write & mask);
         break;
@@ -194,7 +224,7 @@ inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
     case CSR_SSTATUS: {
         target_ulong ms = env->mstatus;
         target_ulong mask = SSTATUS_SIE | SSTATUS_SPIE | SSTATUS_SPP
-                            | SSTATUS_FS | SSTATUS_XS | SSTATUS_PUM;
+                            | SSTATUS_FS | SSTATUS_XS | SSTATUS_SUM;
         ms = (ms & ~mask) | (val_to_write & mask);
         csr_write_helper(env, ms, CSR_MSTATUS);
         break;
@@ -208,14 +238,20 @@ inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
         break;
     }
     case CSR_SIE: {
+	// TODO: Change this. It sucks!
         target_ulong next_mie = (env->mie & ~env->mideleg)
                                 | (val_to_write & env->mideleg);
         csr_write_helper(env, next_mie, CSR_MIE);
         break;
     }
-    case CSR_SPTBR: {
-        env->sptbr = val_to_write & (((target_ulong)1 <<
-                              (TARGET_PHYS_ADDR_SPACE_BITS - PGSHIFT)) - 1);
+    case CSR_SATP: {
+        /* env->satp = val_to_write & (((target_ulong)1 <<
+                              (TARGET_PHYS_ADDR_SPACE_BITS - PGSHIFT)) - 1); */
+        if ((val_to_write ^ env->satp) &
+            (SATP64_MODE | SATP64_ASID | SATP64_PPN )) {
+            helper_tlb_flush(env);
+        }
+        env->satp = val_to_write;
         break;
     }
     case CSR_SEPC:
@@ -237,6 +273,10 @@ inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
         env->mepc = val_to_write;
         break;
     case CSR_MTVEC:
+        if(val_to_write & 1) {
+           fprintf(stderr, "not handling vectored interrupts yet\n");
+           exit(-1);
+        }
         env->mtvec = val_to_write >> 2 << 2;
         break;
     case CSR_MSCRATCH:
@@ -280,6 +320,66 @@ inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
         printf("CSR_DCSR write not implemented.\n");
         exit(1);
         break;
+    case CSR_PMPCFG0:
+	pmpcfg_handle_write(env, 0, val_to_write);
+	break;
+    case CSR_PMPCFG1:
+	pmpcfg_handle_write(env, 1, val_to_write);
+	break;
+    case CSR_PMPCFG2:
+	pmpcfg_handle_write(env, 2, val_to_write);
+	break;
+    case CSR_PMPCFG3:
+	pmpcfg_handle_write(env, 3, val_to_write);
+	break;
+    case CSR_PMPADDR0:
+	pmpaddr_handle_write(env, 0, val_to_write);
+	break;
+    case CSR_PMPADDR1:
+	pmpaddr_handle_write(env, 1, val_to_write);
+	break;
+    case CSR_PMPADDR2:
+	pmpaddr_handle_write(env, 2, val_to_write);
+	break;
+    case CSR_PMPADDR3:
+	pmpaddr_handle_write(env, 3, val_to_write);
+	break;
+    case CSR_PMPADDR4:
+	pmpaddr_handle_write(env, 4, val_to_write);
+	break;
+    case CSR_PMPADDR5:
+	pmpaddr_handle_write(env, 5, val_to_write);
+	break;
+    case CSR_PMPADDR6:
+	pmpaddr_handle_write(env, 6, val_to_write);
+	break;
+    case CSR_PMPADDR7:
+	pmpaddr_handle_write(env, 7, val_to_write);
+	break;
+    case CSR_PMPADDR8:
+	pmpaddr_handle_write(env, 8, val_to_write);
+	break;
+    case CSR_PMPADDR9:
+	pmpaddr_handle_write(env, 9, val_to_write);
+	break;
+    case CSR_PMPADDR10:
+	pmpaddr_handle_write(env, 10, val_to_write);
+	break;
+    case CSR_PMPADDR11:
+	pmpaddr_handle_write(env, 11, val_to_write);
+	break;
+    case CSR_PMPADDR12:
+	pmpaddr_handle_write(env, 12, val_to_write);
+	break;
+    case CSR_PMPADDR13:
+	pmpaddr_handle_write(env, 13, val_to_write);
+	break;
+    case CSR_PMPADDR14:
+	pmpaddr_handle_write(env, 14, val_to_write);
+	break;
+    case CSR_PMPADDR15:
+	pmpaddr_handle_write(env, 15, val_to_write);
+       break;
 #endif
     default:
         helper_raise_exception(env, RISCV_EXCP_ILLEGAL_INST);
@@ -294,7 +394,7 @@ inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
 inline target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno)
 {
     #ifdef RISCV_DEBUG_PRINT
-    fprintf(stderr, "READ CSR 0x%x\n", csrno);
+    fprintf(stderr, "READ CSR 0x%lx\n", csrno);
     #endif
 #ifndef CONFIG_USER_ONLY
     target_ulong ctr_en = env->priv == PRV_U ? env->mucounteren :
@@ -350,6 +450,9 @@ inline target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno)
 #ifndef CONFIG_USER_ONLY
         /* TODO fix TIME, INSTRET, CYCLE in user mode */
         /* 32-bit TIMEH, CYCLEH, INSTRETH, other H stuff */
+    case CSR_TIME:
+        return cpu_riscv_read_rtc(env);
+        break;
     case CSR_INSTRET:
     case CSR_CYCLE:
         if (ctr_ok) {
@@ -371,7 +474,7 @@ inline target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno)
         return env->mscounteren;
     case CSR_SSTATUS: {
         target_ulong mask = SSTATUS_SIE | SSTATUS_SPIE | SSTATUS_SPP
-                            | SSTATUS_FS | SSTATUS_XS | SSTATUS_PUM;
+                            | SSTATUS_FS | SSTATUS_XS | SSTATUS_SUM;
         target_ulong sstatus = env->mstatus & mask;
         if ((sstatus & SSTATUS_FS) == SSTATUS_FS ||
                 (sstatus & SSTATUS_XS) == SSTATUS_XS) {
@@ -391,8 +494,8 @@ inline target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno)
         return env->stvec;
     case CSR_SCAUSE:
         return env->scause;
-    case CSR_SPTBR:
-        return env->sptbr;
+    case CSR_SATP:
+        return env->satp;
     case CSR_SSCRATCH:
         return env->sscratch;
     case CSR_MSTATUS:
@@ -418,13 +521,54 @@ inline target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno)
     case CSR_MVENDORID:
         return 0; /* as spike does */
     case CSR_MHARTID:
-        return 0;
+        return env->hart_index;
     case CSR_MTVEC:
         return env->mtvec;
     case CSR_MEDELEG:
         return env->medeleg;
     case CSR_MIDELEG:
         return env->mideleg;
+    case CSR_PMPCFG0:
+	return pmpcfg_handle_read(env, 0);
+    case CSR_PMPCFG1:
+	return pmpcfg_handle_read(env, 1);
+    case CSR_PMPCFG2:
+	return pmpcfg_handle_read(env, 2);
+    case CSR_PMPCFG3:
+	return pmpcfg_handle_read(env, 3);
+    case CSR_PMPADDR0:
+	return pmpaddr_handle_read(env, 0);
+    case CSR_PMPADDR1:
+	return pmpaddr_handle_read(env, 1);
+    case CSR_PMPADDR2:
+	return pmpaddr_handle_read(env, 2);
+    case CSR_PMPADDR3:
+	return pmpaddr_handle_read(env, 3);
+    case CSR_PMPADDR4:
+	return pmpaddr_handle_read(env, 4);
+    case CSR_PMPADDR5:
+	return pmpaddr_handle_read(env, 5);
+    case CSR_PMPADDR6:
+	return pmpaddr_handle_read(env, 6);
+    case CSR_PMPADDR7:
+	return pmpaddr_handle_read(env, 7);
+    case CSR_PMPADDR8:
+	return pmpaddr_handle_read(env, 8);
+    case CSR_PMPADDR9:
+	return pmpaddr_handle_read(env, 9);
+    case CSR_PMPADDR10:
+	return pmpaddr_handle_read(env, 10);
+    case CSR_PMPADDR11:
+	return pmpaddr_handle_read(env, 11);
+    case CSR_PMPADDR12:
+	return pmpaddr_handle_read(env, 12);
+    case CSR_PMPADDR13:
+	return pmpaddr_handle_read(env, 13);
+    case CSR_PMPADDR14:
+	return pmpaddr_handle_read(env, 14);
+    case CSR_PMPADDR15:
+	return pmpaddr_handle_read(env, 15);
+       break;
     case CSR_TSELECT:
         // indicate only usable in debug mode (which we don't have)
         // i.e. software can't use it

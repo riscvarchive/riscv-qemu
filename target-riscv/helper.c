@@ -26,6 +26,7 @@
 #include <inttypes.h>
 #include <signal.h>
 #include "cpu.h"
+#include "hw/riscv/riscv_pmp.h"
 
 /*#define RISCV_DEBUG_INTERRUPT */
 
@@ -73,13 +74,14 @@ static int get_physical_address(CPURISCVState *env, hwaddr *physical,
             mode = get_field(env->mstatus, MSTATUS_MPP);
         }
     }
-    if (get_field(env->mstatus, MSTATUS_VM) == VM_MBARE) {
+
+    if (get_field(env->satp, SATP64_MODE) == VM_MBARE) {
         mode = PRV_M;
     }
 
     /* check to make sure that mmu_idx and mode that we get matches */
     if (unlikely(mode != mmu_idx)) {
-        fprintf(stderr, "MODE, mmu_idx mismatch\n");
+        fprintf(stderr, "MODE: mmu_idx mismatch\n");
         exit(1);
     }
 
@@ -93,16 +95,28 @@ static int get_physical_address(CPURISCVState *env, hwaddr *physical,
 
     target_ulong addr = address;
     int supervisor = mode == PRV_S;
-    int pum = get_field(env->mstatus, MSTATUS_PUM);
+    int nsum = get_field(env->mstatus, MSTATUS_SUM);
     int mxr = get_field(env->mstatus, MSTATUS_MXR);
 
+    mxr = 1; // TODO: EMDALO: HACKITY HACK TAKE THIS OUT
+    // PROBABLY GO TO SSTATUS CSR Write handling routine as per 1.10
+    // spec and ensure that changes to SSTATUS MXR bit are reflected
+    // in env->mstatus.
+
     int levels, ptidxbits, ptesize;
-    switch (get_field(env->mstatus, MSTATUS_VM)) {
-    case VM_SV32:
-      levels = 2;
-      ptidxbits = 10;
-      ptesize = 4;
-      break;
+    int vm = get_field(env->satp, SATP64_MODE);
+
+    // TODO: EMDALO HACKY - REMOVE
+    int sum = 0;
+
+    if(nsum == 0) {
+       sum = 1;
+    } else {
+       sum = 0;
+    }
+    // END HACKITY HACK
+
+    switch (vm) {
     case VM_SV39:
       levels = 3;
       ptidxbits = 9;
@@ -114,7 +128,7 @@ static int get_physical_address(CPURISCVState *env, hwaddr *physical,
       ptesize = 8;
       break;
     default:
-      printf("unsupported MSTATUS_VM value\n");
+      printf("unsupported SATP_MODE value\n");
       exit(1);
     }
 
@@ -125,7 +139,7 @@ static int get_physical_address(CPURISCVState *env, hwaddr *physical,
         return TRANSLATE_FAIL;
     }
 
-    target_ulong base = env->sptbr << PGSHIFT;
+    target_ulong base = (env->satp & 0x0FFFFFFFFFFFFFFF) << PGSHIFT;
     int ptshift = (levels - 1) * ptidxbits;
     int i;
     for (i = 0; i < levels; i++, ptshift -= ptidxbits) {
@@ -147,7 +161,7 @@ static int get_physical_address(CPURISCVState *env, hwaddr *physical,
 
         if (PTE_TABLE(pte)) { /* next level of page table */
             base = ppn << PGSHIFT;
-        } else if ((pte & PTE_U) ? supervisor && pum : !supervisor) {
+        } else if ((pte & PTE_U) ? supervisor && sum : !supervisor) {
             break;
         } else if (!(pte & PTE_V) || (!(pte & PTE_R) && (pte & PTE_W))) {
             break;
@@ -200,19 +214,40 @@ static int get_physical_address(CPURISCVState *env, hwaddr *physical,
     return TRANSLATE_FAIL;
 }
 
+static int handle_virt(CPURISCVState * env) {
+
+    if (get_field(env->satp, SATP64_MODE) == VM_SV39) {
+     return 1;
+    }
+
+  return 0;
+}
+
 static void raise_mmu_exception(CPURISCVState *env, target_ulong address,
                                 MMUAccessType access_type)
 {
     CPUState *cs = CPU(riscv_env_get_cpu(env));
     int exception = 0;
     if (access_type == MMU_INST_FETCH) { /* inst access */
-        exception = RISCV_EXCP_INST_ACCESS_FAULT;
+        if(handle_virt(env)) {
+           exception = RISCV_EXCP_INST_PAGE_FAULT;
+        } else {
+           exception = RISCV_EXCP_INST_ACCESS_FAULT;
+        }
         env->badaddr = address;
     } else if (access_type == MMU_DATA_STORE) { /* store access */
-        exception = RISCV_EXCP_STORE_AMO_ACCESS_FAULT;
+        if(handle_virt(env)) {
+           exception = RISCV_EXCP_STORE_PAGE_FAULT;
+        } else {
+          exception = RISCV_EXCP_STORE_AMO_ACCESS_FAULT;
+        }
         env->badaddr = address;
     } else if (access_type == MMU_DATA_LOAD) { /* load access */
-        exception = RISCV_EXCP_LOAD_ACCESS_FAULT;
+        if(handle_virt(env)) {
+          exception = RISCV_EXCP_LOAD_PAGE_FAULT;
+        } else {
+          exception = RISCV_EXCP_LOAD_ACCESS_FAULT;
+        }
         env->badaddr = address;
     } else {
         fprintf(stderr, "FAIL: invalid access_type\n");
@@ -262,10 +297,11 @@ void tlb_fill(CPUState *cs, target_ulong addr, MMUAccessType access_type,
         int mmu_idx, uintptr_t retaddr)
 {
     int ret;
+    RISCVCPU *cpu = RISCV_CPU(cs);
+    CPURISCVState *env = &cpu->env;
+
     ret = riscv_cpu_handle_mmu_fault(cs, addr, access_type, mmu_idx);
     if (ret == TRANSLATE_FAIL) {
-        RISCVCPU *cpu = RISCV_CPU(cs);
-        CPURISCVState *env = &cpu->env;
         do_raise_exception_err(env, cs->exception_index, retaddr);
     }
 }
@@ -303,6 +339,12 @@ int riscv_cpu_handle_mmu_fault(CPUState *cs, vaddr address,
             "%s address=%" VADDR_PRIx " ret %d physical " TARGET_FMT_plx
              " prot %d\n",
              __func__, address, ret, physical, prot);
+
+    if(false == pmp_hart_has_privs(env, physical, TARGET_PAGE_SIZE, 1<<access_type)) {
+        ret = TRANSLATE_FAIL;
+    }
+
+
     if (ret == TRANSLATE_SUCCESS) {
         tlb_set_page(cs, address & TARGET_PAGE_MASK,
                      physical & TARGET_PAGE_MASK,
@@ -317,7 +359,7 @@ int riscv_cpu_handle_mmu_fault(CPUState *cs, vaddr address,
 }
 
 #ifdef RISCV_DEBUG_INTERRUPT
-static const char * const riscv_excp_names[12] = {
+static const char * const riscv_excp_names[16] = {
     "misaligned fetch",
     "fault fetch",
     "illegal instruction",
@@ -330,23 +372,77 @@ static const char * const riscv_excp_names[12] = {
     "supervisor_ecall",
     "hypervisor_ecall",
     "machine_ecall",
+    "ins page fault",
+    "load page fault",
+    "reserved",
+    "store page fault"
 };
 
-static const char * const riscv_interrupt_names[14] = {
-    "",
-    "S Soft interrupt",
-    "H Soft interrupt",
-    "M Soft interrupt",
-    "",
-    "S Timer interrupt",
-    "H Timer interrupt",
-    "M Timer interrupt",
-    "",
-    "S Ext interrupt",
-    "H Ext interrupt",
-    "M Ext interrupt",
-    "COP interrupt",
-    "Host interrupt"
+static const char * const riscv_interrupt_names[64] = {
+    "Reserved 0",
+    "S Soft Interrupt",
+    "H Soft Interrupt",
+    "M Soft Interrupt",
+    "Reserved 4",
+    "S Timer Interrupt",
+    "H Timer Interrupt",
+    "M Timer Interrupt",
+    "Reserved 8",
+    "S Ext Interrupt",
+    "H Ext Interrupt",
+    "M Ext Interrupt",
+    "Reserved 12",
+    "Reserved 13",
+    "Reserved 14",
+    "Reserved 15",
+    "Local 0",
+    "Local 1",
+    "Local 2",
+    "Local 3",
+    "Local 4",
+    "Local 5",
+    "Local 6",
+    "Local 7",
+    "Local 8",
+    "Local 9",
+    "Local 10",
+    "Local 11",
+    "Local 12",
+    "Local 13",
+    "Local 14",
+    "Local 15",
+    "Local 16",
+    "Local 17",
+    "Local 18",
+    "Local 19",
+    "Local 20",
+    "Local 21",
+    "Local 22",
+    "Local 23",
+    "Local 24",
+    "Local 25",
+    "Local 26",
+    "Local 27",
+    "Local 28",
+    "Local 29",
+    "Local 30",
+    "Local 31",
+    "Local 32",
+    "Local 33",
+    "Local 34",
+    "Local 35",
+    "Local 36",
+    "Local 37",
+    "Local 38",
+    "Local 39",
+    "Local 40",
+    "Local 41",
+    "Local 42",
+    "Local 43",
+    "Local 44",
+    "Local 45",
+    "Local 46",
+    "Local 47",
 };
 #endif     /* RISCV_DEBUG_INTERRUPT */
 
@@ -365,12 +461,12 @@ void riscv_cpu_do_interrupt(CPUState *cs)
 
     #ifdef RISCV_DEBUG_INTERRUPT
     if (cs->exception_index & 0x70000000) {
-        fprintf(stderr, "core   0: exception trap_%s, epc 0x" TARGET_FMT_lx "\n"
-                , riscv_interrupt_names[cs->exception_index & 0x0fffffff],
-                env->pc);
+        fprintf(stderr, "core: %d : interrupt trap_%s, epc 0x" TARGET_FMT_lx "\n"
+               , env->hart_index, riscv_interrupt_names[cs->exception_index & 0x0fffffff],
+               env->pc);
     } else {
-        fprintf(stderr, "core   0: exception trap_%s, epc 0x" TARGET_FMT_lx "\n"
-                , riscv_excp_names[cs->exception_index], env->pc);
+        fprintf(stderr, "core: %d: exception trap_%s, epc 0x" TARGET_FMT_lx "\n"
+                , env->hart_index, riscv_excp_names[cs->exception_index], env->pc);
     }
     #endif
 
@@ -382,6 +478,7 @@ void riscv_cpu_do_interrupt(CPUState *cs)
 
     target_ulong fixed_cause = 0;
     if (cs->exception_index & (0x70000000)) {
+	// EMDALO: TODO: THIS SUCKS
         /* hacky for now. the MSB (bit 63) indicates interrupt but cs->exception
            index is only 32 bits wide */
         fixed_cause = cs->exception_index & 0x0FFFFFFF;
@@ -419,7 +516,10 @@ void riscv_cpu_do_interrupt(CPUState *cs)
         (fixed_cause == RISCV_EXCP_LOAD_ADDR_MIS) ||
         (fixed_cause == RISCV_EXCP_STORE_AMO_ADDR_MIS) ||
         (fixed_cause == RISCV_EXCP_LOAD_ACCESS_FAULT) ||
-        (fixed_cause == RISCV_EXCP_STORE_AMO_ACCESS_FAULT);
+        (fixed_cause == RISCV_EXCP_STORE_AMO_ACCESS_FAULT) ||
+        (fixed_cause == RISCV_EXCP_INST_PAGE_FAULT) ||
+        (fixed_cause == RISCV_EXCP_LOAD_PAGE_FAULT) || 
+        (fixed_cause == RISCV_EXCP_STORE_PAGE_FAULT);
 
     if (bit & ((target_ulong)1 << (TARGET_LONG_BITS - 1))) {
         deleg = env->mideleg, bit &= ~((target_ulong)1 << (TARGET_LONG_BITS - 1));
@@ -434,8 +534,8 @@ void riscv_cpu_do_interrupt(CPUState *cs)
 
         if (hasbadaddr) {
             #ifdef RISCV_DEBUG_INTERRUPT
-            fprintf(stderr, "core   0: badaddr 0x" TARGET_FMT_lx "\n",
-                    env->badaddr);
+            fprintf(stderr, "core %d: badaddr 0x" TARGET_FMT_lx "\n",
+                    env->hart_index, env->badaddr);
             #endif
             env->sbadaddr = env->badaddr;
         }
@@ -454,8 +554,8 @@ void riscv_cpu_do_interrupt(CPUState *cs)
 
         if (hasbadaddr) {
             #ifdef RISCV_DEBUG_INTERRUPT
-            fprintf(stderr, "core   0: badaddr 0x" TARGET_FMT_lx "\n",
-                    env->badaddr);
+            fprintf(stderr, "core %d: badaddr 0x" TARGET_FMT_lx "\n",
+                    env->hart_index, env->badaddr);
             #endif
             env->mbadaddr = env->badaddr;
         }

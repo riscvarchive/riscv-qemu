@@ -1,16 +1,10 @@
 /*
- * QEMU RISC-V Generic Board Support
+ * QEMU RISC-V "Unicorn" U54mc compatible board
+ * Author: Ivan Griffin, ivan.griffin@emdalo.com
+ *         Daire McNamara, daire.mcnamara@emdalo.com
  *
+ * based on QEMU RISC-V SiFive U500 SDK Compatible Board
  * Author: Sagar Karandikar, sagark@eecs.berkeley.edu
- *
- * This provides a RISC-V Board with the following devices:
- *
- * 0) HTIF Test Pass/Fail Reporting (no syscall proxy)
- * 1) HTIF Console
- *
- * These are created by htif_mm_init below.
- *
- * This board currently uses a hardcoded devicetree that indicates one hart.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -32,29 +26,26 @@
  */
 
 #include "qemu/osdep.h"
-#include "hw/hw.h"
-#include "hw/char/serial.h"
-#include "hw/riscv/htif/htif.h"
+#include "hw/riscv/riscv_clint.h"
+#include "hw/riscv/riscv_l2cache.h"
+#include "hw/riscv/riscv_plic.h"
+#include "hw/riscv/riscv_pmp.h"
 #include "hw/riscv/riscv_rtc.h"
+#include "hw/riscv/riscv_tim.h"
+#include "hw/riscv/riscv_uart.h"
+#include "hw/riscv/riscv_hart.h"
+#include "hw/riscv/soc.h"
 #include "hw/boards.h"
 #include "hw/riscv/cpudevs.h"
-#include "sysemu/char.h"
 #include "sysemu/arch_init.h"
-#include "qemu/log.h"
 #include "hw/loader.h"
 #include "elf.h"
 #include "exec/address-spaces.h"
 #include "hw/sysbus.h"             /* SysBusDevice */
-#include "qemu/host-utils.h"
-#include "sysemu/qtest.h"
-#include "qemu/error-report.h"
-#include "hw/empty_slot.h"
-#include "qemu/error-report.h"
-#include "sysemu/block-backend.h"
 
-#define TYPE_RISCV_SPIKE_BOARD "spike"
-#define RISCV_SPIKE_BOARD(obj) \
-    OBJECT_CHECK(BoardState, (obj), TYPE_RISCV_SPIKE_BOARD)
+#define TYPE_RISCV_UNICORN_BOARD "unicorn_board"
+#define RISCV_UNICORN_BOARD(obj) OBJECT_CHECK(BoardState, (obj), \
+    TYPE_RISCV_UNICORN_BOARD)
 
 typedef struct {
     SysBusDevice parent_obj;
@@ -94,45 +85,77 @@ static void main_cpu_reset(void *opaque)
     cpu_reset(CPU(cpu));
 }
 
-static void riscv_spike_board_init(MachineState *args)
+
+static void riscv_unicorn_board_init(MachineState *args)
 {
+    fprintf(stderr, "setting up UNICORN board for %lx bytes of RAM\n",
+        args->ram_size);
+
     ram_addr_t ram_size = args->ram_size;
-    const char *cpu_model = args->cpu_model;
     const char *kernel_filename = args->kernel_filename;
     const char *kernel_cmdline = args->kernel_cmdline;
     const char *initrd_filename = args->initrd_filename;
     MemoryRegion *system_memory = get_system_memory();
     MemoryRegion *main_mem = g_new(MemoryRegion, 1);
     MemoryRegion *boot_rom = g_new(MemoryRegion, 1);
-    MemoryRegion *dummy_ipi = g_new(MemoryRegion, 1);
+    /* MemoryRegion *uncached_ram = g_new(MemoryRegion, 1); */
     RISCVCPU *cpu;
     CPURISCVState *env;
     int i;
-    DeviceState *dev = qdev_create(NULL, TYPE_RISCV_SPIKE_BOARD);
+    DeviceState *dev = qdev_create(NULL, TYPE_RISCV_UNICORN_BOARD);
     object_property_set_bool(OBJECT(dev), true, "realized", NULL);
 
-    /* Make sure the first 3 serial ports are associated with a device. */
-    for (i = 0; i < 3; i++) {
-        if (!serial_hds[i]) {
-            char label[32];
-            snprintf(label, sizeof(label), "serial%d", i);
-            serial_hds[i] = qemu_chr_new(label, "null", NULL);
-        }
+    /* init CPUs */
+    if (args->cpu_model != NULL) {
+        fprintf(stderr, "WARNING:: CPUs are automatically setup as either E51"
+           " or U54 for UNICORN.\n");
     }
 
-    /* init CPUs */
-    if (cpu_model == NULL) {
-        cpu_model = "any";
-    }
+    /* register RAM */
+    memory_region_init_ram(main_mem, NULL, "riscv_unicorn_board.ram",
+                           ram_size, &error_fatal);
+    /* for phys mem size check in page table walk */
+    vmstate_register_ram_global(main_mem);
+    memory_region_add_subregion(system_memory, DRAM_BASE, main_mem);
+
+    /*
+     * TODO: EMDALO: Check if UNICORN has an uncached alias of DRAM_BASE
+     *       or not?
+    memory_region_init_alias(uncached_ram, NULL, "riscv_unicorn_board.uncached",
+                             main_mem, offset, size);
+     */
+
+    /*
+     * Create the zero device
+     */
+    l2zero_dev_init(L2ZERO_DEV_BASE_ADDR, L2ZERO_DEV_REG_SZ);
+
+    hart_shared_init(smp_cpus);
 
     for (i = 0; i < smp_cpus; i++) {
-        cpu = cpu_riscv_init(cpu_model);
+        cpu = cpu_riscv_init(i ? "U54" : "E51");
         if (cpu == NULL) {
             fprintf(stderr, "Unable to find CPU definition\n");
             exit(1);
+        } else {
+            fprintf(stderr, "initializing CPU %d as type >>%s<<\n", i,
+                i ? "U54" : "E51");
         }
         env = &cpu->env;
+        env->hart_index = i;
+        env->num_harts = smp_cpus;
+        env->memsize = ram_size;
+        hart_add_env_and_state(i, env, &(cpu->parent_obj));
 
+        /* Init ITIMs and DTIMs
+           Note hart 0 DTIM/ITIM differs from other harts */
+        if (i == 0) {
+            dtim_init(cpu, HART0_DTIM, DEFAULT_DTIM_SZ, DTIM_WAY_SZ);
+            itim_init(cpu, HART0_ITIM, HART0_ITIM_SZ, DTIM_WAY_SZ);
+        } else {
+            itim_init(cpu, HART0_ITIM + (TIM_BLOCK_SZ * i), DEFAULT_ITIM_SZ,
+                ITIM_WAY_SZ);
+        }
         /* Init internal devices */
         cpu_riscv_irq_init_cpu(env);
         cpu_riscv_clock_init(env);
@@ -141,24 +164,19 @@ static void riscv_spike_board_init(MachineState *args)
     cpu = RISCV_CPU(first_cpu);
     env = &cpu->env;
 
-    /* register system main memory (actual RAM) */
-    memory_region_init_ram(main_mem, NULL, "riscv_spike_board.ram",
-                           ram_size, &error_fatal);
-    /* for phys mem size check in page table walk */
-    env->memsize = ram_size;
-    vmstate_register_ram_global(main_mem);
-    memory_region_add_subregion(system_memory, 0x80000000, main_mem);
-
     /* boot rom */
-    memory_region_init_ram(boot_rom, NULL, "riscv_spike_board.bootrom",
-                           0x40000, &error_fatal);
+    memory_region_init_ram(boot_rom, NULL, "riscv_unicorn_board.bootrom",
+                           0x10000, &error_fatal);
     vmstate_register_ram_global(boot_rom);
+    memory_region_set_readonly(boot_rom, true);
     memory_region_add_subregion(system_memory, 0x0, boot_rom);
 
-    /* allocate dummy ram region for "nop" IPI */
-    memory_region_init_ram(dummy_ipi, NULL, "riscv_spike_board.dummyipi",
-                           8, &error_fatal);
-    memory_region_add_subregion(system_memory, 0x40001000, dummy_ipi);
+    clint_init(cpu, smp_cpus);
+    plic_init(cpu);
+    l2cache_init(cpu, 4, 16, 512, 64);
+    pmp_init();
+    riscv_serial_init(UART0_BASE_ADDR, plic_raise_irq, plic_lower_irq,
+        UART0_PLIC_SRC, 115200, 4, serial_hds[0], get_system_memory());
 
     if (kernel_filename) {
         loaderparams.ram_size = ram_size;
@@ -182,8 +200,29 @@ static void riscv_spike_board_init(MachineState *args)
         "  vendor ucb;\n"
         "  arch spike;\n"
         "};\n"
+        "plic {\n"
+        "  interface \"plic\";\n"
+        "  ndevs 2;\n"
+        "  priority { mem { 0x60000000 0x60000fff; }; };\n"
+        "  pending  { mem { 0x60001000 0x6000107f; }; };\n"
+        "  0 {\n"
+        "    0 {\n"
+        "      m {\n"
+        "        ie  { mem { 0x60002000 0x6000207f; }; };\n"
+        "        ctl { mem { 0x60200000 0x60200007; }; };\n"
+        "      };\n"
+        "      s {\n"
+        "        ie  { mem { 0x60002080 0x600020ff; }; };\n"
+        "        ctl { mem { 0x60201000 0x60201007; }; };\n"
+        "      };\n"
+        "    }\n"
+        "  };\n"
+        "};\n"
         "rtc {\n"
         "  addr 0x" "40000000" ";\n"
+        "};\n"
+        "uart {\n"
+        "  addr 0x40002000;\n"
         "};\n"
         "ram {\n"
         "  0 {\n"
@@ -201,7 +240,7 @@ static void riscv_spike_board_init(MachineState *args)
           "      isa " "rv64imafd" ";\n"
           "      timecmp 0x" "40000008" ";\n"
           "      ipi 0x" "40001000" ";\n" /* this must match dummy ipi region
-                                          * above */
+                                           * above */
           "    };\n"
           "  };\n"
           "};\n";
@@ -210,9 +249,8 @@ static void riscv_spike_board_init(MachineState *args)
     uint64_t rsz = ram_size;
     char *ramsize_as_hex_str = malloc(17);
     sprintf(ramsize_as_hex_str, "%016" PRIx64, rsz);
-    char *config_string = malloc(strlen(config_string1) +
-                                  strlen(ramsize_as_hex_str) +
-                                  strlen(config_string2) + 1);
+    char *config_string = malloc(strlen(config_string1)
+        + strlen(ramsize_as_hex_str) + strlen(config_string2) + 1);
     config_string[0] = 0;
     strcat(config_string, config_string1);
     strcat(config_string, ramsize_as_hex_str);
@@ -231,49 +269,42 @@ static void riscv_spike_board_init(MachineState *args)
               config_string[q]);
     }
 
-    /* add memory mapped htif registers at location specified in the symbol
-       table of the elf being loaded (thus kernel_filename is passed to the
-       init rather than an address) */
-    htif_mm_init(system_memory, kernel_filename, HTIF_IRQ, boot_rom,
-            env, serial_hds[0]);
-
-    /* timer device at 0x40000000, as specified in the config string above */
-    timer_mm_init(system_memory, 0x40000000, env);
-
-    /* TODO: VIRTIO */
+    timer_mm_init(system_memory, CLINT_BASE_ADDR + CLINT_MTIMECMP_OFFSET,
+       env);
 }
 
-static int riscv_spike_board_sysbus_device_init(SysBusDevice *sysbusdev)
+static int riscv_unicorn_board_sysbus_device_init(SysBusDevice *sysbusdev)
 {
     return 0;
 }
 
-static void riscv_spike_board_class_init(ObjectClass *klass, void *data)
+static void riscv_unicorn_board_class_init(ObjectClass *klass, void *data)
 {
     SysBusDeviceClass *k = SYS_BUS_DEVICE_CLASS(klass);
-    k->init = riscv_spike_board_sysbus_device_init;
+    k->init = riscv_unicorn_board_sysbus_device_init;
 }
 
-static const TypeInfo riscv_spike_board_device = {
-    .name          = TYPE_RISCV_SPIKE_BOARD,
+static const TypeInfo riscv_unicorn_board_device = {
+    .name          = TYPE_RISCV_UNICORN_BOARD,
     .parent        = TYPE_SYS_BUS_DEVICE,
     .instance_size = sizeof(BoardState),
-    .class_init    = riscv_spike_board_class_init,
+    .class_init    = riscv_unicorn_board_class_init,
 };
 
-static void riscv_spike_board_machine_init(MachineClass *mc)
+static void riscv_unicorn_board_machine_init(MachineClass *mc)
 {
-    mc->desc = "RISC-V Generic Board (matching 'Spike')";
-    mc->init = riscv_spike_board_init;
-    mc->max_cpus = 1;
-    mc->is_default = 1;
+    fprintf(stderr, "setting up UNICORN machine\n");
+
+    mc->desc = "RISC-V Board compatible with Unicorn (incomplete)";
+    mc->init = riscv_unicorn_board_init;
+    mc->max_cpus = 5;
 }
 
-DEFINE_MACHINE("spike", riscv_spike_board_machine_init)
+DEFINE_MACHINE("unicorn", riscv_unicorn_board_machine_init)
 
-static void riscv_spike_board_register_types(void)
+static void riscv_unicorn_board_register_types(void)
 {
-    type_register_static(&riscv_spike_board_device);
+    type_register_static(&riscv_unicorn_board_device);
 }
 
-type_init(riscv_spike_board_register_types);
+type_init(riscv_unicorn_board_register_types);

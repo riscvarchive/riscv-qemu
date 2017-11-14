@@ -9,9 +9,10 @@
 typedef struct TIMERState TIMERState;
 
 struct TIMERState {
-    CPURISCVState *env;
+    CPURISCVState **env;
     MemoryRegion io;
-    uint32_t timecmp_lower;
+    uint32_t *timecmp_lower;
+    uint32_t *timecmp_upper;
     uint64_t temp_rtc_val;
 };
 

@@ -228,6 +228,15 @@ At this point, you can use regular gdb commands to singlestep, set breakpoints,
 read/write registers, etc. If you type `continue` in gdb, you can return to QEMU
 and interact with the machine as if you were using it without GDB attached.
 
+
+Using QEMU to Debug RISC-V U54 based Code:
+------------------------------------------
+
+To use this, start QEMU with the additional flags `-m <mem> -smp cpus=5`:
+
+    $ qemu-system-riscv64 -machine unicorn -kernel PROGRAM -nographic -m 1Gb -smp cpus=5 -s
+
+
 TODOs:
 ------
 
