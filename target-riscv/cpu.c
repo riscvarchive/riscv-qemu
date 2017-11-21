@@ -24,6 +24,53 @@
 #include "qemu-common.h"
 #include "migration/vmstate.h"
 
+/* RISC-V CPU definitions */
+
+typedef struct RISCVCPUInfo {
+    const char *name;
+    void (*initfn)(Object *obj);
+} RISCVCPUInfo;
+
+static void riscv_imacs_priv1_9_cpu_init(Object *obj)
+{
+    CPURISCVState *env = &RISCV_CPU(obj)->env;
+    env->misa = env->misa_mask = RVXLEN|RVI|RVM|RVA|RVC|RVS;
+    env->user_ver = USER_VERSION_2_02_0;
+    env->priv_ver = PRIV_VERSION_1_09_1;
+}
+
+static void riscv_imafdcs_priv1_9_cpu_init(Object *obj)
+{
+    CPURISCVState *env = &RISCV_CPU(obj)->env;
+    env->misa = env->misa_mask = RVXLEN|RVI|RVM|RVA|RVF|RVD|RVC|RVS;
+    env->user_ver = USER_VERSION_2_02_0;
+    env->priv_ver = PRIV_VERSION_1_09_1;
+}
+
+static void riscv_imacs_priv1_10_cpu_init(Object *obj)
+{
+    CPURISCVState *env = &RISCV_CPU(obj)->env;
+    env->misa = env->misa_mask = RVXLEN|RVI|RVM|RVA|RVC|RVS;
+    env->user_ver = USER_VERSION_2_02_0;
+    env->priv_ver = PRIV_VERSION_1_10_0;
+}
+
+static void riscv_imafdcs_priv1_10_cpu_init(Object *obj)
+{
+    CPURISCVState *env = &RISCV_CPU(obj)->env;
+    env->misa = env->misa_mask = RVXLEN|RVI|RVM|RVA|RVF|RVD|RVC|RVS;
+    env->user_ver = USER_VERSION_2_02_0;
+    env->priv_ver = PRIV_VERSION_1_10_0;
+}
+
+static const RISCVCPUInfo riscv_cpus[] = {
+    { "imacs-priv1.9",    riscv_imacs_priv1_9_cpu_init },
+    { "imafdcs-priv1.9",  riscv_imafdcs_priv1_9_cpu_init },
+    { "imacs-priv1.10",   riscv_imacs_priv1_10_cpu_init },
+    { "imafdcs-priv1.10", riscv_imafdcs_priv1_10_cpu_init },
+    { NULL, NULL }
+};
+
 static inline void set_feature(CPURISCVState *env, int feature)
 {
     env->features |= 1ULL << feature;
@@ -93,27 +140,27 @@ static void riscv_cpu_disas_set_info(CPUState *s, disassemble_info *info) {
     info->print_insn = print_insn_riscv;
 }
 
-static void riscv_cpu_realizefn(DeviceState *dev, Error **errp)
+static void riscv_cpu_realize(DeviceState *dev, Error **errp)
 {
     CPUState *cs = CPU(dev);
     RISCVCPU *cpu = RISCV_CPU(dev);
     RISCVCPUClass *mcc = RISCV_CPU_GET_CLASS(dev);
     CPURISCVState *env = &cpu->env;
 
-    /* Enable GC ISA */
-    set_feature(env, RISCV_FEATURE_RVM);
-    set_feature(env, RISCV_FEATURE_RVA);
-    set_feature(env, RISCV_FEATURE_RVF);
-    set_feature(env, RISCV_FEATURE_RVD);
-    set_feature(env, RISCV_FEATURE_RVC);
+    if (env->misa & RVM) set_feature(env, RISCV_FEATURE_RVM);
+    if (env->misa & RVA) set_feature(env, RISCV_FEATURE_RVA);
+    if (env->misa & RVF) set_feature(env, RISCV_FEATURE_RVF);
+    if (env->misa & RVD) set_feature(env, RISCV_FEATURE_RVD);
+    if (env->misa & RVC) set_feature(env, RISCV_FEATURE_RVC);
 
     cpu_reset(cs);
     qemu_init_vcpu(cs);
+    set_default_nan_mode(1, &env->fp_status);
 
     mcc->parent_realize(dev, errp);
 }
 
-static void riscv_cpu_initfn(Object *obj)
+static void riscv_cpu_init(Object *obj)
 {
     CPUState *cs = CPU(obj);
     RISCVCPU *cpu = RISCV_CPU(obj);
@@ -139,7 +186,7 @@ static void riscv_cpu_class_init(ObjectClass *c, void *data)
     DeviceClass *dc = DEVICE_CLASS(c);
 
     mcc->parent_realize = dc->realize;
-    dc->realize = riscv_cpu_realizefn;
+    dc->realize = riscv_cpu_realize;
 
     mcc->parent_reset = cc->reset;
     cc->reset = riscv_cpu_reset;
@@ -166,26 +213,89 @@ static void riscv_cpu_class_init(ObjectClass *c, void *data)
     cc->vmsd = &vmstate_riscv_cpu;
 
     /*
-     * Reason: riscv_cpu_initfn() calls cpu_exec_init(), which saves
+     * Reason: riscv_cpu_init() calls cpu_exec_init(), which saves
      * the object in cpus -> dangling pointer after final
      * object_unref().
      */
     dc->cannot_destroy_with_object_finalize_yet = true;
 }
 
+static void cpu_register(const RISCVCPUInfo *info)
+{
+    TypeInfo type_info = {
+        .parent = TYPE_RISCV_CPU,
+        .instance_size = sizeof(RISCVCPU),
+        .instance_init = info->initfn,
+    };
+
+    type_info.name = g_strdup_printf(TYPE_RISCV_CPU "-%s", info->name);
+    type_register(&type_info);
+    g_free((void *)type_info.name);
+}
+
 static const TypeInfo riscv_cpu_type_info = {
     .name = TYPE_RISCV_CPU,
     .parent = TYPE_CPU,
     .instance_size = sizeof(RISCVCPU),
-    .instance_init = riscv_cpu_initfn,
+    .instance_init = riscv_cpu_init,
     .abstract = false,
     .class_size = sizeof(RISCVCPUClass),
     .class_init = riscv_cpu_class_init,
 };
 
+char* riscv_isa_string(RISCVCPU *cpu)
+{
+    size_t len = 5 + ctz32(cpu->env.misa);
+    char *isa_string = g_new(char, len);
+    isa_string[0] = '\0';
+#if defined(TARGET_RISCV32)
+    strncat(isa_string, "rv32", len);
+#elif defined(TARGET_RISCV64)
+    strncat(isa_string, "rv64", len);
+#endif
+    if (cpu->env.misa & RVI) strncat(isa_string, "i", len);
+    if (cpu->env.misa & RVM) strncat(isa_string, "m", len);
+    if (cpu->env.misa & RVA) strncat(isa_string, "a", len);
+    if (cpu->env.misa & RVF) strncat(isa_string, "f", len);
+    if (cpu->env.misa & RVD) strncat(isa_string, "d", len);
+    if (cpu->env.misa & RVC) strncat(isa_string, "c", len);
+    return isa_string;
+}
+
+void riscv_cpu_list(FILE *f, fprintf_function cpu_fprintf)
+{
+    const RISCVCPUInfo *info = riscv_cpus;
+
+    while (info->name) {
+        (*cpu_fprintf)(f, TYPE_RISCV_CPU "-%s\n", info->name);
+        info++;
+    }
+}
+
+RISCVCPU *cpu_riscv_init(const char *cpu_model)
+{
+    RISCVCPU *cpu = RISCV_CPU(object_new(TYPE_RISCV_CPU));
+    CPURISCVState *env = &cpu->env;
+
+    env->misa = env->misa_mask = RVXLEN|RVI|RVM|RVA|RVF|RVD|RVC;
+    env->user_ver = USER_VERSION_2_02_0;
+    env->priv_ver = PRIV_VERSION_1_09_1;
+
+    object_property_set_bool(OBJECT(cpu), true, "realized", NULL);
+
+    return cpu;
+}
+
 static void riscv_cpu_register_types(void)
 {
+    const RISCVCPUInfo *info = riscv_cpus;
+
     type_register_static(&riscv_cpu_type_info);
+
+    while (info->name) {
+        cpu_register(info);
+        info++;
+    }
 }
 
 type_init(riscv_cpu_register_types)

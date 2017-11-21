@@ -247,10 +247,20 @@ static void htif_handle_tohost_write(HTIFState *htifstate, uint64_t val_written)
                          %016" PRIx64 "\n", device, cmd, payload & 0xFF, payload);
         exit(1);
     }
+#if 0
+    /*
+     * # TEMPORARY FIX
+     *
+     * - latest bbl does not set fromhost to 0 if there is a value in tohost
+     * - without this change qemu hangs waiting for fromhost to go to 0
+     * - this change works with bbl/linux priv 1.9.1 and bbl/linux priv 1.10
+     * - HTIF needs protocol documentation and a more complete state machine
+     */
     while (!htifstate->fromhost_inprogress &&
             htifstate->env->mfromhost != 0x0) {
         /* wait */
     }
+#endif
     htifstate->env->mfromhost = (val_written >> 48 << 48) | (resp << 16 >> 16);
     htifstate->env->mtohost = 0; /* clear to indicate we read */
     if (htifstate->env->mfromhost != 0) {

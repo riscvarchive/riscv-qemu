@@ -6,6 +6,26 @@
 /* uncomment for lots of debug printing */
 /* #define RISCV_DEBUG_PRINT */
 
+#if defined(TARGET_RISCV32)
+#define RVXLEN  ((target_ulong)1 << (TARGET_LONG_BITS - 2))
+#elif defined(TARGET_RISCV64)
+#define RVXLEN  ((target_ulong)2 << (TARGET_LONG_BITS - 2))
+#endif
+#define RV(x) (1L << (x - 'A'))
+
+#define RVI RV('I')
+#define RVM RV('M')
+#define RVA RV('A')
+#define RVF RV('F')
+#define RVD RV('D')
+#define RVC RV('C')
+#define RVS RV('S')
+#define RVU RV('U')
+
+#define USER_VERSION_2_02_0 0x00020200
+#define PRIV_VERSION_1_09_1 0x00010901
+#define PRIV_VERSION_1_10_0 0x00011000
+
 #define TARGET_HAS_ICE 1
 #define ELF_MACHINE EM_RISCV
 #define CPUArchState struct CPURISCVState
@@ -43,26 +63,31 @@
 #define RISCV_EXCP_S_ECALL                 0x9
 #define RISCV_EXCP_H_ECALL                 0xa
 #define RISCV_EXCP_M_ECALL                 0xb
-
+#define RISCV_EXCP_INST_PAGE_FAULT         0xc /* since: priv-1.10.0 */
+#define RISCV_EXCP_LOAD_PAGE_FAULT         0xd /* since: priv-1.10.0 */
+#define RISCV_EXCP_STORE_PAGE_FAULT        0xf /* since: priv-1.10.0 */
 
 #define TRANSLATE_FAIL 1
 #define TRANSLATE_SUCCESS 0
 #define NB_MMU_MODES 4
-
 #define MMU_USER_IDX 3
-
-struct CPURISCVState;
 
 #define SSIP_IRQ (env->irq[0])
 #define STIP_IRQ (env->irq[1])
 #define MSIP_IRQ (env->irq[2])
-#define TIMER_IRQ (env->irq[3])
+#define MTIP_IRQ (env->irq[3])
 #define HTIF_IRQ (env->irq[4])
+#define SEIP_IRQ (env->irq[5])
+#define MEIP_IRQ (env->irq[6])
 
-typedef struct riscv_def_t riscv_def_t;
+#define MAX_RISCV_IRQ (8)
+#define MAX_RISCV_PMPS (16)
 
 typedef struct CPURISCVState CPURISCVState;
-struct CPURISCVState {
+
+#include "pmp.h"
+
+typedef struct CPURISCVState {
     target_ulong gpr[32];
     uint64_t fpr[32]; /* assume both F and D extensions */
     target_ulong pc;
@@ -76,6 +101,11 @@ struct CPURISCVState {
 
     uint32_t mucounteren;
 
+    target_ulong user_ver;
+    target_ulong priv_ver;
+    target_ulong misa_mask;
+    target_ulong misa;
+
 #ifdef CONFIG_USER_ONLY
     uint32_t amoinsn;
     target_long amoaddr;
@@ -83,15 +113,14 @@ struct CPURISCVState {
 #else
     target_ulong priv;
 
-    target_ulong misa;
-    target_ulong max_isa;
+    target_ulong mhartid;
     target_ulong mstatus;
-
     target_ulong mip;
     target_ulong mie;
     target_ulong mideleg;
 
-    target_ulong sptbr;
+    target_ulong sptbr;  /* until: priv-1.9.1 */
+    target_ulong satp;   /* since: priv-1.10.0 */
     target_ulong sbadaddr;
     target_ulong mbadaddr;
     target_ulong medeleg;
@@ -103,8 +132,11 @@ struct CPURISCVState {
     target_ulong mtvec;
     target_ulong mepc;
     target_ulong mcause;
+    target_ulong mtval;  /* since: priv-1.10.0 */
 
     uint32_t mscounteren;
+    target_ulong scounteren; /* since: priv-1.10.0 */
+    target_ulong mcounteren; /* since: priv-1.10.0 */
 
     target_ulong sscratch;
     target_ulong mscratch;
@@ -113,6 +145,9 @@ struct CPURISCVState {
     uint64_t mfromhost;
     uint64_t mtohost;
     uint64_t timecmp;
+
+    /* physical memory protection */
+    pmp_table_t pmp_state;
 #endif
 
     float_status fp_status;
@@ -124,15 +159,13 @@ struct CPURISCVState {
     CPU_COMMON
 
     /* Fields from here on are preserved across CPU reset. */
-    const riscv_def_t *cpu_model;
-    size_t memsize;
     void *irq[8];
     QEMUTimer *timer; /* Internal timer */
-};
+} CPURISCVState;
 
 #include "qom/cpu.h"
 
-#define TYPE_RISCV_CPU "riscv-cpu"
+#define TYPE_RISCV_CPU "riscv"
 
 #define RISCV_CPU_CLASS(klass) \
     OBJECT_CLASS_CHECK(RISCVCPUClass, (klass), TYPE_RISCV_CPU)
@@ -208,6 +241,7 @@ void riscv_cpu_unassigned_access(CPUState *cpu, hwaddr addr, bool is_write,
         bool is_exec, int unused, unsigned size);
 #endif
 
+char* riscv_isa_string(RISCVCPU *cpu);
 void riscv_cpu_list(FILE *f, fprintf_function cpu_fprintf);
 
 #define cpu_signal_handler cpu_riscv_signal_handler
@@ -236,8 +270,14 @@ static inline int cpu_mmu_index(CPURISCVState *env, bool ifetch)
             mode = get_field(env->mstatus, MSTATUS_MPP);
         }
     }
-    if (get_field(env->mstatus, MSTATUS_VM) == VM_MBARE) {
-        mode = PRV_M;
+    if (env->priv_ver >= PRIV_VERSION_1_10_0) {
+        if (get_field(env->satp, SATP_MODE) == VM_1_10_MBARE) {
+            mode = PRV_M;
+        }
+    } else {
+        if (get_field(env->mstatus, MSTATUS_VM) == VM_1_09_MBARE) {
+            mode = PRV_M;
+        }
     }
     return mode;
 }
@@ -266,12 +306,12 @@ static inline int cpu_riscv_hw_interrupts_pending(CPURISCVState *env)
 
     if (enabled_interrupts) {
         target_ulong counted = ctz64(enabled_interrupts); /* since non-zero */
-        if (counted == IRQ_HOST) {
+        if (counted == IRQ_X_HOST) {
             /* we're handing it to the cpu now, so get rid of the qemu irq */
             qemu_irq_lower(HTIF_IRQ);
         } else if (counted == IRQ_M_TIMER) {
             /* we're handing it to the cpu now, so get rid of the qemu irq */
-            qemu_irq_lower(TIMER_IRQ);
+            qemu_irq_lower(MTIP_IRQ);
         } else if (counted == IRQ_S_TIMER || counted == IRQ_H_TIMER) {
             /* don't lower irq here */
         }
@@ -293,6 +333,7 @@ void QEMU_NORETURN do_raise_exception_err(CPURISCVState *env,
 
 /* hw/riscv/riscv_rtc.c  - supplies instret by approximating */
 uint64_t cpu_riscv_read_instret(CPURISCVState *env);
+uint64_t cpu_riscv_read_rtc(void);
 
 int riscv_cpu_handle_mmu_fault(CPUState *cpu, vaddr address, int rw,
                               int mmu_idx);

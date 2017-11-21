@@ -51,12 +51,25 @@
 #define MSTATUS_FS          0x00006000
 #define MSTATUS_XS          0x00018000
 #define MSTATUS_MPRV        0x00020000
-#define MSTATUS_PUM         0x00040000
+#define MSTATUS_PUM         0x00040000 /* until: priv-1.9.1 */
+#define MSTATUS_SUM         0x00040000 /* since: priv-1.10 */
 #define MSTATUS_MXR         0x00080000
-#define MSTATUS_VM          0x1F000000
+#define MSTATUS_VM          0x1F000000 /* until: priv-1.9.1 */
+#define MSTATUS_TVM         0x00100000 /* since: priv-1.10 */
+#define MSTATUS_TW          0x20000000 /* since: priv-1.10 */
+#define MSTATUS_TSR         0x40000000 /* since: priv-1.10 */
+
+#define MSTATUS64_UXL       0x0000000300000000
+#define MSTATUS64_SXL       0x0000000C00000000
 
 #define MSTATUS32_SD        0x80000000
 #define MSTATUS64_SD        0x8000000000000000
+
+#if defined (TARGET_RISCV32)
+#define MSTATUS_SD MSTATUS32_SD
+#elif defined (TARGET_RISCV64)
+#define MSTATUS_SD MSTATUS64_SD
+#endif
 
 #define SSTATUS_UIE         0x00000001
 #define SSTATUS_SIE         0x00000002
@@ -65,9 +78,18 @@
 #define SSTATUS_SPP         0x00000100
 #define SSTATUS_FS          0x00006000
 #define SSTATUS_XS          0x00018000
-#define SSTATUS_PUM         0x00040000
+#define SSTATUS_PUM         0x00040000 /* until: priv-1.9.1 */
+#define SSTATUS_SUM         0x00040000 /* since: priv-1.10 */
+#define SSTATUS_MXR         0x00080000
+
 #define SSTATUS32_SD        0x80000000
 #define SSTATUS64_SD        0x8000000000000000
+
+#if defined (TARGET_RISCV32)
+#define SSTATUS_SD SSTATUS32_SD
+#elif defined (TARGET_RISCV64)
+#define SSTATUS_SD SSTATUS64_SD
+#endif
 
 #define MIP_SSIP            (1 << IRQ_S_SOFT)
 #define MIP_HSIP            (1 << IRQ_H_SOFT)
@@ -81,37 +103,73 @@
 
 #define SIP_SSIP MIP_SSIP
 #define SIP_STIP MIP_STIP
+#define SIP_SEIP MIP_SEIP
 
 #define PRV_U 0
 #define PRV_S 1
 #define PRV_H 2
 #define PRV_M 3
 
-#define VM_MBARE 0
-#define VM_MBB   1
-#define VM_MBBID 2
-#define VM_SV32  8
-#define VM_SV39  9
-#define VM_SV48  10
+/* privileged ISA 1.9.1 VM modes (mstatus.vm) */
+#define VM_1_09_MBARE 0  /* until: priv-1.9.1 */
+#define VM_1_09_MBB   1  /* until: priv-1.9.1 */
+#define VM_1_09_MBBID 2  /* until: priv-1.9.1 */
+#define VM_1_09_SV32  8  /* until: priv-1.9.1 */
+#define VM_1_09_SV39  9  /* until: priv-1.9.1 */
+#define VM_1_09_SV48  10 /* until: priv-1.9.1 */
 
-#define IRQ_S_SOFT   1
-#define IRQ_H_SOFT   2
-#define IRQ_M_SOFT   3
-#define IRQ_S_TIMER  5
-#define IRQ_H_TIMER  6
-#define IRQ_M_TIMER  7
-#define IRQ_S_EXT    9
-#define IRQ_H_EXT    10
-#define IRQ_M_EXT    11
-#define IRQ_COP      12
-#define IRQ_HOST     13
+/* privileged ISA 1.10.0 VM modes (satp.mode) */
+#define VM_1_10_MBARE 0  /* since: priv-1.10 */
+#define VM_1_10_SV32  1  /* since: priv-1.10 */
+#define VM_1_10_SV39  8  /* since: priv-1.10 */
+#define VM_1_10_SV48  9  /* since: priv-1.10 */
+#define VM_1_10_SV57  10 /* since: priv-1.10 */
+#define VM_1_10_SV64  11 /* since: priv-1.10 */
 
+/* privileged ISA interrupt causes */
+#define IRQ_U_SOFT      0  /* since: priv-1.10 */
+#define IRQ_S_SOFT      1
+#define IRQ_H_SOFT      2  /* until: priv-1.9.1 */
+#define IRQ_M_SOFT      3  /* until: priv-1.9.1 */
+#define IRQ_U_TIMER     4  /* since: priv-1.10 */
+#define IRQ_S_TIMER     5
+#define IRQ_H_TIMER     6  /* until: priv-1.9.1 */
+#define IRQ_M_TIMER     7  /* until: priv-1.9.1 */
+#define IRQ_U_EXT       8  /* since: priv-1.10 */
+#define IRQ_S_EXT       9
+#define IRQ_H_EXT       10 /* until: priv-1.9.1 */
+#define IRQ_M_EXT       11 /* until: priv-1.9.1 */
+#define IRQ_X_COP       12 /* non-standard */
+#define IRQ_X_HOST      13 /* non-standard */
+
+/* Default addresses */
 #define DEFAULT_RSTVEC     0x00001000
 #define DEFAULT_NMIVEC     0x00001004
 #define DEFAULT_MTVEC      0x00001010
 #define CONFIG_STRING_ADDR 0x0000100C
 #define EXT_IO_BASE        0x40000000
 #define DRAM_BASE          0x80000000
+
+/* RV32 satp field masks */
+#define SATP32_MODE 0x80000000
+#define SATP32_ASID 0x7fc00000
+#define SATP32_PPN  0x003fffff
+
+/* RV64 satp field masks */
+#define SATP64_MODE 0xF000000000000000
+#define SATP64_ASID 0x0FFFF00000000000
+#define SATP64_PPN  0x00000FFFFFFFFFFF
+
+#if defined(TARGET_RISCV32)
+#define SATP_MODE SATP32_MODE
+#define SATP_ASID SATP32_ASID
+#define SATP_PPN  SATP32_PPN
+#endif
+#if defined(TARGET_RISCV64)
+#define SATP_MODE SATP64_MODE
+#define SATP_ASID SATP64_ASID
+#define SATP_PPN  SATP64_PPN
+#endif
 
 /* breakpoint control fields */
 #define BPCONTROL_X           0x00000001

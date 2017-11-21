@@ -73,13 +73,19 @@ static int get_physical_address(CPURISCVState *env, hwaddr *physical,
             mode = get_field(env->mstatus, MSTATUS_MPP);
         }
     }
-    if (get_field(env->mstatus, MSTATUS_VM) == VM_MBARE) {
-        mode = PRV_M;
+    if (env->priv_ver >= PRIV_VERSION_1_10_0) {
+        if (get_field(env->satp, SATP_MODE) == VM_1_09_MBARE) {
+            mode = PRV_M;
+        }
+    } else {
+        if (get_field(env->mstatus, MSTATUS_VM) == VM_1_10_MBARE) {
+            mode = PRV_M;
+        }
     }
 
     /* check to make sure that mmu_idx and mode that we get matches */
     if (unlikely(mode != mmu_idx)) {
-        fprintf(stderr, "MODE, mmu_idx mismatch\n");
+        fprintf(stderr, "MODE: mmu_idx mismatch\n");
         exit(1);
     }
 
@@ -92,30 +98,43 @@ static int get_physical_address(CPURISCVState *env, hwaddr *physical,
     }
 
     target_ulong addr = address;
-    int supervisor = mode == PRV_S;
-    int pum = get_field(env->mstatus, MSTATUS_PUM);
+    target_ulong base;
+
+    int levels, ptidxbits, ptesize, vm, sum;
     int mxr = get_field(env->mstatus, MSTATUS_MXR);
 
-    int levels, ptidxbits, ptesize;
-    switch (get_field(env->mstatus, MSTATUS_VM)) {
-    case VM_SV32:
-      levels = 2;
-      ptidxbits = 10;
-      ptesize = 4;
-      break;
-    case VM_SV39:
-      levels = 3;
-      ptidxbits = 9;
-      ptesize = 8;
-      break;
-    case VM_SV48:
-      levels = 4;
-      ptidxbits = 9;
-      ptesize = 8;
-      break;
-    default:
-      printf("unsupported MSTATUS_VM value\n");
-      exit(1);
+    if (env->priv_ver >= PRIV_VERSION_1_10_0) {
+        base = get_field(env->satp, SATP_PPN) << PGSHIFT;
+        sum = get_field(env->mstatus, MSTATUS_SUM);
+        vm = get_field(env->satp, SATP_MODE);
+        switch (vm) {
+        case VM_1_10_SV32:
+          levels = 2; ptidxbits = 10; ptesize = 4; break;
+        case VM_1_10_SV39:
+          levels = 3; ptidxbits = 9; ptesize = 8; break;
+        case VM_1_10_SV48:
+          levels = 4; ptidxbits = 9; ptesize = 8; break;
+        case VM_1_10_SV57:
+          levels = 5; ptidxbits = 9; ptesize = 8; break;
+        default:
+          printf("unsupported SATP_MODE value\n");
+          exit(1);
+        }
+    } else {
+        base = env->sptbr << PGSHIFT;
+        sum = !get_field(env->mstatus, MSTATUS_PUM);
+        vm = get_field(env->mstatus, MSTATUS_VM);
+        switch (vm) {
+        case VM_1_09_SV32:
+          levels = 2; ptidxbits = 10; ptesize = 4; break;
+        case VM_1_09_SV39:
+          levels = 3; ptidxbits = 9; ptesize = 8; break;
+        case VM_1_09_SV48:
+          levels = 4; ptidxbits = 9; ptesize = 8; break;
+        default:
+          printf("unsupported MSTATUS_VM value\n");
+          exit(1);
+        }
     }
 
     int va_bits = PGSHIFT + levels * ptidxbits;
@@ -125,7 +144,6 @@ static int get_physical_address(CPURISCVState *env, hwaddr *physical,
         return TRANSLATE_FAIL;
     }
 
-    target_ulong base = env->sptbr << PGSHIFT;
     int ptshift = (levels - 1) * ptidxbits;
     int i;
     for (i = 0; i < levels; i++, ptshift -= ptidxbits) {
@@ -134,20 +152,12 @@ static int get_physical_address(CPURISCVState *env, hwaddr *physical,
 
         /* check that physical address of PTE is legal */
         target_ulong pte_addr = base + idx * ptesize;
-
-        /* PTE must reside in memory */
-        if (!(pte_addr >= DRAM_BASE && pte_addr < (DRAM_BASE + env->memsize))) {
-            printf("PTE was not in DRAM region\n");
-            exit(1);
-            break;
-        }
-
         target_ulong pte = ldq_phys(cs->as, pte_addr);
         target_ulong ppn = pte >> PTE_PPN_SHIFT;
 
         if (PTE_TABLE(pte)) { /* next level of page table */
             base = ppn << PGSHIFT;
-        } else if ((pte & PTE_U) ? supervisor && pum : !supervisor) {
+        } else if ((pte & PTE_U) ? (mode == PRV_S) && (!sum) : !(mode == PRV_S)) {
             break;
         } else if (!(pte & PTE_V) || (!(pte & PTE_R) && (pte & PTE_W))) {
             break;
@@ -171,7 +181,7 @@ static int get_physical_address(CPURISCVState *env, hwaddr *physical,
              * dirty bit on the PTE
              *
              * at this point, we assume that protection checks have occurred */
-            if (supervisor) {
+            if (mode == PRV_S) {
                 if ((pte & PTE_X) && access_type == MMU_INST_FETCH) {
                     *prot |= PAGE_EXEC;
                 } else if ((pte & PTE_W) && access_type == MMU_DATA_STORE) {
@@ -204,15 +214,21 @@ static void raise_mmu_exception(CPURISCVState *env, target_ulong address,
                                 MMUAccessType access_type)
 {
     CPUState *cs = CPU(riscv_env_get_cpu(env));
+    int page_fault_exceptions =
+        (env->priv_ver >= PRIV_VERSION_1_10_0) &&
+        get_field(env->satp, SATP_MODE) != VM_1_10_MBARE;
     int exception = 0;
     if (access_type == MMU_INST_FETCH) { /* inst access */
-        exception = RISCV_EXCP_INST_ACCESS_FAULT;
+        exception = page_fault_exceptions ?
+            RISCV_EXCP_INST_PAGE_FAULT : RISCV_EXCP_INST_ACCESS_FAULT;
         env->badaddr = address;
     } else if (access_type == MMU_DATA_STORE) { /* store access */
-        exception = RISCV_EXCP_STORE_AMO_ACCESS_FAULT;
+        exception = page_fault_exceptions ?
+            RISCV_EXCP_STORE_PAGE_FAULT : RISCV_EXCP_STORE_AMO_ACCESS_FAULT;
         env->badaddr = address;
     } else if (access_type == MMU_DATA_LOAD) { /* load access */
-        exception = RISCV_EXCP_LOAD_ACCESS_FAULT;
+        exception = page_fault_exceptions ?
+            RISCV_EXCP_LOAD_PAGE_FAULT : RISCV_EXCP_LOAD_ACCESS_FAULT;
         env->badaddr = address;
     } else {
         fprintf(stderr, "FAIL: invalid access_type\n");
@@ -303,6 +319,9 @@ int riscv_cpu_handle_mmu_fault(CPUState *cs, vaddr address,
             "%s address=%" VADDR_PRIx " ret %d physical " TARGET_FMT_plx
              " prot %d\n",
              __func__, address, ret, physical, prot);
+    if(!pmp_hart_has_privs(env, physical, TARGET_PAGE_SIZE, 1<<access_type)) {
+        ret = TRANSLATE_FAIL;
+    }
     if (ret == TRANSLATE_SUCCESS) {
         tlb_set_page(cs, address & TARGET_PAGE_MASK,
                      physical & TARGET_PAGE_MASK,
@@ -317,36 +336,40 @@ int riscv_cpu_handle_mmu_fault(CPUState *cs, vaddr address,
 }
 
 #ifdef RISCV_DEBUG_INTERRUPT
-static const char * const riscv_excp_names[12] = {
-    "misaligned fetch",
-    "fault fetch",
-    "illegal instruction",
-    "Breakpoint",
-    "misaligned load",
-    "fault load",
-    "misaligned store",
-    "fault store",
+static const char * const riscv_excp_names[16] = {
+    "misaligned_fetch",
+    "fault_fetch",
+    "illegal_instruction",
+    "breakpoint",
+    "misaligned_load",
+    "fault_load",
+    "misaligned_store",
+    "fault_store",
     "user_ecall",
     "supervisor_ecall",
     "hypervisor_ecall",
     "machine_ecall",
+    "exec_page_fault",
+    "load_page_fault",
+    "reserved",
+    "store_page_fault"
 };
 
 static const char * const riscv_interrupt_names[14] = {
-    "",
-    "S Soft interrupt",
-    "H Soft interrupt",
-    "M Soft interrupt",
-    "",
-    "S Timer interrupt",
-    "H Timer interrupt",
-    "M Timer interrupt",
-    "",
-    "S Ext interrupt",
-    "H Ext interrupt",
-    "M Ext interrupt",
-    "COP interrupt",
-    "Host interrupt"
+    "u_software",
+    "s_software",
+    "h_software",
+    "m_software",
+    "u_timer",
+    "s_timer",
+    "h_timer",
+    "m_timer",
+    "u_external",
+    "s_external",
+    "h_external",
+    "m_external",
+    "coprocessor",
+    "host"
 };
 #endif     /* RISCV_DEBUG_INTERRUPT */
 
@@ -419,7 +442,10 @@ void riscv_cpu_do_interrupt(CPUState *cs)
         (fixed_cause == RISCV_EXCP_LOAD_ADDR_MIS) ||
         (fixed_cause == RISCV_EXCP_STORE_AMO_ADDR_MIS) ||
         (fixed_cause == RISCV_EXCP_LOAD_ACCESS_FAULT) ||
-        (fixed_cause == RISCV_EXCP_STORE_AMO_ACCESS_FAULT);
+        (fixed_cause == RISCV_EXCP_STORE_AMO_ACCESS_FAULT) ||
+        (fixed_cause == RISCV_EXCP_INST_PAGE_FAULT) ||
+        (fixed_cause == RISCV_EXCP_LOAD_PAGE_FAULT) || 
+        (fixed_cause == RISCV_EXCP_STORE_PAGE_FAULT);
 
     if (bit & ((target_ulong)1 << (TARGET_LONG_BITS - 1))) {
         deleg = env->mideleg, bit &= ~((target_ulong)1 << (TARGET_LONG_BITS - 1));
@@ -434,8 +460,8 @@ void riscv_cpu_do_interrupt(CPUState *cs)
 
         if (hasbadaddr) {
             #ifdef RISCV_DEBUG_INTERRUPT
-            fprintf(stderr, "core   0: badaddr 0x" TARGET_FMT_lx "\n",
-                    env->badaddr);
+            fprintf(stderr, "core %d: badaddr 0x" TARGET_FMT_lx "\n",
+                    env->mhartid, env->badaddr);
             #endif
             env->sbadaddr = env->badaddr;
         }
@@ -454,8 +480,8 @@ void riscv_cpu_do_interrupt(CPUState *cs)
 
         if (hasbadaddr) {
             #ifdef RISCV_DEBUG_INTERRUPT
-            fprintf(stderr, "core   0: badaddr 0x" TARGET_FMT_lx "\n",
-                    env->badaddr);
+            fprintf(stderr, "core %d: badaddr 0x" TARGET_FMT_lx "\n",
+                    env->mhartid, env->badaddr);
             #endif
             env->mbadaddr = env->badaddr;
         }

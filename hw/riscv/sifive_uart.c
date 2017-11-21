@@ -25,6 +25,9 @@
 #include "qemu/osdep.h"
 #include "hw/sysbus.h"
 #include "sysemu/char.h"
+#include "hw/riscv/cpudevs.h"
+#include "hw/riscv/riscv_hart.h"
+#include "hw/riscv/sifive_hw.h"
 
 /* See https://github.com/sifive/sifive-blocks/tree/072d0c1b58/src/main/scala/devices/uart */
 
@@ -44,20 +47,6 @@
 
 #define R_MAX           32
 
-#define TYPE_SIFIVE_UART "riscv.sifive-uart"
-#define SIFIVE_UART(obj) \
-    OBJECT_CHECK(SiFiveUART, (obj), TYPE_SIFIVE_UART)
-
-typedef struct SiFiveUART {
-    SysBusDevice parent_obj;
-
-    MemoryRegion mmio;
-    CharDriverState *chr;
-
-    uint8_t rx_fifo[8];
-    unsigned int rx_fifo_len;
-} SiFiveUART;
-
 static void sifive_uart_reset(DeviceState *dev)
 {
 }
@@ -65,7 +54,7 @@ static void sifive_uart_reset(DeviceState *dev)
 static uint64_t
 uart_read(void *opaque, hwaddr addr, unsigned int size)
 {
-    SiFiveUART *s = opaque;
+    SiFiveUARTState *s = opaque;
     unsigned char r;
     switch (addr)
     {
@@ -81,9 +70,15 @@ uart_read(void *opaque, hwaddr addr, unsigned int size)
 
         case R_TXFIFO:
             return 0; /* Should check tx fifo */
+        case R_TXCTRL:
+            return s->txctrl;
+        case R_RXCTRL:
+            return s->rxctrl;
+        case R_DIV:
+            return s->div;
     }
 
-    hw_error("%s: bad read: addr=%x\n", __func__, (int)addr);
+    hw_error("%s: bad read: addr=0x%x\n", __func__, (int)addr);
     return 0;
 }
 
@@ -91,7 +86,7 @@ static void
 uart_write(void *opaque, hwaddr addr,
            uint64_t val64, unsigned int size)
 {
-    SiFiveUART *s = opaque;
+    SiFiveUARTState *s = opaque;
     uint32_t value = val64;
     unsigned char ch = value;
 
@@ -104,10 +99,16 @@ uart_write(void *opaque, hwaddr addr,
                 qemu_chr_fe_write_all(s->chr, &ch, 1);
             return;
         case R_TXCTRL:
+            s->txctrl = val64;
+            return;
         case R_RXCTRL:
+            s->rxctrl = val64;
+            return;
+        case R_DIV:
+            s->div = val64;
             return;
     }
-    hw_error("%s: bad write: addr=%x v=%x\n", __func__, (int)addr, (int)value);
+    hw_error("%s: bad write: addr=0x%x v=0x%x\n", __func__, (int)addr, (int)value);
 }
 
 static const MemoryRegionOps uart_ops = {
@@ -121,13 +122,13 @@ static const MemoryRegionOps uart_ops = {
 };
 
 static Property sifive_uart_properties[] = {
-    DEFINE_PROP_CHR("chardev", SiFiveUART, chr),
+    DEFINE_PROP_CHR("chardev", SiFiveUARTState, chr),
     DEFINE_PROP_END_OF_LIST(),
 };
 
 static void uart_rx(void *opaque, const uint8_t *buf, int size)
 {
-    SiFiveUART *s = opaque;
+    SiFiveUARTState *s = opaque;
 
     /* Got a byte.  */
     if (s->rx_fifo_len >= sizeof(s->rx_fifo)) {
@@ -139,7 +140,7 @@ static void uart_rx(void *opaque, const uint8_t *buf, int size)
 
 static int uart_can_rx(void *opaque)
 {
-    SiFiveUART *s = opaque;
+    SiFiveUARTState *s = opaque;
 
     return s->rx_fifo_len < sizeof(s->rx_fifo);
 }
@@ -150,7 +151,7 @@ static void uart_event(void *opaque, int event)
 
 static void sifive_uart_realize(DeviceState *dev, Error **errp)
 {
-    SiFiveUART *s = SIFIVE_UART(dev);
+    SiFiveUARTState *s = SIFIVE_UART(dev);
 
     if (s->chr)
         qemu_chr_add_handlers(s->chr, uart_can_rx, uart_rx, uart_event, s);
@@ -158,10 +159,10 @@ static void sifive_uart_realize(DeviceState *dev, Error **errp)
 
 static void sifive_uart_init(Object *obj)
 {
-    SiFiveUART *s = SIFIVE_UART(obj);
+    SiFiveUARTState *s = SIFIVE_UART(obj);
 
     memory_region_init_io(&s->mmio, obj, &uart_ops, s,
-                          "riscv.sifive_uart", R_MAX);
+                          TYPE_SIFIVE_UART, R_MAX);
     sysbus_init_mmio(SYS_BUS_DEVICE(obj), &s->mmio);
 }
 
@@ -177,7 +178,7 @@ static void sifive_uart_class_init(ObjectClass *klass, void *data)
 static const TypeInfo sifive_uart_info = {
     .name          = TYPE_SIFIVE_UART,
     .parent        = TYPE_SYS_BUS_DEVICE,
-    .instance_size = sizeof(SiFiveUART),
+    .instance_size = sizeof(SiFiveUARTState),
     .instance_init = sifive_uart_init,
     .class_init    = sifive_uart_class_init,
 };
@@ -188,3 +189,16 @@ static void sifive_uart_register_types(void)
 }
 
 type_init(sifive_uart_register_types)
+
+
+/*
+ * Create UART device.
+ */
+DeviceState *sifive_uart_create(hwaddr addr, CharDriverState *chr)
+{
+    DeviceState *dev = qdev_create(NULL, TYPE_SIFIVE_UART);
+    qdev_prop_set_chr(dev, "chardev", chr);
+    qdev_init_nofail(dev);
+    sysbus_mmio_map(SYS_BUS_DEVICE(dev), 0, addr);
+    return dev;
+}
