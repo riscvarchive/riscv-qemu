@@ -49,7 +49,7 @@ mode.
 
 ### Method 1a \(Full-System Simulation using the Spike board\):
 
-####Step 1: Build QEMU
+#### Step 1: Build QEMU
 
     $ git clone https://github.com/riscv/riscv-qemu
     $ cd riscv-qemu
@@ -59,7 +59,7 @@ mode.
     $ make
     $ [make install] # if you supplied prefix above
 
-####Step 2: Obtain Images
+#### Step 2: Obtain Images
 
 You can build `vmlinux` from the `master` branch of the [riscv-linux] repo and
 create an initramfs for your root filesystem, then supply the resulting vmlinux
@@ -67,9 +67,9 @@ as a payload for bbl. Alternatively, you can use the prebuilt copy linked
 below. This single file contains bbl with the Linux kernel as a payload. The
 included copy of the Linux kernel also has an initramfs with busybox.
 
-**a)** [bblvmlinuxinitramfs_dynamic](https://people.eecs.berkeley.edu/~skarandikar/host/qemu/1.9.1/bblvmlinuxinitramfs_dynamic)
+**a)** [bblvmlinuxinitramfs_dynamic](https://people.eecs.berkeley.edu/~skarandikar/host/qemu/1.9.1/bblvmlinuxinitramfs_dynamic) - priv 1.9.1 version
 
-####Step 3: Run QEMU
+#### Step 3: Run QEMU
 
 These steps assume you are in the `riscv-qemu` directory.
 
@@ -98,7 +98,7 @@ Useful optional arguments:
 <!--**IMPORTANT**: To cleanly exit this system, you must enter `halt` at the prompt
 and then hit `ctrl-a x`. Otherwise, the root filesystem will likely be corrupted.-->
 
-####Current limitations:
+#### Current limitations:
 
 * The current RISC-V board definition provides only an HTIF console device.
 Support for other HTIF-based devices has been removed from [riscv-linux]; as a
@@ -188,7 +188,7 @@ To avoid having to build the RISC-V toolchain and programs yourself, use Stefan 
 
 ### Method 2b \(Manual User Mode Simulation\):
 
-####Step 1: Build QEMU
+#### Step 1: Build QEMU
 
     $ git clone https://github.com/riscv/riscv-qemu
     $ cd riscv-qemu
@@ -197,7 +197,7 @@ To avoid having to build the RISC-V toolchain and programs yourself, use Stefan 
     $ make
     $ [make install] # if you supplied prefix above
 
-####Step 2: Setup Compiler, Run a Program
+#### Step 2: Setup Compiler, Run a Program
 
 You will need a compiler to build programs for RISC-V, as well as a sysroot
 that contains the appropriate libraries. Follow the instructions in the README
