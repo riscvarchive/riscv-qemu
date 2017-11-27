@@ -17,6 +17,9 @@ These pass the tests from [riscv-qemu-tests]. See Method 2 below.
 * Sagar Karandikar (sagark@eecs.berkeley.edu)
 * Alex Suykov (alex.suykov@gmail.com)
 * Bastian Koppelmann (kbastian@mail.uni-paderborn.de)
+* Daire McNamara (daire.mcnamara@emdalo.com)
+* Ivan Griffin (ivan.griffin@emdalo.com)
+* Michael Clark (mjc@sifive.com)
 
 **Upstream QEMU Version:**
 
@@ -25,12 +28,10 @@ These pass the tests from [riscv-qemu-tests]. See Method 2 below.
 
 **Privileged Specification Version:**
 
-This version of QEMU adheres to the RISC-V v1.9.1 Privileged Specification as
-described in [Technical Report No. UCB/EECS-2016-161](https://www2.eecs.berkeley.edu/Pubs/TechRpts/2016/EECS-2016-161.html)
-and commit ad9ebb8557e32241bfca047f2bc628a2bc1c18cb (master) of riscv-tools.
+This version of QEMU supports two versions of the RISC-V Privileged Architecture:
 
-Please note that QEMU tracks released drafts of the RISC-V Privileged
-Specification, not work-in-progress changes as Spike does.
+* RISC-V v1.9.1 Privileged Specification as described in [The RISC-V Instruction Set Manual Volume II: Privileged Architecture Version 1.9.1](https://www2.eecs.berkeley.edu/Pubs/TechRpts/2016/EECS-2016-161.html) and commit ad9ebb8557e32241bfca047f2bc628a2bc1c18cb of riscv-tools.
+* RISC-V v1.10 Privilege Specification as described in [The RISC-V Instruction Set Manual. Volume II: Privileged Architecture, Version 1.10](https://raw.githubusercontent.com/riscv/riscv-isa-manual/master/release/riscv-privileged-v1.10.pdf) and commit eb34a2c2c4c5e317171feaad998cfe123ca272e6 of riscv-tools.
 
 **Contributing:**
 
@@ -52,6 +53,7 @@ mode.
 
     $ git clone https://github.com/riscv/riscv-qemu
     $ cd riscv-qemu
+    $ git submodule update --init dtc
     $ git submodule update --init pixman
     $ ./configure --target-list=riscv64-softmmu,riscv32-softmmu [--prefix=INSTALL_LOCATION]
     $ make
@@ -69,12 +71,26 @@ included copy of the Linux kernel also has an initramfs with busybox.
 
 ####Step 3: Run QEMU
 
-To boot Linux (assuming you are in the `riscv-qemu` directory):
+These steps assume you are in the `riscv-qemu` directory.
 
-    $ ./riscv64-softmmu/qemu-system-riscv64 -kernel bblvmlinuxinitramfs_dynamic -nographic
+To boot Linux with spike v1.9.1:
+
+    $ ./riscv64-softmmu/qemu-system-riscv64 -kernel bblvmlinuxinitramfs_v1.9.1 -nographic
+
+To boot Linux with spike v1.10:
+
+    $ ./riscv64-softmmu/qemu-system-riscv64 -kernel bblvmlinuxinitramfs_v1.10 -nographic -machine spike_v1.10
+
+To boot an executable targetting the SiFive E300 series HiFive1:
+
+    $ ./riscv32-softmmu/qemu-system-riscv32 -kernel ../freedom-e-sdk/software/led_fade/led_fade -nographic -machine sifive_e300
 
 Notes about arguments:
-* `-kernel bblvmlinuxinitramfs_dynamic`: This is the path to the binary to run. In this case, it contains the bbl bootloader, vmlinux, and an initramfs containing busybox.
+* `-kernel bblvmlinuxinitramfs_v1.9.1`: This is the path to the binary to run. In this case, it contains the bbl bootloader v1.9.1 with config string, vmlinux, and an initramfs containing busybox.
+* `-kernel bblvmlinuxinitramfs_v1.10`: This is the path to the binary to run. In this case, it contains the bbl bootloader v1.10 with device tree, vmlinux, and an initramfs containing busybox.
+* `-machine spike_v1.9`: This starts the emulator with the spike privileged ISA v1.9.1 machine (default machine).
+* `-machine spike_v1.10`: This starts the emulator with the spike privileged ISA v1.10 machine.
+* `-machine sifive_e300`: This starts the emulator with the freedom-e-sdk E300 / HiFive1 machine.
 
 Useful optional arguments:
 * `-m 2048M`: Set size of memory, in this example, 2048 MB
@@ -98,6 +114,7 @@ result, QEMU no longer supports them either.
 
     $ git clone https://github.com/riscv/riscv-qemu
     $ cd riscv-qemu
+    $ git submodule update --init dtc
     $ git submodule update --init pixman
     $ ./configure --target-list=riscv64-softmmu,riscv32-softmmu [--prefix=INSTALL_LOCATION]
     $ make
@@ -111,7 +128,7 @@ The following packages are used above and beyond what is in a minimal Fedora 24 
 dnf install @buildsys-build git wget texinfo bison flex bc python perl-Thread-Queue vim-common
 ```
 
-Download the SDK; the version given is the most recent which is compatible with QEMU (privilege spec 1.9):
+Download the SDK; the version given is the most recent which is compatible with QEMU (privilege spec 1.9.1 or 1.10):
 
 ```
 git clone https://github.com/sifive/freedom-u-sdk
@@ -150,7 +167,11 @@ make -j4
 
 To boot Linux (assuming you are in the `riscv-qemu` directory):
 
-    $ ./riscv64-softmmu/qemu-system-riscv64 -kernel freedom-u-sdk/work/riscv-pk/bbl -nographic -machine sifive
+    $ ./riscv64-softmmu/qemu-system-riscv64 -kernel freedom-u-sdk/work/riscv-pk/bbl -nographic -machine spike_v1.9
+
+or
+
+    $ ./riscv64-softmmu/qemu-system-riscv64 -kernel freedom-u-sdk/work/riscv-pk/bbl -nographic -machine spike_v1.10
 
 Notes about arguments:
 * `-kernel bblvmlinuxinitramfs_dynamic`: This is the path to the binary to run. In this case, it contains the bbl bootloader, vmlinux, and an initramfs containing busybox.

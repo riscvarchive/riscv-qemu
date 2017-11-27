@@ -1397,6 +1397,10 @@ static void gen_system(DisasContext *ctx, uint32_t opc,
         case 0x104: /* SFENCE.VM */
             gen_helper_tlb_flush(cpu_env);
             break;
+        case 0x120: /* SFENCE.VMA */
+            /* TODO: handle ASID specific fences */
+            gen_helper_tlb_flush(cpu_env);
+            break;
 #endif
         default:
             kill_unknown(ctx, RISCV_EXCP_ILLEGAL_INST);
