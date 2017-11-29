@@ -17,6 +17,7 @@ These pass the tests from [riscv-qemu-tests]. See Method 2 below.
 * Sagar Karandikar (sagark@eecs.berkeley.edu)
 * Alex Suykov (alex.suykov@gmail.com)
 * Bastian Koppelmann (kbastian@mail.uni-paderborn.de)
+* Stefan O'Rear
 * Daire McNamara (daire.mcnamara@emdalo.com)
 * Ivan Griffin (ivan.griffin@emdalo.com)
 * Michael Clark (mjc@sifive.com)
