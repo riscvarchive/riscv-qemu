@@ -1,5 +1,5 @@
 /*
- * SiFive's RISC-V PLIC
+ * SiFive PLIC (Platform Level Interrupt Controller) interface
  *
  * Copyright (c) 2017 SiFive, Inc.
  *
@@ -24,14 +24,13 @@
  * THE SOFTWARE.
  */
 
-#ifndef _RISCV_PLIC_H_
-#define _RISCV_PLIC_H_
-#include "target-riscv/cpu.h"
+#ifndef HW_SIFIVE_PLIC_H
+#define HW_SIFIVE_PLIC_H
 
-#define TYPE_RISCV_PLIC "riscv.plic"
+#define TYPE_SIFIVE_PLIC "riscv.sifive.plic"
 
-#define RISCV_PLIC(obj) \
-    OBJECT_CHECK(RISCVPLICState, (obj), TYPE_RISCV_HART_ARRAY)
+#define SIFIVE_PLIC(obj) \
+    OBJECT_CHECK(SiFivePLICState, (obj), TYPE_SIFIVE_PLIC)
 
 typedef enum PLICMode {
     PLICMode_U,
@@ -41,12 +40,12 @@ typedef enum PLICMode {
 } PLICMode;
 
 typedef struct PLICAddr {
-    uint32_t  addrid;
-    uint32_t  hartid;
+    uint32_t addrid;
+    uint32_t hartid;
     PLICMode mode;
 } PLICAddr;
 
-typedef struct RISCVPLICState {
+typedef struct SiFivePLICState {
     /*< private >*/
     SysBusDevice parent_obj;
 
@@ -57,26 +56,29 @@ typedef struct RISCVPLICState {
     uint32_t *source_priority;
     uint32_t *target_priority;
     uint32_t *pending;
+    uint32_t *claimed;
     uint32_t *enable;
+    QemuMutex lock;
 
     /* config */
     void *soc;
     char* hart_config;
     uint32_t num_sources;
+    uint32_t num_priorities;
     uint32_t priority_base;
     uint32_t pending_base;
     uint32_t enable_base;
     uint32_t claim_base;
     uint32_t aperture_size;
-} RISCVPLICState;
+} SiFivePLICState;
 
-void riscv_plic_raise_irq(RISCVPLICState *plic, uint32_t irq);
-void riscv_plic_lower_irq(RISCVPLICState *plic, uint32_t irq);
+void sifive_plic_raise_irq(SiFivePLICState *plic, uint32_t irq);
+void sifive_plic_lower_irq(SiFivePLICState *plic, uint32_t irq);
 
-DeviceState *riscv_plic_create(hwaddr addr, RISCVHartArrayState *soc,
-    char *hart_config, uint32_t num_sources, uint32_t priority_base,
-    uint32_t pending_base, uint32_t enable_base, uint32_t claim_base,
-    uint32_t aperture_size);
+DeviceState *sifive_plic_create(hwaddr addr, RISCVHartArrayState *soc,
+    char *hart_config, uint32_t num_sources, uint32_t num_priorities,
+    uint32_t priority_base, uint32_t pending_base, uint32_t enable_base,
+    uint32_t claim_base, uint32_t aperture_size);
 
 #endif
 

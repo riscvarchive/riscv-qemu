@@ -1,5 +1,5 @@
 /*
- * SiFive CLINT (Core Local Interruptor)
+ * SiFive CLINT (Core Local Interruptor) interface
  *
  * Copyright (c) 2016-2017 Sagar Karandikar, sagark@eecs.berkeley.edu
  * Copyright (c) 2017 SiFive, Inc.
@@ -48,5 +48,11 @@ typedef struct SiFiveCLINTState {
 DeviceState *sifive_clint_create(hwaddr addr, hwaddr size,
     RISCVHartArrayState *soc, uint32_t sip_base,
     uint32_t timecmp_base, uint32_t time_base);
+
+enum {
+    SIFIVE_SIP_BASE     = 0x0,
+    SIFIVE_TIMECMP_BASE = 0x4000,
+    SIFIVE_TIME_BASE    = 0xBFF8
+};
 
 #endif

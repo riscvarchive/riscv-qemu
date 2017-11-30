@@ -42,7 +42,6 @@
 #include "hw/riscv/cpudevs.h"
 #include "hw/riscv/htif/htif.h"
 #include "hw/riscv/riscv_hart.h"
-#include "hw/riscv/sifive_hw.h"
 #include "hw/riscv/sifive_clint.h"
 #include "sysemu/char.h"
 #include "sysemu/arch_init.h"

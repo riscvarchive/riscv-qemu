@@ -1,33 +1,77 @@
 /*
- * This program is free software; you can redistribute it and/or modify it
- * under the terms and conditions of the GNU General Public License,
- * version 2 or later, as published by the Free Software Foundation.
+ * SiFive UART interface
  *
- * This program is distributed in the hope it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
+ * Copyright (c) 2017 SiFive, Inc.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program.  If not, see <http://www.gnu.org/licenses/>.
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+ * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
  */
 
-#ifndef SIFIVE_UART_H
-#define SIFIVE_UART_H
+#ifndef HW_SIFIVE_UART_H
+#define HW_SIFIVE_UART_H
 
-static inline DeviceState *sifive_uart_create(hwaddr addr,
-                                        CharDriverState *chr)
-{
-    DeviceState *dev;
-    SysBusDevice *s;
+enum {
+    SIFIVE_UART_TXFIFO        = 0,
+    SIFIVE_UART_RXFIFO        = 4,
+    SIFIVE_UART_TXCTRL        = 8,
+    SIFIVE_UART_TXMARK        = 10,
+    SIFIVE_UART_RXCTRL        = 12,
+    SIFIVE_UART_RXMARK        = 14,
+    SIFIVE_UART_IE            = 16,
+    SIFIVE_UART_IP            = 20,
+    SIFIVE_UART_DIV           = 24,
+    SIFIVE_UART_MAX           = 32
+};
 
-    dev = qdev_create(NULL, "riscv.sifive-uart");
-    s = SYS_BUS_DEVICE(dev);
-    qdev_prop_set_chr(dev, "chardev", chr);
-    qdev_init_nofail(dev);
-    sysbus_mmio_map(s, 0, addr);
+enum {
+    SIFIVE_UART_IE_TXWM       = 1, /* Transmit watermark interrupt enable */
+    SIFIVE_UART_IE_RXWM       = 2  /* Receive watermark interrupt enable */
+};
 
-    return dev;
-}
+enum {
+    SIFIVE_UART_IP_TXWM       = 1, /* Transmit watermark interrupt pending */
+    SIFIVE_UART_IP_RXWM       = 2  /* Receive watermark interrupt pending */
+};
+
+#define TYPE_SIFIVE_UART "riscv.sifive.uart"
+
+#define SIFIVE_UART(obj) \
+    OBJECT_CHECK(SiFiveUARTState, (obj), TYPE_SIFIVE_UART)
+
+typedef struct SiFiveUARTState {
+    /*< private >*/
+    SysBusDevice parent_obj;
+
+    /*< public >*/
+    void *plic;
+    uint32_t plic_irq;
+    MemoryRegion mmio;
+    CharDriverState *chr;
+    uint8_t rx_fifo[8];
+    unsigned int rx_fifo_len;
+    uint32_t ie;
+    uint32_t ip;
+    uint32_t txctrl;
+    uint32_t rxctrl;
+    uint32_t div;
+} SiFiveUARTState;
+
+DeviceState *sifive_uart_create(hwaddr addr, CharDriverState *chr,
+    DeviceState *plic, uint32_t plic_irq);
 
 #endif

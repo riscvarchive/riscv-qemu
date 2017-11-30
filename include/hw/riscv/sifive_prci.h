@@ -1,9 +1,7 @@
 /*
- * QEMU RISC-V Hart Array interface
+ * QEMU SiFive PRCI (Power, Reset, Clock, Interrupt) interface
  *
  * Copyright (c) 2017 SiFive, Inc.
- *
- * Holds the state of a set of heterogenous array of RISC-V harts
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -24,22 +22,22 @@
  * THE SOFTWARE.
  */
 
-#ifndef HW_RISCV_HART_H
-#define HW_RISCV_HART_H
+#ifndef HW_SIFIVE_PRCI_H
+#define HW_SIFIVE_PRCI_H
 
-#define TYPE_RISCV_HART_ARRAY "riscv.hart_array"
+#define TYPE_SIFIVE_PRCI "riscv.sifive.prci"
 
-#define RISCV_HART_ARRAY(obj) \
-    OBJECT_CHECK(RISCVHartArrayState, (obj), TYPE_RISCV_HART_ARRAY)
+#define SIFIVE_PRCI(obj) \
+    OBJECT_CHECK(SiFivePRCIState, (obj), TYPE_SIFIVE_PRCI)
 
-typedef struct RISCVHartArrayState {
+typedef struct SiFivePRCIState {
     /*< private >*/
     SysBusDevice parent_obj;
 
     /*< public >*/
-    uint32_t num_harts;
-    char *cpu_model;
-    RISCVCPU *harts;
-} RISCVHartArrayState;
+    MemoryRegion mmio;
+} SiFivePRCIState;
+
+DeviceState *sifive_prci_create(hwaddr addr);
 
 #endif
