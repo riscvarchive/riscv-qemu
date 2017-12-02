@@ -683,6 +683,15 @@ target_ulong helper_mret(CPURISCVState *env, target_ulong cpu_pc_deb)
 }
 
 
+void helper_wfi(CPURISCVState *env)
+{
+    CPUState *cs = CPU(riscv_env_get_cpu(env));
+
+    cs->halted = 1;
+    cs->exception_index = EXCP_HLT;
+    cpu_loop_exit(cs);
+}
+
 void helper_fence_i(CPURISCVState *env)
 {
     RISCVCPU *cpu = riscv_env_get_cpu(env);
