@@ -27,25 +27,12 @@
 #include "sysemu/char.h"
 #include "hw/riscv/cpudevs.h"
 #include "hw/riscv/riscv_hart.h"
-#include "hw/riscv/sifive_hw.h"
+#include "hw/riscv/sifive_plic.h"
+#include "hw/riscv/sifive_uart.h"
 
 /* See https://github.com/sifive/sifive-blocks/tree/072d0c1b58/src/main/scala/devices/uart */
 
 /* Not yet implemented: TXFIFO / async writing, interrupt generation, divisor */
-
-#define DUART(x)
-
-#define R_TXFIFO        0
-#define R_RXFIFO        4
-#define R_TXCTRL        8
-#define R_TXMARK        10
-#define R_RXCTRL        12
-#define R_RXMARK        14
-#define R_IE            16
-#define R_IP            20
-#define R_DIV           24
-
-#define R_MAX           32
 
 static void sifive_uart_reset(DeviceState *dev)
 {
@@ -58,7 +45,7 @@ uart_read(void *opaque, hwaddr addr, unsigned int size)
     unsigned char r;
     switch (addr)
     {
-        case R_RXFIFO:
+        case SIFIVE_UART_RXFIFO:
             if (s->rx_fifo_len) {
                 r = s->rx_fifo[0];
                 memmove(s->rx_fifo, s->rx_fifo + 1, s->rx_fifo_len - 1);
@@ -68,13 +55,17 @@ uart_read(void *opaque, hwaddr addr, unsigned int size)
             }
             return 0x80000000;
 
-        case R_TXFIFO:
+        case SIFIVE_UART_TXFIFO:
             return 0; /* Should check tx fifo */
-        case R_TXCTRL:
+        case SIFIVE_UART_IE:
+            return s->ie;
+        case SIFIVE_UART_IP:
+            return s->ip;
+        case SIFIVE_UART_TXCTRL:
             return s->txctrl;
-        case R_RXCTRL:
+        case SIFIVE_UART_RXCTRL:
             return s->rxctrl;
-        case R_DIV:
+        case SIFIVE_UART_DIV:
             return s->div;
     }
 
@@ -92,19 +83,22 @@ uart_write(void *opaque, hwaddr addr,
 
     switch (addr)
     {
-        case R_TXFIFO:
+        case SIFIVE_UART_TXFIFO:
             if (s->chr)
                 /* XXX this blocks entire thread. Rewrite to use
                  * qemu_chr_fe_write and background I/O callbacks */
                 qemu_chr_fe_write_all(s->chr, &ch, 1);
             return;
-        case R_TXCTRL:
+        case SIFIVE_UART_IE:
+            s->ie = val64;
+            return;
+        case SIFIVE_UART_TXCTRL:
             s->txctrl = val64;
             return;
-        case R_RXCTRL:
+        case SIFIVE_UART_RXCTRL:
             s->rxctrl = val64;
             return;
-        case R_DIV:
+        case SIFIVE_UART_DIV:
             s->div = val64;
             return;
     }
@@ -123,6 +117,8 @@ static const MemoryRegionOps uart_ops = {
 
 static Property sifive_uart_properties[] = {
     DEFINE_PROP_CHR("chardev", SiFiveUARTState, chr),
+    DEFINE_PROP_PTR("plic", SiFiveUARTState, plic),
+    DEFINE_PROP_UINT32("plic-irq", SiFiveUARTState, plic_irq, 0),
     DEFINE_PROP_END_OF_LIST(),
 };
 
@@ -136,6 +132,10 @@ static void uart_rx(void *opaque, const uint8_t *buf, int size)
         return;
     }
     s->rx_fifo[s->rx_fifo_len++] = *buf;
+
+    if (s->plic && (s->ie & SIFIVE_UART_IE_RXWM)) {
+        sifive_plic_raise_irq(s->plic, s->plic_irq);
+    }
 }
 
 static int uart_can_rx(void *opaque)
@@ -162,7 +162,7 @@ static void sifive_uart_init(Object *obj)
     SiFiveUARTState *s = SIFIVE_UART(obj);
 
     memory_region_init_io(&s->mmio, obj, &uart_ops, s,
-                          TYPE_SIFIVE_UART, R_MAX);
+                          TYPE_SIFIVE_UART, SIFIVE_UART_MAX);
     sysbus_init_mmio(SYS_BUS_DEVICE(obj), &s->mmio);
 }
 
@@ -194,10 +194,13 @@ type_init(sifive_uart_register_types)
 /*
  * Create UART device.
  */
-DeviceState *sifive_uart_create(hwaddr addr, CharDriverState *chr)
+DeviceState *sifive_uart_create(hwaddr addr, CharDriverState *chr,
+    DeviceState *plic, uint32_t plic_irq)
 {
     DeviceState *dev = qdev_create(NULL, TYPE_SIFIVE_UART);
     qdev_prop_set_chr(dev, "chardev", chr);
+    qdev_prop_set_ptr(dev, "plic", SIFIVE_PLIC(plic));
+    qdev_prop_set_uint32(dev, "plic-irq", plic_irq);
     qdev_init_nofail(dev);
     sysbus_mmio_map(SYS_BUS_DEVICE(dev), 0, addr);
     return dev;

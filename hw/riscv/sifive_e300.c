@@ -43,15 +43,20 @@
 #include "hw/char/serial.h"
 #include "hw/riscv/cpudevs.h"
 #include "hw/riscv/riscv_hart.h"
-#include "hw/riscv/sifive_hw.h"
+#include "hw/riscv/sifive_plic.h"
 #include "hw/riscv/sifive_clint.h"
+#include "hw/riscv/sifive_prci.h"
+#include "hw/riscv/sifive_uart.h"
+#include "hw/riscv/sifive_e300.h"
 #include "sysemu/char.h"
 #include "sysemu/arch_init.h"
 #include "exec/address-spaces.h"
 #include "elf.h"
 
-const SiFiveMemmapEntry sifive_e300_memmap[] =
-{
+const struct SiFiveMemmapEntry {
+    hwaddr base;
+    hwaddr size;    
+} sifive_e300_memmap[] = {
     [SIFIVE_E300_DEBUG] =    {        0x0,      0x100 },
     [SIFIVE_E300_MROM] =     {     0x1000,     0x2000 },
     [SIFIVE_E300_OTP] =      {    0x20000,     0x2000 },
@@ -102,7 +107,7 @@ static void sifive_mmio_emulate(MemoryRegion *parent, const char *name,
 
 static void riscv_sifive_e300_init(MachineState *machine)
 {
-    const SiFiveMemmapEntry *memmap = sifive_e300_memmap;
+    const struct SiFiveMemmapEntry *memmap = sifive_e300_memmap;
 
     SiFiveE300State *s = g_new0(SiFiveE300State, 1);
     MemoryRegion *sys_mem = get_system_memory();
@@ -146,6 +151,15 @@ static void riscv_sifive_e300_init(MachineState *machine)
         memmap[SIFIVE_E300_MROM].base, mask_rom);
 
     /* MMIO */
+    s->plic = sifive_plic_create(memmap[SIFIVE_E300_PLIC].base, &s->soc,
+        (char*)SIFIVE_E300_PLIC_HART_CONFIG,
+        SIFIVE_E300_PLIC_NUM_SOURCES,
+        SIFIVE_E300_PLIC_NUM_PRIORITIES,
+        SIFIVE_E300_PLIC_PRIORITY_BASE,
+        SIFIVE_E300_PLIC_PENDING_BASE,
+        SIFIVE_E300_PLIC_ENABLE_BASE,
+        SIFIVE_E300_PLIC_CLAIM_BASE,
+        memmap[SIFIVE_E300_PLIC].size);
     sifive_clint_create(memmap[SIFIVE_E300_CLINT].base,
         memmap[SIFIVE_E300_CLINT].size, &s->soc,
         SIFIVE_SIP_BASE, SIFIVE_TIMECMP_BASE, SIFIVE_TIME_BASE);
@@ -154,12 +168,14 @@ static void riscv_sifive_e300_init(MachineState *machine)
     sifive_prci_create(memmap[SIFIVE_E300_PRCI].base);
     sifive_mmio_emulate(sys_mem, "riscv.sifive.e300.gpio0",
         memmap[SIFIVE_E300_GPIO0].base, memmap[SIFIVE_E300_GPIO0].size);
-    sifive_uart_create(memmap[SIFIVE_E300_UART0].base, serial_hds[0]);
+    sifive_uart_create(memmap[SIFIVE_E300_UART0].base, serial_hds[0],
+        s->plic, SIFIVE_E300_UART0_IRQ);
     sifive_mmio_emulate(sys_mem, "riscv.sifive.e300.qspi0",
         memmap[SIFIVE_E300_QSPI0].base, memmap[SIFIVE_E300_QSPI0].size);
     sifive_mmio_emulate(sys_mem, "riscv.sifive.e300.pwm0",
         memmap[SIFIVE_E300_PWM0].base, memmap[SIFIVE_E300_PWM0].size);
-    sifive_uart_create(memmap[SIFIVE_E300_UART1].base, serial_hds[1]);
+    sifive_uart_create(memmap[SIFIVE_E300_UART1].base, serial_hds[1],
+        s->plic, SIFIVE_E300_UART1_IRQ);
     sifive_mmio_emulate(sys_mem, "riscv.sifive.e300.qspi1",
         memmap[SIFIVE_E300_QSPI1].base, memmap[SIFIVE_E300_QSPI1].size);
     sifive_mmio_emulate(sys_mem, "riscv.sifive.e300.pwm1",

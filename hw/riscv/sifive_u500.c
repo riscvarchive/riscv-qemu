@@ -40,15 +40,29 @@
 #include "hw/riscv/cpudevs.h"
 #include "hw/riscv/htif/htif.h"
 #include "hw/riscv/riscv_hart.h"
-#include "hw/riscv/sifive_hw.h"
+#include "hw/riscv/sifive_plic.h"
 #include "hw/riscv/sifive_clint.h"
+#include "hw/riscv/sifive_uart.h"
+#include "hw/riscv/sifive_prci.h"
+#include "hw/riscv/sifive_u500.h"
 #include "sysemu/char.h"
 #include "sysemu/arch_init.h"
 #include "sysemu/device_tree.h"
 #include "exec/address-spaces.h"
 #include "elf.h"
 
-enum { ROM_BASE = 0x1000 };
+const struct SiFiveMemmapEntry {
+    hwaddr base;
+    hwaddr size;    
+} sifive_u500_memmap[] =
+{
+    [SIFIVE_U500_DEBUG] =    {        0x0,      0x100 },
+    [SIFIVE_U500_MROM] =     {     0x1000,     0x2000 },
+    [SIFIVE_U500_CLINT] =    {  0x2000000,    0x10000 },
+    [SIFIVE_U500_PLIC] =     {  0xc000000,  0x4000000 },
+    [SIFIVE_U500_UART0] =    { 0x10013000,     0x1000 },
+    [SIFIVE_U500_UART1] =    { 0x10023000,     0x1000 },
+};
 
 static uint64_t identity_translate(void *opaque, uint64_t addr)
 {
@@ -140,6 +154,8 @@ static void create_fdt(SiFiveU500State *s, uint64_t mem_base, uint64_t mem_size)
 
 static void riscv_sifive_u500_init(MachineState *machine)
 {
+    const struct SiFiveMemmapEntry *memmap = sifive_u500_memmap;
+
     SiFiveU500State *s = g_new0(SiFiveU500State, 1);
     MemoryRegion *system_memory = get_system_memory();
     MemoryRegion *main_mem = g_new(MemoryRegion, 1);
@@ -205,20 +221,31 @@ static void riscv_sifive_u500_init(MachineState *machine)
     };
 
     /* copy in the reset vector */
-    cpu_physical_memory_write(ROM_BASE, reset_vec, sizeof(reset_vec));
+    cpu_physical_memory_write(memmap[SIFIVE_U500_MROM].base,
+        reset_vec, sizeof(reset_vec));
 
     /* copy in the device tree */
     qemu_fdt_dumpdtb(s->fdt, s->fdt_size);
-    cpu_physical_memory_write(ROM_BASE + sizeof(reset_vec), s->fdt, s->fdt_size);
+    cpu_physical_memory_write(memmap[SIFIVE_U500_MROM].base +
+        sizeof(reset_vec), s->fdt, s->fdt_size);
 
-    /* uart device at 0x10013000 */
-    sifive_uart_create(0x10013000, serial_hds[0]);
-
-    /* Core Local Interruptor (timer and IPI) */
-    sifive_clint_create(0x2000000, 0x10000, &s->soc,
+    /* MMIO */
+    s->plic = sifive_plic_create(memmap[SIFIVE_U500_PLIC].base, &s->soc,
+        (char*)SIFIVE_U500_PLIC_HART_CONFIG,
+        SIFIVE_U500_PLIC_NUM_SOURCES,
+        SIFIVE_U500_PLIC_NUM_PRIORITIES,
+        SIFIVE_U500_PLIC_PRIORITY_BASE,
+        SIFIVE_U500_PLIC_PENDING_BASE,
+        SIFIVE_U500_PLIC_ENABLE_BASE,
+        SIFIVE_U500_PLIC_CLAIM_BASE,
+        memmap[SIFIVE_U500_PLIC].size);
+    sifive_uart_create(memmap[SIFIVE_U500_UART0].base, serial_hds[0],
+        s->plic, SIFIVE_U500_UART0_IRQ);
+    sifive_uart_create(memmap[SIFIVE_U500_UART1].base, serial_hds[0],
+        s->plic, SIFIVE_U500_UART1_IRQ);
+    sifive_clint_create(memmap[SIFIVE_U500_CLINT].base,
+        memmap[SIFIVE_U500_CLINT].size, &s->soc,
         SIFIVE_SIP_BASE, SIFIVE_TIMECMP_BASE, SIFIVE_TIME_BASE);
-
-    /* PLIC - todo */
 }
 
 static int riscv_sifive_u500_sysbus_device_init(SysBusDevice *sysbusdev)

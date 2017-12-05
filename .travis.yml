@@ -47,12 +47,7 @@ env:
   global:
     - TEST_CMD="make check"
   matrix:
-    - CONFIG=""
-    - CONFIG="--enable-debug --enable-debug-tcg --enable-trace-backends=log"
-    - CONFIG="--disable-linux-aio --disable-cap-ng --disable-attr --disable-brlapi --disable-uuid --disable-libusb"
-    - CONFIG="--enable-modules"
-    - CONFIG="--with-coroutine=ucontext"
-    - CONFIG="--with-coroutine=sigaltstack"
+    - CONFIG="--disable-stack-protector --target-list=riscv64-softmmu,riscv32-softmmu,riscv64-linux-user,riscv32-linux-user"
 git:
   # we want to do this ourselves
   submodules: false
@@ -68,25 +63,16 @@ script:
 matrix:
   include:
     # gprof/gcov are GCC features
-    - env: CONFIG="--enable-gprof --enable-gcov --disable-pie"
+    - env: CONFIG="--enable-gprof --enable-gcov --disable-pie --target-list=riscv64-softmmu,riscv32-softmmu,riscv64-linux-user,riscv32-linux-user"
       compiler: gcc
     # We manually include builds which we disable "make check" for
-    - env: CONFIG="--enable-debug --enable-tcg-interpreter"
+    - env: CONFIG="--enable-debug --enable-tcg-interpreter --target-list=riscv64-softmmu,riscv32-softmmu,riscv64-linux-user,riscv32-linux-user"
            TEST_CMD=""
       compiler: gcc
-    - env: CONFIG="--enable-trace-backends=simple"
+    - env: CONFIG="--enable-trace-backends=simple --target-list=riscv64-softmmu,riscv32-softmmu,riscv64-linux-user,riscv32-linux-user"
            TEST_CMD=""
       compiler: gcc
-    - env: CONFIG="--enable-trace-backends=ftrace"
-           TEST_CMD=""
-      compiler: gcc
-    - env: CONFIG="--enable-trace-backends=ust"
-           TEST_CMD=""
-      compiler: gcc
-    - env: CONFIG="--with-coroutine=gthread"
-           TEST_CMD=""
-      compiler: gcc
-    - env: CONFIG=""
+    - env: CONFIG="--target-list=riscv64-softmmu,riscv32-softmmu"
       os: osx
       compiler: clang
     - env: CONFIG=""

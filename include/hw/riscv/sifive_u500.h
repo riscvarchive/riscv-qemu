@@ -1,9 +1,7 @@
 /*
- * QEMU RISC-V Hart Array interface
+ * SiFive U500 series machine interface
  *
  * Copyright (c) 2017 SiFive, Inc.
- *
- * Holds the state of a set of heterogenous array of RISC-V harts
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -24,22 +22,45 @@
  * THE SOFTWARE.
  */
 
-#ifndef HW_RISCV_HART_H
-#define HW_RISCV_HART_H
+#ifndef HW_SIFIVE_U500_H
+#define HW_SIFIVE_U500_H
 
-#define TYPE_RISCV_HART_ARRAY "riscv.hart_array"
+#define TYPE_SIFIVE_U500 "riscv.sifive_u500"
 
-#define RISCV_HART_ARRAY(obj) \
-    OBJECT_CHECK(RISCVHartArrayState, (obj), TYPE_RISCV_HART_ARRAY)
+#define SIFIVE_U500(obj) \
+    OBJECT_CHECK(SiFiveU500State, (obj), TYPE_SIFIVE_U500)
 
-typedef struct RISCVHartArrayState {
+typedef struct SiFiveU500State {
     /*< private >*/
     SysBusDevice parent_obj;
 
     /*< public >*/
-    uint32_t num_harts;
-    char *cpu_model;
-    RISCVCPU *harts;
-} RISCVHartArrayState;
+    RISCVHartArrayState soc;
+    DeviceState *plic;
+    void *fdt;
+    int fdt_size;
+} SiFiveU500State;
+
+enum {
+	SIFIVE_U500_DEBUG,
+	SIFIVE_U500_MROM,
+	SIFIVE_U500_CLINT,
+	SIFIVE_U500_PLIC,
+    SIFIVE_U500_UART0,
+    SIFIVE_U500_UART1
+};
+
+enum {
+    SIFIVE_U500_UART0_IRQ = 3,
+    SIFIVE_U500_UART1_IRQ = 4
+};
+
+#define SIFIVE_U500_PLIC_HART_CONFIG "M"
+#define SIFIVE_U500_PLIC_NUM_SOURCES 511
+#define SIFIVE_U500_PLIC_NUM_PRIORITIES 7
+#define SIFIVE_U500_PLIC_PRIORITY_BASE 0x0
+#define SIFIVE_U500_PLIC_PENDING_BASE 0x1000
+#define SIFIVE_U500_PLIC_ENABLE_BASE 0x2000
+#define SIFIVE_U500_PLIC_CLAIM_BASE 0x200000
 
 #endif

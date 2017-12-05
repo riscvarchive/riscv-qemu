@@ -1,9 +1,7 @@
 /*
- * QEMU RISC-V Hart Array interface
+ * SiFive E300 series machine interface
  *
  * Copyright (c) 2017 SiFive, Inc.
- *
- * Holds the state of a set of heterogenous array of RISC-V harts
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -24,22 +22,56 @@
  * THE SOFTWARE.
  */
 
-#ifndef HW_RISCV_HART_H
-#define HW_RISCV_HART_H
+#ifndef HW_SIFIVE_E300_H
+#define HW_SIFIVE_E300_H
 
-#define TYPE_RISCV_HART_ARRAY "riscv.hart_array"
+#define TYPE_SIFIVE_E300 "riscv.sifive.e300"
 
-#define RISCV_HART_ARRAY(obj) \
-    OBJECT_CHECK(RISCVHartArrayState, (obj), TYPE_RISCV_HART_ARRAY)
+#define SIFIVE_E300(obj) \
+    OBJECT_CHECK(SiFiveE300State, (obj), TYPE_SIFIVE_E300)
 
-typedef struct RISCVHartArrayState {
+typedef struct SiFiveE300State {
     /*< private >*/
     SysBusDevice parent_obj;
 
     /*< public >*/
-    uint32_t num_harts;
-    char *cpu_model;
-    RISCVCPU *harts;
-} RISCVHartArrayState;
+    RISCVHartArrayState soc;
+    DeviceState *plic;
+} SiFiveE300State;
+
+enum {
+    SIFIVE_E300_DEBUG,
+    SIFIVE_E300_MROM,
+    SIFIVE_E300_OTP,
+    SIFIVE_E300_CLINT,
+    SIFIVE_E300_PLIC,
+    SIFIVE_E300_AON,
+    SIFIVE_E300_PRCI,
+    SIFIVE_E300_OTP_CTRL,
+    SIFIVE_E300_GPIO0,
+    SIFIVE_E300_UART0,
+    SIFIVE_E300_QSPI0,
+    SIFIVE_E300_PWM0,
+    SIFIVE_E300_UART1,
+    SIFIVE_E300_QSPI1,
+    SIFIVE_E300_PWM1,
+    SIFIVE_E300_QSPI2,
+    SIFIVE_E300_PWM2,
+    SIFIVE_E300_XIP,
+    SIFIVE_E300_DTIM
+};
+
+enum {
+    SIFIVE_E300_UART0_IRQ = 3,
+    SIFIVE_E300_UART1_IRQ = 4
+};
+
+#define SIFIVE_E300_PLIC_HART_CONFIG "M"
+#define SIFIVE_E300_PLIC_NUM_SOURCES 51
+#define SIFIVE_E300_PLIC_NUM_PRIORITIES 7
+#define SIFIVE_E300_PLIC_PRIORITY_BASE 0x0
+#define SIFIVE_E300_PLIC_PENDING_BASE 0x1000
+#define SIFIVE_E300_PLIC_ENABLE_BASE 0x2000
+#define SIFIVE_E300_PLIC_CLAIM_BASE 0x200000
 
 #endif
