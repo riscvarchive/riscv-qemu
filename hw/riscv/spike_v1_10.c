@@ -100,6 +100,9 @@ static void create_fdt(SpikeState *s, uint64_t mem_base, uint64_t mem_size)
     qemu_fdt_setprop_cell(fdt, "/", "#size-cells", 0x2);
     qemu_fdt_setprop_cell(fdt, "/", "#address-cells", 0x2);
 
+    qemu_fdt_add_subnode(fdt, "/htif");
+    qemu_fdt_setprop_string(fdt, "/htif", "compatible", "ucb,htif0");
+
     qemu_fdt_add_subnode(fdt, "/soc");
     qemu_fdt_setprop(fdt, "/soc", "ranges", NULL, 0);
     qemu_fdt_setprop_string(fdt, "/soc", "compatible", "ucbbar,spike-bare-soc");
