@@ -27,6 +27,8 @@
 #ifndef HW_SIFIVE_PLIC_H
 #define HW_SIFIVE_PLIC_H
 
+#include "hw/irq.h"
+
 #define TYPE_SIFIVE_PLIC "riscv.sifive.plic"
 
 #define SIFIVE_PLIC(obj) \
@@ -52,6 +54,7 @@ typedef struct SiFivePLICState {
     /*< public >*/
     MemoryRegion mmio;
     uint32_t num_addrs;
+    uint32_t bitfield_words;
     PLICAddr *addr_config;
     uint32_t *source_priority;
     uint32_t *target_priority;
@@ -59,6 +62,7 @@ typedef struct SiFivePLICState {
     uint32_t *claimed;
     uint32_t *enable;
     QemuMutex lock;
+    qemu_irq *irqs;
 
     /* config */
     void *soc;
@@ -68,17 +72,22 @@ typedef struct SiFivePLICState {
     uint32_t priority_base;
     uint32_t pending_base;
     uint32_t enable_base;
-    uint32_t claim_base;
+    uint32_t enable_stride;
+    uint32_t context_base;
+    uint32_t context_stride;
     uint32_t aperture_size;
 } SiFivePLICState;
 
 void sifive_plic_raise_irq(SiFivePLICState *plic, uint32_t irq);
 void sifive_plic_lower_irq(SiFivePLICState *plic, uint32_t irq);
 
-DeviceState *sifive_plic_create(hwaddr addr, RISCVHartArrayState *soc,
-    char *hart_config, uint32_t num_sources, uint32_t num_priorities,
-    uint32_t priority_base, uint32_t pending_base, uint32_t enable_base,
-    uint32_t claim_base, uint32_t aperture_size);
+DeviceState *sifive_plic_create(hwaddr addr,
+    RISCVHartArrayState *soc, char *hart_config,
+    uint32_t num_sources, uint32_t num_priorities,
+    uint32_t priority_base, uint32_t pending_base,
+    uint32_t enable_base, uint32_t enable_stride,
+    uint32_t context_base, uint32_t context_stride,
+    uint32_t aperture_size);
 
 #endif
 

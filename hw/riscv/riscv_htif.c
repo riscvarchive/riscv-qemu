@@ -6,7 +6,6 @@
  * This provides HTIF device emulation for QEMU. At the moment this allows
  * for identical copies of bbl/linux to run on both spike and QEMU.
  *
- *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
@@ -29,15 +28,11 @@
 #include "qemu/osdep.h"
 #include "hw/char/serial.h"
 #include "sysemu/char.h"
-#include "hw/riscv/htif/htif.h"
+#include "hw/riscv/riscv_htif.h"
 #include "qemu/timer.h"
 #include "exec/address-spaces.h"
 #include "qemu/error-report.h"
-#include <fcntl.h>
-#include <unistd.h>
-#include <sys/stat.h>
-#include <inttypes.h>
-#include "elf_symb.h"
+#include "hw/riscv/riscv_elf.h"
 
 #define ENABLE_CHARDEV
 /*#define DEBUG_CHARDEV */
@@ -355,7 +350,7 @@ HTIFState *htif_mm_init(MemoryRegion *address_space,
     /* get fromhost/tohost addresses from the ELF, as spike/fesvr do */
     if (NULL != kernel_filename) {
 #if defined(TARGET_RISCV64)
-        Elf_obj *e = elf_open(kernel_filename);
+        Elf_obj64 *e = elf_open64(kernel_filename);
 #else
         Elf_obj32 *e = elf_open32(kernel_filename);
 #endif
@@ -364,13 +359,13 @@ HTIFState *htif_mm_init(MemoryRegion *address_space,
         const char *tohost = "tohost";
 
 #if defined(TARGET_RISCV64)
-        Elf64_Sym *curr_sym = elf_firstsym(e);
+        Elf64_Sym *curr_sym = elf_firstsym64(e);
 #else
         Elf32_Sym *curr_sym = elf_firstsym32(e);
 #endif
         while (curr_sym) {
 #if defined(TARGET_RISCV64)
-            char *symname = elf_symname(e, curr_sym);
+            char *symname = elf_symname64(e, curr_sym);
 #else
             char *symname = elf_symname32(e, curr_sym);
 #endif
@@ -387,11 +382,17 @@ HTIFState *htif_mm_init(MemoryRegion *address_space,
                                                     by pk */
             }
 #if defined(TARGET_RISCV64)
-            curr_sym = elf_nextsym(e, curr_sym);
+            curr_sym = elf_nextsym64(e, curr_sym);
 #else
             curr_sym = elf_nextsym32(e, curr_sym);
 #endif
         }
+
+#if defined(TARGET_RISCV64)
+        elf_close64(e);
+#else
+        elf_close32(e);
+#endif
     }
 
     /* now setup HTIF device */

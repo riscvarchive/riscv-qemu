@@ -38,7 +38,6 @@
 #include "hw/sysbus.h"
 #include "hw/char/serial.h"
 #include "hw/riscv/cpudevs.h"
-#include "hw/riscv/htif/htif.h"
 #include "hw/riscv/riscv_hart.h"
 #include "hw/riscv/sifive_plic.h"
 #include "hw/riscv/sifive_clint.h"
@@ -51,7 +50,7 @@
 #include "exec/address-spaces.h"
 #include "elf.h"
 
-const struct SiFiveMemmapEntry {
+static const struct MemmapEntry {
     hwaddr base;
     hwaddr size;    
 } sifive_u500_memmap[] =
@@ -62,6 +61,7 @@ const struct SiFiveMemmapEntry {
     [SIFIVE_U500_PLIC] =     {  0xc000000,  0x4000000 },
     [SIFIVE_U500_UART0] =    { 0x10013000,     0x1000 },
     [SIFIVE_U500_UART1] =    { 0x10023000,     0x1000 },
+    [SIFIVE_U500_DRAM] =     { 0x80000000,        0x0 },
 };
 
 static uint64_t identity_translate(void *opaque, uint64_t addr)
@@ -82,10 +82,14 @@ static uint64_t load_kernel(const char *kernel_filename)
     return kernel_entry;
 }
 
-static void create_fdt(SiFiveU500State *s, uint64_t mem_base, uint64_t mem_size)
+static void create_fdt(SiFiveU500State *s, const struct MemmapEntry *memmap,
+    uint64_t mem_size)
 {
     void *fdt;
     int cpu;
+    uint32_t *cells;
+    char *nodename;
+    uint32_t plic_phandle;
 
     fdt = s->fdt = create_device_tree(&s->fdt_size);
     if (!fdt) {
@@ -104,25 +108,24 @@ static void create_fdt(SiFiveU500State *s, uint64_t mem_base, uint64_t mem_size)
     qemu_fdt_setprop_cell(fdt, "/soc", "#size-cells", 0x2);
     qemu_fdt_setprop_cell(fdt, "/soc", "#address-cells", 0x2);
 
-    qemu_fdt_add_subnode(fdt, "/uart@10013000");
-    qemu_fdt_setprop_string(fdt, "/uart@10013000",
-        "compatible", "sifive,uart-1.0");
-    qemu_fdt_setprop_cells(fdt, "/uart@10013000",
-        "reg", 0x0, 0x10013000, 0x0, 0x20);
+    nodename = g_strdup_printf("/soc/clint@%lx",
+        (long)memmap[SIFIVE_U500_CLINT].base);
+    qemu_fdt_add_subnode(fdt, nodename);
+    qemu_fdt_setprop_string(fdt, nodename, "compatible", "riscv,clint0");
+    qemu_fdt_setprop_cells(fdt, nodename, "reg",
+        0x0, memmap[SIFIVE_U500_CLINT].base,
+        0x0, memmap[SIFIVE_U500_CLINT].size);
+    qemu_fdt_setprop_cells(fdt, nodename, "interrupts-extended", 1, 3, 1, 7);
+    g_free(nodename);
 
-    qemu_fdt_add_subnode(fdt, "/soc/clint@2000000");
-    qemu_fdt_setprop_string(fdt, "/soc/clint@2000000",
-        "compatible", "riscv,clint0");
-    qemu_fdt_setprop_cells(fdt, "/soc/clint@2000000",
-        "reg", 0x0, 0x2000000, 0x0, 0xc0000);
-    qemu_fdt_setprop_cells(fdt, "/soc/clint@2000000",
-        "interrupts-extended", 1, 3, 1, 7);
-
-    qemu_fdt_add_subnode(fdt, "/memory@80000000");
-    qemu_fdt_setprop_cells(fdt, "/memory@80000000",
-        "reg", mem_base >> 32, mem_base, mem_size >> 32, mem_size);
-    qemu_fdt_setprop_string(fdt, "/memory@80000000",
-        "device_type", "memory");
+    nodename = g_strdup_printf("/memory@%lx",
+        (long)memmap[SIFIVE_U500_DRAM].base);
+    qemu_fdt_add_subnode(fdt, nodename);
+    qemu_fdt_setprop_cells(fdt, nodename, "reg",
+        memmap[SIFIVE_U500_DRAM].base >> 32, memmap[SIFIVE_U500_DRAM].base,
+        mem_size >> 32, mem_size);
+    qemu_fdt_setprop_string(fdt, nodename, "device_type", "memory");
+    g_free(nodename);
 
     qemu_fdt_add_subnode(fdt, "/cpus");
     qemu_fdt_setprop_cell(fdt, "/cpus", "timebase-frequency", 10000000);
@@ -130,13 +133,13 @@ static void create_fdt(SiFiveU500State *s, uint64_t mem_base, uint64_t mem_size)
     qemu_fdt_setprop_cell(fdt, "/cpus", "#address-cells", 0x1);
 
     for (cpu = s->soc.num_harts - 1; cpu >= 0; cpu--) {
-        char *nodename = g_strdup_printf("/cpus/cpu@%d", cpu);
+        nodename = g_strdup_printf("/cpus/cpu@%d", cpu);
         char *intc = g_strdup_printf("/cpus/cpu@%d/interrupt-controller", cpu);
-        char* isa_string = riscv_isa_string(&s->soc.harts[cpu]);
+        char* isa = riscv_isa_string(&s->soc.harts[cpu]);
         qemu_fdt_add_subnode(fdt, nodename);
         qemu_fdt_setprop_cell(fdt, nodename, "clock-frequency", 1000000000);
         qemu_fdt_setprop_string(fdt, nodename, "mmu-type", "riscv,sv48");
-        qemu_fdt_setprop_string(fdt, nodename, "riscv,isa", isa_string);
+        qemu_fdt_setprop_string(fdt, nodename, "riscv,isa", isa);
         qemu_fdt_setprop_string(fdt, nodename, "compatible", "riscv");
         qemu_fdt_setprop_string(fdt, nodename, "status", "okay");
         qemu_fdt_setprop_cell(fdt, nodename, "reg", cpu);
@@ -147,50 +150,84 @@ static void create_fdt(SiFiveU500State *s, uint64_t mem_base, uint64_t mem_size)
         qemu_fdt_setprop_string(fdt, intc, "compatible", "riscv,cpu-intc");
         qemu_fdt_setprop(fdt, intc, "interrupt-controller", NULL, 0);
         qemu_fdt_setprop_cell(fdt, intc, "#interrupt-cells", 1);
-        g_free(isa_string);
+        g_free(isa);
+        g_free(intc);
         g_free(nodename);
     }
+
+    cells =  g_new0(uint32_t, s->soc.num_harts * 4);
+    for (cpu = 0; cpu < s->soc.num_harts; cpu++) {
+        nodename =
+            g_strdup_printf("/cpus/cpu@%d/interrupt-controller", cpu);
+        uint32_t intc_phandle = qemu_fdt_get_phandle(fdt, nodename);
+        cells[cpu * 4 + 0] = cpu_to_be32(intc_phandle);
+        cells[cpu * 4 + 1] = cpu_to_be32(IRQ_M_EXT);
+        cells[cpu * 4 + 2] = cpu_to_be32(intc_phandle);
+        cells[cpu * 4 + 3] = cpu_to_be32(IRQ_S_EXT);
+        g_free(nodename);
+    }
+    nodename = g_strdup_printf("/soc/interrupt-controller@%lx",
+        (long)memmap[SIFIVE_U500_PLIC].base);
+    qemu_fdt_add_subnode(fdt, nodename);
+    qemu_fdt_setprop_cell(fdt, nodename, "#interrupt-cells", 1);
+    qemu_fdt_setprop_string(fdt, nodename, "compatible", "riscv,plic0");
+    qemu_fdt_setprop(fdt, nodename, "interrupt-controller", NULL, 0);
+    qemu_fdt_setprop(fdt, nodename, "interrupts-extended",
+        cells, s->soc.num_harts * sizeof(uint32_t) * 4);
+    qemu_fdt_setprop_cells(fdt, nodename, "reg",
+        0x0, memmap[SIFIVE_U500_PLIC].base,
+        0x0, memmap[SIFIVE_U500_PLIC].size);
+    qemu_fdt_setprop_string(fdt, nodename, "reg-names", "control");
+    qemu_fdt_setprop_cell(fdt, nodename, "riscv,max-priority", 7);
+    qemu_fdt_setprop_cell(fdt, nodename, "riscv,ndev", 4);
+    qemu_fdt_setprop_cells(fdt, nodename, "phandle", 2);
+    qemu_fdt_setprop_cells(fdt, nodename, "linux,phandle", 2);
+    plic_phandle = qemu_fdt_get_phandle(fdt, nodename);
+    g_free(cells);
+    g_free(nodename);
+
+    nodename = g_strdup_printf("/uart@%lx",
+        (long)memmap[SIFIVE_U500_UART0].base);
+    qemu_fdt_add_subnode(fdt, nodename);
+    qemu_fdt_setprop_string(fdt, nodename, "compatible", "sifive,uart0");
+    qemu_fdt_setprop_cells(fdt, nodename, "reg",
+        0x0, memmap[SIFIVE_U500_UART0].base,
+        0x0, memmap[SIFIVE_U500_UART0].size);
+    qemu_fdt_setprop_cells(fdt, nodename, "interrupt-parent", plic_phandle);
+    qemu_fdt_setprop_cells(fdt, nodename, "interrupts", 1);
+    g_free(nodename);
 }
 
 static void riscv_sifive_u500_init(MachineState *machine)
 {
-    const struct SiFiveMemmapEntry *memmap = sifive_u500_memmap;
+    const struct MemmapEntry *memmap = sifive_u500_memmap;
 
     SiFiveU500State *s = g_new0(SiFiveU500State, 1);
     MemoryRegion *system_memory = get_system_memory();
     MemoryRegion *main_mem = g_new(MemoryRegion, 1);
     MemoryRegion *boot_rom = g_new(MemoryRegion, 1);
-    int i;
 
     /* Initialize SOC */
     object_initialize(&s->soc, sizeof(s->soc), TYPE_RISCV_HART_ARRAY);
     object_property_add_child(OBJECT(machine), "soc", OBJECT(&s->soc),
                               &error_abort);
-    object_property_set_str(OBJECT(&s->soc), "riscv-imafdcs-priv1.10",
+    object_property_set_str(OBJECT(&s->soc), TYPE_RISCV_CPU_IMAFDCSU_PRIV_1_10,
                             "cpu-model", &error_abort);
     object_property_set_int(OBJECT(&s->soc), smp_cpus, "num-harts",
                             &error_abort);
     object_property_set_bool(OBJECT(&s->soc), true, "realized",
                             &error_abort);
 
-    /* Make sure the first 3 serial ports are associated with a device. */
-    for (i = 0; i < 3; i++) {
-        if (!serial_hds[i]) {
-            char label[32];
-            snprintf(label, sizeof(label), "serial%d", i);
-            serial_hds[i] = qemu_chr_new(label, "null", NULL);
-        }
-    }
-
     /* register RAM */
     memory_region_init_ram(main_mem, NULL, "riscv.sifive.u500.ram",
                            machine->ram_size, &error_fatal);
     /* for phys mem size check in page table walk */
     vmstate_register_ram_global(main_mem);
-    memory_region_add_subregion(system_memory, DRAM_BASE, main_mem);
+    memory_region_add_subregion(system_memory, memmap[SIFIVE_U500_DRAM].base,
+        main_mem);
 
     /* create device tree */
-    create_fdt(s, DRAM_BASE, machine->ram_size);
+    create_fdt(s, memmap, machine->ram_size);
 
     /* boot rom */
     memory_region_init_ram(boot_rom, NULL, "riscv.sifive.u500.bootrom",
@@ -203,21 +240,21 @@ static void riscv_sifive_u500_init(MachineState *machine)
          load_kernel(machine->kernel_filename);
     }
 
-   /* reset vector */
+    /* reset vector */
     uint32_t reset_vec[8] = {
-        0x00000297,                  /* 1:  auipc  t0, %pcrel_hi(dtb) */
-        0x02028593,                  /*     addi   a1, t0, %pcrel_lo(1b) */
-        0xf1402573,                  /*     csrr   a0, mhartid  */
+        0x00000297,                    /* 1:  auipc  t0, %pcrel_hi(dtb) */
+        0x02028593,                    /*     addi   a1, t0, %pcrel_lo(1b) */
+        0xf1402573,                    /*     csrr   a0, mhartid  */
 #if defined(TARGET_RISCV32)
-        0x0182a283,                  /*     lw     t0, 24(t0) */
+        0x0182a283,                    /*     lw     t0, 24(t0) */
 #elif defined(TARGET_RISCV64)
-        0x0182b283,                  /*     ld     t0, 24(t0) */
+        0x0182b283,                    /*     ld     t0, 24(t0) */
 #endif
-        0x00028067,                  /*     jr     t0 */
+        0x00028067,                    /*     jr     t0 */
         0x00000000,
-        DRAM_BASE,                   /* start: .dword DRAM_BASE */
+        memmap[SIFIVE_U500_DRAM].base, /* start: .dword DRAM_BASE */
         0x00000000,
-                                     /* dtb: */
+                                       /* dtb: */
     };
 
     /* copy in the reset vector */
@@ -237,12 +274,14 @@ static void riscv_sifive_u500_init(MachineState *machine)
         SIFIVE_U500_PLIC_PRIORITY_BASE,
         SIFIVE_U500_PLIC_PENDING_BASE,
         SIFIVE_U500_PLIC_ENABLE_BASE,
-        SIFIVE_U500_PLIC_CLAIM_BASE,
+        SIFIVE_U500_PLIC_ENABLE_STRIDE,
+        SIFIVE_U500_PLIC_CONTEXT_BASE,
+        SIFIVE_U500_PLIC_CONTEXT_STRIDE,
         memmap[SIFIVE_U500_PLIC].size);
     sifive_uart_create(memmap[SIFIVE_U500_UART0].base, serial_hds[0],
         s->plic, SIFIVE_U500_UART0_IRQ);
-    sifive_uart_create(memmap[SIFIVE_U500_UART1].base, serial_hds[0],
-        s->plic, SIFIVE_U500_UART1_IRQ);
+    /* sifive_uart_create(memmap[SIFIVE_U500_UART1].base, serial_hds[0],
+        s->plic, SIFIVE_U500_UART1_IRQ); */
     sifive_clint_create(memmap[SIFIVE_U500_CLINT].base,
         memmap[SIFIVE_U500_CLINT].size, &s->soc,
         SIFIVE_SIP_BASE, SIFIVE_TIMECMP_BASE, SIFIVE_TIME_BASE);

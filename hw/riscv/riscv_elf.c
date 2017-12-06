@@ -17,7 +17,7 @@
 #include <fcntl.h>
 #include <glib.h>
 
-#include "elf_symb.h"
+#include "hw/riscv/riscv_elf.h"
 
 /*
  * elf_open - Map a binary into the address space and extract the
@@ -25,14 +25,14 @@
  * tables. Return this information in a Elf object file handle that will
  * be passed to all of the other elf functions.
  */
-Elf_obj *elf_open(const char *filename)
+Elf_obj64 *elf_open64(const char *filename)
 {
     int i, fd;
     struct stat sbuf;
-    Elf_obj *ep;
+    Elf_obj64 *ep;
     Elf64_Shdr *shdr;
 
-    ep = g_new(Elf_obj, 1);
+    ep = g_new(Elf_obj64, 1);
 
     /* Do some consistency checks on the binary */
     fd = open(filename, O_RDONLY);
@@ -61,11 +61,18 @@ Elf_obj *elf_open(const char *filename)
     /* The Elf binary begins with the Elf header */
     ep->ehdr = ep->maddr;
 
-    /* Make sure that this is an Elf binary */
-    /*    if (strncmp(ep->ehdr->e_ident, ELFMAG, SELFMAG)) {
-    fprintf(stderr, "\"%s\" is not an ELF binary object\n", filename);
-    exit(1);
-    }*/
+    /* check we have a 64-bit little-endian RISC-V ELF object */
+    if (ep->ehdr->e_ident[EI_MAG0] != ELFMAG0 ||
+        ep->ehdr->e_ident[EI_MAG1] != ELFMAG1 ||
+        ep->ehdr->e_ident[EI_MAG2] != ELFMAG2 ||
+        ep->ehdr->e_ident[EI_MAG3] != ELFMAG3 ||
+        ep->ehdr->e_ident[EI_CLASS] != ELFCLASS64 ||
+        ep->ehdr->e_ident[EI_DATA] != ELFDATA2LSB ||
+        ep->ehdr->e_machine != EM_RISCV)
+    {
+        fprintf(stderr, "\"%s\" is not a 64-bit RISC-V ELF object\n", filename);
+        exit(1);
+    }
 
     /*
      * Find the static and dynamic symbol tables and their string
@@ -91,12 +98,6 @@ Elf_obj *elf_open(const char *filename)
     return ep;
 }
 
-/*
- * elf_open - Map a binary into the address space and extract the
- * locations of the static and dynamic symbol tables and their string
- * tables. Return this information in a Elf object file handle that will
- * be passed to all of the other elf functions.
- */
 Elf_obj32 *elf_open32(const char *filename)
 {
     int i, fd;
@@ -133,11 +134,18 @@ Elf_obj32 *elf_open32(const char *filename)
     /* The Elf binary begins with the Elf header */
     ep->ehdr = ep->maddr;
 
-    /* Make sure that this is an Elf binary */
-/*    if (strncmp(ep->ehdr->e_ident, ELFMAG, SELFMAG)) {
-    fprintf(stderr, "\"%s\" is not an ELF binary object\n", filename);
-    exit(1);
-    }*/
+    /* check we have a 32-bit little-endian RISC-V ELF object */
+    if (ep->ehdr->e_ident[EI_MAG0] != ELFMAG0 ||
+        ep->ehdr->e_ident[EI_MAG1] != ELFMAG1 ||
+        ep->ehdr->e_ident[EI_MAG2] != ELFMAG2 ||
+        ep->ehdr->e_ident[EI_MAG3] != ELFMAG3 ||
+        ep->ehdr->e_ident[EI_CLASS] != ELFCLASS32 ||
+        ep->ehdr->e_ident[EI_DATA] != ELFDATA2LSB ||
+        ep->ehdr->e_machine != EM_RISCV)
+    {
+        fprintf(stderr, "\"%s\" is not a 32-bit RISC-V ELF object\n", filename);
+        exit(1);
+    }
 
     /*
      * Find the static and dynamic symbol tables and their string
@@ -166,7 +174,16 @@ Elf_obj32 *elf_open32(const char *filename)
 /*
  * elf_close - Free up the resources of an  elf object
  */
-void elf_close(Elf_obj *ep)
+void elf_close64(Elf_obj64 *ep)
+{
+    if (munmap(ep->maddr, ep->mlen) < 0) {
+        perror("munmap");
+        exit(1);
+    }
+    free(ep);
+}
+
+void elf_close32(Elf_obj32 *ep)
 {
     if (munmap(ep->maddr, ep->mlen) < 0) {
         perror("munmap");
@@ -178,39 +195,24 @@ void elf_close(Elf_obj *ep)
 /*
  * elf_symname - Return ASCII name of a static symbol
  */
-char *elf_symname(Elf_obj *ep, Elf64_Sym *sym)
+char *elf_symname64(Elf_obj64 *ep, Elf64_Sym *sym)
 {
     return &ep->strtab[sym->st_name];
 }
 
-/*
- * elf_symname - Return ASCII name of a static symbol
- */
 char *elf_symname32(Elf_obj32 *ep, Elf32_Sym *sym)
 {
     return &ep->strtab[sym->st_name];
 }
 
-
-/*
- * elf_dsymname - Return ASCII name of a dynamic symbol
- */
-char *elf_dsymname(Elf_obj *ep, Elf64_Sym *sym)
-{
-    return &ep->dstrtab[sym->st_name];
-}
-
 /*
  * elf_firstsym - Return ptr to first symbol in static symbol table
  */
-Elf64_Sym *elf_firstsym(Elf_obj *ep)
+Elf64_Sym *elf_firstsym64(Elf_obj64 *ep)
 {
     return ep->symtab;
 }
 
-/*
- * elf_firstsym - Return ptr to first symbol in static symbol table
- */
 Elf32_Sym *elf_firstsym32(Elf_obj32 *ep)
 {
     return ep->symtab;
@@ -221,7 +223,7 @@ Elf32_Sym *elf_firstsym32(Elf_obj32 *ep)
  * elf_nextsym - Return ptr to next symbol in static symbol table,
  * or NULL if no more symbols.
  */
-Elf64_Sym *elf_nextsym(Elf_obj *ep, Elf64_Sym *sym)
+Elf64_Sym *elf_nextsym64(Elf_obj64 *ep, Elf64_Sym *sym)
 {
     sym++;
     if (sym < ep->symtab_end) {
@@ -231,10 +233,6 @@ Elf64_Sym *elf_nextsym(Elf_obj *ep, Elf64_Sym *sym)
     }
 }
 
-/*
- * elf_nextsym - Return ptr to next symbol in static symbol table,
- * or NULL if no more symbols.
- */
 Elf32_Sym *elf_nextsym32(Elf_obj32 *ep, Elf32_Sym *sym)
 {
     sym++;
@@ -243,44 +241,4 @@ Elf32_Sym *elf_nextsym32(Elf_obj32 *ep, Elf32_Sym *sym)
     } else {
         return NULL;
     }
-}
-
-
-/*
- * elf_firstdsym - Return ptr to first symbol in dynamic symbol table
- */
-Elf64_Sym *elf_firstdsym(Elf_obj *ep)
-{
-    return ep->dsymtab;
-}
-
-/*
- * elf_nextdsym - Return ptr to next symbol in dynamic symbol table,
- * of NULL if no more symbols.
- */
-Elf64_Sym *elf_nextdsym(Elf_obj *ep, Elf64_Sym *sym)
-{
-    sym++;
-    if (sym < ep->dsymtab_end) {
-        return sym;
-    } else {
-        return NULL;
-    }
-}
-
-/*
- * elf_isfunc - Return true if symbol is a static function
- */
-int elf_isfunc(Elf_obj *ep, Elf64_Sym *sym)
-{
-    return ((ELF32_ST_TYPE(sym->st_info) == STT_FUNC) &&
-        (sym->st_shndx != SHT_NULL));
-}
-
-/*
- * elf_isdfunc - Return true if symbol is a dynamic function
- */
-int elf_isdfunc(Elf_obj *ep, Elf64_Sym *sym)
-{
-    return ((ELF32_ST_TYPE(sym->st_info) == STT_FUNC));
 }

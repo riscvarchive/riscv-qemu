@@ -21,7 +21,7 @@
  * THE SOFTWARE.
  */
 #ifndef HW_RISCV_HTIF_H
-#define HW_RISCV_HTIF_H 1
+#define HW_RISCV_HTIF_H
 
 #include "hw/hw.h"
 #include "sysemu/sysemu.h"

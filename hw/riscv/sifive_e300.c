@@ -53,7 +53,7 @@
 #include "exec/address-spaces.h"
 #include "elf.h"
 
-const struct SiFiveMemmapEntry {
+static const struct MemmapEntry {
     hwaddr base;
     hwaddr size;    
 } sifive_e300_memmap[] = {
@@ -107,34 +107,24 @@ static void sifive_mmio_emulate(MemoryRegion *parent, const char *name,
 
 static void riscv_sifive_e300_init(MachineState *machine)
 {
-    const struct SiFiveMemmapEntry *memmap = sifive_e300_memmap;
+    const struct MemmapEntry *memmap = sifive_e300_memmap;
 
     SiFiveE300State *s = g_new0(SiFiveE300State, 1);
     MemoryRegion *sys_mem = get_system_memory();
     MemoryRegion *main_mem = g_new(MemoryRegion, 1);
     MemoryRegion *mask_rom = g_new(MemoryRegion, 1);
     MemoryRegion *xip_mem = g_new(MemoryRegion, 1);
-    int i;
 
     /* Initialize SOC */
     object_initialize(&s->soc, sizeof(s->soc), TYPE_RISCV_HART_ARRAY);
     object_property_add_child(OBJECT(machine), "soc", OBJECT(&s->soc),
                               &error_abort);
-    object_property_set_str(OBJECT(&s->soc), "riscv-imacs-priv1.10",
+    object_property_set_str(OBJECT(&s->soc), TYPE_RISCV_CPU_IMAC_PRIV_1_10,
                             "cpu-model", &error_abort);
     object_property_set_int(OBJECT(&s->soc), smp_cpus, "num-harts",
                             &error_abort);
     object_property_set_bool(OBJECT(&s->soc), true, "realized",
                             &error_abort);
-
-    /* Make sure the first 3 serial ports are associated with a device. */
-    for (i = 0; i < 3; i++) {
-        if (!serial_hds[i]) {
-            char label[32];
-            snprintf(label, sizeof(label), "serial%d", i);
-            serial_hds[i] = qemu_chr_new(label, "null", NULL);
-        }
-    }
 
     /* Data Tightly Integrated Memory */
     memory_region_init_ram(main_mem, NULL, "riscv.sifive.e300.ram",
@@ -158,7 +148,9 @@ static void riscv_sifive_e300_init(MachineState *machine)
         SIFIVE_E300_PLIC_PRIORITY_BASE,
         SIFIVE_E300_PLIC_PENDING_BASE,
         SIFIVE_E300_PLIC_ENABLE_BASE,
-        SIFIVE_E300_PLIC_CLAIM_BASE,
+        SIFIVE_E300_PLIC_ENABLE_STRIDE,
+        SIFIVE_E300_PLIC_CONTEXT_BASE,
+        SIFIVE_E300_PLIC_CONTEXT_STRIDE,
         memmap[SIFIVE_E300_PLIC].size);
     sifive_clint_create(memmap[SIFIVE_E300_CLINT].base,
         memmap[SIFIVE_E300_CLINT].size, &s->soc,
@@ -174,8 +166,8 @@ static void riscv_sifive_e300_init(MachineState *machine)
         memmap[SIFIVE_E300_QSPI0].base, memmap[SIFIVE_E300_QSPI0].size);
     sifive_mmio_emulate(sys_mem, "riscv.sifive.e300.pwm0",
         memmap[SIFIVE_E300_PWM0].base, memmap[SIFIVE_E300_PWM0].size);
-    sifive_uart_create(memmap[SIFIVE_E300_UART1].base, serial_hds[1],
-        s->plic, SIFIVE_E300_UART1_IRQ);
+    /* sifive_uart_create(memmap[SIFIVE_E300_UART1].base, serial_hds[1],
+        s->plic, SIFIVE_E300_UART1_IRQ); */
     sifive_mmio_emulate(sys_mem, "riscv.sifive.e300.qspi1",
         memmap[SIFIVE_E300_QSPI1].base, memmap[SIFIVE_E300_QSPI1].size);
     sifive_mmio_emulate(sys_mem, "riscv.sifive.e300.pwm1",

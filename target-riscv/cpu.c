@@ -31,43 +31,43 @@ typedef struct RISCVCPUInfo {
     void (*initfn)(Object *obj);
 } RISCVCPUInfo;
 
-static void riscv_imacs_priv1_9_cpu_init(Object *obj)
+static void riscv_imafdcsu_priv1_9_cpu_init(Object *obj)
 {
     CPURISCVState *env = &RISCV_CPU(obj)->env;
-    env->misa = env->misa_mask = RVXLEN|RVI|RVM|RVA|RVC|RVS;
+    env->misa = env->misa_mask = RVXLEN|RVI|RVM|RVA|RVF|RVD|RVC|RVS|RVU;
     env->user_ver = USER_VERSION_2_02_0;
     env->priv_ver = PRIV_VERSION_1_09_1;
 }
 
-static void riscv_imafdcs_priv1_9_cpu_init(Object *obj)
+static void riscv_imafdcsu_priv1_10_cpu_init(Object *obj)
 {
     CPURISCVState *env = &RISCV_CPU(obj)->env;
-    env->misa = env->misa_mask = RVXLEN|RVI|RVM|RVA|RVF|RVD|RVC|RVS;
-    env->user_ver = USER_VERSION_2_02_0;
-    env->priv_ver = PRIV_VERSION_1_09_1;
-}
-
-static void riscv_imacs_priv1_10_cpu_init(Object *obj)
-{
-    CPURISCVState *env = &RISCV_CPU(obj)->env;
-    env->misa = env->misa_mask = RVXLEN|RVI|RVM|RVA|RVC|RVS;
+    env->misa = env->misa_mask = RVXLEN|RVI|RVM|RVA|RVF|RVD|RVC|RVS|RVU;
     env->user_ver = USER_VERSION_2_02_0;
     env->priv_ver = PRIV_VERSION_1_10_0;
 }
 
-static void riscv_imafdcs_priv1_10_cpu_init(Object *obj)
+static void riscv_imacu_priv1_10_cpu_init(Object *obj)
 {
     CPURISCVState *env = &RISCV_CPU(obj)->env;
-    env->misa = env->misa_mask = RVXLEN|RVI|RVM|RVA|RVF|RVD|RVC|RVS;
+    env->misa = env->misa_mask = RVXLEN|RVI|RVM|RVA|RVC|RVU;
+    env->user_ver = USER_VERSION_2_02_0;
+    env->priv_ver = PRIV_VERSION_1_10_0;
+}
+
+static void riscv_imac_priv1_10_cpu_init(Object *obj)
+{
+    CPURISCVState *env = &RISCV_CPU(obj)->env;
+    env->misa = env->misa_mask = RVXLEN|RVI|RVM|RVA|RVC;
     env->user_ver = USER_VERSION_2_02_0;
     env->priv_ver = PRIV_VERSION_1_10_0;
 }
 
 static const RISCVCPUInfo riscv_cpus[] = {
-    { "imacs-priv1.9",    riscv_imacs_priv1_9_cpu_init },
-    { "imafdcs-priv1.9",  riscv_imafdcs_priv1_9_cpu_init },
-    { "imacs-priv1.10",   riscv_imacs_priv1_10_cpu_init },
-    { "imafdcs-priv1.10", riscv_imafdcs_priv1_10_cpu_init },
+    { TYPE_RISCV_CPU_IMAFDCSU_PRIV_1_09, riscv_imafdcsu_priv1_9_cpu_init },
+    { TYPE_RISCV_CPU_IMAFDCSU_PRIV_1_10, riscv_imafdcsu_priv1_10_cpu_init },
+    { TYPE_RISCV_CPU_IMACU_PRIV_1_10,    riscv_imacu_priv1_10_cpu_init },
+    { TYPE_RISCV_CPU_IMAC_PRIV_1_10,     riscv_imac_priv1_10_cpu_init },
     { NULL, NULL }
 };
 
@@ -223,12 +223,12 @@ static void riscv_cpu_class_init(ObjectClass *c, void *data)
 static void cpu_register(const RISCVCPUInfo *info)
 {
     TypeInfo type_info = {
+        .name = g_strdup(info->name),
         .parent = TYPE_RISCV_CPU,
         .instance_size = sizeof(RISCVCPU),
         .instance_init = info->initfn,
     };
 
-    type_info.name = g_strdup_printf(TYPE_RISCV_CPU "-%s", info->name);
     type_register(&type_info);
     g_free((void *)type_info.name);
 }
@@ -267,7 +267,7 @@ void riscv_cpu_list(FILE *f, fprintf_function cpu_fprintf)
     const RISCVCPUInfo *info = riscv_cpus;
 
     while (info->name) {
-        (*cpu_fprintf)(f, TYPE_RISCV_CPU "-%s\n", info->name);
+        (*cpu_fprintf)(f, "%s\n", info->name);
         info++;
     }
 }
