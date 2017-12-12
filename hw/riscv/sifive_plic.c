@@ -135,18 +135,10 @@ static int sifive_plic_num_irqs_pending(SiFivePLICState *plic, uint32_t addrid)
     return count;
 }
 
-void sifive_plic_raise_irq(SiFivePLICState *plic, uint32_t irq)
+static void sifive_plic_update(SiFivePLICState *plic)
 {
     RISCVHartArrayState *soc = plic->soc;
     int addrid;
-
-    if (irq == 0 || irq > plic->num_sources) return;
-
-    sifive_plic_set_pending(plic, irq, true);
-
-    #if defined RISCV_DEBUG_PLIC
-    printf("sifive_plic_raise_irq: irq=%d\n", irq);
-    #endif
 
     /* raise irq on harts where this irq is enabled */
     for (addrid = 0; addrid < plic->num_addrs; addrid++) {
@@ -154,80 +146,76 @@ void sifive_plic_raise_irq(SiFivePLICState *plic, uint32_t irq)
         PLICMode mode = plic->addr_config[addrid].mode;
         CPURISCVState *env = &soc->harts[hartid].env;
         int count = 0;
-        if (sifive_plic_num_irqs_pending(plic, addrid) == 0) continue;
-        switch (mode) {
-            case PLICMode_M:
-                if ((env->mip & MIP_MEIP) == 0) {
-                    env->mip |= MIP_MEIP;
-                    count++;
-                    #if defined RISCV_DEBUG_PLIC
-                    printf("sifive_plic_raise_irq: irq=%d -> hart%d-%c\n",
-                        irq, hartid, mode_to_char(mode));
-                    #endif
-                }
-                break;
-            case PLICMode_S:
-                if ((env->mip & MIP_SEIP) == 0) {
-                    env->mip |= MIP_SEIP;
-                    count++;
-                    #if defined RISCV_DEBUG_PLIC
-                    printf("sifive_plic_raise_irq: irq=%d -> hart%d-%c\n",
-                        irq, hartid, mode_to_char(mode));
-                    #endif
-                }
-                break;
-            default:
-                error_report("plic: raise irq invalid mode: %d", mode);
+        if (sifive_plic_num_irqs_pending(plic, addrid) > 0) {
+           switch (mode) {
+                case PLICMode_M:
+                    if ((env->mip & MIP_MEIP) == 0) {
+                        env->mip |= MIP_MEIP;
+                        count++;
+                        #if defined RISCV_DEBUG_PLIC
+                        printf("sifive_plic_update: RAISE hart%d-%c\n",
+                            hartid, mode_to_char(mode));
+                        #endif
+                    }
+                    break;
+                case PLICMode_S:
+                    if ((env->mip & MIP_SEIP) == 0) {
+                        env->mip |= MIP_SEIP;
+                        count++;
+                        #if defined RISCV_DEBUG_PLIC
+                        printf("sifive_plic_update: RAISE hart%d-%c\n",
+                            hartid, mode_to_char(mode));
+                        #endif
+                    }
+                    break;
+                default:
+                    break;
+            }
+        } else {
+            switch (mode) {
+                case PLICMode_M:
+                    if (env->mip & MIP_MEIP) {
+                        env->mip &= ~MIP_MEIP;
+                        #if defined RISCV_DEBUG_PLIC
+                        printf("sifive_plic_update: LOWER hart%d-%c\n",
+                            hartid, mode_to_char(mode));
+                        #endif
+                    }
+                    break;
+                case PLICMode_S:
+                    if (env->mip & MIP_SEIP) {
+                        env->mip &= ~MIP_SEIP;
+                        #if defined RISCV_DEBUG_PLIC
+                        printf("sifive_plic_update: LOWER hart%d-%c\n",
+                            hartid, mode_to_char(mode));
+                        #endif
+                    }
+                    break;
+                default:
+                    break;
+            }
         }
         if (count > 0) {
             CPUState *cs = CPU(&soc->harts[hartid]);
             cpu_interrupt(cs, CPU_INTERRUPT_HARD);
         }
     }
+
+    #if defined RISCV_DEBUG_PLIC
+    sifive_plic_print_state(plic);
+    #endif
+}
+
+void sifive_plic_raise_irq(SiFivePLICState *plic, uint32_t irq)
+{
+    sifive_plic_set_pending(plic, irq, true);
+    sifive_plic_update(plic);
 }
 
 void sifive_plic_lower_irq(SiFivePLICState *plic, uint32_t irq)
 {
-    RISCVHartArrayState *soc = plic->soc;
-    int addrid;
-
-    if (irq == 0 || irq > plic->num_sources) return;
-
-    sifive_plic_set_claimed(plic, irq, false);
-
-    #if defined RISCV_DEBUG_PLIC
-    printf("sifive_plic_lower_irq: irq=%d\n", irq);
-    #endif
-
-    /* only lower irq on harts with no irqs pending */
-    for (addrid = 0; addrid < plic->num_addrs; addrid++) {
-        uint32_t hartid = plic->addr_config[addrid].hartid;
-        PLICMode mode = plic->addr_config[addrid].mode;
-        CPURISCVState *env = &soc->harts[hartid].env;
-        if (sifive_plic_num_irqs_pending(plic, addrid) > 0) continue;
-        switch (mode) {
-            case PLICMode_M:
-                if (env->mip & MIP_MEIP) {
-                    env->mip &= ~MIP_MEIP;
-                    #if defined RISCV_DEBUG_PLIC
-                    printf("sifive_plic_lower_irq: irq=%d -> hart%d-%c\n",
-                        irq, hartid, mode_to_char(mode));
-                    #endif
-                }
-                break;
-            case PLICMode_S:
-                if (env->mip & MIP_SEIP) {
-                    env->mip &= ~MIP_SEIP;
-                    #if defined RISCV_DEBUG_PLIC
-                    printf("sifive_plic_lower_irq: irq=%d -> hart%d-%c\n",
-                        irq, hartid, mode_to_char(mode));
-                    #endif
-                }
-                break;
-            default:
-                error_report("plic: raise irq invalid mode: %d", mode);
-        }
-    }
+    sifive_plic_set_pending(plic, irq, false);
+    sifive_plic_update(plic);
 }
 
 static uint32_t sifive_plic_claim(SiFivePLICState *plic, uint32_t addrid)
@@ -374,27 +362,28 @@ static void sifive_plic_write(void *opaque, hwaddr addr, uint64_t value,
         uint32_t addrid = (addr - plic->context_base) / plic->context_stride;
         uint32_t contextid = (addr & (plic->context_stride-1));
         if (contextid == 0) {
-            if (value <= plic->num_priorities) {
-               plic->target_priority[addrid] = value;
-            }
             #if defined RISCV_DEBUG_PLIC
             printf("plic: write priority: hart%d-%c priority=%x\n",
                 plic->addr_config[addrid].hartid,
                 mode_to_char(plic->addr_config[addrid].mode),
                 plic->target_priority[addrid]);
             #endif
+            if (value <= plic->num_priorities) {
+                plic->target_priority[addrid] = value;
+                sifive_plic_update(plic);
+            }
             return;
         } else if (contextid == 4) {
-            if (value < plic->num_sources) {
-                sifive_plic_lower_irq(plic, value);
-            }
             #if defined RISCV_DEBUG_PLIC
             printf("plic: write claim: hart%d-%c irq=%x\n",
                 plic->addr_config[addrid].hartid,
                 mode_to_char(plic->addr_config[addrid].mode),
                 (uint32_t)value);
-            sifive_plic_print_state(plic);
             #endif
+            if (value < plic->num_sources) {
+                sifive_plic_set_claimed(plic, value, false);
+                sifive_plic_update(plic);
+            }
             return;
         }
     }
@@ -490,8 +479,11 @@ static void parse_hart_config(SiFivePLICState *plic)
 static void sifive_plic_irq_request(void *opaque, int irq, int level)
 {
     SiFivePLICState *plic = opaque;
-    if (level > 0)
-        sifive_plic_raise_irq(plic, irq);
+    #if defined RISCV_DEBUG_PLIC
+    printf("sifive_plic_irq_request: irq=%d level=%d\n", irq, level);
+    #endif
+    sifive_plic_set_pending(plic, irq, level > 0);
+    sifive_plic_update(plic);
 }
 
 static void sifive_plic_realize(DeviceState *dev, Error **errp)
