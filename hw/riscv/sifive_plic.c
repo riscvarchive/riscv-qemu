@@ -231,7 +231,7 @@ static uint32_t sifive_plic_claim(SiFivePLICState *plic, uint32_t addrid)
             int irq = (i << 5) + j;
             uint32_t prio = plic->source_priority[irq];
             int enabled = pending_enabled_not_claimed & (1 << j);
-            if (enabled && prio >= plic->target_priority[addrid]) {
+            if (enabled && prio > plic->target_priority[addrid]) {
                 sifive_plic_set_pending(plic, irq, false);
                 sifive_plic_set_claimed(plic, irq, true);
                 return irq;
