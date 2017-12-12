@@ -44,6 +44,8 @@
 #include "exec/address-spaces.h"
 #include "elf.h"
 
+//#define RISCV_SERIAL_CONSOLE
+
 static const struct MemmapEntry {
     hwaddr base;
     hwaddr size;    
@@ -53,7 +55,8 @@ static const struct MemmapEntry {
     [VIRT_MROM] =     {     0x1000,     0x2000 },
     [VIRT_CLINT] =    {  0x2000000,    0x10000 },
     [VIRT_PLIC] =     {  0xc000000,  0x4000000 },
-    [VIRT_VIRTIO] =   { 0x10000000,     0x1000 },
+    [VIRT_UART0] =    { 0x10000000,      0x100 },
+    [VIRT_VIRTIO] =   { 0x10001000,     0x1000 },
     [VIRT_DRAM] =     { 0x80000000,        0x0 },
 };
 
@@ -96,8 +99,10 @@ static void create_fdt(RISCVVirtState *s, const struct MemmapEntry *memmap,
     qemu_fdt_setprop_cell(fdt, "/", "#size-cells", 0x2);
     qemu_fdt_setprop_cell(fdt, "/", "#address-cells", 0x2);
 
+#if !defined(RISCV_SERIAL_CONSOLE)
     qemu_fdt_add_subnode(fdt, "/htif");
     qemu_fdt_setprop_string(fdt, "/htif", "compatible", "ucb,htif0");
+#endif
 
     qemu_fdt_add_subnode(fdt, "/soc");
     qemu_fdt_setprop(fdt, "/soc", "ranges", NULL, 0);
@@ -176,7 +181,7 @@ static void create_fdt(RISCVVirtState *s, const struct MemmapEntry *memmap,
         0x0, memmap[VIRT_PLIC].size);
     qemu_fdt_setprop_string(fdt, nodename, "reg-names", "control");
     qemu_fdt_setprop_cell(fdt, nodename, "riscv,max-priority", 7);
-    qemu_fdt_setprop_cell(fdt, nodename, "riscv,ndev", VIRTIO_COUNT);
+    qemu_fdt_setprop_cell(fdt, nodename, "riscv,ndev", VIRTIO_NDEV);
     qemu_fdt_setprop_cells(fdt, nodename, "phandle", 2);
     qemu_fdt_setprop_cells(fdt, nodename, "linux,phandle", 2);
     plic_phandle = qemu_fdt_get_phandle(fdt, nodename);
@@ -195,6 +200,23 @@ static void create_fdt(RISCVVirtState *s, const struct MemmapEntry *memmap,
         qemu_fdt_setprop_cells(fdt, nodename, "interrupts", VIRTIO_IRQ + i);
         g_free(nodename);
     }
+
+#if defined(RISCV_SERIAL_CONSOLE)
+    nodename = g_strdup_printf("/uart@%lx",
+        (long)memmap[VIRT_UART0].base);
+    qemu_fdt_add_subnode(fdt, nodename);
+    qemu_fdt_setprop_string(fdt, nodename, "compatible", "ns16550a");
+    qemu_fdt_setprop_cells(fdt, nodename, "reg",
+        0x0, memmap[VIRT_UART0].base,
+        0x0, memmap[VIRT_UART0].size);
+    qemu_fdt_setprop_cell(fdt, nodename, "clock-frequency", 3686400);
+        qemu_fdt_setprop_cells(fdt, nodename, "interrupt-parent", plic_phandle);
+        qemu_fdt_setprop_cells(fdt, nodename, "interrupts", UART0_IRQ);
+
+    qemu_fdt_add_subnode(fdt, "/chosen");
+    qemu_fdt_setprop_string(fdt, "/chosen", "stdout-path", nodename);
+    g_free(nodename);
+#endif
 }
 
 static void riscv_virt_board_init(MachineState *machine)
@@ -262,13 +284,6 @@ static void riscv_virt_board_init(MachineState *machine)
     qemu_fdt_dumpdtb(s->fdt, s->fdt_size);
     cpu_physical_memory_write(ROM_BASE + sizeof(reset_vec), s->fdt, s->fdt_size);
 
-    /* add memory mapped htif registers at location specified in the symbol
-       table of the elf being loaded (thus kernel_filename is passed to the
-       init rather than an address) */
-    htif_mm_init(system_memory, machine->kernel_filename,
-        s->soc.harts[0].env.irq[4], boot_rom,
-        &s->soc.harts[0].env, serial_hds[0]);
-
     /* MMIO */
     s->plic = sifive_plic_create(memmap[VIRT_PLIC].base, &s->soc,
         (char*)VIRT_PLIC_HART_CONFIG,
@@ -290,6 +305,19 @@ static void riscv_virt_board_init(MachineState *machine)
             memmap[VIRT_VIRTIO].base + i * memmap[VIRT_VIRTIO].size,
             SIFIVE_PLIC(s->plic)->irqs[VIRTIO_IRQ + i]);
     }
+
+#if defined(RISCV_SERIAL_CONSOLE)
+    serial_mm_init(system_memory, memmap[VIRT_UART0].base,
+        0, SIFIVE_PLIC(s->plic)->irqs[UART0_IRQ], 399193,
+        serial_hds[0], DEVICE_LITTLE_ENDIAN);
+#else
+    /* add memory mapped htif registers at location specified in the symbol
+       table of the elf being loaded (thus kernel_filename is passed to the
+       init rather than an address) */
+    htif_mm_init(system_memory, machine->kernel_filename,
+        s->soc.harts[0].env.irq[4], boot_rom,
+        &s->soc.harts[0].env, serial_hds[0]);
+#endif
 }
 
 static int riscv_virt_board_sysbus_device_init(SysBusDevice *sysbusdev)

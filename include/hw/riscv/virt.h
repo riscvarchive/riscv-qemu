@@ -43,18 +43,21 @@ typedef struct {
 } RISCVVirtState;
 
 enum {
-	VIRT_DEBUG,
-	VIRT_MROM,
-	VIRT_CLINT,
-	VIRT_PLIC,
+    VIRT_DEBUG,
+    VIRT_MROM,
+    VIRT_CLINT,
+    VIRT_PLIC,
+    VIRT_UART0,
     VIRT_VIRTIO,
     VIRT_DRAM
 };
 
 
 enum {
+    UART0_IRQ = 10,
     VIRTIO_IRQ = 1, /* 1 to 8 */
-    VIRTIO_COUNT = 8
+    VIRTIO_COUNT = 8,
+    VIRTIO_NDEV = 10
 };
 
 #define VIRT_PLIC_HART_CONFIG "MS"
