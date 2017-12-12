@@ -479,7 +479,8 @@ static void parse_hart_config(SiFivePLICState *plic)
 static void sifive_plic_irq_request(void *opaque, int irq, int level)
 {
     SiFivePLICState *plic = opaque;
-    sifive_plic_raise_irq(plic, irq);
+    if (level > 0)
+        sifive_plic_raise_irq(plic, irq);
 }
 
 static void sifive_plic_realize(DeviceState *dev, Error **errp)
