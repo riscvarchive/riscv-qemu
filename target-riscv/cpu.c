@@ -98,18 +98,7 @@ static bool riscv_cpu_has_work(CPUState *cs)
 #else
 static bool riscv_cpu_has_work(CPUState *cs)
 {
-    RISCVCPU *cpu = RISCV_CPU(cs);
-    CPURISCVState *env = &cpu->env;
-    bool has_work = false;
-
-    if (cs->interrupt_request & CPU_INTERRUPT_HARD) {
-        int interruptno = cpu_riscv_hw_interrupts_pending(env);
-        if (interruptno + 1) {
-            has_work = true;
-        }
-    }
-
-    return has_work;
+    return (cs->interrupt_request & CPU_INTERRUPT_HARD);
 }
 #endif
 
