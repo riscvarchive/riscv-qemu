@@ -153,26 +153,35 @@ void sifive_plic_raise_irq(SiFivePLICState *plic, uint32_t irq)
         uint32_t hartid = plic->addr_config[addrid].hartid;
         PLICMode mode = plic->addr_config[addrid].mode;
         CPURISCVState *env = &soc->harts[hartid].env;
+        int count = 0;
         if (sifive_plic_num_irqs_pending(plic, addrid) == 0) continue;
-        #if defined RISCV_DEBUG_PLIC
-        printf("sifive_plic_raise_irq: irq=%d -> hart%d-%c\n",
-            irq, hartid, mode_to_char(mode));
-        #endif
         switch (mode) {
             case PLICMode_M:
                 if ((env->mip & MIP_MEIP) == 0) {
                     env->mip |= MIP_MEIP;
-                    qemu_irq_raise(MEIP_IRQ);
+                    count++;
+                    #if defined RISCV_DEBUG_PLIC
+                    printf("sifive_plic_raise_irq: irq=%d -> hart%d-%c\n",
+                        irq, hartid, mode_to_char(mode));
+                    #endif
                 }
                 break;
             case PLICMode_S:
                 if ((env->mip & MIP_SEIP) == 0) {
                     env->mip |= MIP_SEIP;
-                    qemu_irq_raise(SEIP_IRQ);
+                    count++;
+                    #if defined RISCV_DEBUG_PLIC
+                    printf("sifive_plic_raise_irq: irq=%d -> hart%d-%c\n",
+                        irq, hartid, mode_to_char(mode));
+                    #endif
                 }
                 break;
             default:
                 error_report("plic: raise irq invalid mode: %d", mode);
+        }
+        if (count > 0) {
+            CPUState *cs = CPU(&soc->harts[hartid]);
+            cpu_interrupt(cs, CPU_INTERRUPT_HARD);
         }
     }
 }
@@ -196,21 +205,23 @@ void sifive_plic_lower_irq(SiFivePLICState *plic, uint32_t irq)
         PLICMode mode = plic->addr_config[addrid].mode;
         CPURISCVState *env = &soc->harts[hartid].env;
         if (sifive_plic_num_irqs_pending(plic, addrid) > 0) continue;
-        #if defined RISCV_DEBUG_PLIC
-        printf("sifive_plic_lower_irq: irq=%d -> hart%d-%c\n",
-            irq, hartid, mode_to_char(mode));
-        #endif
         switch (mode) {
             case PLICMode_M:
                 if (env->mip & MIP_MEIP) {
                     env->mip &= ~MIP_MEIP;
-                    qemu_irq_lower(MEIP_IRQ);
+                    #if defined RISCV_DEBUG_PLIC
+                    printf("sifive_plic_lower_irq: irq=%d -> hart%d-%c\n",
+                        irq, hartid, mode_to_char(mode));
+                    #endif
                 }
                 break;
             case PLICMode_S:
                 if (env->mip & MIP_SEIP) {
                     env->mip &= ~MIP_SEIP;
-                    qemu_irq_lower(SEIP_IRQ);
+                    #if defined RISCV_DEBUG_PLIC
+                    printf("sifive_plic_lower_irq: irq=%d -> hart%d-%c\n",
+                        irq, hartid, mode_to_char(mode));
+                    #endif
                 }
                 break;
             default:
