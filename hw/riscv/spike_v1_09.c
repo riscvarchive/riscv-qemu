@@ -38,29 +38,25 @@
 #include "hw/boards.h"
 #include "hw/loader.h"
 #include "hw/sysbus.h"
-#include "hw/char/serial.h"
 #include "hw/riscv/cpudevs.h"
-#include "hw/riscv/htif/htif.h"
+#include "hw/riscv/riscv_htif.h"
 #include "hw/riscv/riscv_hart.h"
 #include "hw/riscv/sifive_clint.h"
+#include "hw/riscv/spike.h"
 #include "sysemu/char.h"
 #include "sysemu/arch_init.h"
 #include "exec/address-spaces.h"
 #include "elf.h"
 
-#define TYPE_RISCV_SPIKE_BOARD "riscv.spike_v1_09"
-#define SPIKE(obj) \
-    OBJECT_CHECK(SpikeState, (obj), TYPE_RISCV_SPIKE_BOARD)
-
-enum { ROM_BASE = 0x1000 };
-
-typedef struct {
-    /*< private >*/
-    SysBusDevice parent_obj;
-
-    /*< public >*/
-    RISCVHartArrayState soc;
-} SpikeState;
+static const struct MemmapEntry {
+    hwaddr base;
+    hwaddr size;    
+} spike_memmap[] =
+{
+    [SPIKE_MROM] =     {     0x1000,     0x2000 },
+    [SPIKE_CLINT] =    {  0x2000000,    0x10000 },
+    [SPIKE_DRAM] =     { 0x80000000,        0x0 },
+};
 
 static uint64_t identity_translate(void *opaque, uint64_t addr)
 {
@@ -82,30 +78,21 @@ static uint64_t load_kernel(const char *kernel_filename)
 
 static void riscv_spike_board_init(MachineState *machine)
 {
+    const struct MemmapEntry *memmap = spike_memmap;
+
     SpikeState *s = g_new0(SpikeState, 1);
     /* const char *cpu_model = machine->cpu_model; */
-    /* const char *kernel_filename = machine->kernel_filename; */
     /* const char *kernel_cmdline = machine->kernel_cmdline; */
     /* const char *initrd_filename = machine->initrd_filename; */
     MemoryRegion *system_memory = get_system_memory();
     MemoryRegion *main_mem = g_new(MemoryRegion, 1);
     MemoryRegion *boot_rom = g_new(MemoryRegion, 1);
-    int i;
-
-    /* Make sure the first 3 serial ports are associated with a device. */
-    for (i = 0; i < 3; i++) {
-        if (!serial_hds[i]) {
-            char label[32];
-            snprintf(label, sizeof(label), "serial%d", i);
-            serial_hds[i] = qemu_chr_new(label, "null", NULL);
-        }
-    }
 
     /* Initialize SOC */
     object_initialize(&s->soc, sizeof(s->soc), TYPE_RISCV_HART_ARRAY);
     object_property_add_child(OBJECT(machine), "soc", OBJECT(&s->soc),
                               &error_abort);
-    object_property_set_str(OBJECT(&s->soc), "riscv-imafdcs-priv1.9",
+    object_property_set_str(OBJECT(&s->soc), TYPE_RISCV_CPU_IMAFDCSU_PRIV_1_09,
                             "cpu-model", &error_abort);
     object_property_set_int(OBJECT(&s->soc), smp_cpus, "num-harts",
                             &error_abort);
@@ -129,10 +116,10 @@ static void riscv_spike_board_init(MachineState *machine)
     }
 
     uint32_t reset_vec[8] = {
-        0x297 + DRAM_BASE - ROM_BASE, /* reset vector */
+        0x297 + memmap[SPIKE_DRAM].base - memmap[SPIKE_MROM].base, /* lui */
         0x00028067,                   /* jump to DRAM_BASE */
         0x00000000,                   /* reserved */
-        ROM_BASE + sizeof(reset_vec), /* config string pointer */
+        memmap[SPIKE_MROM].base + sizeof(reset_vec), /* config string pointer */
         0, 0, 0, 0                    /* trap vector */
     };
 
@@ -169,11 +156,12 @@ static void riscv_spike_board_init(MachineState *machine)
     size_t config_string_len = strlen(config_string);
 
     /* copy in the reset vector */
-    cpu_physical_memory_write(ROM_BASE, reset_vec, sizeof(reset_vec));
+    cpu_physical_memory_write(memmap[SPIKE_MROM].base, reset_vec,
+        sizeof(reset_vec));
 
     /* copy in the config string */
-    cpu_physical_memory_write(ROM_BASE + sizeof(reset_vec), config_string,
-        config_string_len);
+    cpu_physical_memory_write(memmap[SPIKE_MROM].base + sizeof(reset_vec),
+        config_string, config_string_len);
 
     /* add memory mapped htif registers at location specified in the symbol
        table of the elf being loaded (thus kernel_filename is passed to the
@@ -198,7 +186,7 @@ static void riscv_spike_board_class_init(ObjectClass *klass, void *data)
 }
 
 static const TypeInfo riscv_spike_board_device = {
-    .name          = TYPE_RISCV_SPIKE_BOARD,
+    .name          = TYPE_RISCV_SPIKE_V1_09_1_BOARD,
     .parent        = TYPE_SYS_BUS_DEVICE,
     .instance_size = sizeof(SpikeState),
     .class_init    = riscv_spike_board_class_init,
@@ -206,7 +194,7 @@ static const TypeInfo riscv_spike_board_device = {
 
 static void riscv_spike_board_machine_init(MachineClass *mc)
 {
-    mc->desc = "RISC-V Generic Board (Spike privileged spec v1.9)";
+    mc->desc = "RISC-V Spike Board (Privileged ISA v1.9.1)";
     mc->init = riscv_spike_board_init;
     mc->max_cpus = 1;
     mc->is_default = 1;

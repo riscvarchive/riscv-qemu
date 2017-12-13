@@ -1,5 +1,5 @@
-obj-y += htif/elf_symb.o
-obj-y += htif/htif.o
+obj-y += riscv_elf.o
+obj-y += riscv_htif.o
 obj-y += riscv_hart.o
 obj-y += sifive_e300.o
 obj-y += sifive_clint.o
@@ -9,3 +9,4 @@ obj-y += sifive_u500.o
 obj-y += sifive_uart.o
 obj-y += spike_v1_09.o
 obj-y += spike_v1_10.o
+obj-y += virt.o

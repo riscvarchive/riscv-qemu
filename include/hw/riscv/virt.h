@@ -1,5 +1,5 @@
 /*
- * SiFive U500 series machine interface
+ * SiFive VirtIO Board
  *
  * Copyright (c) 2017 SiFive, Inc.
  *
@@ -22,15 +22,16 @@
  * THE SOFTWARE.
  */
 
-#ifndef HW_SIFIVE_U500_H
-#define HW_SIFIVE_U500_H
+#ifndef HW_VIRT_H
+#define HW_VIRT_H
 
-#define TYPE_SIFIVE_U500 "riscv.sifive_u500"
+#define TYPE_RISCV_VIRT_BOARD "riscv.virt"
+#define VIRT(obj) \
+    OBJECT_CHECK(RISCVVirtState, (obj), TYPE_RISCV_VIRT_BOARD)
 
-#define SIFIVE_U500(obj) \
-    OBJECT_CHECK(SiFiveU500State, (obj), TYPE_SIFIVE_U500)
+enum { ROM_BASE = 0x1000 };
 
-typedef struct SiFiveU500State {
+typedef struct {
     /*< private >*/
     SysBusDevice parent_obj;
 
@@ -39,31 +40,34 @@ typedef struct SiFiveU500State {
     DeviceState *plic;
     void *fdt;
     int fdt_size;
-} SiFiveU500State;
+} RISCVVirtState;
 
 enum {
-	SIFIVE_U500_DEBUG,
-	SIFIVE_U500_MROM,
-	SIFIVE_U500_CLINT,
-	SIFIVE_U500_PLIC,
-    SIFIVE_U500_UART0,
-    SIFIVE_U500_UART1,
-    SIFIVE_U500_DRAM
+    VIRT_DEBUG,
+    VIRT_MROM,
+    VIRT_CLINT,
+    VIRT_PLIC,
+    VIRT_UART0,
+    VIRT_VIRTIO,
+    VIRT_DRAM
 };
+
 
 enum {
-    SIFIVE_U500_UART0_IRQ = 3,
-    SIFIVE_U500_UART1_IRQ = 4
+    UART0_IRQ = 10,
+    VIRTIO_IRQ = 1, /* 1 to 8 */
+    VIRTIO_COUNT = 8,
+    VIRTIO_NDEV = 10
 };
 
-#define SIFIVE_U500_PLIC_HART_CONFIG "MS"
-#define SIFIVE_U500_PLIC_NUM_SOURCES 127
-#define SIFIVE_U500_PLIC_NUM_PRIORITIES 7
-#define SIFIVE_U500_PLIC_PRIORITY_BASE 0x0
-#define SIFIVE_U500_PLIC_PENDING_BASE 0x1000
-#define SIFIVE_U500_PLIC_ENABLE_BASE 0x2000
-#define SIFIVE_U500_PLIC_ENABLE_STRIDE 0x80
-#define SIFIVE_U500_PLIC_CONTEXT_BASE 0x200000
-#define SIFIVE_U500_PLIC_CONTEXT_STRIDE 0x1000
+#define VIRT_PLIC_HART_CONFIG "MS"
+#define VIRT_PLIC_NUM_SOURCES 127
+#define VIRT_PLIC_NUM_PRIORITIES 7
+#define VIRT_PLIC_PRIORITY_BASE 0x0
+#define VIRT_PLIC_PENDING_BASE 0x1000
+#define VIRT_PLIC_ENABLE_BASE 0x2000
+#define VIRT_PLIC_ENABLE_STRIDE 0x80
+#define VIRT_PLIC_CONTEXT_BASE 0x200000
+#define VIRT_PLIC_CONTEXT_STRIDE 0x1000
 
 #endif

@@ -22,48 +22,30 @@
  * THE SOFTWARE.
  */
 
-#ifndef HW_SIFIVE_U500_H
-#define HW_SIFIVE_U500_H
+#ifndef HW_SPIKE_H
+#define HW_SPIKE_H
 
-#define TYPE_SIFIVE_U500 "riscv.sifive_u500"
+#define TYPE_RISCV_SPIKE_V1_09_1_BOARD "riscv.spike_v1_9"
+#define TYPE_RISCV_SPIKE_V1_10_0_BOARD "riscv.spike_v1_10"
 
-#define SIFIVE_U500(obj) \
-    OBJECT_CHECK(SiFiveU500State, (obj), TYPE_SIFIVE_U500)
+#define SPIKE(obj) \
+    OBJECT_CHECK(SpikeState, (obj), TYPE_RISCV_SPIKE_BOARD)
 
-typedef struct SiFiveU500State {
+typedef struct {
     /*< private >*/
     SysBusDevice parent_obj;
 
     /*< public >*/
     RISCVHartArrayState soc;
-    DeviceState *plic;
     void *fdt;
     int fdt_size;
-} SiFiveU500State;
+} SpikeState;
+
 
 enum {
-	SIFIVE_U500_DEBUG,
-	SIFIVE_U500_MROM,
-	SIFIVE_U500_CLINT,
-	SIFIVE_U500_PLIC,
-    SIFIVE_U500_UART0,
-    SIFIVE_U500_UART1,
-    SIFIVE_U500_DRAM
+    SPIKE_MROM,
+    SPIKE_CLINT,
+    SPIKE_DRAM
 };
-
-enum {
-    SIFIVE_U500_UART0_IRQ = 3,
-    SIFIVE_U500_UART1_IRQ = 4
-};
-
-#define SIFIVE_U500_PLIC_HART_CONFIG "MS"
-#define SIFIVE_U500_PLIC_NUM_SOURCES 127
-#define SIFIVE_U500_PLIC_NUM_PRIORITIES 7
-#define SIFIVE_U500_PLIC_PRIORITY_BASE 0x0
-#define SIFIVE_U500_PLIC_PENDING_BASE 0x1000
-#define SIFIVE_U500_PLIC_ENABLE_BASE 0x2000
-#define SIFIVE_U500_PLIC_ENABLE_STRIDE 0x80
-#define SIFIVE_U500_PLIC_CONTEXT_BASE 0x200000
-#define SIFIVE_U500_PLIC_CONTEXT_STRIDE 0x1000
 
 #endif

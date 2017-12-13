@@ -53,15 +53,7 @@ static void sifive_clint_irq_request(void *opaque, int irq, int level)
     CPURISCVState *env = &cpu->env;
     CPUState *cs = CPU(cpu);
 
-    /* current irqs:
-       4: Host Interrupt. mfromhost should have a nonzero value
-       3: Machine Timer. MIP_MTIP should have already been set
-       2, 1, 0: Interrupts triggered by the CPU. At least one of
-       MIP_STIP, MIP_SSIP, MIP_MSIP should already be set */
-    if (unlikely(!(irq < 8 && irq >= 0))) {
-        error_report("Unused irq %d was raised.", irq);
-        return;
-    }
+    /* The CLINT currently uses irq 0 */
 
     if (level) {
         cpu_interrupt(cs, CPU_INTERRUPT_HARD);
@@ -289,7 +281,7 @@ DeviceState *sifive_clint_create(hwaddr addr, hwaddr size,
         CPURISCVState *env = &soc->harts[i].env;
         for (j = 0; j < MAX_RISCV_IRQ; j++) {
             env->irq[j] = qemu_allocate_irq(sifive_clint_irq_request,
-                                            riscv_env_get_cpu(env), 0);
+                riscv_env_get_cpu(env), 0 /* irq 0 */);
         }
         env->timer = timer_new_ns(QEMU_CLOCK_VIRTUAL,
                                   &sifive_clint_timer_cb, env);
