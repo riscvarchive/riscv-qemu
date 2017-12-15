@@ -44,7 +44,7 @@
 #include "exec/address-spaces.h"
 #include "elf.h"
 
-//#define RISCV_SERIAL_CONSOLE
+#define RISCV_SERIAL_CONSOLE
 
 static const struct MemmapEntry {
     hwaddr base;
