@@ -77,7 +77,7 @@ static uint64_t load_kernel(const char *kernel_filename)
 }
 
 static void create_fdt(SpikeState *s, const struct MemmapEntry *memmap,
-    uint64_t mem_size)
+    uint64_t mem_size, const char *cmdline)
 {
     void *fdt;
     int cpu;
@@ -149,7 +149,10 @@ static void create_fdt(SpikeState *s, const struct MemmapEntry *memmap,
         g_free(intc);
         g_free(nodename);
     }
-}
+
+    qemu_fdt_add_subnode(fdt, "/chosen");
+    qemu_fdt_setprop_string(fdt, "/chosen", "bootargs", cmdline);
+ }
 
 static void riscv_spike_board_init(MachineState *machine)
 {
@@ -182,7 +185,7 @@ static void riscv_spike_board_init(MachineState *machine)
         main_mem);
 
     /* create device tree */
-    create_fdt(s, memmap, machine->ram_size);
+    create_fdt(s, memmap, machine->ram_size, machine->kernel_cmdline);
 
     /* boot rom */
     memory_region_init_ram(boot_rom, NULL, "riscv_spike_board.bootrom",
