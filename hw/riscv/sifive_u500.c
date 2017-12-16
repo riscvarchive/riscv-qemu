@@ -179,7 +179,7 @@ static void create_fdt(SiFiveU500State *s, const struct MemmapEntry *memmap,
         0x0, memmap[SIFIVE_U500_PLIC].size);
     qemu_fdt_setprop_string(fdt, nodename, "reg-names", "control");
     qemu_fdt_setprop_cell(fdt, nodename, "riscv,max-priority", 7);
-    qemu_fdt_setprop_cell(fdt, nodename, "riscv,ndev", 4);
+    qemu_fdt_setprop_cell(fdt, nodename, "riscv,ndev", SIFIVE_U500_NDEV);
     qemu_fdt_setprop_cells(fdt, nodename, "phandle", 2);
     qemu_fdt_setprop_cells(fdt, nodename, "linux,phandle", 2);
     plic_phandle = qemu_fdt_get_phandle(fdt, nodename);
@@ -283,7 +283,7 @@ static void riscv_sifive_u500_init(MachineState *machine)
         SIFIVE_U500_PLIC_CONTEXT_STRIDE,
         memmap[SIFIVE_U500_PLIC].size);
     sifive_uart_create(memmap[SIFIVE_U500_UART0].base, serial_hds[0],
-        s->plic, SIFIVE_U500_UART0_IRQ);
+        SIFIVE_PLIC(s->plic)->irqs[SIFIVE_U500_UART0_IRQ]);
     /* sifive_uart_create(memmap[SIFIVE_U500_UART1].base, serial_hds[0],
         s->plic, SIFIVE_U500_UART1_IRQ); */
     sifive_clint_create(memmap[SIFIVE_U500_CLINT].base,

@@ -58,20 +58,17 @@ typedef struct SiFiveUARTState {
     SysBusDevice parent_obj;
 
     /*< public >*/
-    void *plic;
-    uint32_t plic_irq;
+    qemu_irq irq;
     MemoryRegion mmio;
     CharDriverState *chr;
     uint8_t rx_fifo[8];
     unsigned int rx_fifo_len;
     uint32_t ie;
-    uint32_t ip;
     uint32_t txctrl;
     uint32_t rxctrl;
     uint32_t div;
 } SiFiveUARTState;
 
-DeviceState *sifive_uart_create(hwaddr addr, CharDriverState *chr,
-    DeviceState *plic, uint32_t plic_irq);
+DeviceState *sifive_uart_create(hwaddr addr, CharDriverState *chr, qemu_irq irq);
 
 #endif
