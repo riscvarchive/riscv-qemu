@@ -83,7 +83,7 @@ static uint64_t load_kernel(const char *kernel_filename)
 }
 
 static void create_fdt(SiFiveU500State *s, const struct MemmapEntry *memmap,
-    uint64_t mem_size)
+    uint64_t mem_size, const char *cmdline)
 {
     void *fdt;
     int cpu;
@@ -195,6 +195,10 @@ static void create_fdt(SiFiveU500State *s, const struct MemmapEntry *memmap,
         0x0, memmap[SIFIVE_U500_UART0].size);
     qemu_fdt_setprop_cells(fdt, nodename, "interrupt-parent", plic_phandle);
     qemu_fdt_setprop_cells(fdt, nodename, "interrupts", 1);
+
+    qemu_fdt_add_subnode(fdt, "/chosen");
+    qemu_fdt_setprop_string(fdt, "/chosen", "stdout-path", nodename);
+    qemu_fdt_setprop_string(fdt, "/chosen", "bootargs", cmdline);
     g_free(nodename);
 }
 
@@ -227,7 +231,7 @@ static void riscv_sifive_u500_init(MachineState *machine)
         main_mem);
 
     /* create device tree */
-    create_fdt(s, memmap, machine->ram_size);
+    create_fdt(s, memmap, machine->ram_size, machine->kernel_cmdline);
 
     /* boot rom */
     memory_region_init_ram(boot_rom, NULL, "riscv.sifive.u500.bootrom",
