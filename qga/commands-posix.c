@@ -41,6 +41,10 @@ extern char **environ;
 #include <sys/socket.h>
 #include <net/if.h>
 
+#if __GLIBC__ > 1
+#include <sys/sysmacros.h>
+#endif
+
 #ifdef FIFREEZE
 #define CONFIG_FSFREEZE
 #endif
