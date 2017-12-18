@@ -161,7 +161,7 @@ static void riscv_sifive_e300_init(MachineState *machine)
     sifive_mmio_emulate(sys_mem, "riscv.sifive.e300.gpio0",
         memmap[SIFIVE_E300_GPIO0].base, memmap[SIFIVE_E300_GPIO0].size);
     sifive_uart_create(memmap[SIFIVE_E300_UART0].base, serial_hds[0],
-        s->plic, SIFIVE_E300_UART0_IRQ);
+        SIFIVE_PLIC(s->plic)->irqs[SIFIVE_E300_UART0_IRQ]);
     sifive_mmio_emulate(sys_mem, "riscv.sifive.e300.qspi0",
         memmap[SIFIVE_E300_QSPI0].base, memmap[SIFIVE_E300_QSPI0].size);
     sifive_mmio_emulate(sys_mem, "riscv.sifive.e300.pwm0",
