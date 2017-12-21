@@ -53,22 +53,15 @@ ieee_rm[rm]; })
 #endif
 
 /* convert softfloat library flag numbers to RISC-V */
-unsigned int softfloat_flags_to_riscv(unsigned int flag)
+unsigned int softfloat_flags_to_riscv(unsigned int flags)
 {
-    switch (flag) {
-    case float_flag_inexact:
-        return 1;
-    case float_flag_underflow:
-        return 2;
-    case float_flag_overflow:
-        return 4;
-    case float_flag_divbyzero:
-        return 8;
-    case float_flag_invalid:
-        return 16;
-    default:
-        return 0;
-    }
+    int rv_flags = 0;
+    rv_flags |= ( flags & float_flag_inexact   ) ? 1 : 0;
+    rv_flags |= ( flags & float_flag_underflow ) ? 2 : 0;
+    rv_flags |= ( flags & float_flag_overflow  ) ? 4 : 0;
+    rv_flags |= ( flags & float_flag_divbyzero ) ? 8 : 0;
+    rv_flags |= ( flags & float_flag_invalid   ) ? 16 : 0;
+    return rv_flags;
 }
 
 /* adapted from Spike's decode.h:set_fp_exceptions */
