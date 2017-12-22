@@ -248,7 +248,7 @@ target_ulong helper_flt_s(CPURISCVState *env, uint64_t frs1, uint64_t frs2)
 target_ulong helper_feq_s(CPURISCVState *env, uint64_t frs1, uint64_t frs2)
 {
     require_fp;
-    frs1 = float32_eq(frs1, frs2, &env->fp_status);
+    frs1 = float32_eq_quiet(frs1, frs2, &env->fp_status);
     set_fp_exceptions();
     return frs1;
 }
@@ -471,7 +471,7 @@ target_ulong helper_flt_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2)
 target_ulong helper_feq_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2)
 {
     require_fp;
-    frs1 = float64_eq(frs1, frs2, &env->fp_status);
+    frs1 = float64_eq_quiet(frs1, frs2, &env->fp_status);
     set_fp_exceptions();
     return frs1;
 }
