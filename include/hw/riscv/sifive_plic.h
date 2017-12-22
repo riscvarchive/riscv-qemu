@@ -65,7 +65,6 @@ typedef struct SiFivePLICState {
     qemu_irq *irqs;
 
     /* config */
-    void *soc;
     char* hart_config;
     uint32_t num_sources;
     uint32_t num_priorities;
@@ -81,8 +80,7 @@ typedef struct SiFivePLICState {
 void sifive_plic_raise_irq(SiFivePLICState *plic, uint32_t irq);
 void sifive_plic_lower_irq(SiFivePLICState *plic, uint32_t irq);
 
-DeviceState *sifive_plic_create(hwaddr addr,
-    RISCVHartArrayState *soc, char *hart_config,
+DeviceState *sifive_plic_create(hwaddr addr, char *hart_config,
     uint32_t num_sources, uint32_t num_priorities,
     uint32_t priority_base, uint32_t pending_base,
     uint32_t enable_base, uint32_t enable_stride,

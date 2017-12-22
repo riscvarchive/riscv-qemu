@@ -290,7 +290,7 @@ static void riscv_virt_board_init(MachineState *machine)
     cpu_physical_memory_write(ROM_BASE + sizeof(reset_vec), s->fdt, s->fdt_size);
 
     /* MMIO */
-    s->plic = sifive_plic_create(memmap[VIRT_PLIC].base, &s->soc,
+    s->plic = sifive_plic_create(memmap[VIRT_PLIC].base,
         (char*)VIRT_PLIC_HART_CONFIG,
         VIRT_PLIC_NUM_SOURCES,
         VIRT_PLIC_NUM_PRIORITIES,
@@ -302,7 +302,7 @@ static void riscv_virt_board_init(MachineState *machine)
         VIRT_PLIC_CONTEXT_STRIDE,
         memmap[VIRT_PLIC].size);
     sifive_clint_create(memmap[VIRT_CLINT].base,
-        memmap[VIRT_CLINT].size, &s->soc,
+        memmap[VIRT_CLINT].size, smp_cpus,
         SIFIVE_SIP_BASE, SIFIVE_TIMECMP_BASE, SIFIVE_TIME_BASE);
 
     for (i = 0; i < VIRTIO_COUNT; i++) {

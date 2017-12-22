@@ -27,7 +27,6 @@
 #include "qemu/error-report.h"
 #include "hw/sysbus.h"
 #include "hw/riscv/cpudevs.h"
-#include "hw/riscv/riscv_hart.h"
 #include "hw/riscv/sifive_clint.h"
 #include "qemu/timer.h"
 
@@ -124,27 +123,34 @@ static void sifive_clint_timer_cb(void *opaque)
 static uint64_t sifive_clint_read(void *opaque, hwaddr addr, unsigned size)
 {
     SiFiveCLINTState *clint = opaque;
-    RISCVHartArrayState *soc = clint->soc;
     if (addr >= clint->sip_base &&
-        addr < clint->sip_base + (soc->num_harts << 2)) {
-        size_t cpu = (addr - clint->sip_base) >> 2;
-        if ((addr & 0x3) == 0) {
-            return (soc->harts[cpu].env.mip & MIP_MSIP) > 0;
+        addr < clint->sip_base + (clint->num_harts << 2)) {
+        size_t hartid = (addr - clint->sip_base) >> 2;
+        CPUState *cpu = qemu_get_cpu(hartid);
+        CPURISCVState *env = cpu ? cpu->env_ptr : NULL;
+        if (!env) {
+            error_report("clint: invalid timecmp hartid: %zu", hartid);
+        } else if ((addr & 0x3) == 0) {
+            return (env->mip & MIP_MSIP) > 0;
         } else {
             error_report("clint: invalid read: %08x", (uint32_t)addr);
             return 0;
         }
     }
     else if (addr >= clint->timecmp_base &&
-        addr < clint->timecmp_base + (soc->num_harts << 3)) {
-        size_t cpu = (addr - clint->timecmp_base) >> 3;
-        if ((addr & 0x7) == 0) {    
+        addr < clint->timecmp_base + (clint->num_harts << 3)) {
+        size_t hartid = (addr - clint->timecmp_base) >> 3;
+        CPUState *cpu = qemu_get_cpu(hartid);
+        CPURISCVState *env = cpu ? cpu->env_ptr : NULL;
+        if (!env) {
+            error_report("clint: invalid timecmp hartid: %zu", hartid);
+        } else if ((addr & 0x7) == 0) {
             /* timecmp_lo */
-            uint64_t timecmp = soc->harts[cpu].env.timecmp;
+            uint64_t timecmp = env->timecmp;
             return timecmp & 0xFFFFFFFF;
         } else if ((addr & 0x7) == 4) {
             /* timecmp_hi */
-            uint64_t timecmp = soc->harts[cpu].env.timecmp;
+            uint64_t timecmp = env->timecmp;
             return (timecmp >> 32) & 0xFFFFFFFF;
         } else {
             error_report("clint: invalid read: %08x", (uint32_t)addr);
@@ -169,18 +175,21 @@ static void sifive_clint_write(void *opaque, hwaddr addr, uint64_t value,
         unsigned size)
 {
     SiFiveCLINTState *clint = opaque;
-    RISCVHartArrayState *soc = clint->soc;
 
     if (addr >= clint->sip_base &&
-        addr < clint->sip_base + (soc->num_harts << 2)) {
-        size_t cpu = (addr - clint->sip_base) >> 2;
-        if ((addr & 0x3) == 0) {
+        addr < clint->sip_base + (clint->num_harts << 2)) {
+        size_t hartid = (addr - clint->sip_base) >> 2;
+        CPUState *cpu = qemu_get_cpu(hartid);
+        CPURISCVState *env = cpu ? cpu->env_ptr : NULL;
+        if (!env) {
+            error_report("clint: invalid timecmp hartid: %zu", hartid);
+        } else if ((addr & 0x3) == 0) {
             if (value) {
-                soc->harts[cpu].env.mip |= MIP_MSIP;
-                qemu_irq_raise(soc->harts[cpu].env.irq[2]);
+                env->mip |= MIP_MSIP;
+                qemu_irq_raise(env->irq[2]);
             } else {
-                soc->harts[cpu].env.mip &= ~MIP_MSIP;
-                qemu_irq_lower(soc->harts[cpu].env.irq[2]);
+                env->mip &= ~MIP_MSIP;
+                qemu_irq_lower(env->irq[2]);
             }
         } else {
             error_report("clint: invalid sip write: %08x", (uint32_t)addr);
@@ -188,18 +197,22 @@ static void sifive_clint_write(void *opaque, hwaddr addr, uint64_t value,
         return;
     }
     else if (addr >= clint->timecmp_base &&
-        addr < clint->timecmp_base + (soc->num_harts << 3)) {
-        size_t cpu = (addr - clint->timecmp_base) >> 3;
-        if ((addr & 0x7) == 0) {    
+        addr < clint->timecmp_base + (clint->num_harts << 3)) {
+        size_t hartid = (addr - clint->timecmp_base) >> 3;
+        CPUState *cpu = qemu_get_cpu(hartid);
+        CPURISCVState *env = cpu ? cpu->env_ptr : NULL;
+        if (!env) {
+            error_report("clint: invalid timecmp hartid: %zu", hartid);
+        } else if ((addr & 0x7) == 0) {
             /* timecmp_lo */
-            uint64_t timecmp = soc->harts[cpu].env.timecmp;
-            sifive_clint_write_timecmp(&soc->harts[cpu].env,
+            uint64_t timecmp = env->timecmp;
+            sifive_clint_write_timecmp(env,
                 timecmp << 32 | (value & 0xFFFFFFFF));
             return;
         } else if ((addr & 0x7) == 4) {
             /* timecmp_hi */
-            uint64_t timecmp = soc->harts[cpu].env.timecmp;
-            sifive_clint_write_timecmp(&soc->harts[cpu].env,
+            uint64_t timecmp = env->timecmp;
+            sifive_clint_write_timecmp(env,
                 value << 32 | (timecmp & 0xFFFFFFFF));
         } else {
             error_report("clint: invalid timecmp write: %08x", (uint32_t)addr);
@@ -231,7 +244,7 @@ static const MemoryRegionOps sifive_clint_ops = {
 };
 
 static Property sifive_clint_properties[] = {
-    DEFINE_PROP_PTR("soc", SiFiveCLINTState, soc),
+    DEFINE_PROP_UINT32("num-harts", SiFiveCLINTState, num_harts, 0),
     DEFINE_PROP_UINT32("sip-base", SiFiveCLINTState, sip_base, 0),
     DEFINE_PROP_UINT32("timecmp-base", SiFiveCLINTState, timecmp_base, 0),
     DEFINE_PROP_UINT32("time-base", SiFiveCLINTState, time_base, 0),
@@ -272,13 +285,14 @@ type_init(sifive_clint_register_types)
 /*
  * Create CLINT device.
  */
-DeviceState *sifive_clint_create(hwaddr addr, hwaddr size,
-    RISCVHartArrayState *soc, uint32_t sip_base,
-    uint32_t timecmp_base, uint32_t time_base)
+DeviceState *sifive_clint_create(hwaddr addr, hwaddr size, uint32_t num_harts,
+    uint32_t sip_base, uint32_t timecmp_base, uint32_t time_base)
 {
     int i, j;
-    for (i = 0; i < soc->num_harts; i++) {
-        CPURISCVState *env = &soc->harts[i].env;
+    for (i = 0; i < num_harts; i++) {
+        CPUState *cpu = qemu_get_cpu(i);
+        CPURISCVState *env = cpu ? cpu->env_ptr : NULL;
+        if (!env) continue;
         for (j = 0; j < MAX_RISCV_IRQ; j++) {
             env->irq[j] = qemu_allocate_irq(sifive_clint_irq_request,
                 riscv_env_get_cpu(env), 0 /* irq 0 */);
@@ -289,7 +303,7 @@ DeviceState *sifive_clint_create(hwaddr addr, hwaddr size,
     }
 
     DeviceState *dev = qdev_create(NULL, TYPE_SIFIVE_CLINT);
-    qdev_prop_set_ptr(dev, "soc", soc);
+    qdev_prop_set_uint32(dev, "num-harts", num_harts);
     qdev_prop_set_uint32(dev, "sip-base", sip_base);
     qdev_prop_set_uint32(dev, "timecmp-base", timecmp_base);
     qdev_prop_set_uint32(dev, "time-base", time_base);

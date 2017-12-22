@@ -36,18 +36,16 @@ typedef struct SiFiveCLINTState {
     SysBusDevice parent_obj;
 
     /*< public >*/
-    void *soc;
     MemoryRegion mmio;
+    uint32_t num_harts;
     uint32_t sip_base;
     uint32_t timecmp_base;
     uint32_t time_base;
     uint32_t aperture_size;
 } SiFiveCLINTState;
 
-
-DeviceState *sifive_clint_create(hwaddr addr, hwaddr size,
-    RISCVHartArrayState *soc, uint32_t sip_base,
-    uint32_t timecmp_base, uint32_t time_base);
+DeviceState *sifive_clint_create(hwaddr addr, hwaddr size, uint32_t num_harts,
+    uint32_t sip_base, uint32_t timecmp_base, uint32_t time_base);
 
 enum {
     SIFIVE_SIP_BASE     = 0x0,

@@ -271,7 +271,7 @@ static void riscv_sifive_u500_init(MachineState *machine)
         sizeof(reset_vec), s->fdt, s->fdt_size);
 
     /* MMIO */
-    s->plic = sifive_plic_create(memmap[SIFIVE_U500_PLIC].base, &s->soc,
+    s->plic = sifive_plic_create(memmap[SIFIVE_U500_PLIC].base,
         (char*)SIFIVE_U500_PLIC_HART_CONFIG,
         SIFIVE_U500_PLIC_NUM_SOURCES,
         SIFIVE_U500_PLIC_NUM_PRIORITIES,
@@ -287,7 +287,7 @@ static void riscv_sifive_u500_init(MachineState *machine)
     /* sifive_uart_create(memmap[SIFIVE_U500_UART1].base, serial_hds[0],
         s->plic, SIFIVE_U500_UART1_IRQ); */
     sifive_clint_create(memmap[SIFIVE_U500_CLINT].base,
-        memmap[SIFIVE_U500_CLINT].size, &s->soc,
+        memmap[SIFIVE_U500_CLINT].size, smp_cpus,
         SIFIVE_SIP_BASE, SIFIVE_TIMECMP_BASE, SIFIVE_TIME_BASE);
 }
 

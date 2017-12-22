@@ -26,9 +26,7 @@
 
 #include "qemu/osdep.h"
 #include "hw/sysbus.h"
-#include "sysemu/char.h"
 #include "hw/riscv/cpudevs.h"
-#include "hw/riscv/riscv_hart.h"
 #include "hw/riscv/sifive_prci.h"
 
 static uint64_t sifive_prci_read(void *opaque, hwaddr addr, unsigned int size)

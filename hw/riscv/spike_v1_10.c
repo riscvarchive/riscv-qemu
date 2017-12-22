@@ -231,7 +231,7 @@ static void riscv_spike_board_init(MachineState *machine)
         &s->soc.harts[0].env, serial_hds[0]);
 
     /* Core Local Interruptor (timer and IPI) */
-    sifive_clint_create(0x2000000, 0x10000, &s->soc,
+    sifive_clint_create(0x2000000, 0x10000, smp_cpus,
         SIFIVE_SIP_BASE, SIFIVE_TIMECMP_BASE, SIFIVE_TIME_BASE);
 }
 

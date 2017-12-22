@@ -28,7 +28,6 @@
 #include "qemu/error-report.h"
 #include "hw/sysbus.h"
 #include "hw/riscv/cpudevs.h"
-#include "hw/riscv/riscv_hart.h"
 #include "hw/riscv/sifive_plic.h"
 
 //#define RISCV_DEBUG_PLIC
@@ -137,15 +136,16 @@ static int sifive_plic_num_irqs_pending(SiFivePLICState *plic, uint32_t addrid)
 
 static void sifive_plic_update(SiFivePLICState *plic)
 {
-    RISCVHartArrayState *soc = plic->soc;
     int addrid;
 
     /* raise irq on harts where this irq is enabled */
     for (addrid = 0; addrid < plic->num_addrs; addrid++) {
         uint32_t hartid = plic->addr_config[addrid].hartid;
         PLICMode mode = plic->addr_config[addrid].mode;
-        CPURISCVState *env = &soc->harts[hartid].env;
+        CPUState *cpu = qemu_get_cpu(hartid);
+        CPURISCVState *env = cpu ? cpu->env_ptr : NULL;
         int count = 0;
+        if (!env) continue;
         if (sifive_plic_num_irqs_pending(plic, addrid) > 0) {
            switch (mode) {
                 case PLICMode_M:
@@ -196,8 +196,7 @@ static void sifive_plic_update(SiFivePLICState *plic)
             }
         }
         if (count > 0) {
-            CPUState *cs = CPU(&soc->harts[hartid]);
-            cpu_interrupt(cs, CPU_INTERRUPT_HARD);
+            cpu_interrupt(cpu, CPU_INTERRUPT_HARD);
         }
     }
 
@@ -403,7 +402,6 @@ static const MemoryRegionOps sifive_plic_ops = {
 };
 
 static Property sifive_plic_properties[] = {
-    DEFINE_PROP_PTR("soc", SiFivePLICState, soc),
     DEFINE_PROP_STRING("hart-config", SiFivePLICState, hart_config),
     DEFINE_PROP_UINT32("num-sources", SiFivePLICState, num_sources, 0),
     DEFINE_PROP_UINT32("num-priorities", SiFivePLICState, num_priorities, 0),
@@ -426,7 +424,6 @@ static Property sifive_plic_properties[] = {
  */
 static void parse_hart_config(SiFivePLICState *plic)
 {
-    RISCVHartArrayState *soc = plic->soc;
     int addrid, hartid, modes;
     const char *p;
     char c;
@@ -453,11 +450,6 @@ static void parse_hart_config(SiFivePLICState *plic)
         addrid += __builtin_popcount(modes);
     }
     hartid++;
-    if (hartid != soc->num_harts) {
-        error_report("plic: found %d hart config items, require %d: %s",
-                     hartid, soc->num_harts, plic->hart_config);
-        exit(1);
-    }
 
     /* store hart/mode combinations */
     plic->num_addrs = addrid;
@@ -533,8 +525,7 @@ type_init(sifive_plic_register_types)
 /*
  * Create PLIC device.
  */
-DeviceState *sifive_plic_create(hwaddr addr,
-    RISCVHartArrayState *soc, char *hart_config,
+DeviceState *sifive_plic_create(hwaddr addr, char *hart_config,
     uint32_t num_sources, uint32_t num_priorities,
     uint32_t priority_base, uint32_t pending_base,
     uint32_t enable_base, uint32_t enable_stride,
@@ -544,7 +535,6 @@ DeviceState *sifive_plic_create(hwaddr addr,
     DeviceState *dev = qdev_create(NULL, TYPE_SIFIVE_PLIC);
     assert(enable_stride == (enable_stride & -enable_stride));
     assert(context_stride == (context_stride & -context_stride));
-    qdev_prop_set_ptr(dev, "soc", soc);
     qdev_prop_set_string(dev, "hart-config", hart_config);
     qdev_prop_set_uint32(dev, "num-sources", num_sources);
     qdev_prop_set_uint32(dev, "num-priorities", num_priorities);

@@ -141,7 +141,7 @@ static void riscv_sifive_e300_init(MachineState *machine)
         memmap[SIFIVE_E300_MROM].base, mask_rom);
 
     /* MMIO */
-    s->plic = sifive_plic_create(memmap[SIFIVE_E300_PLIC].base, &s->soc,
+    s->plic = sifive_plic_create(memmap[SIFIVE_E300_PLIC].base,
         (char*)SIFIVE_E300_PLIC_HART_CONFIG,
         SIFIVE_E300_PLIC_NUM_SOURCES,
         SIFIVE_E300_PLIC_NUM_PRIORITIES,
@@ -153,7 +153,7 @@ static void riscv_sifive_e300_init(MachineState *machine)
         SIFIVE_E300_PLIC_CONTEXT_STRIDE,
         memmap[SIFIVE_E300_PLIC].size);
     sifive_clint_create(memmap[SIFIVE_E300_CLINT].base,
-        memmap[SIFIVE_E300_CLINT].size, &s->soc,
+        memmap[SIFIVE_E300_CLINT].size, smp_cpus,
         SIFIVE_SIP_BASE, SIFIVE_TIMECMP_BASE, SIFIVE_TIME_BASE);
     sifive_mmio_emulate(sys_mem, "riscv.sifive.e300.aon",
         memmap[SIFIVE_E300_AON].base, memmap[SIFIVE_E300_AON].size);
