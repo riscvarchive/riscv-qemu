@@ -50,9 +50,6 @@ enum {
 
 #define TYPE_SIFIVE_UART "riscv.sifive.uart"
 
-#define SIFIVE_UART(obj) \
-    OBJECT_CHECK(SiFiveUARTState, (obj), TYPE_SIFIVE_UART)
-
 typedef struct SiFiveUARTState {
     /*< private >*/
     SysBusDevice parent_obj;
@@ -69,6 +66,7 @@ typedef struct SiFiveUARTState {
     uint32_t div;
 } SiFiveUARTState;
 
-DeviceState *sifive_uart_create(hwaddr addr, CharDriverState *chr, qemu_irq irq);
+SiFiveUARTState *sifive_uart_create(MemoryRegion *address_space, hwaddr base,
+    CharDriverState *chr, qemu_irq irq);
 
 #endif

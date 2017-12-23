@@ -160,14 +160,14 @@ static void riscv_sifive_e300_init(MachineState *machine)
     sifive_prci_create(memmap[SIFIVE_E300_PRCI].base);
     sifive_mmio_emulate(sys_mem, "riscv.sifive.e300.gpio0",
         memmap[SIFIVE_E300_GPIO0].base, memmap[SIFIVE_E300_GPIO0].size);
-    sifive_uart_create(memmap[SIFIVE_E300_UART0].base, serial_hds[0],
-        SIFIVE_PLIC(s->plic)->irqs[SIFIVE_E300_UART0_IRQ]);
+    sifive_uart_create(sys_mem, memmap[SIFIVE_E300_UART0].base,
+        serial_hds[0], SIFIVE_PLIC(s->plic)->irqs[SIFIVE_E300_UART0_IRQ]);
     sifive_mmio_emulate(sys_mem, "riscv.sifive.e300.qspi0",
         memmap[SIFIVE_E300_QSPI0].base, memmap[SIFIVE_E300_QSPI0].size);
     sifive_mmio_emulate(sys_mem, "riscv.sifive.e300.pwm0",
         memmap[SIFIVE_E300_PWM0].base, memmap[SIFIVE_E300_PWM0].size);
-    /* sifive_uart_create(memmap[SIFIVE_E300_UART1].base, serial_hds[1],
-        s->plic, SIFIVE_E300_UART1_IRQ); */
+    /* sifive_uart_create(sys_mem, memmap[SIFIVE_E300_UART1].base,
+        serial_hds[1], s->plic, SIFIVE_E300_UART1_IRQ); */
     sifive_mmio_emulate(sys_mem, "riscv.sifive.e300.qspi1",
         memmap[SIFIVE_E300_QSPI1].base, memmap[SIFIVE_E300_QSPI1].size);
     sifive_mmio_emulate(sys_mem, "riscv.sifive.e300.pwm1",

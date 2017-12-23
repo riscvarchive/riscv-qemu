@@ -207,7 +207,7 @@ static void riscv_sifive_u500_init(MachineState *machine)
     const struct MemmapEntry *memmap = sifive_u500_memmap;
 
     SiFiveU500State *s = g_new0(SiFiveU500State, 1);
-    MemoryRegion *system_memory = get_system_memory();
+    MemoryRegion *sys_mem = get_system_memory();
     MemoryRegion *main_mem = g_new(MemoryRegion, 1);
     MemoryRegion *boot_rom = g_new(MemoryRegion, 1);
 
@@ -227,7 +227,7 @@ static void riscv_sifive_u500_init(MachineState *machine)
                            machine->ram_size, &error_fatal);
     /* for phys mem size check in page table walk */
     vmstate_register_ram_global(main_mem);
-    memory_region_add_subregion(system_memory, memmap[SIFIVE_U500_DRAM].base,
+    memory_region_add_subregion(sys_mem, memmap[SIFIVE_U500_DRAM].base,
         main_mem);
 
     /* create device tree */
@@ -238,7 +238,7 @@ static void riscv_sifive_u500_init(MachineState *machine)
                            0x10000, &error_fatal);
     vmstate_register_ram_global(boot_rom);
     memory_region_set_readonly(boot_rom, true);
-    memory_region_add_subregion(system_memory, 0x0, boot_rom);
+    memory_region_add_subregion(sys_mem, 0x0, boot_rom);
 
     if (machine->kernel_filename) {
          load_kernel(machine->kernel_filename);
@@ -282,10 +282,10 @@ static void riscv_sifive_u500_init(MachineState *machine)
         SIFIVE_U500_PLIC_CONTEXT_BASE,
         SIFIVE_U500_PLIC_CONTEXT_STRIDE,
         memmap[SIFIVE_U500_PLIC].size);
-    sifive_uart_create(memmap[SIFIVE_U500_UART0].base, serial_hds[0],
-        SIFIVE_PLIC(s->plic)->irqs[SIFIVE_U500_UART0_IRQ]);
-    /* sifive_uart_create(memmap[SIFIVE_U500_UART1].base, serial_hds[0],
-        s->plic, SIFIVE_U500_UART1_IRQ); */
+    sifive_uart_create(sys_mem, memmap[SIFIVE_U500_UART0].base,
+        serial_hds[0], SIFIVE_PLIC(s->plic)->irqs[SIFIVE_U500_UART0_IRQ]);
+    /* sifive_uart_create(sys_mem, memmap[SIFIVE_U500_UART1].base,
+        serial_hds[1], s->plic, SIFIVE_U500_UART1_IRQ); */
     sifive_clint_create(memmap[SIFIVE_U500_CLINT].base,
         memmap[SIFIVE_U500_CLINT].size, smp_cpus,
         SIFIVE_SIP_BASE, SIFIVE_TIMECMP_BASE, SIFIVE_TIME_BASE);
