@@ -178,6 +178,7 @@ F: disas/ppc.c
 RISC-V
 M: Sagar Karandikar <sagark@eecs.berkeley.edu>
 M: Bastian Koppelmann <kbastian@mail.uni-paderborn.de>
+M: Michael Clark <mjc@sifive.com>
 S: Maintained
 F: target-riscv/
 F: hw/riscv/
