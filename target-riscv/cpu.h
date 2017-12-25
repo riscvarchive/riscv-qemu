@@ -6,10 +6,15 @@
 /* uncomment for lots of debug printing */
 /* #define RISCV_DEBUG_PRINT */
 
+#define TYPE_RISCV_CPU                    "riscv"
+#define TYPE_RISCV_CPU_ANY                "riscv-any"
 #define TYPE_RISCV_CPU_IMAFDCSU_PRIV_1_09 "riscv-imafdcsu-priv1.9"
 #define TYPE_RISCV_CPU_IMAFDCSU_PRIV_1_10 "riscv-imafdcsu-priv1.10"
 #define TYPE_RISCV_CPU_IMACU_PRIV_1_10    "riscv-imacu-priv1.10"
 #define TYPE_RISCV_CPU_IMAC_PRIV_1_10     "riscv-imac-priv1.10"
+
+#define RISCV_CPU_TYPE_PREFIX TYPE_RISCV_CPU "-"
+#define RISCV_CPU_TYPE_NAME(name) (RISCV_CPU_TYPE_PREFIX name)
 
 #if defined(TARGET_RISCV32)
 #define RVXLEN  ((target_ulong)1 << (TARGET_LONG_BITS - 2))
@@ -170,8 +175,6 @@ typedef struct CPURISCVState {
 
 #include "qom/cpu.h"
 
-#define TYPE_RISCV_CPU "riscv"
-
 #define RISCV_CPU_CLASS(klass) \
     OBJECT_CLASS_CHECK(RISCVCPUClass, (klass), TYPE_RISCV_CPU)
 #define RISCV_CPU(obj) \
@@ -249,6 +252,7 @@ void riscv_cpu_unassigned_access(CPUState *cpu, hwaddr addr, bool is_write,
 char* riscv_isa_string(RISCVCPU *cpu);
 void riscv_cpu_list(FILE *f, fprintf_function cpu_fprintf);
 
+#define cpu_init(cpu_model) cpu_generic_init(TYPE_RISCV_CPU, cpu_model)
 #define cpu_signal_handler cpu_riscv_signal_handler
 #define cpu_list riscv_cpu_list
 
@@ -334,7 +338,6 @@ RISCVCPU *cpu_riscv_init(const char *cpu_model);
 int cpu_riscv_signal_handler(int host_signum, void *pinfo, void *puc);
 void QEMU_NORETURN do_raise_exception_err(CPURISCVState *env,
                                           uint32_t exception, uintptr_t pc);
-#define cpu_init(cpu_model) CPU(cpu_riscv_init(cpu_model))
 
 /* hw/riscv/riscv_rtc.c  - supplies instret by approximating */
 uint64_t cpu_riscv_read_instret(CPURISCVState *env);

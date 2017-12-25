@@ -31,6 +31,15 @@ typedef struct RISCVCPUInfo {
     void (*initfn)(Object *obj);
 } RISCVCPUInfo;
 
+#ifdef CONFIG_USER_ONLY
+static void riscv_any_cpu_init(Object *obj)
+{
+    CPURISCVState *env = &RISCV_CPU(obj)->env;
+    env->misa = env->misa_mask = RVXLEN|RVI|RVM|RVA|RVF|RVD|RVC|RVU;
+    env->user_ver = USER_VERSION_2_02_0;
+    env->priv_ver = PRIV_VERSION_1_10_0;
+}
+#else
 static void riscv_imafdcsu_priv1_9_cpu_init(Object *obj)
 {
     CPURISCVState *env = &RISCV_CPU(obj)->env;
@@ -62,14 +71,37 @@ static void riscv_imac_priv1_10_cpu_init(Object *obj)
     env->user_ver = USER_VERSION_2_02_0;
     env->priv_ver = PRIV_VERSION_1_10_0;
 }
+#endif
 
 static const RISCVCPUInfo riscv_cpus[] = {
+#ifdef CONFIG_USER_ONLY
+    { TYPE_RISCV_CPU_ANY,                riscv_any_cpu_init },
+#else
     { TYPE_RISCV_CPU_IMAFDCSU_PRIV_1_09, riscv_imafdcsu_priv1_9_cpu_init },
     { TYPE_RISCV_CPU_IMAFDCSU_PRIV_1_10, riscv_imafdcsu_priv1_10_cpu_init },
     { TYPE_RISCV_CPU_IMACU_PRIV_1_10,    riscv_imacu_priv1_10_cpu_init },
     { TYPE_RISCV_CPU_IMAC_PRIV_1_10,     riscv_imac_priv1_10_cpu_init },
+#endif
     { NULL, NULL }
 };
+
+static ObjectClass *riscv_cpu_class_by_name(const char *cpu_model)
+{
+    ObjectClass *oc;
+    char *typename;
+    char **cpuname;
+
+    cpuname = g_strsplit(cpu_model, ",", 1);
+    typename = g_strdup_printf(RISCV_CPU_TYPE_NAME("%s"), cpuname[0]);
+    oc = object_class_by_name(typename);
+    g_strfreev(cpuname);
+    g_free(typename);
+    if (!oc || !object_class_dynamic_cast(oc, TYPE_RISCV_CPU) ||
+        object_class_is_abstract(oc)) {
+        return NULL;
+    }
+    return oc;
+}
 
 static inline void set_feature(CPURISCVState *env, int feature)
 {
@@ -180,6 +212,7 @@ static void riscv_cpu_class_init(ObjectClass *c, void *data)
     mcc->parent_reset = cc->reset;
     cc->reset = riscv_cpu_reset;
 
+    cc->class_by_name = riscv_cpu_class_by_name;
     cc->has_work = riscv_cpu_has_work;
     cc->do_interrupt = riscv_cpu_do_interrupt;
     cc->cpu_exec_interrupt = riscv_cpu_exec_interrupt;
@@ -259,20 +292,6 @@ void riscv_cpu_list(FILE *f, fprintf_function cpu_fprintf)
         (*cpu_fprintf)(f, "%s\n", info->name);
         info++;
     }
-}
-
-RISCVCPU *cpu_riscv_init(const char *cpu_model)
-{
-    RISCVCPU *cpu = RISCV_CPU(object_new(TYPE_RISCV_CPU));
-    CPURISCVState *env = &cpu->env;
-
-    env->misa = env->misa_mask = RVXLEN|RVI|RVM|RVA|RVF|RVD|RVC;
-    env->user_ver = USER_VERSION_2_02_0;
-    env->priv_ver = PRIV_VERSION_1_09_1;
-
-    object_property_set_bool(OBJECT(cpu), true, "realized", NULL);
-
-    return cpu;
 }
 
 static void riscv_cpu_register_types(void)
