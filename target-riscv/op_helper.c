@@ -160,7 +160,7 @@ inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
         break;
     }
     case CSR_MIP: {
-        target_ulong mask = MIP_SSIP | MIP_STIP;
+        target_ulong mask = MIP_SSIP | MIP_STIP | MIP_SEIP;
         env->mip = (env->mip & ~mask) |
             (val_to_write & mask);
         if (env->mip & MIP_SSIP) {
@@ -173,10 +173,10 @@ inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
         } else {
             qemu_irq_lower(STIP_IRQ);
         }
-        if (env->mip & MIP_MSIP) {
-            qemu_irq_raise(MSIP_IRQ);
+        if (env->mip & MIP_SEIP) {
+            qemu_irq_raise(SEIP_IRQ);
         } else {
-            qemu_irq_lower(MSIP_IRQ);
+            qemu_irq_lower(SEIP_IRQ);
         }
         break;
     }
