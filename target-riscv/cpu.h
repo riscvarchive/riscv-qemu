@@ -1,9 +1,28 @@
 #ifndef RISCV_CPU_H
 #define RISCV_CPU_H
 
-/*#define DEBUG_OP */
+/* QEMU addressing/paging config */
+#define TARGET_PAGE_BITS 12 /* 4 KiB Pages */
+#if defined(TARGET_RISCV64)
+#define TARGET_LONG_BITS 64
+#define TARGET_PHYS_ADDR_SPACE_BITS 50
+#define TARGET_VIRT_ADDR_SPACE_BITS 39
+#elif defined(TARGET_RISCV32)
+#define TARGET_LONG_BITS 32
+#define TARGET_PHYS_ADDR_SPACE_BITS 34
+#define TARGET_VIRT_ADDR_SPACE_BITS 32
+#endif
 
-/* uncomment for lots of debug printing */
+#define TARGET_HAS_ICE 1
+#define ELF_MACHINE EM_RISCV
+#define CPUArchState struct CPURISCVState
+
+#include "qemu-common.h"
+#include "qom/cpu.h"
+#include "exec/cpu-defs.h"
+#include "fpu/softfloat.h"
+
+/* #define DEBUG_OP */
 /* #define RISCV_DEBUG_PRINT */
 
 #define TYPE_RISCV_CPU                    "riscv"
@@ -35,27 +54,6 @@
 #define USER_VERSION_2_02_0 0x00020200
 #define PRIV_VERSION_1_09_1 0x00010901
 #define PRIV_VERSION_1_10_0 0x00011000
-
-#define TARGET_HAS_ICE 1
-#define ELF_MACHINE EM_RISCV
-#define CPUArchState struct CPURISCVState
-
-#include "qemu-common.h"
-
-/* QEMU addressing/paging config */
-#define TARGET_PAGE_BITS 12 /* 4 KiB Pages */
-#if defined(TARGET_RISCV64)
-#define TARGET_LONG_BITS 64
-#define TARGET_PHYS_ADDR_SPACE_BITS 50
-#define TARGET_VIRT_ADDR_SPACE_BITS 39
-#elif defined(TARGET_RISCV32)
-#define TARGET_LONG_BITS 32
-#define TARGET_PHYS_ADDR_SPACE_BITS 34
-#define TARGET_VIRT_ADDR_SPACE_BITS 32
-#endif
-
-#include "exec/cpu-defs.h"
-#include "fpu/softfloat.h"
 
 /* RISCV Exception Codes */
 #define EXCP_NONE                       -1 /* not a real RISCV exception code */
@@ -172,8 +170,6 @@ typedef struct CPURISCVState {
     void *irq[8];
     QEMUTimer *timer; /* Internal timer */
 } CPURISCVState;
-
-#include "qom/cpu.h"
 
 #define RISCV_CPU_CLASS(klass) \
     OBJECT_CLASS_CHECK(RISCVCPUClass, (klass), TYPE_RISCV_CPU)
@@ -339,7 +335,7 @@ int cpu_riscv_signal_handler(int host_signum, void *pinfo, void *puc);
 void QEMU_NORETURN do_raise_exception_err(CPURISCVState *env,
                                           uint32_t exception, uintptr_t pc);
 
-/* hw/riscv/riscv_rtc.c  - supplies instret by approximating */
+/* hw/riscv/sifive_clint.c  - supplies instret by approximating */
 uint64_t cpu_riscv_read_instret(CPURISCVState *env);
 uint64_t cpu_riscv_read_rtc(void);
 
