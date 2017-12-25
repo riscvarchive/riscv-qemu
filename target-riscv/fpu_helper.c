@@ -53,22 +53,15 @@ ieee_rm[rm]; })
 #endif
 
 /* convert softfloat library flag numbers to RISC-V */
-unsigned int softfloat_flags_to_riscv(unsigned int flag)
+unsigned int softfloat_flags_to_riscv(unsigned int flags)
 {
-    switch (flag) {
-    case float_flag_inexact:
-        return 1;
-    case float_flag_underflow:
-        return 2;
-    case float_flag_overflow:
-        return 4;
-    case float_flag_divbyzero:
-        return 8;
-    case float_flag_invalid:
-        return 16;
-    default:
-        return 0;
-    }
+    int rv_flags = 0;
+    rv_flags |= ( flags & float_flag_inexact   ) ? 1 : 0;
+    rv_flags |= ( flags & float_flag_underflow ) ? 2 : 0;
+    rv_flags |= ( flags & float_flag_overflow  ) ? 4 : 0;
+    rv_flags |= ( flags & float_flag_divbyzero ) ? 8 : 0;
+    rv_flags |= ( flags & float_flag_invalid   ) ? 16 : 0;
+    return rv_flags;
 }
 
 /* adapted from Spike's decode.h:set_fp_exceptions */
@@ -248,7 +241,7 @@ target_ulong helper_flt_s(CPURISCVState *env, uint64_t frs1, uint64_t frs2)
 target_ulong helper_feq_s(CPURISCVState *env, uint64_t frs1, uint64_t frs2)
 {
     require_fp;
-    frs1 = float32_eq(frs1, frs2, &env->fp_status);
+    frs1 = float32_eq_quiet(frs1, frs2, &env->fp_status);
     set_fp_exceptions();
     return frs1;
 }
@@ -471,7 +464,7 @@ target_ulong helper_flt_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2)
 target_ulong helper_feq_d(CPURISCVState *env, uint64_t frs1, uint64_t frs2)
 {
     require_fp;
-    frs1 = float64_eq(frs1, frs2, &env->fp_status);
+    frs1 = float64_eq_quiet(frs1, frs2, &env->fp_status);
     set_fp_exceptions();
     return frs1;
 }

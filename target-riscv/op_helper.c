@@ -528,7 +528,7 @@ inline target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno)
         // indicate only usable in debug mode (which we don't have)
         // i.e. software can't use it
         // see: https://dev.sifive.com/documentation/risc-v-external-debug-support-0-11/
-        return (1L << (TARGET_LONG_BITS - 5));
+        return (1LL << (TARGET_LONG_BITS - 5));
     case CSR_TDATA1:
         printf("CSR_TDATA1 read not implemented.\n");
         exit(1);
