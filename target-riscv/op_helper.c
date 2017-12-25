@@ -18,8 +18,10 @@
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "qemu/osdep.h"
 #include <stdlib.h>
+
+#include "qemu/osdep.h"
+#include "qemu/error-report.h"
 #include "cpu.h"
 #include "qemu/host-utils.h"
 #include "qemu/timer.h"
@@ -211,18 +213,19 @@ inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
         break;
     }
     case CSR_MINSTRET:
+        error_report("CSR_MINSTRET: write not implemented");
+        exit(1);
+        break;
     case CSR_MCYCLE:
-#if defined(TARGET_RISCV32)
-        printf("minstret write todo\n");
+        error_report("CSR_MCYCLE: write not implemented");
         exit(1);
-#else
-        printf("minstret write todo\n");
-        exit(1);
-#endif
         break;
     case CSR_MINSTRETH:
+        error_report("CSR_MINSTRETH: write not implemented");
+        exit(1);
+        break;
     case CSR_MCYCLEH:
-        printf("minstret write todo\n");
+        error_report("CSR_MCYCLEH: write not implemented");
         exit(1);
         break;
     case CSR_MUCOUNTEREN:
@@ -244,8 +247,6 @@ inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
         target_ulong next_mip = (env->mip & ~env->mideleg)
                                 | (val_to_write & env->mideleg);
         csr_write_helper(env, next_mip, CSR_MIP);
-        /* note: stw_phys should be done by the call to set MIP if necessary, */
-        /* so we don't do it here */
         break;
     }
     case CSR_SIE: {
@@ -275,8 +276,8 @@ inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
         break;
     case CSR_STVEC:
         if(val_to_write & 1) {
-           fprintf(stderr, "not handling vectored interrupts yet\n");
-           exit(-1);
+            error_report("CSR_STVEC: vectored interrupts not implemented");
+            exit(1);
         }
         env->stvec = val_to_write >> 2 << 2;
         break;
@@ -297,8 +298,8 @@ inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
         break;
     case CSR_MTVEC:
         if(val_to_write & 1) {
-           fprintf(stderr, "not handling vectored interrupts yet\n");
-           exit(-1);
+            error_report("CSR_MTVEC: vectored interrupts not implemented");
+            exit(1);
         }
         env->mtvec = val_to_write >> 2 << 2;
         break;
@@ -335,15 +336,15 @@ inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
         // TSELECT is hardwired in this implementation
         break;
     case CSR_TDATA1:
-        printf("CSR_TDATA1 write not implemented.\n");
+        error_report("CSR_TDATA1: write not implemented");
         exit(1);
         break;
     case CSR_TDATA2:
-        printf("CSR_TDATA2 write not implemented.\n");
+        error_report("CSR_TDATA2: write not implemented");
         exit(1);
         break;
     case CSR_DCSR:
-        printf("CSR_DCSR write not implemented.\n");
+        error_report("CSR_DCSR: write not implemented");
         exit(1);
         break;
     case CSR_PMPCFG0:
