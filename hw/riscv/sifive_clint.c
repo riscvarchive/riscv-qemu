@@ -26,7 +26,7 @@
 #include "qemu/osdep.h"
 #include "qemu/error-report.h"
 #include "hw/sysbus.h"
-#include "hw/riscv/cpudevs.h"
+#include "target-riscv/cpu.h"
 #include "hw/riscv/sifive_clint.h"
 #include "qemu/timer.h"
 

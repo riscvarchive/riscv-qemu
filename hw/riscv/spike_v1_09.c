@@ -38,7 +38,7 @@
 #include "hw/boards.h"
 #include "hw/loader.h"
 #include "hw/sysbus.h"
-#include "hw/riscv/cpudevs.h"
+#include "target-riscv/cpu.h"
 #include "hw/riscv/riscv_htif.h"
 #include "hw/riscv/riscv_hart.h"
 #include "hw/riscv/sifive_clint.h"

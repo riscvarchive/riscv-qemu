@@ -25,7 +25,7 @@
 #include "qemu/osdep.h"
 #include "hw/sysbus.h"
 #include "sysemu/char.h"
-#include "hw/riscv/cpudevs.h"
+#include "target-riscv/cpu.h"
 #include "hw/riscv/sifive_uart.h"
 
 /* See https://github.com/sifive/sifive-blocks/tree/072d0c1b58/src/main/scala/devices/uart */

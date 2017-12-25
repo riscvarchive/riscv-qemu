@@ -27,7 +27,7 @@
 #include "qemu/osdep.h"
 #include "qapi/error.h"
 #include "hw/sysbus.h"
-#include "hw/riscv/cpudevs.h"
+#include "target-riscv/cpu.h"
 #include "hw/riscv/riscv_hart.h"
 
 static Property riscv_harts_props[] = {
