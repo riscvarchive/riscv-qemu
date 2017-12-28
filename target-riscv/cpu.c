@@ -158,7 +158,11 @@ static void riscv_cpu_reset(CPUState *s)
 }
 
 static void riscv_cpu_disas_set_info(CPUState *s, disassemble_info *info) {
-    info->print_insn = print_insn_riscv;
+#if defined(TARGET_RISCV32)
+    info->print_insn = print_insn_riscv32;
+#elif defined(TARGET_RISCV64)
+    info->print_insn = print_insn_riscv64;
+#endif
 }
 
 static void riscv_cpu_realize(DeviceState *dev, Error **errp)
