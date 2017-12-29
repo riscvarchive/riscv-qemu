@@ -3969,6 +3969,12 @@ static void handle_arg_set_env(const char *arg)
     free(r);
 }
 
+static void handle_arg_set_env_no_comma(const char *arg)
+{
+    if (envlist_setenv(envlist, arg) != 0)
+        usage(EXIT_FAILURE);
+}
+
 static void handle_arg_unset_env(const char *arg)
 {
     char *r, *p, *token;
@@ -4139,6 +4145,8 @@ static const struct qemu_argument arg_table[] = {
      "model",      "select CPU (-cpu help for list)"},
     {"E",          "QEMU_SET_ENV",     true,  handle_arg_set_env,
      "var=value",  "sets targets environment variable (see below)"},
+    {"E_no_comma", "",                 true,  handle_arg_set_env_no_comma,
+     "var=value",  "sets targets environment variable, without commas (see below)"},
     {"U",          "QEMU_UNSET_ENV",   true,  handle_arg_unset_env,
      "var",        "unsets targets environment variable (see below)"},
     {"0",          "QEMU_ARGV0",       true,  handle_arg_argv0,
