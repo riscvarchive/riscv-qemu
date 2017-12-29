@@ -291,5 +291,6 @@
 #define TARGET_NR_process_vm_writev 271
 #define TARGET_NR_kcmp 272
 #define TARGET_NR_finit_module 273
+#define TARGET_NR_renameat2 276
 
 #define TARGET_NR_syscalls (__NR_finit_module+1)
