@@ -115,6 +115,7 @@ typedef struct CPURISCVState {
     uint32_t amoinsn;
     target_long amoaddr;
     target_long amotest;
+    target_long rve;
 #else
     target_ulong priv;
 

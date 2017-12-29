@@ -20,6 +20,7 @@
 #define xA5 15
 #define xA6 16
 #define xA7 17  /* syscall number goes here */
+#define xT0  5  /* syscall number for RV32E */
 
 #ifdef CONFIG_USER_ONLY
 int riscv_cpu_do_usermode_amo(CPUState* cs);
