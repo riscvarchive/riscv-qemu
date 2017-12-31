@@ -28,18 +28,16 @@
 #include "exec/memory.h"
 #include "target-riscv/cpu.h"
 
-typedef struct HTIFState HTIFState;
+#define TYPE_HTIF_UART "riscv.htif.uart"
 
-struct HTIFState {
+typedef struct HTIFState {
     int allow_tohost;
     int fromhost_inprogress;
 
     hwaddr tohost_offset;
     hwaddr fromhost_offset;
-    uint64_t tohost_size;
-    uint64_t fromhost_size;
     qemu_irq irq; /* host interrupt line */
-    MemoryRegion io;
+    MemoryRegion mmio;
     MemoryRegion *address_space;
     MemoryRegion *main_mem;
     void *main_mem_ram_ptr;
@@ -47,15 +45,10 @@ struct HTIFState {
     CPURISCVState *env;
     CharDriverState *chr;
     uint64_t pending_read;
-};
+} HTIFState;
 
-extern const VMStateDescription vmstate_htif;
-extern const MemoryRegionOps htif_io_ops;
-
-/* legacy pre qom */
 HTIFState *htif_mm_init(MemoryRegion *address_space,
-                        const char *kernel_filename, qemu_irq irq,
-                        MemoryRegion *main_mem,
-                        CPURISCVState *env, CharDriverState *chr);
+    const char *kernel_filename, qemu_irq irq, MemoryRegion *main_mem,
+    CPURISCVState *env, CharDriverState *chr);
 
 #endif

@@ -32,10 +32,6 @@
 
 /* Not yet implemented: TXFIFO / async writing, interrupt generation, divisor */
 
-static void sifive_uart_reset(DeviceState *dev)
-{
-}
-
 static void update_irq(SiFiveUARTState *s)
 {
     int cond = 0;
@@ -128,11 +124,6 @@ static const MemoryRegionOps uart_ops = {
     }
 };
 
-static Property sifive_uart_properties[] = {
-    DEFINE_PROP_CHR("chardev", SiFiveUARTState, chr),
-    DEFINE_PROP_END_OF_LIST(),
-};
-
 static void uart_rx(void *opaque, const uint8_t *buf, int size)
 {
     SiFiveUARTState *s = opaque;
@@ -158,57 +149,18 @@ static void uart_event(void *opaque, int event)
 {
 }
 
-static void sifive_uart_realize(DeviceState *dev, Error **errp)
-{
-    SiFiveUARTState *s = SIFIVE_UART(dev);
-
-    if (s->chr)
-        qemu_chr_add_handlers(s->chr, uart_can_rx, uart_rx, uart_event, s);
-}
-
-static void sifive_uart_init(Object *obj)
-{
-    SiFiveUARTState *s = SIFIVE_UART(obj);
-
-    memory_region_init_io(&s->mmio, obj, &uart_ops, s,
-                          TYPE_SIFIVE_UART, SIFIVE_UART_MAX);
-    sysbus_init_mmio(SYS_BUS_DEVICE(obj), &s->mmio);
-}
-
-static void sifive_uart_class_init(ObjectClass *klass, void *data)
-{
-    DeviceClass *dc = DEVICE_CLASS(klass);
-
-    dc->reset = sifive_uart_reset;
-    dc->realize = sifive_uart_realize;
-    dc->props = sifive_uart_properties;
-}
-
-static const TypeInfo sifive_uart_info = {
-    .name          = TYPE_SIFIVE_UART,
-    .parent        = TYPE_SYS_BUS_DEVICE,
-    .instance_size = sizeof(SiFiveUARTState),
-    .instance_init = sifive_uart_init,
-    .class_init    = sifive_uart_class_init,
-};
-
-static void sifive_uart_register_types(void)
-{
-    type_register_static(&sifive_uart_info);
-}
-
-type_init(sifive_uart_register_types)
-
-
 /*
  * Create UART device.
  */
-DeviceState *sifive_uart_create(hwaddr addr, CharDriverState *chr, qemu_irq irq)
+SiFiveUARTState *sifive_uart_create(MemoryRegion *address_space, hwaddr base,
+    CharDriverState *chr, qemu_irq irq)
 {
-    DeviceState *dev = qdev_create(NULL, TYPE_SIFIVE_UART);
-    SIFIVE_UART(dev)->irq = irq;
-    qdev_prop_set_chr(dev, "chardev", chr);
-    qdev_init_nofail(dev);
-    sysbus_mmio_map(SYS_BUS_DEVICE(dev), 0, addr);
-    return dev;
+    SiFiveUARTState *s = g_malloc0(sizeof(SiFiveUARTState));
+    s->irq = irq;
+    s->chr = chr;
+    qemu_chr_add_handlers(s->chr, uart_can_rx, uart_rx, uart_event, s);
+    memory_region_init_io(&s->mmio, NULL, &uart_ops, s,
+                          TYPE_SIFIVE_UART, SIFIVE_UART_MAX);
+    memory_region_add_subregion(address_space, base, &s->mmio);
+    return s;
 }

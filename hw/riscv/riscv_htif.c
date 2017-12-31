@@ -87,31 +87,6 @@ static void htif_event(void *opaque, int event)
 }
 #endif
 
-static void htif_pre_save(void *opaque)
-{
-    return;
-}
-
-static int htif_post_load(void *opaque, int version_id)
-{
-    return 0;
-}
-
-const VMStateDescription vmstate_htif = {
-    .name = "htif",
-    .version_id = 1,
-    .minimum_version_id = 1,
-    .pre_save = htif_pre_save,
-    .post_load = htif_post_load,
-    .fields      = (VMStateField []) { /* TODO what */
-        VMSTATE_UINT64(tohost_offset, HTIFState),
-        VMSTATE_UINT64(fromhost_offset, HTIFState),
-        VMSTATE_UINT64(tohost_size, HTIFState),
-        VMSTATE_UINT64(fromhost_size, HTIFState),
-        VMSTATE_END_OF_LIST()
-    },
-};
-
 static void dma_strcopy(HTIFState *htifstate, char *str, hwaddr phys_addr)
 {
     int i = 0;
@@ -297,15 +272,6 @@ static void htif_mm_write(void *opaque, hwaddr addr,
         if (htifstate->env->mtohost == 0x0) {
             htifstate->allow_tohost = 1;
             htifstate->env->mtohost = value & 0xFFFFFFFF;
-            if (unlikely(htifstate->tohost_size != 8)) {
-#ifdef DEBUG_HTIF
-                fprintf(stderr, "Using non-8 htif width\n");
-#endif
-                /* tests have a zero tohost size in elf symb tab and they
-                   use sw to write to mm_write, so TOHOST_OFFSET2 will never
-                   be written to. Thus, initiate side effects here. */
-                htif_handle_tohost_write(htifstate, htifstate->env->mtohost);
-            }
         } else {
             htifstate->allow_tohost = 0;
         }
@@ -330,25 +296,19 @@ static void htif_mm_write(void *opaque, hwaddr addr,
     }
 }
 
-static const MemoryRegionOps htif_mm_ops[3] = {
-    [DEVICE_LITTLE_ENDIAN] = {
-        .read = htif_mm_read,
-        .write = htif_mm_write,
-        .endianness = DEVICE_LITTLE_ENDIAN,
-    },
+static const MemoryRegionOps htif_mm_ops = {
+    .read = htif_mm_read,
+    .write = htif_mm_write,
 };
 
 HTIFState *htif_mm_init(MemoryRegion *address_space,
-           const char *kernel_filename, qemu_irq irq, MemoryRegion *main_mem,
-           CPURISCVState *env, CharDriverState *chr)
+    const char *kernel_filename, qemu_irq irq, MemoryRegion *main_mem,
+    CPURISCVState *env, CharDriverState *chr)
 {
-    uint64_t fromhost_addr = 0;
-    uint64_t fromhost_size = 0; /* for pk vs tests */
-    uint64_t tohost_addr = 0;
-    uint64_t tohost_size = 0; /* for pk vs tests */
+    uint64_t fromhost_addr = 0, tohost_addr = 0;
 
     /* get fromhost/tohost addresses from the ELF, as spike/fesvr do */
-    if (NULL != kernel_filename) {
+    if (kernel_filename) {
 #if defined(TARGET_RISCV64)
         Elf_obj64 *e = elf_open64(kernel_filename);
 #else
@@ -373,13 +333,17 @@ HTIFState *htif_mm_init(MemoryRegion *address_space,
             if (strcmp(fromhost, symname) == 0) {
                 /* get fromhost addr */
                 fromhost_addr = curr_sym->st_value;
-                fromhost_size = curr_sym->st_size; /* this is correctly set to 8
-                                                      by pk */
+                if (curr_sym->st_size != 8) {
+                    error_report("HTIF fromhost must be 8 bytes");
+                    exit(1);
+                }
             } else if (strcmp(tohost, symname) == 0) {
                 /* get tohost addr */
                 tohost_addr = curr_sym->st_value;
-                tohost_size = curr_sym->st_size; /* this is correctly set to 8
-                                                    by pk */
+                if (curr_sym->st_size != 8) {
+                    error_report("HTIF tohost must be 8 bytes");
+                    exit(1);
+                }
             }
 #if defined(TARGET_RISCV64)
             curr_sym = elf_nextsym64(e, curr_sym);
@@ -395,42 +359,33 @@ HTIFState *htif_mm_init(MemoryRegion *address_space,
 #endif
     }
 
-    /* now setup HTIF device */
-    HTIFState *htifstate;
+    if (!tohost_addr || !fromhost_addr) {
+        error_report("HTIF symbols not found");
+        exit(1);
+    }
+    uint64_t base = MIN(tohost_addr, fromhost_addr);
+    uint64_t size = MAX(tohost_addr + 8, fromhost_addr + 8) - base;
+    uint64_t tohost_offset = tohost_addr - base;
+    uint64_t fromhost_offset = fromhost_addr - base;
 
-    htifstate = g_malloc0(sizeof(HTIFState));
-    htifstate->irq = irq;
-    htifstate->address_space = address_space;
-    htifstate->main_mem = main_mem;
-    htifstate->main_mem_ram_ptr = memory_region_get_ram_ptr(main_mem);
-    htifstate->env = env;
-    htifstate->chr = chr;
-    htifstate->pending_read = 0;
-    htifstate->allow_tohost = 0;
-    htifstate->fromhost_inprogress = 0;
-    htifstate->fromhost_size = fromhost_size;
-    htifstate->tohost_size = tohost_size;
-
+    HTIFState *s = g_malloc0(sizeof(HTIFState));
+    s->irq = irq;
+    s->chr = chr;
+    s->address_space = address_space;
+    s->main_mem = main_mem;
+    s->main_mem_ram_ptr = memory_region_get_ram_ptr(main_mem);
+    s->env = env;
+    s->tohost_offset = tohost_offset;
+    s->fromhost_offset = fromhost_offset;
+    s->pending_read = 0;
+    s->allow_tohost = 0;
+    s->fromhost_inprogress = 0;
 #ifdef ENABLE_CHARDEV
-    qemu_chr_add_handlers(htifstate->chr, htif_can_recv, htif_recv, htif_event,
-                          htifstate);
+    qemu_chr_add_handlers(s->chr, htif_can_recv, htif_recv, htif_event, s);
 #endif
+    memory_region_init_io(&s->mmio, NULL, &htif_mm_ops, s,
+                          TYPE_HTIF_UART, size);
+    memory_region_add_subregion(address_space, base, &s->mmio);
 
-    uint64_t base = tohost_addr < fromhost_addr ? tohost_addr : fromhost_addr;
-    uint64_t second = tohost_addr < fromhost_addr ? fromhost_addr : tohost_addr;
-    uint64_t regionwidth = second - base + 8;
-
-    htifstate->tohost_offset = base == tohost_addr ? 0 : tohost_addr -
-                                                         fromhost_addr;
-    htifstate->fromhost_offset = base == fromhost_addr ? 0 : fromhost_addr -
-                                                             tohost_addr;
-
-    vmstate_register(NULL, base, &vmstate_htif, htifstate);
-
-    memory_region_init_io(&htifstate->io, NULL,
-                          &htif_mm_ops[DEVICE_LITTLE_ENDIAN],
-                           htifstate, "htif", regionwidth);
-    memory_region_add_subregion(address_space, base, &htifstate->io);
-
-    return htifstate;
+    return s;
 }
