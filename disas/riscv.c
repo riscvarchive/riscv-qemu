@@ -1,1415 +1,2757 @@
-/* RISC-V disassembler
-   Copyright 2011-2015 Free Software Foundation, Inc.
-
-   Contributed by Andrew Waterman (andrew@sifive.com).
-   Based on MIPS target.
-
-   This file is part of the GNU opcodes library.
-
-   This library is free software; you can redistribute it and/or modify
-   it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 3, or (at your option)
-   any later version.
-
-   It is distributed in the hope that it will be useful, but WITHOUT
-   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
-   License for more details.
-
-   You should have received a copy of the GNU General Public License
-   along with this program; see the file COPYING3. If not,
-   see <http://www.gnu.org/licenses/>.  */
+/*
+ * QEMU RISC-V Disassembler
+ *
+ * Copyright (c) 2016-2017 Michael Clark <michaeljclark@mac.com>
+ * Copyright (c) 2017 SiFive, Inc.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+ * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ */
 
 #include "qemu/osdep.h"
 #include "disas/bfd.h"
 
-#define MATCH_FIELD
-#include "disas/riscv-opc.h"
-#undef MATCH_FIELD
 
-/*
- * definition from include/opcode/riscv.h
- */
-typedef uint64_t insn_t;
+/* types */
 
-static inline unsigned int riscv_insn_length (insn_t insn)
-{
-  if ((insn & 0x3) != 0x3) /* RVC.  */
-    return 2;
-  if ((insn & 0x1f) != 0x1f) /* Base ISA and extensions in 32-bit space.  */
-    return 4;
-  if ((insn & 0x3f) == 0x1f) /* 48-bit extensions.  */
-    return 6;
-  if ((insn & 0x7f) == 0x3f) /* 64-bit extensions.  */
-    return 8;
-  /* Longer instructions not supported at the moment.  */
-  return 2;
-}
+typedef uint64_t rv_inst;
+typedef uint16_t rv_opcode;
 
-static const char * const riscv_rm[8] = {
-  "rne", "rtz", "rdn", "rup", "rmm", 0, 0, "dyn"
-};
-static const char * const riscv_pred_succ[16] = {
-  0,   "w",  "r",  "rw",  "o",  "ow",  "or",  "orw",
-  "i", "iw", "ir", "irw", "io", "iow", "ior", "iorw"
-};
+/* enums */
 
-#define RVC_JUMP_BITS 11
-#define RVC_JUMP_REACH ((1ULL << RVC_JUMP_BITS) * RISCV_JUMP_ALIGN)
+typedef enum {
+    rv32,
+    rv64,
+    rv128
+} rv_isa;
 
-#define RVC_BRANCH_BITS 8
-#define RVC_BRANCH_REACH ((1ULL << RVC_BRANCH_BITS) * RISCV_BRANCH_ALIGN)
+typedef enum {
+    rv_rm_rne = 0,
+    rv_rm_rtz = 1,
+    rv_rm_rdn = 2,
+    rv_rm_rup = 3,
+    rv_rm_rmm = 4,
+    rv_rm_dyn = 7,
+} rv_rm;
 
-#define RV_X(x, s, n) (((x) >> (s)) & ((1 << (n)) - 1))
-#define RV_IMM_SIGN(x) (-(((x) >> 31) & 1))
+typedef enum {
+    rv_fence_i = 8,
+    rv_fence_o = 4,
+    rv_fence_r = 2,
+    rv_fence_w = 1,
+} rv_fence;
 
-#define EXTRACT_ITYPE_IMM(x) \
-  (RV_X(x, 20, 12) | (RV_IMM_SIGN(x) << 12))
-#define EXTRACT_STYPE_IMM(x) \
-  (RV_X(x, 7, 5) | (RV_X(x, 25, 7) << 5) | (RV_IMM_SIGN(x) << 12))
-#define EXTRACT_SBTYPE_IMM(x) \
-  ((RV_X(x, 8, 4) << 1) | (RV_X(x, 25, 6) << 5) | (RV_X(x, 7, 1) << 11) | (RV_IMM_SIGN(x) << 12))
-#define EXTRACT_UTYPE_IMM(x) \
-  ((RV_X(x, 12, 20) << 12) | (RV_IMM_SIGN(x) << 32))
-#define EXTRACT_UJTYPE_IMM(x) \
-  ((RV_X(x, 21, 10) << 1) | (RV_X(x, 20, 1) << 11) | (RV_X(x, 12, 8) << 12) | (RV_IMM_SIGN(x) << 20))
-#define EXTRACT_RVC_IMM(x) \
-  (RV_X(x, 2, 5) | (-RV_X(x, 12, 1) << 5))
-#define EXTRACT_RVC_LUI_IMM(x) \
-  (EXTRACT_RVC_IMM (x) << RISCV_IMM_BITS)
-#define EXTRACT_RVC_SIMM3(x) \
-  (RV_X(x, 10, 2) | (-RV_X(x, 12, 1) << 2))
-#define EXTRACT_RVC_ADDI4SPN_IMM(x) \
-  ((RV_X(x, 6, 1) << 2) | (RV_X(x, 5, 1) << 3) | (RV_X(x, 11, 2) << 4) | (RV_X(x, 7, 4) << 6))
-#define EXTRACT_RVC_ADDI16SP_IMM(x) \
-  ((RV_X(x, 6, 1) << 4) | (RV_X(x, 2, 1) << 5) | (RV_X(x, 5, 1) << 6) | (RV_X(x, 3, 2) << 7) | (-RV_X(x, 12, 1) << 9))
-#define EXTRACT_RVC_LW_IMM(x) \
-  ((RV_X(x, 6, 1) << 2) | (RV_X(x, 10, 3) << 3) | (RV_X(x, 5, 1) << 6))
-#define EXTRACT_RVC_LD_IMM(x) \
-  ((RV_X(x, 10, 3) << 3) | (RV_X(x, 5, 2) << 6))
-#define EXTRACT_RVC_LWSP_IMM(x) \
-  ((RV_X(x, 4, 3) << 2) | (RV_X(x, 12, 1) << 5) | (RV_X(x, 2, 2) << 6))
-#define EXTRACT_RVC_LDSP_IMM(x) \
-  ((RV_X(x, 5, 2) << 3) | (RV_X(x, 12, 1) << 5) | (RV_X(x, 2, 3) << 6))
-#define EXTRACT_RVC_SWSP_IMM(x) \
-  ((RV_X(x, 9, 4) << 2) | (RV_X(x, 7, 2) << 6))
-#define EXTRACT_RVC_SDSP_IMM(x) \
-  ((RV_X(x, 10, 3) << 3) | (RV_X(x, 7, 3) << 6))
-#define EXTRACT_RVC_B_IMM(x) \
-  ((RV_X(x, 3, 2) << 1) | (RV_X(x, 10, 2) << 3) | (RV_X(x, 2, 1) << 5) | (RV_X(x, 5, 2) << 6) | (-RV_X(x, 12, 1) << 8))
-#define EXTRACT_RVC_J_IMM(x) \
-  ((RV_X(x, 3, 3) << 1) | (RV_X(x, 11, 1) << 4) | (RV_X(x, 2, 1) << 5) | (RV_X(x, 7, 1) << 6) | (RV_X(x, 6, 1) << 7) | (RV_X(x, 9, 2) << 8) | (RV_X(x, 8, 1) << 10) | (-RV_X(x, 12, 1) << 11))
+typedef enum {
+    rv_ireg_zero,
+    rv_ireg_ra,
+    rv_ireg_sp,
+    rv_ireg_gp,
+    rv_ireg_tp,
+    rv_ireg_t0,
+    rv_ireg_t1,
+    rv_ireg_t2,
+    rv_ireg_s0,
+    rv_ireg_s1,
+    rv_ireg_a0,
+    rv_ireg_a1,
+    rv_ireg_a2,
+    rv_ireg_a3,
+    rv_ireg_a4,
+    rv_ireg_a5,
+    rv_ireg_a6,
+    rv_ireg_a7,
+    rv_ireg_s2,
+    rv_ireg_s3,
+    rv_ireg_s4,
+    rv_ireg_s5,
+    rv_ireg_s6,
+    rv_ireg_s7,
+    rv_ireg_s8,
+    rv_ireg_s9,
+    rv_ireg_s10,
+    rv_ireg_s11,
+    rv_ireg_t3,
+    rv_ireg_t4,
+    rv_ireg_t5,
+    rv_ireg_t6,
+} rv_ireg;
 
-#define ENCODE_ITYPE_IMM(x) \
-  (RV_X(x, 0, 12) << 20)
-#define ENCODE_STYPE_IMM(x) \
-  ((RV_X(x, 0, 5) << 7) | (RV_X(x, 5, 7) << 25))
-#define ENCODE_SBTYPE_IMM(x) \
-  ((RV_X(x, 1, 4) << 8) | (RV_X(x, 5, 6) << 25) | (RV_X(x, 11, 1) << 7) | (RV_X(x, 12, 1) << 31))
-#define ENCODE_UTYPE_IMM(x) \
-  (RV_X(x, 12, 20) << 12)
-#define ENCODE_UJTYPE_IMM(x) \
-  ((RV_X(x, 1, 10) << 21) | (RV_X(x, 11, 1) << 20) | (RV_X(x, 12, 8) << 12) | (RV_X(x, 20, 1) << 31))
-#define ENCODE_RVC_IMM(x) \
-  ((RV_X(x, 0, 5) << 2) | (RV_X(x, 5, 1) << 12))
-#define ENCODE_RVC_LUI_IMM(x) \
-  ENCODE_RVC_IMM ((x) >> RISCV_IMM_BITS)
-#define ENCODE_RVC_SIMM3(x) \
-  (RV_X(x, 0, 3) << 10)
-#define ENCODE_RVC_ADDI4SPN_IMM(x) \
-  ((RV_X(x, 2, 1) << 6) | (RV_X(x, 3, 1) << 5) | (RV_X(x, 4, 2) << 11) | (RV_X(x, 6, 4) << 7))
-#define ENCODE_RVC_ADDI16SP_IMM(x) \
-  ((RV_X(x, 4, 1) << 6) | (RV_X(x, 5, 1) << 2) | (RV_X(x, 6, 1) << 5) | (RV_X(x, 7, 2) << 3) | (RV_X(x, 9, 1) << 12))
-#define ENCODE_RVC_LW_IMM(x) \
-  ((RV_X(x, 2, 1) << 6) | (RV_X(x, 3, 3) << 10) | (RV_X(x, 6, 1) << 5))
-#define ENCODE_RVC_LD_IMM(x) \
-  ((RV_X(x, 3, 3) << 10) | (RV_X(x, 6, 2) << 5))
-#define ENCODE_RVC_LWSP_IMM(x) \
-  ((RV_X(x, 2, 3) << 4) | (RV_X(x, 5, 1) << 12) | (RV_X(x, 6, 2) << 2))
-#define ENCODE_RVC_LDSP_IMM(x) \
-  ((RV_X(x, 3, 2) << 5) | (RV_X(x, 5, 1) << 12) | (RV_X(x, 6, 3) << 2))
-#define ENCODE_RVC_SWSP_IMM(x) \
-  ((RV_X(x, 2, 4) << 9) | (RV_X(x, 6, 2) << 7))
-#define ENCODE_RVC_SDSP_IMM(x) \
-  ((RV_X(x, 3, 3) << 10) | (RV_X(x, 6, 3) << 7))
-#define ENCODE_RVC_B_IMM(x) \
-  ((RV_X(x, 1, 2) << 3) | (RV_X(x, 3, 2) << 10) | (RV_X(x, 5, 1) << 2) | (RV_X(x, 6, 2) << 5) | (RV_X(x, 8, 1) << 12))
-#define ENCODE_RVC_J_IMM(x) \
-  ((RV_X(x, 1, 3) << 3) | (RV_X(x, 4, 1) << 11) | (RV_X(x, 5, 1) << 2) | (RV_X(x, 6, 1) << 7) | (RV_X(x, 7, 1) << 6) | (RV_X(x, 8, 2) << 9) | (RV_X(x, 10, 1) << 8) | (RV_X(x, 11, 1) << 12))
+typedef enum {
+    rvc_end,
+    rvc_simm_6,
+    rvc_imm_6,
+    rvc_imm_7,
+    rvc_imm_8,
+    rvc_imm_9,
+    rvc_imm_10,
+    rvc_imm_12,
+    rvc_imm_18,
+    rvc_imm_nz,
+    rvc_imm_x2,
+    rvc_imm_x4,
+    rvc_imm_x8,
+    rvc_imm_x16,
+    rvc_rd_b3,
+    rvc_rs1_b3,
+    rvc_rs2_b3,
+    rvc_rd_eq_rs1,
+    rvc_rd_eq_ra,
+    rvc_rd_eq_sp,
+    rvc_rd_eq_x0,
+    rvc_rs1_eq_sp,
+    rvc_rs1_eq_x0,
+    rvc_rs2_eq_x0,
+    rvc_rd_ne_x0_x2,
+    rvc_rd_ne_x0,
+    rvc_rs1_ne_x0,
+    rvc_rs2_ne_x0,
+    rvc_rs2_eq_rs1,
+    rvc_rs1_eq_ra,
+    rvc_imm_eq_zero,
+    rvc_imm_eq_n1,
+    rvc_imm_eq_p1,
+    rvc_csr_eq_0x001,
+    rvc_csr_eq_0x002,
+    rvc_csr_eq_0x003,
+    rvc_csr_eq_0xc00,
+    rvc_csr_eq_0xc01,
+    rvc_csr_eq_0xc02,
+    rvc_csr_eq_0xc80,
+    rvc_csr_eq_0xc81,
+    rvc_csr_eq_0xc82,
+} rvc_constraint;
 
-#define VALID_ITYPE_IMM(x) (EXTRACT_ITYPE_IMM(ENCODE_ITYPE_IMM(x)) == (x))
-#define VALID_STYPE_IMM(x) (EXTRACT_STYPE_IMM(ENCODE_STYPE_IMM(x)) == (x))
-#define VALID_SBTYPE_IMM(x) (EXTRACT_SBTYPE_IMM(ENCODE_SBTYPE_IMM(x)) == (x))
-#define VALID_UTYPE_IMM(x) (EXTRACT_UTYPE_IMM(ENCODE_UTYPE_IMM(x)) == (x))
-#define VALID_UJTYPE_IMM(x) (EXTRACT_UJTYPE_IMM(ENCODE_UJTYPE_IMM(x)) == (x))
-#define VALID_RVC_IMM(x) (EXTRACT_RVC_IMM(ENCODE_RVC_IMM(x)) == (x))
-#define VALID_RVC_LUI_IMM(x) (EXTRACT_RVC_LUI_IMM(ENCODE_RVC_LUI_IMM(x)) == (x))
-#define VALID_RVC_SIMM3(x) (EXTRACT_RVC_SIMM3(ENCODE_RVC_SIMM3(x)) == (x))
-#define VALID_RVC_ADDI4SPN_IMM(x) (EXTRACT_RVC_ADDI4SPN_IMM(ENCODE_RVC_ADDI4SPN_IMM(x)) == (x))
-#define VALID_RVC_ADDI16SP_IMM(x) (EXTRACT_RVC_ADDI16SP_IMM(ENCODE_RVC_ADDI16SP_IMM(x)) == (x))
-#define VALID_RVC_LW_IMM(x) (EXTRACT_RVC_LW_IMM(ENCODE_RVC_LW_IMM(x)) == (x))
-#define VALID_RVC_LD_IMM(x) (EXTRACT_RVC_LD_IMM(ENCODE_RVC_LD_IMM(x)) == (x))
-#define VALID_RVC_LWSP_IMM(x) (EXTRACT_RVC_LWSP_IMM(ENCODE_RVC_LWSP_IMM(x)) == (x))
-#define VALID_RVC_LDSP_IMM(x) (EXTRACT_RVC_LDSP_IMM(ENCODE_RVC_LDSP_IMM(x)) == (x))
-#define VALID_RVC_SWSP_IMM(x) (EXTRACT_RVC_SWSP_IMM(ENCODE_RVC_SWSP_IMM(x)) == (x))
-#define VALID_RVC_SDSP_IMM(x) (EXTRACT_RVC_SDSP_IMM(ENCODE_RVC_SDSP_IMM(x)) == (x))
-#define VALID_RVC_B_IMM(x) (EXTRACT_RVC_B_IMM(ENCODE_RVC_B_IMM(x)) == (x))
-#define VALID_RVC_J_IMM(x) (EXTRACT_RVC_J_IMM(ENCODE_RVC_J_IMM(x)) == (x))
+typedef enum {
+    rv_codec_illegal,
+    rv_codec_none,
+    rv_codec_u,
+    rv_codec_uj,
+    rv_codec_i,
+    rv_codec_i_sh5,
+    rv_codec_i_sh6,
+    rv_codec_i_sh7,
+    rv_codec_i_csr,
+    rv_codec_s,
+    rv_codec_sb,
+    rv_codec_r,
+    rv_codec_r_m,
+    rv_codec_r4_m,
+    rv_codec_r_a,
+    rv_codec_r_l,
+    rv_codec_r_f,
+    rv_codec_cb,
+    rv_codec_cb_imm,
+    rv_codec_cb_sh5,
+    rv_codec_cb_sh6,
+    rv_codec_ci,
+    rv_codec_ci_sh5,
+    rv_codec_ci_sh6,
+    rv_codec_ci_16sp,
+    rv_codec_ci_lwsp,
+    rv_codec_ci_ldsp,
+    rv_codec_ci_lqsp,
+    rv_codec_ci_li,
+    rv_codec_ci_lui,
+    rv_codec_ci_none,
+    rv_codec_ciw_4spn,
+    rv_codec_cj,
+    rv_codec_cj_jal,
+    rv_codec_cl_lw,
+    rv_codec_cl_ld,
+    rv_codec_cl_lq,
+    rv_codec_cr,
+    rv_codec_cr_mv,
+    rv_codec_cr_jalr,
+    rv_codec_cr_jr,
+    rv_codec_cs,
+    rv_codec_cs_sw,
+    rv_codec_cs_sd,
+    rv_codec_cs_sq,
+    rv_codec_css_swsp,
+    rv_codec_css_sdsp,
+    rv_codec_css_sqsp,
+} rv_codec;
 
-#define RISCV_RTYPE(insn, rd, rs1, rs2) \
-  ((MATCH_ ## insn) | ((rd) << OP_SH_RD) | ((rs1) << OP_SH_RS1) | ((rs2) << OP_SH_RS2))
-#define RISCV_ITYPE(insn, rd, rs1, imm) \
-  ((MATCH_ ## insn) | ((rd) << OP_SH_RD) | ((rs1) << OP_SH_RS1) | ENCODE_ITYPE_IMM(imm))
-#define RISCV_STYPE(insn, rs1, rs2, imm) \
-  ((MATCH_ ## insn) | ((rs1) << OP_SH_RS1) | ((rs2) << OP_SH_RS2) | ENCODE_STYPE_IMM(imm))
-#define RISCV_SBTYPE(insn, rs1, rs2, target) \
-  ((MATCH_ ## insn) | ((rs1) << OP_SH_RS1) | ((rs2) << OP_SH_RS2) | ENCODE_SBTYPE_IMM(target))
-#define RISCV_UTYPE(insn, rd, bigimm) \
-  ((MATCH_ ## insn) | ((rd) << OP_SH_RD) | ENCODE_UTYPE_IMM(bigimm))
-#define RISCV_UJTYPE(insn, rd, target) \
-  ((MATCH_ ## insn) | ((rd) << OP_SH_RD) | ENCODE_UJTYPE_IMM(target))
+typedef enum {
+    rv_op_illegal = 0,
+    rv_op_lui = 1,
+    rv_op_auipc = 2,
+    rv_op_jal = 3,
+    rv_op_jalr = 4,
+    rv_op_beq = 5,
+    rv_op_bne = 6,
+    rv_op_blt = 7,
+    rv_op_bge = 8,
+    rv_op_bltu = 9,
+    rv_op_bgeu = 10,
+    rv_op_lb = 11,
+    rv_op_lh = 12,
+    rv_op_lw = 13,
+    rv_op_lbu = 14,
+    rv_op_lhu = 15,
+    rv_op_sb = 16,
+    rv_op_sh = 17,
+    rv_op_sw = 18,
+    rv_op_addi = 19,
+    rv_op_slti = 20,
+    rv_op_sltiu = 21,
+    rv_op_xori = 22,
+    rv_op_ori = 23,
+    rv_op_andi = 24,
+    rv_op_slli = 25,
+    rv_op_srli = 26,
+    rv_op_srai = 27,
+    rv_op_add = 28,
+    rv_op_sub = 29,
+    rv_op_sll = 30,
+    rv_op_slt = 31,
+    rv_op_sltu = 32,
+    rv_op_xor = 33,
+    rv_op_srl = 34,
+    rv_op_sra = 35,
+    rv_op_or = 36,
+    rv_op_and = 37,
+    rv_op_fence = 38,
+    rv_op_fence_i = 39,
+    rv_op_lwu = 40,
+    rv_op_ld = 41,
+    rv_op_sd = 42,
+    rv_op_addiw = 43,
+    rv_op_slliw = 44,
+    rv_op_srliw = 45,
+    rv_op_sraiw = 46,
+    rv_op_addw = 47,
+    rv_op_subw = 48,
+    rv_op_sllw = 49,
+    rv_op_srlw = 50,
+    rv_op_sraw = 51,
+    rv_op_ldu = 52,
+    rv_op_lq = 53,
+    rv_op_sq = 54,
+    rv_op_addid = 55,
+    rv_op_sllid = 56,
+    rv_op_srlid = 57,
+    rv_op_sraid = 58,
+    rv_op_addd = 59,
+    rv_op_subd = 60,
+    rv_op_slld = 61,
+    rv_op_srld = 62,
+    rv_op_srad = 63,
+    rv_op_mul = 64,
+    rv_op_mulh = 65,
+    rv_op_mulhsu = 66,
+    rv_op_mulhu = 67,
+    rv_op_div = 68,
+    rv_op_divu = 69,
+    rv_op_rem = 70,
+    rv_op_remu = 71,
+    rv_op_mulw = 72,
+    rv_op_divw = 73,
+    rv_op_divuw = 74,
+    rv_op_remw = 75,
+    rv_op_remuw = 76,
+    rv_op_muld = 77,
+    rv_op_divd = 78,
+    rv_op_divud = 79,
+    rv_op_remd = 80,
+    rv_op_remud = 81,
+    rv_op_lr_w = 82,
+    rv_op_sc_w = 83,
+    rv_op_amoswap_w = 84,
+    rv_op_amoadd_w = 85,
+    rv_op_amoxor_w = 86,
+    rv_op_amoor_w = 87,
+    rv_op_amoand_w = 88,
+    rv_op_amomin_w = 89,
+    rv_op_amomax_w = 90,
+    rv_op_amominu_w = 91,
+    rv_op_amomaxu_w = 92,
+    rv_op_lr_d = 93,
+    rv_op_sc_d = 94,
+    rv_op_amoswap_d = 95,
+    rv_op_amoadd_d = 96,
+    rv_op_amoxor_d = 97,
+    rv_op_amoor_d = 98,
+    rv_op_amoand_d = 99,
+    rv_op_amomin_d = 100,
+    rv_op_amomax_d = 101,
+    rv_op_amominu_d = 102,
+    rv_op_amomaxu_d = 103,
+    rv_op_lr_q = 104,
+    rv_op_sc_q = 105,
+    rv_op_amoswap_q = 106,
+    rv_op_amoadd_q = 107,
+    rv_op_amoxor_q = 108,
+    rv_op_amoor_q = 109,
+    rv_op_amoand_q = 110,
+    rv_op_amomin_q = 111,
+    rv_op_amomax_q = 112,
+    rv_op_amominu_q = 113,
+    rv_op_amomaxu_q = 114,
+    rv_op_ecall = 115,
+    rv_op_ebreak = 116,
+    rv_op_uret = 117,
+    rv_op_sret = 118,
+    rv_op_hret = 119,
+    rv_op_mret = 120,
+    rv_op_dret = 121,
+    rv_op_sfence_vm = 122,
+    rv_op_sfence_vma = 123,
+    rv_op_wfi = 124,
+    rv_op_csrrw = 125,
+    rv_op_csrrs = 126,
+    rv_op_csrrc = 127,
+    rv_op_csrrwi = 128,
+    rv_op_csrrsi = 129,
+    rv_op_csrrci = 130,
+    rv_op_flw = 131,
+    rv_op_fsw = 132,
+    rv_op_fmadd_s = 133,
+    rv_op_fmsub_s = 134,
+    rv_op_fnmsub_s = 135,
+    rv_op_fnmadd_s = 136,
+    rv_op_fadd_s = 137,
+    rv_op_fsub_s = 138,
+    rv_op_fmul_s = 139,
+    rv_op_fdiv_s = 140,
+    rv_op_fsgnj_s = 141,
+    rv_op_fsgnjn_s = 142,
+    rv_op_fsgnjx_s = 143,
+    rv_op_fmin_s = 144,
+    rv_op_fmax_s = 145,
+    rv_op_fsqrt_s = 146,
+    rv_op_fle_s = 147,
+    rv_op_flt_s = 148,
+    rv_op_feq_s = 149,
+    rv_op_fcvt_w_s = 150,
+    rv_op_fcvt_wu_s = 151,
+    rv_op_fcvt_s_w = 152,
+    rv_op_fcvt_s_wu = 153,
+    rv_op_fmv_x_s = 154,
+    rv_op_fclass_s = 155,
+    rv_op_fmv_s_x = 156,
+    rv_op_fcvt_l_s = 157,
+    rv_op_fcvt_lu_s = 158,
+    rv_op_fcvt_s_l = 159,
+    rv_op_fcvt_s_lu = 160,
+    rv_op_fld = 161,
+    rv_op_fsd = 162,
+    rv_op_fmadd_d = 163,
+    rv_op_fmsub_d = 164,
+    rv_op_fnmsub_d = 165,
+    rv_op_fnmadd_d = 166,
+    rv_op_fadd_d = 167,
+    rv_op_fsub_d = 168,
+    rv_op_fmul_d = 169,
+    rv_op_fdiv_d = 170,
+    rv_op_fsgnj_d = 171,
+    rv_op_fsgnjn_d = 172,
+    rv_op_fsgnjx_d = 173,
+    rv_op_fmin_d = 174,
+    rv_op_fmax_d = 175,
+    rv_op_fcvt_s_d = 176,
+    rv_op_fcvt_d_s = 177,
+    rv_op_fsqrt_d = 178,
+    rv_op_fle_d = 179,
+    rv_op_flt_d = 180,
+    rv_op_feq_d = 181,
+    rv_op_fcvt_w_d = 182,
+    rv_op_fcvt_wu_d = 183,
+    rv_op_fcvt_d_w = 184,
+    rv_op_fcvt_d_wu = 185,
+    rv_op_fclass_d = 186,
+    rv_op_fcvt_l_d = 187,
+    rv_op_fcvt_lu_d = 188,
+    rv_op_fmv_x_d = 189,
+    rv_op_fcvt_d_l = 190,
+    rv_op_fcvt_d_lu = 191,
+    rv_op_fmv_d_x = 192,
+    rv_op_flq = 193,
+    rv_op_fsq = 194,
+    rv_op_fmadd_q = 195,
+    rv_op_fmsub_q = 196,
+    rv_op_fnmsub_q = 197,
+    rv_op_fnmadd_q = 198,
+    rv_op_fadd_q = 199,
+    rv_op_fsub_q = 200,
+    rv_op_fmul_q = 201,
+    rv_op_fdiv_q = 202,
+    rv_op_fsgnj_q = 203,
+    rv_op_fsgnjn_q = 204,
+    rv_op_fsgnjx_q = 205,
+    rv_op_fmin_q = 206,
+    rv_op_fmax_q = 207,
+    rv_op_fcvt_s_q = 208,
+    rv_op_fcvt_q_s = 209,
+    rv_op_fcvt_d_q = 210,
+    rv_op_fcvt_q_d = 211,
+    rv_op_fsqrt_q = 212,
+    rv_op_fle_q = 213,
+    rv_op_flt_q = 214,
+    rv_op_feq_q = 215,
+    rv_op_fcvt_w_q = 216,
+    rv_op_fcvt_wu_q = 217,
+    rv_op_fcvt_q_w = 218,
+    rv_op_fcvt_q_wu = 219,
+    rv_op_fclass_q = 220,
+    rv_op_fcvt_l_q = 221,
+    rv_op_fcvt_lu_q = 222,
+    rv_op_fcvt_q_l = 223,
+    rv_op_fcvt_q_lu = 224,
+    rv_op_fmv_x_q = 225,
+    rv_op_fmv_q_x = 226,
+    rv_op_c_addi4spn = 227,
+    rv_op_c_fld = 228,
+    rv_op_c_lw = 229,
+    rv_op_c_flw = 230,
+    rv_op_c_fsd = 231,
+    rv_op_c_sw = 232,
+    rv_op_c_fsw = 233,
+    rv_op_c_nop = 234,
+    rv_op_c_addi = 235,
+    rv_op_c_jal = 236,
+    rv_op_c_li = 237,
+    rv_op_c_addi16sp = 238,
+    rv_op_c_lui = 239,
+    rv_op_c_srli = 240,
+    rv_op_c_srai = 241,
+    rv_op_c_andi = 242,
+    rv_op_c_sub = 243,
+    rv_op_c_xor = 244,
+    rv_op_c_or = 245,
+    rv_op_c_and = 246,
+    rv_op_c_subw = 247,
+    rv_op_c_addw = 248,
+    rv_op_c_j = 249,
+    rv_op_c_beqz = 250,
+    rv_op_c_bnez = 251,
+    rv_op_c_slli = 252,
+    rv_op_c_fldsp = 253,
+    rv_op_c_lwsp = 254,
+    rv_op_c_flwsp = 255,
+    rv_op_c_jr = 256,
+    rv_op_c_mv = 257,
+    rv_op_c_ebreak = 258,
+    rv_op_c_jalr = 259,
+    rv_op_c_add = 260,
+    rv_op_c_fsdsp = 261,
+    rv_op_c_swsp = 262,
+    rv_op_c_fswsp = 263,
+    rv_op_c_ld = 264,
+    rv_op_c_sd = 265,
+    rv_op_c_addiw = 266,
+    rv_op_c_ldsp = 267,
+    rv_op_c_sdsp = 268,
+    rv_op_c_lq = 269,
+    rv_op_c_sq = 270,
+    rv_op_c_lqsp = 271,
+    rv_op_c_sqsp = 272,
+    rv_op_nop = 273,
+    rv_op_mv = 274,
+    rv_op_not = 275,
+    rv_op_neg = 276,
+    rv_op_negw = 277,
+    rv_op_sext_w = 278,
+    rv_op_seqz = 279,
+    rv_op_snez = 280,
+    rv_op_sltz = 281,
+    rv_op_sgtz = 282,
+    rv_op_fmv_s = 283,
+    rv_op_fabs_s = 284,
+    rv_op_fneg_s = 285,
+    rv_op_fmv_d = 286,
+    rv_op_fabs_d = 287,
+    rv_op_fneg_d = 288,
+    rv_op_fmv_q = 289,
+    rv_op_fabs_q = 290,
+    rv_op_fneg_q = 291,
+    rv_op_beqz = 292,
+    rv_op_bnez = 293,
+    rv_op_blez = 294,
+    rv_op_bgez = 295,
+    rv_op_bltz = 296,
+    rv_op_bgtz = 297,
+    rv_op_ble = 298,
+    rv_op_bleu = 299,
+    rv_op_bgt = 300,
+    rv_op_bgtu = 301,
+    rv_op_j = 302,
+    rv_op_ret = 303,
+    rv_op_jr = 304,
+    rv_op_rdcycle = 305,
+    rv_op_rdtime = 306,
+    rv_op_rdinstret = 307,
+    rv_op_rdcycleh = 308,
+    rv_op_rdtimeh = 309,
+    rv_op_rdinstreth = 310,
+    rv_op_frcsr = 311,
+    rv_op_frrm = 312,
+    rv_op_frflags = 313,
+    rv_op_fscsr = 314,
+    rv_op_fsrm = 315,
+    rv_op_fsflags = 316,
+    rv_op_fsrmi = 317,
+    rv_op_fsflagsi = 318,
+} rv_op;
 
-#define RISCV_NOP RISCV_ITYPE(ADDI, 0, 0, 0)
-#define RVC_NOP MATCH_C_ADDI
+/* structures */
 
-#define RISCV_CONST_HIGH_PART(VALUE) \
-  (((VALUE) + (RISCV_IMM_REACH/2)) & ~(RISCV_IMM_REACH-1))
-#define RISCV_CONST_LOW_PART(VALUE) ((VALUE) - RISCV_CONST_HIGH_PART (VALUE))
-#define RISCV_PCREL_HIGH_PART(VALUE, PC) RISCV_CONST_HIGH_PART((VALUE) - (PC))
-#define RISCV_PCREL_LOW_PART(VALUE, PC) RISCV_CONST_LOW_PART((VALUE) - (PC))
+typedef struct {
+    uint64_t  pc;
+    uint64_t  inst;
+    int32_t   imm;
+    uint16_t  op;
+    uint8_t   codec;
+    uint8_t   rd;
+    uint8_t   rs1;
+    uint8_t   rs2;
+    uint8_t   rs3;
+    uint8_t   rm;
+    uint8_t   pred;
+    uint8_t   succ;
+    uint8_t   aq;
+    uint8_t   rl;
+} rv_decode;
 
-#define RISCV_JUMP_BITS RISCV_BIGIMM_BITS
-#define RISCV_JUMP_ALIGN_BITS 1
-#define RISCV_JUMP_ALIGN (1 << RISCV_JUMP_ALIGN_BITS)
-#define RISCV_JUMP_REACH ((1ULL << RISCV_JUMP_BITS) * RISCV_JUMP_ALIGN)
+typedef struct {
+    const int op;
+    const rvc_constraint* constraints;
+} rv_comp_data;
 
-#define RISCV_IMM_BITS 12
-#define RISCV_BIGIMM_BITS (32 - RISCV_IMM_BITS)
-#define RISCV_IMM_REACH (1LL << RISCV_IMM_BITS)
-#define RISCV_BIGIMM_REACH (1LL << RISCV_BIGIMM_BITS)
-#define RISCV_RVC_IMM_REACH (1LL << 6)
-#define RISCV_BRANCH_BITS RISCV_IMM_BITS
-#define RISCV_BRANCH_ALIGN_BITS RISCV_JUMP_ALIGN_BITS
-#define RISCV_BRANCH_ALIGN (1 << RISCV_BRANCH_ALIGN_BITS)
-#define RISCV_BRANCH_REACH (RISCV_IMM_REACH * RISCV_BRANCH_ALIGN)
+typedef struct {
+    const char* name;
+    const rv_codec codec;
+    const char* format;
+    const rv_comp_data* pseudo;
+    const int decomp_rv32;
+    const int decomp_rv64;
+    const int decomp_rv128;
+} rv_opcode_data;
 
-/* RV fields.  */
+/* register names */
 
-#define OP_MASK_OP		0x7f
-#define OP_SH_OP		0
-#define OP_MASK_RS2		0x1f
-#define OP_SH_RS2		20
-#define OP_MASK_RS1		0x1f
-#define OP_SH_RS1		15
-#define OP_MASK_RS3		0x1f
-#define OP_SH_RS3		27
-#define OP_MASK_RD		0x1f
-#define OP_SH_RD		7
-#define OP_MASK_SHAMT		0x3f
-#define OP_SH_SHAMT		20
-#define OP_MASK_SHAMTW		0x1f
-#define OP_SH_SHAMTW		20
-#define OP_MASK_RM		0x7
-#define OP_SH_RM		12
-#define OP_MASK_PRED		0xf
-#define OP_SH_PRED		24
-#define OP_MASK_SUCC		0xf
-#define OP_SH_SUCC		20
-#define OP_MASK_AQ		0x1
-#define OP_SH_AQ		26
-#define OP_MASK_RL		0x1
-#define OP_SH_RL		25
-
-#define OP_MASK_CUSTOM_IMM	0x7f
-#define OP_SH_CUSTOM_IMM	25
-#define OP_MASK_CSR		0xfff
-#define OP_SH_CSR		20
-
-/* RVC fields.  */
-
-#define OP_MASK_CRS2 0x1f
-#define OP_SH_CRS2 2
-#define OP_MASK_CRS1S 0x7
-#define OP_SH_CRS1S 7
-#define OP_MASK_CRS2S 0x7
-#define OP_SH_CRS2S 2
-
-/* ABI names for selected x-registers.  */
-
-#define X_RA 1
-#define X_SP 2
-#define X_GP 3
-#define X_TP 4
-#define X_T0 5
-#define X_T1 6
-#define X_T2 7
-#define X_T3 28
-
-#define NGPR 32
-#define NFPR 32
-
-/* Replace bits MASK << SHIFT of STRUCT with the equivalent bits in
-   VALUE << SHIFT.  VALUE is evaluated exactly once.  */
-#define INSERT_BITS(STRUCT, VALUE, MASK, SHIFT) \
-  (STRUCT) = (((STRUCT) & ~((insn_t)(MASK) << (SHIFT))) \
-	      | ((insn_t)((VALUE) & (MASK)) << (SHIFT)))
-
-/* Extract bits MASK << SHIFT from STRUCT and shift them right
-   SHIFT places.  */
-#define EXTRACT_BITS(STRUCT, MASK, SHIFT) \
-  (((STRUCT) >> (SHIFT)) & (MASK))
-
-/* Extract the operand given by FIELD from integer INSN.  */
-#define EXTRACT_OPERAND(FIELD, INSN) \
-  EXTRACT_BITS ((INSN), OP_MASK_##FIELD, OP_SH_##FIELD)
-
-/* This structure holds information for a particular instruction.  */
-
-struct riscv_opcode
-{
-  /* The name of the instruction.  */
-  const char *name;
-  /* The ISA subset name (I, M, A, F, D, Xextension).  */
-  const char *subset;
-  /* A string describing the arguments for this instruction.  */
-  const char *args;
-  /* The basic opcode for the instruction.  When assembling, this
-     opcode is modified by the arguments to produce the actual opcode
-     that is used.  If pinfo is INSN_MACRO, then this is 0.  */
-  insn_t match;
-  /* If pinfo is not INSN_MACRO, then this is a bit mask for the
-     relevant portions of the opcode when disassembling.  If the
-     actual opcode anded with the match field equals the opcode field,
-     then we have found the correct instruction.  If pinfo is
-     INSN_MACRO, then this field is the macro identifier.  */
-  insn_t mask;
-  /* A function to determine if a word corresponds to this instruction.
-     Usually, this computes ((word & mask) == match).  */
-  int (*match_func) (const struct riscv_opcode *op, insn_t word);
-  /* For a macro, this is INSN_MACRO.  Otherwise, it is a collection
-     of bits describing the instruction, notably any relevant hazard
-     information.  */
-  unsigned long pinfo;
-};
-
-/* Instruction is a simple alias (e.g. "mv" for "addi").  */
-#define	INSN_ALIAS		0x00000001
-/* Instruction is actually a macro.  It should be ignored by the
-   disassembler, and requires special treatment by the assembler.  */
-#define INSN_MACRO		0xffffffff
-
-/* This is a list of macro expanded instructions.
-
-   _I appended means immediate
-   _A appended means address
-   _AB appended means address with base register
-   _D appended means 64 bit floating point constant
-   _S appended means 32 bit floating point constant.  */
-
-enum
-{
-  M_LA,
-  M_LLA,
-  M_LA_TLS_GD,
-  M_LA_TLS_IE,
-  M_LB,
-  M_LBU,
-  M_LH,
-  M_LHU,
-  M_LW,
-  M_LWU,
-  M_LD,
-  M_SB,
-  M_SH,
-  M_SW,
-  M_SD,
-  M_FLW,
-  M_FLD,
-  M_FSW,
-  M_FSD,
-  M_CALL,
-  M_J,
-  M_LI,
-  M_NUM_MACROS
-};
-
-
-/*
- * definition from opcode/riscv-opc.c
- */
-
-/* Register names used by gas and objdump.  */
-const char * const riscv_gpr_names_numeric[NGPR] =
-{
-  "x0",   "x1",   "x2",   "x3",   "x4",   "x5",   "x6",   "x7",
-  "x8",   "x9",   "x10",  "x11",  "x12",  "x13",  "x14",  "x15",
-  "x16",  "x17",  "x18",  "x19",  "x20",  "x21",  "x22",  "x23",
-  "x24",  "x25",  "x26",  "x27",  "x28",  "x29",  "x30",  "x31"
-};
-
-const char * const riscv_gpr_names_abi[NGPR] = {
-  "zero", "ra", "sp",  "gp",  "tp", "t0",  "t1",  "t2",
-  "s0",   "s1", "a0",  "a1",  "a2", "a3",  "a4",  "a5",
-  "a6",   "a7", "s2",  "s3",  "s4", "s5",  "s6",  "s7",
-  "s8",   "s9", "s10", "s11", "t3", "t4",  "t5",  "t6"
-};
-
-const char * const riscv_fpr_names_numeric[NFPR] =
-{
-  "f0",   "f1",   "f2",   "f3",   "f4",   "f5",   "f6",   "f7",
-  "f8",   "f9",   "f10",  "f11",  "f12",  "f13",  "f14",  "f15",
-  "f16",  "f17",  "f18",  "f19",  "f20",  "f21",  "f22",  "f23",
-  "f24",  "f25",  "f26",  "f27",  "f28",  "f29",  "f30",  "f31"
-};
-
-const char * const riscv_fpr_names_abi[NFPR] = {
-  "ft0", "ft1", "ft2",  "ft3",  "ft4", "ft5", "ft6",  "ft7",
-  "fs0", "fs1", "fa0",  "fa1",  "fa2", "fa3", "fa4",  "fa5",
-  "fa6", "fa7", "fs2",  "fs3",  "fs4", "fs5", "fs6",  "fs7",
-  "fs8", "fs9", "fs10", "fs11", "ft8", "ft9", "ft10", "ft11"
-};
-
-/* The order of overloaded instructions matters.  Label arguments and
-   register arguments look the same. Instructions that can have either
-   for arguments must apear in the correct order in this table for the
-   assembler to pick the right one. In other words, entries with
-   immediate operands must apear after the same instruction with
-   registers.
-
-   Because of the lookup algorithm used, entries with the same opcode
-   name must be contiguous.  */
-
-#define MASK_RS1 (OP_MASK_RS1 << OP_SH_RS1)
-#define MASK_RS2 (OP_MASK_RS2 << OP_SH_RS2)
-#define MASK_RD (OP_MASK_RD << OP_SH_RD)
-#define MASK_CRS2 (OP_MASK_CRS2 << OP_SH_CRS2)
-#define MASK_IMM ENCODE_ITYPE_IMM(-1U)
-#define MASK_RVC_IMM ENCODE_RVC_IMM(-1U)
-#define MASK_UIMM ENCODE_UTYPE_IMM(-1U)
-#define MASK_RM (OP_MASK_RM << OP_SH_RM)
-#define MASK_PRED (OP_MASK_PRED << OP_SH_PRED)
-#define MASK_SUCC (OP_MASK_SUCC << OP_SH_SUCC)
-#define MASK_AQ (OP_MASK_AQ << OP_SH_AQ)
-#define MASK_RL (OP_MASK_RL << OP_SH_RL)
-#define MASK_AQRL (MASK_AQ | MASK_RL)
-
-static int match_opcode(const struct riscv_opcode *op, insn_t insn)
-{
-  return ((insn ^ op->match) & op->mask) == 0;
-}
-
-static int match_never(const struct riscv_opcode *op ATTRIBUTE_UNUSED,
-		       insn_t insn ATTRIBUTE_UNUSED)
-{
-  return 0;
-}
-
-static int match_rs1_eq_rs2(const struct riscv_opcode *op, insn_t insn)
-{
-  int rs1 = (insn & MASK_RS1) >> OP_SH_RS1;
-  int rs2 = (insn & MASK_RS2) >> OP_SH_RS2;
-  return match_opcode (op, insn) && rs1 == rs2;
-}
-
-static int match_rd_nonzero(const struct riscv_opcode *op, insn_t insn)
-{
-  return match_opcode (op, insn) && ((insn & MASK_RD) != 0);
-}
-
-static int match_c_add(const struct riscv_opcode *op, insn_t insn)
-{
-  return match_rd_nonzero (op, insn) && ((insn & MASK_CRS2) != 0);
-}
-
-static int match_c_lui(const struct riscv_opcode *op, insn_t insn)
-{
-  return match_rd_nonzero (op, insn) && (((insn & MASK_RD) >> OP_SH_RD) != 2);
-}
-
-const struct riscv_opcode riscv_opcodes[] =
-{
-/* name,      isa,   operands, match, mask, match_func, pinfo */
-{"unimp",     "C",   "",  0, 0xffffU,  match_opcode, 0 },
-{"unimp",     "I",   "",  MATCH_CSRRW | (CSR_CYCLE << OP_SH_CSR), 0xffffffffU,  match_opcode, 0 }, /* csrw cycle, x0 */
-{"ebreak",    "C",   "",  MATCH_C_EBREAK, MASK_C_EBREAK, match_opcode, INSN_ALIAS },
-{"ebreak",    "I",   "",    MATCH_EBREAK, MASK_EBREAK, match_opcode, 0 },
-{"sbreak",    "C",   "",  MATCH_C_EBREAK, MASK_C_EBREAK, match_opcode, INSN_ALIAS },
-{"sbreak",    "I",   "",    MATCH_EBREAK, MASK_EBREAK, match_opcode, INSN_ALIAS },
-{"ret",       "C",   "",  MATCH_C_JR | (X_RA << OP_SH_RD), MASK_C_JR | MASK_RD, match_opcode, INSN_ALIAS },
-{"ret",       "I",   "",  MATCH_JALR | (X_RA << OP_SH_RS1), MASK_JALR | MASK_RD | MASK_RS1 | MASK_IMM, match_opcode, INSN_ALIAS },
-{"jr",        "C",   "d",  MATCH_C_JR, MASK_C_JR, match_rd_nonzero, INSN_ALIAS },
-{"jr",        "I",   "s",  MATCH_JALR, MASK_JALR | MASK_RD | MASK_IMM, match_opcode, INSN_ALIAS },
-{"jr",        "I",   "s,j",  MATCH_JALR, MASK_JALR | MASK_RD, match_opcode, INSN_ALIAS },
-{"jalr",      "C",   "d",  MATCH_C_JALR, MASK_C_JALR, match_rd_nonzero, INSN_ALIAS },
-{"jalr",      "I",   "s",  MATCH_JALR | (X_RA << OP_SH_RD), MASK_JALR | MASK_RD | MASK_IMM, match_opcode, INSN_ALIAS },
-{"jalr",      "I",   "s,j",  MATCH_JALR | (X_RA << OP_SH_RD), MASK_JALR | MASK_RD, match_opcode, INSN_ALIAS },
-{"jalr",      "I",   "d,s",  MATCH_JALR, MASK_JALR | MASK_IMM, match_opcode, INSN_ALIAS },
-{"jalr",      "I",   "d,s,j",  MATCH_JALR, MASK_JALR, match_opcode, 0 },
-{"j",         "C",   "Ca",  MATCH_C_J, MASK_C_J, match_opcode, INSN_ALIAS },
-{"j",         "I",   "a",  MATCH_JAL, MASK_JAL | MASK_RD, match_opcode, INSN_ALIAS },
-{"jal",       "32C", "Ca",  MATCH_C_JAL, MASK_C_JAL, match_opcode, INSN_ALIAS },
-{"jal",       "I",   "a",  MATCH_JAL | (X_RA << OP_SH_RD), MASK_JAL | MASK_RD, match_opcode, INSN_ALIAS },
-{"jal",       "I",   "d,a",  MATCH_JAL, MASK_JAL, match_opcode, 0 },
-{"call",      "I",   "c", (X_T1 << OP_SH_RS1) | (X_RA << OP_SH_RD), (int) M_CALL,  match_never, INSN_MACRO },
-{"call",      "I",   "d,c", (X_T1 << OP_SH_RS1), (int) M_CALL,  match_never, INSN_MACRO },
-{"tail",      "I",   "c", (X_T1 << OP_SH_RS1), (int) M_CALL,  match_never, INSN_MACRO },
-{"jump",      "I",   "c,s", 0, (int) M_CALL,  match_never, INSN_MACRO },
-{"nop",       "C",   "",  MATCH_C_ADDI, 0xffff, match_opcode, INSN_ALIAS },
-{"nop",       "I",   "",         MATCH_ADDI, MASK_ADDI | MASK_RD | MASK_RS1 | MASK_IMM, match_opcode, INSN_ALIAS },
-{"lui",       "C",   "d,Cu",  MATCH_C_LUI, MASK_C_LUI, match_c_lui, INSN_ALIAS },
-{"lui",       "I",   "d,u",  MATCH_LUI, MASK_LUI, match_opcode, 0 },
-{"li",        "C",   "d,Cv",  MATCH_C_LUI, MASK_C_LUI, match_c_lui, INSN_ALIAS },
-{"li",        "C",   "d,Cj",  MATCH_C_LI, MASK_C_LI, match_rd_nonzero, INSN_ALIAS },
-{"li",        "C",   "d,0",  MATCH_C_LI, MASK_C_LI | MASK_RVC_IMM, match_rd_nonzero, INSN_ALIAS },
-{"li",        "I",   "d,j",      MATCH_ADDI, MASK_ADDI | MASK_RS1, match_opcode, INSN_ALIAS }, /* addi */
-{"li",        "I",   "d,I",  0,    (int) M_LI,  match_never, INSN_MACRO },
-{"mv",        "C",   "d,CV",  MATCH_C_MV, MASK_C_MV, match_c_add, INSN_ALIAS },
-{"mv",        "I",   "d,s",  MATCH_ADDI, MASK_ADDI | MASK_IMM, match_opcode, INSN_ALIAS },
-{"move",      "C",   "d,CV",  MATCH_C_MV, MASK_C_MV, match_c_add, INSN_ALIAS },
-{"move",      "I",   "d,s",  MATCH_ADDI, MASK_ADDI | MASK_IMM, match_opcode, INSN_ALIAS },
-{"andi",      "C",   "Cs,Cw,Cj",  MATCH_C_ANDI, MASK_C_ANDI, match_opcode, INSN_ALIAS },
-{"andi",      "I",   "d,s,j",  MATCH_ANDI, MASK_ANDI, match_opcode, 0 },
-{"and",       "C",   "Cs,Cw,Ct",  MATCH_C_AND, MASK_C_AND, match_opcode, INSN_ALIAS },
-{"and",       "C",   "Cs,Ct,Cw",  MATCH_C_AND, MASK_C_AND, match_opcode, INSN_ALIAS },
-{"and",       "C",   "Cs,Cw,Cj",  MATCH_C_ANDI, MASK_C_ANDI, match_opcode, INSN_ALIAS },
-{"and",       "I",   "d,s,t",  MATCH_AND, MASK_AND, match_opcode, 0 },
-{"and",       "I",   "d,s,j",  MATCH_ANDI, MASK_ANDI, match_opcode, INSN_ALIAS },
-{"beqz",      "C",   "Cs,Cp",  MATCH_C_BEQZ, MASK_C_BEQZ, match_opcode, INSN_ALIAS },
-{"beqz",      "I",   "s,p",  MATCH_BEQ, MASK_BEQ | MASK_RS2, match_opcode, INSN_ALIAS },
-{"beq",       "I",   "s,t,p",  MATCH_BEQ, MASK_BEQ, match_opcode, 0 },
-{"blez",      "I",   "t,p",  MATCH_BGE, MASK_BGE | MASK_RS1, match_opcode, INSN_ALIAS },
-{"bgez",      "I",   "s,p",  MATCH_BGE, MASK_BGE | MASK_RS2, match_opcode, INSN_ALIAS },
-{"ble",       "I",   "t,s,p",  MATCH_BGE, MASK_BGE, match_opcode, INSN_ALIAS },
-{"bleu",      "I",   "t,s,p",  MATCH_BGEU, MASK_BGEU, match_opcode, INSN_ALIAS },
-{"bge",       "I",   "s,t,p",  MATCH_BGE, MASK_BGE, match_opcode, 0 },
-{"bgeu",      "I",   "s,t,p",  MATCH_BGEU, MASK_BGEU, match_opcode, 0 },
-{"bltz",      "I",   "s,p",  MATCH_BLT, MASK_BLT | MASK_RS2, match_opcode, INSN_ALIAS },
-{"bgtz",      "I",   "t,p",  MATCH_BLT, MASK_BLT | MASK_RS1, match_opcode, INSN_ALIAS },
-{"blt",       "I",   "s,t,p",  MATCH_BLT, MASK_BLT, match_opcode, 0 },
-{"bltu",      "I",   "s,t,p",  MATCH_BLTU, MASK_BLTU, match_opcode, 0 },
-{"bgt",       "I",   "t,s,p",  MATCH_BLT, MASK_BLT, match_opcode, INSN_ALIAS },
-{"bgtu",      "I",   "t,s,p",  MATCH_BLTU, MASK_BLTU, match_opcode, INSN_ALIAS },
-{"bnez",      "C",   "Cs,Cp",  MATCH_C_BNEZ, MASK_C_BNEZ, match_opcode, INSN_ALIAS },
-{"bnez",      "I",   "s,p",  MATCH_BNE, MASK_BNE | MASK_RS2, match_opcode, INSN_ALIAS },
-{"bne",       "I",   "s,t,p",  MATCH_BNE, MASK_BNE, match_opcode, 0 },
-{"addi",      "C",   "Ct,Cc,CK", MATCH_C_ADDI4SPN, MASK_C_ADDI4SPN, match_opcode, INSN_ALIAS },
-{"addi",      "C",   "d,CU,Cj",  MATCH_C_ADDI, MASK_C_ADDI, match_rd_nonzero, INSN_ALIAS },
-{"addi",      "C",   "Cc,Cc,CL", MATCH_C_ADDI16SP, MASK_C_ADDI16SP, match_opcode, INSN_ALIAS },
-{"addi",      "I",   "d,s,j",  MATCH_ADDI, MASK_ADDI, match_opcode, 0 },
-{"add",       "C",   "d,CU,CV",  MATCH_C_ADD, MASK_C_ADD, match_c_add, INSN_ALIAS },
-{"add",       "C",   "d,CV,CU",  MATCH_C_ADD, MASK_C_ADD, match_c_add, INSN_ALIAS },
-{"add",       "C",   "d,CU,Cj",  MATCH_C_ADDI, MASK_C_ADDI, match_rd_nonzero, INSN_ALIAS },
-{"add",       "C",   "Ct,Cc,CK", MATCH_C_ADDI4SPN, MASK_C_ADDI4SPN, match_opcode, INSN_ALIAS },
-{"add",       "C",   "Cc,Cc,CL", MATCH_C_ADDI16SP, MASK_C_ADDI16SP, match_opcode, INSN_ALIAS },
-{"add",       "I",   "d,s,t",  MATCH_ADD, MASK_ADD, match_opcode, 0 },
-{"add",       "I",   "d,s,t,0",MATCH_ADD, MASK_ADD, match_opcode, 0 },
-{"add",       "I",   "d,s,j",  MATCH_ADDI, MASK_ADDI, match_opcode, INSN_ALIAS },
-{"la",        "I",   "d,A",  0,    (int) M_LA,  match_never, INSN_MACRO },
-{"lla",       "I",   "d,A",  0,    (int) M_LLA,  match_never, INSN_MACRO },
-{"la.tls.gd", "I",   "d,A",  0,    (int) M_LA_TLS_GD,  match_never, INSN_MACRO },
-{"la.tls.ie", "I",   "d,A",  0,    (int) M_LA_TLS_IE,  match_never, INSN_MACRO },
-{"neg",       "I",   "d,t",  MATCH_SUB, MASK_SUB | MASK_RS1, match_opcode, INSN_ALIAS }, /* sub 0 */
-{"slli",      "C",   "d,CU,C>",  MATCH_C_SLLI, MASK_C_SLLI, match_rd_nonzero, INSN_ALIAS },
-{"slli",      "I",   "d,s,>",   MATCH_SLLI, MASK_SLLI, match_opcode, 0 },
-{"sll",       "C",   "d,CU,C>",  MATCH_C_SLLI, MASK_C_SLLI, match_rd_nonzero, INSN_ALIAS },
-{"sll",       "I",   "d,s,t",   MATCH_SLL, MASK_SLL, match_opcode, 0 },
-{"sll",       "I",   "d,s,>",   MATCH_SLLI, MASK_SLLI, match_opcode, INSN_ALIAS },
-{"srli",      "C",   "Cs,Cw,C>",  MATCH_C_SRLI, MASK_C_SRLI, match_rd_nonzero, INSN_ALIAS },
-{"srli",      "I",   "d,s,>",   MATCH_SRLI, MASK_SRLI, match_opcode, 0 },
-{"srl",       "C",   "Cs,Cw,C>",  MATCH_C_SRLI, MASK_C_SRLI, match_rd_nonzero, INSN_ALIAS },
-{"srl",       "I",   "d,s,t",   MATCH_SRL, MASK_SRL, match_opcode, 0 },
-{"srl",       "I",   "d,s,>",   MATCH_SRLI, MASK_SRLI, match_opcode, INSN_ALIAS },
-{"srai",      "C",   "Cs,Cw,C>",  MATCH_C_SRAI, MASK_C_SRAI, match_rd_nonzero, INSN_ALIAS },
-{"srai",      "I",   "d,s,>",   MATCH_SRAI, MASK_SRAI, match_opcode, 0 },
-{"sra",       "C",   "Cs,Cw,C>",  MATCH_C_SRAI, MASK_C_SRAI, match_rd_nonzero, INSN_ALIAS },
-{"sra",       "I",   "d,s,t",   MATCH_SRA, MASK_SRA, match_opcode, 0 },
-{"sra",       "I",   "d,s,>",   MATCH_SRAI, MASK_SRAI, match_opcode, INSN_ALIAS },
-{"sub",       "C",   "Cs,Cw,Ct",  MATCH_C_SUB, MASK_C_SUB, match_opcode, INSN_ALIAS },
-{"sub",       "I",   "d,s,t",  MATCH_SUB, MASK_SUB, match_opcode, 0 },
-{"lb",        "I",   "d,o(s)",  MATCH_LB, MASK_LB, match_opcode, 0 },
-{"lb",        "I",   "d,A",  0, (int) M_LB, match_never, INSN_MACRO },
-{"lbu",       "I",   "d,o(s)",  MATCH_LBU, MASK_LBU, match_opcode, 0 },
-{"lbu",       "I",   "d,A",  0, (int) M_LBU, match_never, INSN_MACRO },
-{"lh",        "I",   "d,o(s)",  MATCH_LH, MASK_LH, match_opcode, 0 },
-{"lh",        "I",   "d,A",  0, (int) M_LH, match_never, INSN_MACRO },
-{"lhu",       "I",   "d,o(s)",  MATCH_LHU, MASK_LHU, match_opcode, 0 },
-{"lhu",       "I",   "d,A",  0, (int) M_LHU, match_never, INSN_MACRO },
-{"lw",        "C",   "d,Cm(Cc)",  MATCH_C_LWSP, MASK_C_LWSP, match_rd_nonzero, INSN_ALIAS },
-{"lw",        "C",   "Ct,Ck(Cs)",  MATCH_C_LW, MASK_C_LW, match_opcode, INSN_ALIAS },
-{"lw",        "I",   "d,o(s)",  MATCH_LW, MASK_LW, match_opcode, 0 },
-{"lw",        "I",   "d,A",  0, (int) M_LW, match_never, INSN_MACRO },
-{"not",       "I",   "d,s",  MATCH_XORI | MASK_IMM, MASK_XORI | MASK_IMM, match_opcode, INSN_ALIAS },
-{"ori",       "I",   "d,s,j",  MATCH_ORI, MASK_ORI, match_opcode, 0 },
-{"or",       "C",   "Cs,Cw,Ct",  MATCH_C_OR, MASK_C_OR, match_opcode, INSN_ALIAS },
-{"or",       "C",   "Cs,Ct,Cw",  MATCH_C_OR, MASK_C_OR, match_opcode, INSN_ALIAS },
-{"or",        "I",   "d,s,t",  MATCH_OR, MASK_OR, match_opcode, 0 },
-{"or",        "I",   "d,s,j",  MATCH_ORI, MASK_ORI, match_opcode, INSN_ALIAS },
-{"auipc",     "I",   "d,u",  MATCH_AUIPC, MASK_AUIPC, match_opcode, 0 },
-{"seqz",      "I",   "d,s",  MATCH_SLTIU | ENCODE_ITYPE_IMM(1), MASK_SLTIU | MASK_IMM, match_opcode, INSN_ALIAS },
-{"snez",      "I",   "d,t",  MATCH_SLTU, MASK_SLTU | MASK_RS1, match_opcode, INSN_ALIAS },
-{"sltz",      "I",   "d,s",  MATCH_SLT, MASK_SLT | MASK_RS2, match_opcode, INSN_ALIAS },
-{"sgtz",      "I",   "d,t",  MATCH_SLT, MASK_SLT | MASK_RS1, match_opcode, INSN_ALIAS },
-{"slti",      "I",   "d,s,j",  MATCH_SLTI, MASK_SLTI, match_opcode, INSN_ALIAS },
-{"slt",       "I",   "d,s,t",  MATCH_SLT, MASK_SLT, match_opcode, 0 },
-{"slt",       "I",   "d,s,j",  MATCH_SLTI, MASK_SLTI, match_opcode, 0 },
-{"sltiu",     "I",   "d,s,j",  MATCH_SLTIU, MASK_SLTIU, match_opcode, 0 },
-{"sltu",      "I",   "d,s,t",  MATCH_SLTU, MASK_SLTU, match_opcode, 0 },
-{"sltu",      "I",   "d,s,j",  MATCH_SLTIU, MASK_SLTIU, match_opcode, INSN_ALIAS },
-{"sgt",       "I",   "d,t,s",  MATCH_SLT, MASK_SLT, match_opcode, INSN_ALIAS },
-{"sgtu",      "I",   "d,t,s",  MATCH_SLTU, MASK_SLTU, match_opcode, INSN_ALIAS },
-{"sb",        "I",   "t,q(s)",  MATCH_SB, MASK_SB, match_opcode, 0 },
-{"sb",        "I",   "t,A,s",  0, (int) M_SB, match_never, INSN_MACRO },
-{"sh",        "I",   "t,q(s)",  MATCH_SH, MASK_SH, match_opcode, 0 },
-{"sh",        "I",   "t,A,s",  0, (int) M_SH, match_never, INSN_MACRO },
-{"sw",        "C",   "CV,CM(Cc)",  MATCH_C_SWSP, MASK_C_SWSP, match_opcode, INSN_ALIAS },
-{"sw",        "C",   "Ct,Ck(Cs)",  MATCH_C_SW, MASK_C_SW, match_opcode, INSN_ALIAS },
-{"sw",        "I",   "t,q(s)",  MATCH_SW, MASK_SW, match_opcode, 0 },
-{"sw",        "I",   "t,A,s",  0, (int) M_SW, match_never, INSN_MACRO },
-{"fence",     "I",   "",  MATCH_FENCE | MASK_PRED | MASK_SUCC, MASK_FENCE | MASK_RD | MASK_RS1 | MASK_IMM, match_opcode, INSN_ALIAS },
-{"fence",     "I",   "P,Q",  MATCH_FENCE, MASK_FENCE | MASK_RD | MASK_RS1 | (MASK_IMM & ~MASK_PRED & ~MASK_SUCC), match_opcode, 0 },
-{"fence.i",   "I",   "",  MATCH_FENCE_I, MASK_FENCE | MASK_RD | MASK_RS1 | MASK_IMM, match_opcode, 0 },
-{"rdcycle",   "I",   "d",  MATCH_RDCYCLE, MASK_RDCYCLE, match_opcode, 0 },
-{"rdinstret", "I",   "d",  MATCH_RDINSTRET, MASK_RDINSTRET, match_opcode, 0 },
-{"rdtime",    "I",   "d",  MATCH_RDTIME, MASK_RDTIME, match_opcode, 0 },
-{"rdcycleh",  "32I", "d",  MATCH_RDCYCLEH, MASK_RDCYCLEH, match_opcode, 0 },
-{"rdinstreth","32I", "d",  MATCH_RDINSTRETH, MASK_RDINSTRETH, match_opcode, 0 },
-{"rdtimeh",   "32I", "d",  MATCH_RDTIMEH, MASK_RDTIMEH, match_opcode, 0 },
-{"ecall",     "I",   "",    MATCH_SCALL, MASK_SCALL, match_opcode, 0 },
-{"scall",     "I",   "",    MATCH_SCALL, MASK_SCALL, match_opcode, 0 },
-{"xori",      "I",   "d,s,j",  MATCH_XORI, MASK_XORI, match_opcode, 0 },
-{"xor",       "C",   "Cs,Cw,Ct",  MATCH_C_XOR, MASK_C_XOR, match_opcode, INSN_ALIAS },
-{"xor",       "C",   "Cs,Ct,Cw",  MATCH_C_XOR, MASK_C_XOR, match_opcode, INSN_ALIAS },
-{"xor",       "I",   "d,s,t",  MATCH_XOR, MASK_XOR, match_opcode, 0 },
-{"xor",       "I",   "d,s,j",  MATCH_XORI, MASK_XORI, match_opcode, INSN_ALIAS },
-{"lwu",       "64I", "d,o(s)",  MATCH_LWU, MASK_LWU, match_opcode, 0 },
-{"lwu",       "64I", "d,A",  0, (int) M_LWU, match_never, INSN_MACRO },
-{"ld",        "64C", "d,Cn(Cc)",  MATCH_C_LDSP, MASK_C_LDSP, match_rd_nonzero, INSN_ALIAS },
-{"ld",        "64C", "Ct,Cl(Cs)",  MATCH_C_LD, MASK_C_LD, match_opcode, INSN_ALIAS },
-{"ld",        "64I", "d,o(s)", MATCH_LD, MASK_LD, match_opcode, 0 },
-{"ld",        "64I", "d,A",  0, (int) M_LD, match_never, INSN_MACRO },
-{"sd",        "64C", "CV,CN(Cc)",  MATCH_C_SDSP, MASK_C_SDSP, match_opcode, INSN_ALIAS },
-{"sd",        "64C", "Ct,Cl(Cs)",  MATCH_C_SD, MASK_C_SD, match_opcode, INSN_ALIAS },
-{"sd",        "64I", "t,q(s)",  MATCH_SD, MASK_SD, match_opcode, 0 },
-{"sd",        "64I", "t,A,s",  0, (int) M_SD, match_never, INSN_MACRO },
-{"sext.w",    "64C", "d,CU",  MATCH_C_ADDIW, MASK_C_ADDIW | MASK_RVC_IMM, match_rd_nonzero, INSN_ALIAS },
-{"sext.w",    "64I", "d,s",  MATCH_ADDIW, MASK_ADDIW | MASK_IMM, match_opcode, INSN_ALIAS },
-{"addiw",     "64C", "d,CU,Cj",  MATCH_C_ADDIW, MASK_C_ADDIW, match_rd_nonzero, INSN_ALIAS },
-{"addiw",     "64I", "d,s,j",  MATCH_ADDIW, MASK_ADDIW, match_opcode, 0 },
-{"addw",      "64C", "Cs,Cw,Ct",  MATCH_C_ADDW, MASK_C_ADDW, match_opcode, INSN_ALIAS },
-{"addw",      "64C", "Cs,Ct,Cw",  MATCH_C_ADDW, MASK_C_ADDW, match_opcode, INSN_ALIAS },
-{"addw",      "64C", "d,CU,Cj",  MATCH_C_ADDIW, MASK_C_ADDIW, match_rd_nonzero, INSN_ALIAS },
-{"addw",      "64I", "d,s,t",  MATCH_ADDW, MASK_ADDW, match_opcode, 0 },
-{"addw",      "64I", "d,s,j",  MATCH_ADDIW, MASK_ADDIW, match_opcode, INSN_ALIAS },
-{"negw",      "64I", "d,t",  MATCH_SUBW, MASK_SUBW | MASK_RS1, match_opcode, INSN_ALIAS }, /* sub 0 */
-{"slliw",     "64I", "d,s,<",   MATCH_SLLIW, MASK_SLLIW, match_opcode, 0 },
-{"sllw",      "64I", "d,s,t",   MATCH_SLLW, MASK_SLLW, match_opcode, 0 },
-{"sllw",      "64I", "d,s,<",   MATCH_SLLIW, MASK_SLLIW, match_opcode, INSN_ALIAS },
-{"srliw",     "64I", "d,s,<",   MATCH_SRLIW, MASK_SRLIW, match_opcode, 0 },
-{"srlw",      "64I", "d,s,t",   MATCH_SRLW, MASK_SRLW, match_opcode, 0 },
-{"srlw",      "64I", "d,s,<",   MATCH_SRLIW, MASK_SRLIW, match_opcode, INSN_ALIAS },
-{"sraiw",     "64I", "d,s,<",   MATCH_SRAIW, MASK_SRAIW, match_opcode, 0 },
-{"sraw",      "64I", "d,s,t",   MATCH_SRAW, MASK_SRAW, match_opcode, 0 },
-{"sraw",      "64I", "d,s,<",   MATCH_SRAIW, MASK_SRAIW, match_opcode, INSN_ALIAS },
-{"subw",      "64C", "Cs,Cw,Ct",  MATCH_C_SUBW, MASK_C_SUBW, match_opcode, INSN_ALIAS },
-{"subw",      "64I", "d,s,t",  MATCH_SUBW, MASK_SUBW, match_opcode, 0 },
-
-/* Atomic memory operation instruction subset */
-{"lr.w",         "A",   "d,0(s)",    MATCH_LR_W, MASK_LR_W | MASK_AQRL, match_opcode, 0 },
-{"sc.w",         "A",   "d,t,0(s)",  MATCH_SC_W, MASK_SC_W | MASK_AQRL, match_opcode, 0 },
-{"amoadd.w",     "A",   "d,t,0(s)",  MATCH_AMOADD_W, MASK_AMOADD_W | MASK_AQRL, match_opcode, 0 },
-{"amoswap.w",    "A",   "d,t,0(s)",  MATCH_AMOSWAP_W, MASK_AMOSWAP_W | MASK_AQRL, match_opcode, 0 },
-{"amoand.w",     "A",   "d,t,0(s)",  MATCH_AMOAND_W, MASK_AMOAND_W | MASK_AQRL, match_opcode, 0 },
-{"amoor.w",      "A",   "d,t,0(s)",  MATCH_AMOOR_W, MASK_AMOOR_W | MASK_AQRL, match_opcode, 0 },
-{"amoxor.w",     "A",   "d,t,0(s)",  MATCH_AMOXOR_W, MASK_AMOXOR_W | MASK_AQRL, match_opcode, 0 },
-{"amomax.w",     "A",   "d,t,0(s)",  MATCH_AMOMAX_W, MASK_AMOMAX_W | MASK_AQRL, match_opcode, 0 },
-{"amomaxu.w",    "A",   "d,t,0(s)",  MATCH_AMOMAXU_W, MASK_AMOMAXU_W | MASK_AQRL, match_opcode, 0 },
-{"amomin.w",     "A",   "d,t,0(s)",  MATCH_AMOMIN_W, MASK_AMOMIN_W | MASK_AQRL, match_opcode, 0 },
-{"amominu.w",    "A",   "d,t,0(s)",  MATCH_AMOMINU_W, MASK_AMOMINU_W | MASK_AQRL, match_opcode, 0 },
-{"lr.w.aq",      "A",   "d,0(s)",    MATCH_LR_W | MASK_AQ, MASK_LR_W | MASK_AQRL, match_opcode, 0 },
-{"sc.w.aq",      "A",   "d,t,0(s)",  MATCH_SC_W | MASK_AQ, MASK_SC_W | MASK_AQRL, match_opcode, 0 },
-{"amoadd.w.aq",  "A",   "d,t,0(s)",  MATCH_AMOADD_W | MASK_AQ, MASK_AMOADD_W | MASK_AQRL, match_opcode, 0 },
-{"amoswap.w.aq", "A",   "d,t,0(s)",  MATCH_AMOSWAP_W | MASK_AQ, MASK_AMOSWAP_W | MASK_AQRL, match_opcode, 0 },
-{"amoand.w.aq",  "A",   "d,t,0(s)",  MATCH_AMOAND_W | MASK_AQ, MASK_AMOAND_W | MASK_AQRL, match_opcode, 0 },
-{"amoor.w.aq",   "A",   "d,t,0(s)",  MATCH_AMOOR_W | MASK_AQ, MASK_AMOOR_W | MASK_AQRL, match_opcode, 0 },
-{"amoxor.w.aq",  "A",   "d,t,0(s)",  MATCH_AMOXOR_W | MASK_AQ, MASK_AMOXOR_W | MASK_AQRL, match_opcode, 0 },
-{"amomax.w.aq",  "A",   "d,t,0(s)",  MATCH_AMOMAX_W | MASK_AQ, MASK_AMOMAX_W | MASK_AQRL, match_opcode, 0 },
-{"amomaxu.w.aq", "A",   "d,t,0(s)",  MATCH_AMOMAXU_W | MASK_AQ, MASK_AMOMAXU_W | MASK_AQRL, match_opcode, 0 },
-{"amomin.w.aq",  "A",   "d,t,0(s)",  MATCH_AMOMIN_W | MASK_AQ, MASK_AMOMIN_W | MASK_AQRL, match_opcode, 0 },
-{"amominu.w.aq", "A",   "d,t,0(s)",  MATCH_AMOMINU_W | MASK_AQ, MASK_AMOMINU_W | MASK_AQRL, match_opcode, 0 },
-{"lr.w.rl",      "A",   "d,0(s)",    MATCH_LR_W | MASK_RL, MASK_LR_W | MASK_AQRL, match_opcode, 0 },
-{"sc.w.rl",      "A",   "d,t,0(s)",  MATCH_SC_W | MASK_RL, MASK_SC_W | MASK_AQRL, match_opcode, 0 },
-{"amoadd.w.rl",  "A",   "d,t,0(s)",  MATCH_AMOADD_W | MASK_RL, MASK_AMOADD_W | MASK_AQRL, match_opcode, 0 },
-{"amoswap.w.rl", "A",   "d,t,0(s)",  MATCH_AMOSWAP_W | MASK_RL, MASK_AMOSWAP_W | MASK_AQRL, match_opcode, 0 },
-{"amoand.w.rl",  "A",   "d,t,0(s)",  MATCH_AMOAND_W | MASK_RL, MASK_AMOAND_W | MASK_AQRL, match_opcode, 0 },
-{"amoor.w.rl",   "A",   "d,t,0(s)",  MATCH_AMOOR_W | MASK_RL, MASK_AMOOR_W | MASK_AQRL, match_opcode, 0 },
-{"amoxor.w.rl",  "A",   "d,t,0(s)",  MATCH_AMOXOR_W | MASK_RL, MASK_AMOXOR_W | MASK_AQRL, match_opcode, 0 },
-{"amomax.w.rl",  "A",   "d,t,0(s)",  MATCH_AMOMAX_W | MASK_RL, MASK_AMOMAX_W | MASK_AQRL, match_opcode, 0 },
-{"amomaxu.w.rl", "A",   "d,t,0(s)",  MATCH_AMOMAXU_W | MASK_RL, MASK_AMOMAXU_W | MASK_AQRL, match_opcode, 0 },
-{"amomin.w.rl",  "A",   "d,t,0(s)",  MATCH_AMOMIN_W | MASK_RL, MASK_AMOMIN_W | MASK_AQRL, match_opcode, 0 },
-{"amominu.w.rl", "A",   "d,t,0(s)",  MATCH_AMOMINU_W | MASK_RL, MASK_AMOMINU_W | MASK_AQRL, match_opcode, 0 },
-{"lr.w.sc",      "A",   "d,0(s)",    MATCH_LR_W | MASK_AQRL, MASK_LR_W | MASK_AQRL, match_opcode, 0 },
-{"sc.w.sc",      "A",   "d,t,0(s)",  MATCH_SC_W | MASK_AQRL, MASK_SC_W | MASK_AQRL, match_opcode, 0 },
-{"amoadd.w.sc",  "A",   "d,t,0(s)",  MATCH_AMOADD_W | MASK_AQRL, MASK_AMOADD_W | MASK_AQRL, match_opcode, 0 },
-{"amoswap.w.sc", "A",   "d,t,0(s)",  MATCH_AMOSWAP_W | MASK_AQRL, MASK_AMOSWAP_W | MASK_AQRL, match_opcode, 0 },
-{"amoand.w.sc",  "A",   "d,t,0(s)",  MATCH_AMOAND_W | MASK_AQRL, MASK_AMOAND_W | MASK_AQRL, match_opcode, 0 },
-{"amoor.w.sc",   "A",   "d,t,0(s)",  MATCH_AMOOR_W | MASK_AQRL, MASK_AMOOR_W | MASK_AQRL, match_opcode, 0 },
-{"amoxor.w.sc",  "A",   "d,t,0(s)",  MATCH_AMOXOR_W | MASK_AQRL, MASK_AMOXOR_W | MASK_AQRL, match_opcode, 0 },
-{"amomax.w.sc",  "A",   "d,t,0(s)",  MATCH_AMOMAX_W | MASK_AQRL, MASK_AMOMAX_W | MASK_AQRL, match_opcode, 0 },
-{"amomaxu.w.sc", "A",   "d,t,0(s)",  MATCH_AMOMAXU_W | MASK_AQRL, MASK_AMOMAXU_W | MASK_AQRL, match_opcode, 0 },
-{"amomin.w.sc",  "A",   "d,t,0(s)",  MATCH_AMOMIN_W | MASK_AQRL, MASK_AMOMIN_W | MASK_AQRL, match_opcode, 0 },
-{"amominu.w.sc", "A",   "d,t,0(s)",  MATCH_AMOMINU_W | MASK_AQRL, MASK_AMOMINU_W | MASK_AQRL, match_opcode, 0 },
-{"lr.d",         "64A", "d,0(s)",    MATCH_LR_D, MASK_LR_D | MASK_AQRL, match_opcode, 0 },
-{"sc.d",         "64A", "d,t,0(s)",  MATCH_SC_D, MASK_SC_D | MASK_AQRL, match_opcode, 0 },
-{"amoadd.d",     "64A", "d,t,0(s)",  MATCH_AMOADD_D, MASK_AMOADD_D | MASK_AQRL, match_opcode, 0 },
-{"amoswap.d",    "64A", "d,t,0(s)",  MATCH_AMOSWAP_D, MASK_AMOSWAP_D | MASK_AQRL, match_opcode, 0 },
-{"amoand.d",     "64A", "d,t,0(s)",  MATCH_AMOAND_D, MASK_AMOAND_D | MASK_AQRL, match_opcode, 0 },
-{"amoor.d",      "64A", "d,t,0(s)",  MATCH_AMOOR_D, MASK_AMOOR_D | MASK_AQRL, match_opcode, 0 },
-{"amoxor.d",     "64A", "d,t,0(s)",  MATCH_AMOXOR_D, MASK_AMOXOR_D | MASK_AQRL, match_opcode, 0 },
-{"amomax.d",     "64A", "d,t,0(s)",  MATCH_AMOMAX_D, MASK_AMOMAX_D | MASK_AQRL, match_opcode, 0 },
-{"amomaxu.d",    "64A", "d,t,0(s)",  MATCH_AMOMAXU_D, MASK_AMOMAXU_D | MASK_AQRL, match_opcode, 0 },
-{"amomin.d",     "64A", "d,t,0(s)",  MATCH_AMOMIN_D, MASK_AMOMIN_D | MASK_AQRL, match_opcode, 0 },
-{"amominu.d",    "64A", "d,t,0(s)",  MATCH_AMOMINU_D, MASK_AMOMINU_D | MASK_AQRL, match_opcode, 0 },
-{"lr.d.aq",      "64A", "d,0(s)",    MATCH_LR_D | MASK_AQ, MASK_LR_D | MASK_AQRL, match_opcode, 0 },
-{"sc.d.aq",      "64A", "d,t,0(s)",  MATCH_SC_D | MASK_AQ, MASK_SC_D | MASK_AQRL, match_opcode, 0 },
-{"amoadd.d.aq",  "64A", "d,t,0(s)",  MATCH_AMOADD_D | MASK_AQ, MASK_AMOADD_D | MASK_AQRL, match_opcode, 0 },
-{"amoswap.d.aq", "64A", "d,t,0(s)",  MATCH_AMOSWAP_D | MASK_AQ, MASK_AMOSWAP_D | MASK_AQRL, match_opcode, 0 },
-{"amoand.d.aq",  "64A", "d,t,0(s)",  MATCH_AMOAND_D | MASK_AQ, MASK_AMOAND_D | MASK_AQRL, match_opcode, 0 },
-{"amoor.d.aq",   "64A", "d,t,0(s)",  MATCH_AMOOR_D | MASK_AQ, MASK_AMOOR_D | MASK_AQRL, match_opcode, 0 },
-{"amoxor.d.aq",  "64A", "d,t,0(s)",  MATCH_AMOXOR_D | MASK_AQ, MASK_AMOXOR_D | MASK_AQRL, match_opcode, 0 },
-{"amomax.d.aq",  "64A", "d,t,0(s)",  MATCH_AMOMAX_D | MASK_AQ, MASK_AMOMAX_D | MASK_AQRL, match_opcode, 0 },
-{"amomaxu.d.aq", "64A", "d,t,0(s)",  MATCH_AMOMAXU_D | MASK_AQ, MASK_AMOMAXU_D | MASK_AQRL, match_opcode, 0 },
-{"amomin.d.aq",  "64A", "d,t,0(s)",  MATCH_AMOMIN_D | MASK_AQ, MASK_AMOMIN_D | MASK_AQRL, match_opcode, 0 },
-{"amominu.d.aq", "64A", "d,t,0(s)",  MATCH_AMOMINU_D | MASK_AQ, MASK_AMOMINU_D | MASK_AQRL, match_opcode, 0 },
-{"lr.d.rl",      "64A", "d,0(s)",    MATCH_LR_D | MASK_RL, MASK_LR_D | MASK_AQRL, match_opcode, 0 },
-{"sc.d.rl",      "64A", "d,t,0(s)",  MATCH_SC_D | MASK_RL, MASK_SC_D | MASK_AQRL, match_opcode, 0 },
-{"amoadd.d.rl",  "64A", "d,t,0(s)",  MATCH_AMOADD_D | MASK_RL, MASK_AMOADD_D | MASK_AQRL, match_opcode, 0 },
-{"amoswap.d.rl", "64A", "d,t,0(s)",  MATCH_AMOSWAP_D | MASK_RL, MASK_AMOSWAP_D | MASK_AQRL, match_opcode, 0 },
-{"amoand.d.rl",  "64A", "d,t,0(s)",  MATCH_AMOAND_D | MASK_RL, MASK_AMOAND_D | MASK_AQRL, match_opcode, 0 },
-{"amoor.d.rl",   "64A", "d,t,0(s)",  MATCH_AMOOR_D | MASK_RL, MASK_AMOOR_D | MASK_AQRL, match_opcode, 0 },
-{"amoxor.d.rl",  "64A", "d,t,0(s)",  MATCH_AMOXOR_D | MASK_RL, MASK_AMOXOR_D | MASK_AQRL, match_opcode, 0 },
-{"amomax.d.rl",  "64A", "d,t,0(s)",  MATCH_AMOMAX_D | MASK_RL, MASK_AMOMAX_D | MASK_AQRL, match_opcode, 0 },
-{"amomaxu.d.rl", "64A", "d,t,0(s)",  MATCH_AMOMAXU_D | MASK_RL, MASK_AMOMAXU_D | MASK_AQRL, match_opcode, 0 },
-{"amomin.d.rl",  "64A", "d,t,0(s)",  MATCH_AMOMIN_D | MASK_RL, MASK_AMOMIN_D | MASK_AQRL, match_opcode, 0 },
-{"amominu.d.rl", "64A", "d,t,0(s)",  MATCH_AMOMINU_D | MASK_RL, MASK_AMOMINU_D | MASK_AQRL, match_opcode, 0 },
-{"lr.d.sc",      "64A", "d,0(s)",    MATCH_LR_D | MASK_AQRL, MASK_LR_D | MASK_AQRL, match_opcode, 0 },
-{"sc.d.sc",      "64A", "d,t,0(s)",  MATCH_SC_D | MASK_AQRL, MASK_SC_D | MASK_AQRL, match_opcode, 0 },
-{"amoadd.d.sc",  "64A", "d,t,0(s)",  MATCH_AMOADD_D | MASK_AQRL, MASK_AMOADD_D | MASK_AQRL, match_opcode, 0 },
-{"amoswap.d.sc", "64A", "d,t,0(s)",  MATCH_AMOSWAP_D | MASK_AQRL, MASK_AMOSWAP_D | MASK_AQRL, match_opcode, 0 },
-{"amoand.d.sc",  "64A", "d,t,0(s)",  MATCH_AMOAND_D | MASK_AQRL, MASK_AMOAND_D | MASK_AQRL, match_opcode, 0 },
-{"amoor.d.sc",   "64A", "d,t,0(s)",  MATCH_AMOOR_D | MASK_AQRL, MASK_AMOOR_D | MASK_AQRL, match_opcode, 0 },
-{"amoxor.d.sc",  "64A", "d,t,0(s)",  MATCH_AMOXOR_D | MASK_AQRL, MASK_AMOXOR_D | MASK_AQRL, match_opcode, 0 },
-{"amomax.d.sc",  "64A", "d,t,0(s)",  MATCH_AMOMAX_D | MASK_AQRL, MASK_AMOMAX_D | MASK_AQRL, match_opcode, 0 },
-{"amomaxu.d.sc", "64A", "d,t,0(s)",  MATCH_AMOMAXU_D | MASK_AQRL, MASK_AMOMAXU_D | MASK_AQRL, match_opcode, 0 },
-{"amomin.d.sc",  "64A", "d,t,0(s)",  MATCH_AMOMIN_D | MASK_AQRL, MASK_AMOMIN_D | MASK_AQRL, match_opcode, 0 },
-{"amominu.d.sc", "64A", "d,t,0(s)",  MATCH_AMOMINU_D | MASK_AQRL, MASK_AMOMINU_D | MASK_AQRL, match_opcode, 0 },
-
-/* Multiply/Divide instruction subset */
-{"mul",       "M",   "d,s,t",  MATCH_MUL, MASK_MUL, match_opcode, 0 },
-{"mulh",      "M",   "d,s,t",  MATCH_MULH, MASK_MULH, match_opcode, 0 },
-{"mulhu",     "M",   "d,s,t",  MATCH_MULHU, MASK_MULHU, match_opcode, 0 },
-{"mulhsu",    "M",   "d,s,t",  MATCH_MULHSU, MASK_MULHSU, match_opcode, 0 },
-{"div",       "M",   "d,s,t",  MATCH_DIV, MASK_DIV, match_opcode, 0 },
-{"divu",      "M",   "d,s,t",  MATCH_DIVU, MASK_DIVU, match_opcode, 0 },
-{"rem",       "M",   "d,s,t",  MATCH_REM, MASK_REM, match_opcode, 0 },
-{"remu",      "M",   "d,s,t",  MATCH_REMU, MASK_REMU, match_opcode, 0 },
-{"mulw",      "64M", "d,s,t",  MATCH_MULW, MASK_MULW, match_opcode, 0 },
-{"divw",      "64M", "d,s,t",  MATCH_DIVW, MASK_DIVW, match_opcode, 0 },
-{"divuw",     "64M", "d,s,t",  MATCH_DIVUW, MASK_DIVUW, match_opcode, 0 },
-{"remw",      "64M", "d,s,t",  MATCH_REMW, MASK_REMW, match_opcode, 0 },
-{"remuw",     "64M", "d,s,t",  MATCH_REMUW, MASK_REMUW, match_opcode, 0 },
-
-/* Single-precision floating-point instruction subset */
-{"frsr",      "F",   "d",  MATCH_FRCSR, MASK_FRCSR, match_opcode, 0 },
-{"fssr",      "F",   "s",  MATCH_FSCSR, MASK_FSCSR | MASK_RD, match_opcode, 0 },
-{"fssr",      "F",   "d,s",  MATCH_FSCSR, MASK_FSCSR, match_opcode, 0 },
-{"frcsr",     "F",   "d",  MATCH_FRCSR, MASK_FRCSR, match_opcode, 0 },
-{"fscsr",     "F",   "s",  MATCH_FSCSR, MASK_FSCSR | MASK_RD, match_opcode, 0 },
-{"fscsr",     "F",   "d,s",  MATCH_FSCSR, MASK_FSCSR, match_opcode, 0 },
-{"frrm",      "F",   "d",  MATCH_FRRM, MASK_FRRM, match_opcode, 0 },
-{"fsrm",      "F",   "s",  MATCH_FSRM, MASK_FSRM | MASK_RD, match_opcode, 0 },
-{"fsrm",      "F",   "d,s",  MATCH_FSRM, MASK_FSRM, match_opcode, 0 },
-{"frflags",   "F",   "d",  MATCH_FRFLAGS, MASK_FRFLAGS, match_opcode, 0 },
-{"fsflags",   "F",   "s",  MATCH_FSFLAGS, MASK_FSFLAGS | MASK_RD, match_opcode, 0 },
-{"fsflags",   "F",   "d,s",  MATCH_FSFLAGS, MASK_FSFLAGS, match_opcode, 0 },
-{"flw",       "32C", "D,Cm(Cc)",  MATCH_C_FLWSP, MASK_C_FLWSP, match_opcode, INSN_ALIAS },
-{"flw",       "32C", "CD,Ck(Cs)",  MATCH_C_FLW, MASK_C_FLW, match_opcode, INSN_ALIAS },
-{"flw",       "F",   "D,o(s)",  MATCH_FLW, MASK_FLW, match_opcode, 0 },
-{"flw",       "F",   "D,A,s",  0, (int) M_FLW, match_never, INSN_MACRO },
-{"fsw",       "32C", "CT,CM(Cc)",  MATCH_C_FSWSP, MASK_C_FSWSP, match_opcode, INSN_ALIAS },
-{"fsw",       "32C", "CD,Ck(Cs)",  MATCH_C_FSW, MASK_C_FSW, match_opcode, INSN_ALIAS },
-{"fsw",       "F",   "T,q(s)",  MATCH_FSW, MASK_FSW, match_opcode, 0 },
-{"fsw",       "F",   "T,A,s",  0, (int) M_FSW, match_never, INSN_MACRO },
-{"fmv.x.s",   "F",   "d,S",  MATCH_FMV_X_S, MASK_FMV_X_S, match_opcode, 0 },
-{"fmv.s.x",   "F",   "D,s",  MATCH_FMV_S_X, MASK_FMV_S_X, match_opcode, 0 },
-{"fmv.s",     "F",   "D,U",  MATCH_FSGNJ_S, MASK_FSGNJ_S, match_rs1_eq_rs2, INSN_ALIAS },
-{"fneg.s",    "F",   "D,U",  MATCH_FSGNJN_S, MASK_FSGNJN_S, match_rs1_eq_rs2, INSN_ALIAS },
-{"fabs.s",    "F",   "D,U",  MATCH_FSGNJX_S, MASK_FSGNJX_S, match_rs1_eq_rs2, INSN_ALIAS },
-{"fsgnj.s",   "F",   "D,S,T",  MATCH_FSGNJ_S, MASK_FSGNJ_S, match_opcode, 0 },
-{"fsgnjn.s",  "F",   "D,S,T",  MATCH_FSGNJN_S, MASK_FSGNJN_S, match_opcode, 0 },
-{"fsgnjx.s",  "F",   "D,S,T",  MATCH_FSGNJX_S, MASK_FSGNJX_S, match_opcode, 0 },
-{"fadd.s",    "F",   "D,S,T",  MATCH_FADD_S | MASK_RM, MASK_FADD_S | MASK_RM, match_opcode, 0 },
-{"fadd.s",    "F",   "D,S,T,m",  MATCH_FADD_S, MASK_FADD_S, match_opcode, 0 },
-{"fsub.s",    "F",   "D,S,T",  MATCH_FSUB_S | MASK_RM, MASK_FSUB_S | MASK_RM, match_opcode, 0 },
-{"fsub.s",    "F",   "D,S,T,m",  MATCH_FSUB_S, MASK_FSUB_S, match_opcode, 0 },
-{"fmul.s",    "F",   "D,S,T",  MATCH_FMUL_S | MASK_RM, MASK_FMUL_S | MASK_RM, match_opcode, 0 },
-{"fmul.s",    "F",   "D,S,T,m",  MATCH_FMUL_S, MASK_FMUL_S, match_opcode, 0 },
-{"fdiv.s",    "F",   "D,S,T",  MATCH_FDIV_S | MASK_RM, MASK_FDIV_S | MASK_RM, match_opcode, 0 },
-{"fdiv.s",    "F",   "D,S,T,m",  MATCH_FDIV_S, MASK_FDIV_S, match_opcode, 0 },
-{"fsqrt.s",   "F",   "D,S",  MATCH_FSQRT_S | MASK_RM, MASK_FSQRT_S | MASK_RM, match_opcode, 0 },
-{"fsqrt.s",   "F",   "D,S,m",  MATCH_FSQRT_S, MASK_FSQRT_S, match_opcode, 0 },
-{"fmin.s",    "F",   "D,S,T",  MATCH_FMIN_S, MASK_FMIN_S, match_opcode, 0 },
-{"fmax.s",    "F",   "D,S,T",  MATCH_FMAX_S, MASK_FMAX_S, match_opcode, 0 },
-{"fmadd.s",   "F",   "D,S,T,R",  MATCH_FMADD_S | MASK_RM, MASK_FMADD_S | MASK_RM, match_opcode, 0 },
-{"fmadd.s",   "F",   "D,S,T,R,m",  MATCH_FMADD_S, MASK_FMADD_S, match_opcode, 0 },
-{"fnmadd.s",  "F",   "D,S,T,R",  MATCH_FNMADD_S | MASK_RM, MASK_FNMADD_S | MASK_RM, match_opcode, 0 },
-{"fnmadd.s",  "F",   "D,S,T,R,m",  MATCH_FNMADD_S, MASK_FNMADD_S, match_opcode, 0 },
-{"fmsub.s",   "F",   "D,S,T,R",  MATCH_FMSUB_S | MASK_RM, MASK_FMSUB_S | MASK_RM, match_opcode, 0 },
-{"fmsub.s",   "F",   "D,S,T,R,m",  MATCH_FMSUB_S, MASK_FMSUB_S, match_opcode, 0 },
-{"fnmsub.s",  "F",   "D,S,T,R",  MATCH_FNMSUB_S | MASK_RM, MASK_FNMSUB_S | MASK_RM, match_opcode, 0 },
-{"fnmsub.s",  "F",   "D,S,T,R,m",  MATCH_FNMSUB_S, MASK_FNMSUB_S, match_opcode, 0 },
-{"fcvt.w.s",  "F",   "d,S",  MATCH_FCVT_W_S | MASK_RM, MASK_FCVT_W_S | MASK_RM, match_opcode, 0 },
-{"fcvt.w.s",  "F",   "d,S,m",  MATCH_FCVT_W_S, MASK_FCVT_W_S, match_opcode, 0 },
-{"fcvt.wu.s", "F",   "d,S",  MATCH_FCVT_WU_S | MASK_RM, MASK_FCVT_WU_S | MASK_RM, match_opcode, 0 },
-{"fcvt.wu.s", "F",   "d,S,m",  MATCH_FCVT_WU_S, MASK_FCVT_WU_S, match_opcode, 0 },
-{"fcvt.s.w",  "F",   "D,s",  MATCH_FCVT_S_W | MASK_RM, MASK_FCVT_S_W | MASK_RM, match_opcode, 0 },
-{"fcvt.s.w",  "F",   "D,s,m",  MATCH_FCVT_S_W, MASK_FCVT_S_W, match_opcode, 0 },
-{"fcvt.s.wu", "F",   "D,s",  MATCH_FCVT_S_WU | MASK_RM, MASK_FCVT_S_W | MASK_RM, match_opcode, 0 },
-{"fcvt.s.wu", "F",   "D,s,m",  MATCH_FCVT_S_WU, MASK_FCVT_S_WU, match_opcode, 0 },
-{"fclass.s",  "F",   "d,S",  MATCH_FCLASS_S, MASK_FCLASS_S, match_opcode, 0 },
-{"feq.s",     "F",   "d,S,T",    MATCH_FEQ_S, MASK_FEQ_S, match_opcode, 0 },
-{"flt.s",     "F",   "d,S,T",    MATCH_FLT_S, MASK_FLT_S, match_opcode, 0 },
-{"fle.s",     "F",   "d,S,T",    MATCH_FLE_S, MASK_FLE_S, match_opcode, 0 },
-{"fgt.s",     "F",   "d,T,S",    MATCH_FLT_S, MASK_FLT_S, match_opcode, 0 },
-{"fge.s",     "F",   "d,T,S",    MATCH_FLE_S, MASK_FLE_S, match_opcode, 0 },
-{"fcvt.l.s",  "64F", "d,S",  MATCH_FCVT_L_S | MASK_RM, MASK_FCVT_L_S | MASK_RM, match_opcode, 0 },
-{"fcvt.l.s",  "64F", "d,S,m",  MATCH_FCVT_L_S, MASK_FCVT_L_S, match_opcode, 0 },
-{"fcvt.lu.s", "64F", "d,S",  MATCH_FCVT_LU_S | MASK_RM, MASK_FCVT_LU_S | MASK_RM, match_opcode, 0 },
-{"fcvt.lu.s", "64F", "d,S,m",  MATCH_FCVT_LU_S, MASK_FCVT_LU_S, match_opcode, 0 },
-{"fcvt.s.l",  "64F", "D,s",  MATCH_FCVT_S_L | MASK_RM, MASK_FCVT_S_L | MASK_RM, match_opcode, 0 },
-{"fcvt.s.l",  "64F", "D,s,m",  MATCH_FCVT_S_L, MASK_FCVT_S_L, match_opcode, 0 },
-{"fcvt.s.lu", "64F", "D,s",  MATCH_FCVT_S_LU | MASK_RM, MASK_FCVT_S_L | MASK_RM, match_opcode, 0 },
-{"fcvt.s.lu", "64F", "D,s,m",  MATCH_FCVT_S_LU, MASK_FCVT_S_LU, match_opcode, 0 },
-
-/* Double-precision floating-point instruction subset */
-{"fld",       "C",   "D,Cn(Cc)",  MATCH_C_FLDSP, MASK_C_FLDSP, match_opcode, INSN_ALIAS },
-{"fld",       "C",   "CD,Cl(Cs)",  MATCH_C_FLD, MASK_C_FLD, match_opcode, INSN_ALIAS },
-{"fld",       "D",   "D,o(s)",  MATCH_FLD, MASK_FLD, match_opcode, 0 },
-{"fld",       "D",   "D,A,s",  0, (int) M_FLD, match_never, INSN_MACRO },
-{"fsd",       "C",   "CT,CN(Cc)",  MATCH_C_FSDSP, MASK_C_FSDSP, match_opcode, INSN_ALIAS },
-{"fsd",       "C",   "CD,Cl(Cs)",  MATCH_C_FSD, MASK_C_FSD, match_opcode, INSN_ALIAS },
-{"fsd",       "D",   "T,q(s)",  MATCH_FSD, MASK_FSD, match_opcode, 0 },
-{"fsd",       "D",   "T,A,s",  0, (int) M_FSD, match_never, INSN_MACRO },
-{"fmv.d",     "D",   "D,U",  MATCH_FSGNJ_D, MASK_FSGNJ_D, match_rs1_eq_rs2, INSN_ALIAS },
-{"fneg.d",    "D",   "D,U",  MATCH_FSGNJN_D, MASK_FSGNJN_D, match_rs1_eq_rs2, INSN_ALIAS },
-{"fabs.d",    "D",   "D,U",  MATCH_FSGNJX_D, MASK_FSGNJX_D, match_rs1_eq_rs2, INSN_ALIAS },
-{"fsgnj.d",   "D",   "D,S,T",  MATCH_FSGNJ_D, MASK_FSGNJ_D, match_opcode, 0 },
-{"fsgnjn.d",  "D",   "D,S,T",  MATCH_FSGNJN_D, MASK_FSGNJN_D, match_opcode, 0 },
-{"fsgnjx.d",  "D",   "D,S,T",  MATCH_FSGNJX_D, MASK_FSGNJX_D, match_opcode, 0 },
-{"fadd.d",    "D",   "D,S,T",  MATCH_FADD_D | MASK_RM, MASK_FADD_D | MASK_RM, match_opcode, 0 },
-{"fadd.d",    "D",   "D,S,T,m",  MATCH_FADD_D, MASK_FADD_D, match_opcode, 0 },
-{"fsub.d",    "D",   "D,S,T",  MATCH_FSUB_D | MASK_RM, MASK_FSUB_D | MASK_RM, match_opcode, 0 },
-{"fsub.d",    "D",   "D,S,T,m",  MATCH_FSUB_D, MASK_FSUB_D, match_opcode, 0 },
-{"fmul.d",    "D",   "D,S,T",  MATCH_FMUL_D | MASK_RM, MASK_FMUL_D | MASK_RM, match_opcode, 0 },
-{"fmul.d",    "D",   "D,S,T,m",  MATCH_FMUL_D, MASK_FMUL_D, match_opcode, 0 },
-{"fdiv.d",    "D",   "D,S,T",  MATCH_FDIV_D | MASK_RM, MASK_FDIV_D | MASK_RM, match_opcode, 0 },
-{"fdiv.d",    "D",   "D,S,T,m",  MATCH_FDIV_D, MASK_FDIV_D, match_opcode, 0 },
-{"fsqrt.d",   "D",   "D,S",  MATCH_FSQRT_D | MASK_RM, MASK_FSQRT_D | MASK_RM, match_opcode, 0 },
-{"fsqrt.d",   "D",   "D,S,m",  MATCH_FSQRT_D, MASK_FSQRT_D, match_opcode, 0 },
-{"fmin.d",    "D",   "D,S,T",  MATCH_FMIN_D, MASK_FMIN_D, match_opcode, 0 },
-{"fmax.d",    "D",   "D,S,T",  MATCH_FMAX_D, MASK_FMAX_D, match_opcode, 0 },
-{"fmadd.d",   "D",   "D,S,T,R",  MATCH_FMADD_D | MASK_RM, MASK_FMADD_D | MASK_RM, match_opcode, 0 },
-{"fmadd.d",   "D",   "D,S,T,R,m",  MATCH_FMADD_D, MASK_FMADD_D, match_opcode, 0 },
-{"fnmadd.d",  "D",   "D,S,T,R",  MATCH_FNMADD_D | MASK_RM, MASK_FNMADD_D | MASK_RM, match_opcode, 0 },
-{"fnmadd.d",  "D",   "D,S,T,R,m",  MATCH_FNMADD_D, MASK_FNMADD_D, match_opcode, 0 },
-{"fmsub.d",   "D",   "D,S,T,R",  MATCH_FMSUB_D | MASK_RM, MASK_FMSUB_D | MASK_RM, match_opcode, 0 },
-{"fmsub.d",   "D",   "D,S,T,R,m",  MATCH_FMSUB_D, MASK_FMSUB_D, match_opcode, 0 },
-{"fnmsub.d",  "D",   "D,S,T,R",  MATCH_FNMSUB_D | MASK_RM, MASK_FNMSUB_D | MASK_RM, match_opcode, 0 },
-{"fnmsub.d",  "D",   "D,S,T,R,m",  MATCH_FNMSUB_D, MASK_FNMSUB_D, match_opcode, 0 },
-{"fcvt.w.d",  "D",   "d,S",  MATCH_FCVT_W_D | MASK_RM, MASK_FCVT_W_D | MASK_RM, match_opcode, 0 },
-{"fcvt.w.d",  "D",   "d,S,m",  MATCH_FCVT_W_D, MASK_FCVT_W_D, match_opcode, 0 },
-{"fcvt.wu.d", "D",   "d,S",  MATCH_FCVT_WU_D | MASK_RM, MASK_FCVT_WU_D | MASK_RM, match_opcode, 0 },
-{"fcvt.wu.d", "D",   "d,S,m",  MATCH_FCVT_WU_D, MASK_FCVT_WU_D, match_opcode, 0 },
-{"fcvt.d.w",  "D",   "D,s",  MATCH_FCVT_D_W, MASK_FCVT_D_W | MASK_RM, match_opcode, 0 },
-{"fcvt.d.wu", "D",   "D,s",  MATCH_FCVT_D_WU, MASK_FCVT_D_WU | MASK_RM, match_opcode, 0 },
-{"fcvt.d.s",  "D",   "D,S",  MATCH_FCVT_D_S, MASK_FCVT_D_S | MASK_RM, match_opcode, 0 },
-{"fcvt.s.d",  "D",   "D,S",  MATCH_FCVT_S_D | MASK_RM, MASK_FCVT_S_D | MASK_RM, match_opcode, 0 },
-{"fcvt.s.d",  "D",   "D,S,m",  MATCH_FCVT_S_D, MASK_FCVT_S_D, match_opcode, 0 },
-{"fclass.d",  "D",   "d,S",  MATCH_FCLASS_D, MASK_FCLASS_D, match_opcode, 0 },
-{"feq.d",     "D",   "d,S,T",    MATCH_FEQ_D, MASK_FEQ_D, match_opcode, 0 },
-{"flt.d",     "D",   "d,S,T",    MATCH_FLT_D, MASK_FLT_D, match_opcode, 0 },
-{"fle.d",     "D",   "d,S,T",    MATCH_FLE_D, MASK_FLE_D, match_opcode, 0 },
-{"fgt.d",     "D",   "d,T,S",    MATCH_FLT_D, MASK_FLT_D, match_opcode, 0 },
-{"fge.d",     "D",   "d,T,S",    MATCH_FLE_D, MASK_FLE_D, match_opcode, 0 },
-{"fmv.x.d",   "64D", "d,S",  MATCH_FMV_X_D, MASK_FMV_X_D, match_opcode, 0 },
-{"fmv.d.x",   "64D", "D,s",  MATCH_FMV_D_X, MASK_FMV_D_X, match_opcode, 0 },
-{"fcvt.l.d",  "64D", "d,S",  MATCH_FCVT_L_D | MASK_RM, MASK_FCVT_L_D | MASK_RM, match_opcode, 0 },
-{"fcvt.l.d",  "64D", "d,S,m",  MATCH_FCVT_L_D, MASK_FCVT_L_D, match_opcode, 0 },
-{"fcvt.lu.d", "64D", "d,S",  MATCH_FCVT_LU_D | MASK_RM, MASK_FCVT_LU_D | MASK_RM, match_opcode, 0 },
-{"fcvt.lu.d", "64D", "d,S,m",  MATCH_FCVT_LU_D, MASK_FCVT_LU_D, match_opcode, 0 },
-{"fcvt.d.l",  "64D", "D,s",  MATCH_FCVT_D_L | MASK_RM, MASK_FCVT_D_L | MASK_RM, match_opcode, 0 },
-{"fcvt.d.l",  "64D", "D,s,m",  MATCH_FCVT_D_L, MASK_FCVT_D_L, match_opcode, 0 },
-{"fcvt.d.lu", "64D", "D,s",  MATCH_FCVT_D_LU | MASK_RM, MASK_FCVT_D_L | MASK_RM, match_opcode, 0 },
-{"fcvt.d.lu", "64D", "D,s,m",  MATCH_FCVT_D_LU, MASK_FCVT_D_LU, match_opcode, 0 },
-
-/* Compressed instructions */
-{"c.ebreak",  "C",   "",  MATCH_C_EBREAK, MASK_C_EBREAK, match_opcode, 0 },
-{"c.jr",      "C",   "d",  MATCH_C_JR, MASK_C_JR, match_rd_nonzero, 0 },
-{"c.jalr",    "C",   "d",  MATCH_C_JALR, MASK_C_JALR, match_rd_nonzero, 0 },
-{"c.j",       "C",   "Ca",  MATCH_C_J, MASK_C_J, match_opcode, 0 },
-{"c.jal",     "32C", "Ca",  MATCH_C_JAL, MASK_C_JAL, match_opcode, 0 },
-{"c.beqz",    "C",   "Cs,Cp",  MATCH_C_BEQZ, MASK_C_BEQZ, match_opcode, 0 },
-{"c.bnez",    "C",   "Cs,Cp",  MATCH_C_BNEZ, MASK_C_BNEZ, match_opcode, 0 },
-{"c.lwsp",    "C",   "d,Cm(Cc)",  MATCH_C_LWSP, MASK_C_LWSP, match_rd_nonzero, 0 },
-{"c.lw",      "C",   "Ct,Ck(Cs)",  MATCH_C_LW, MASK_C_LW, match_opcode, 0 },
-{"c.swsp",    "C",   "CV,CM(Cc)",  MATCH_C_SWSP, MASK_C_SWSP, match_opcode, 0 },
-{"c.sw",      "C",   "Ct,Ck(Cs)",  MATCH_C_SW, MASK_C_SW, match_opcode, 0 },
-{"c.nop",     "C",   "",  MATCH_C_ADDI, 0xffff, match_opcode, 0 },
-{"c.mv",      "C",   "d,CV",  MATCH_C_MV, MASK_C_MV, match_c_add, 0 },
-{"c.lui",     "C",   "d,Cu",  MATCH_C_LUI, MASK_C_LUI, match_c_lui, 0 },
-{"c.li",      "C",   "d,Cj",  MATCH_C_LI, MASK_C_LI, match_rd_nonzero, 0 },
-{"c.addi4spn","C",   "Ct,Cc,CK", MATCH_C_ADDI4SPN, MASK_C_ADDI4SPN, match_opcode, 0 },
-{"c.addi16sp","C",   "Cc,CL", MATCH_C_ADDI16SP, MASK_C_ADDI16SP, match_opcode, 0 },
-{"c.addi",    "C",   "d,Cj",  MATCH_C_ADDI, MASK_C_ADDI, match_rd_nonzero, 0 },
-{"c.add",     "C",   "d,CV",  MATCH_C_ADD, MASK_C_ADD, match_c_add, 0 },
-{"c.sub",     "C",   "Cs,Ct",  MATCH_C_SUB, MASK_C_SUB, match_opcode, 0 },
-{"c.and",     "C",   "Cs,Ct",  MATCH_C_AND, MASK_C_AND, match_opcode, 0 },
-{"c.or",      "C",   "Cs,Ct",  MATCH_C_OR, MASK_C_OR, match_opcode, 0 },
-{"c.xor",     "C",   "Cs,Ct",  MATCH_C_XOR, MASK_C_XOR, match_opcode, 0 },
-{"c.slli",    "C",   "d,C>",  MATCH_C_SLLI, MASK_C_SLLI, match_rd_nonzero, 0 },
-{"c.srli",    "C",   "Cs,C>",  MATCH_C_SRLI, MASK_C_SRLI, match_opcode, 0 },
-{"c.srai",    "C",   "Cs,C>",  MATCH_C_SRAI, MASK_C_SRAI, match_opcode, 0 },
-{"c.andi",    "C",   "Cs,Cj",  MATCH_C_ANDI, MASK_C_ANDI, match_opcode, 0 },
-{"c.addiw",   "64C", "d,Cj",  MATCH_C_ADDIW, MASK_C_ADDIW, match_rd_nonzero, 0 },
-{"c.addw",    "64C", "Cs,Ct",  MATCH_C_ADDW, MASK_C_ADDW, match_opcode, 0 },
-{"c.subw",    "64C", "Cs,Ct",  MATCH_C_SUBW, MASK_C_SUBW, match_opcode, 0 },
-{"c.ldsp",    "64C", "d,Cn(Cc)",  MATCH_C_LDSP, MASK_C_LDSP, match_rd_nonzero, 0 },
-{"c.ld",      "64C", "Ct,Cl(Cs)",  MATCH_C_LD, MASK_C_LD, match_opcode, 0 },
-{"c.sdsp",    "64C", "CV,CN(Cc)",  MATCH_C_SDSP, MASK_C_SDSP, match_opcode, 0 },
-{"c.sd",      "64C", "Ct,Cl(Cs)",  MATCH_C_SD, MASK_C_SD, match_opcode, 0 },
-{"c.fldsp",   "C",   "D,Cn(Cc)",  MATCH_C_FLDSP, MASK_C_FLDSP, match_opcode, 0 },
-{"c.fld",     "C",   "CD,Cl(Cs)",  MATCH_C_FLD, MASK_C_FLD, match_opcode, 0 },
-{"c.fsdsp",   "C",   "CT,CN(Cc)",  MATCH_C_FSDSP, MASK_C_FSDSP, match_opcode, 0 },
-{"c.fsd",     "C",   "CD,Cl(Cs)",  MATCH_C_FSD, MASK_C_FSD, match_opcode, 0 },
-{"c.flwsp",   "32C", "D,Cm(Cc)",  MATCH_C_FLWSP, MASK_C_FLWSP, match_opcode, 0 },
-{"c.flw",     "32C", "CD,Ck(Cs)",  MATCH_C_FLW, MASK_C_FLW, match_opcode, 0 },
-{"c.fswsp",   "32C", "CT,CM(Cc)",  MATCH_C_FSWSP, MASK_C_FSWSP, match_opcode, 0 },
-{"c.fsw",     "32C", "CD,Ck(Cs)",  MATCH_C_FSW, MASK_C_FSW, match_opcode, 0 },
-
-/* Supervisor instructions */
-{"csrr",      "I",   "d,E",  MATCH_CSRRS, MASK_CSRRS | MASK_RS1, match_opcode, 0 },
-{"csrwi",     "I",   "E,Z",  MATCH_CSRRWI, MASK_CSRRWI | MASK_RD, match_opcode, 0 },
-{"csrw",      "I",   "E,s",  MATCH_CSRRW, MASK_CSRRW | MASK_RD, match_opcode, 0 },
-{"csrw",      "I",   "E,Z",  MATCH_CSRRWI, MASK_CSRRWI | MASK_RD, match_opcode, 0 },
-{"csrsi",     "I",   "E,Z",  MATCH_CSRRSI, MASK_CSRRSI | MASK_RD, match_opcode, 0 },
-{"csrs",      "I",   "E,s",  MATCH_CSRRS, MASK_CSRRS | MASK_RD, match_opcode, 0 },
-{"csrs",      "I",   "E,Z",  MATCH_CSRRSI, MASK_CSRRSI | MASK_RD, match_opcode, 0 },
-{"csrci",     "I",   "E,Z",  MATCH_CSRRCI, MASK_CSRRCI | MASK_RD, match_opcode, 0 },
-{"csrc",      "I",   "E,s",  MATCH_CSRRC, MASK_CSRRC | MASK_RD, match_opcode, 0 },
-{"csrc",      "I",   "E,Z",  MATCH_CSRRCI, MASK_CSRRCI | MASK_RD, match_opcode, 0 },
-{"csrrw",     "I",   "d,E,s",  MATCH_CSRRW, MASK_CSRRW, match_opcode, 0 },
-{"csrrw",     "I",   "d,E,Z",  MATCH_CSRRWI, MASK_CSRRWI, match_opcode, 0 },
-{"csrrs",     "I",   "d,E,s",  MATCH_CSRRS, MASK_CSRRS, match_opcode, 0 },
-{"csrrs",     "I",   "d,E,Z",  MATCH_CSRRSI, MASK_CSRRSI, match_opcode, 0 },
-{"csrrc",     "I",   "d,E,s",  MATCH_CSRRC, MASK_CSRRC, match_opcode, 0 },
-{"csrrc",     "I",   "d,E,Z",  MATCH_CSRRCI, MASK_CSRRCI, match_opcode, 0 },
-{"csrrwi",    "I",   "d,E,Z",  MATCH_CSRRWI, MASK_CSRRWI, match_opcode, 0 },
-{"csrrsi",    "I",   "d,E,Z",  MATCH_CSRRSI, MASK_CSRRSI, match_opcode, 0 },
-{"csrrci",    "I",   "d,E,Z",  MATCH_CSRRCI, MASK_CSRRCI, match_opcode, 0 },
-{"uret",      "I",   "",     MATCH_URET, MASK_URET, match_opcode, 0 },
-{"sret",      "I",   "",     MATCH_SRET, MASK_SRET, match_opcode, 0 },
-{"hret",      "I",   "",     MATCH_HRET, MASK_HRET, match_opcode, 0 },
-{"mret",      "I",   "",     MATCH_MRET, MASK_MRET, match_opcode, 0 },
-{"dret",      "I",   "",     MATCH_DRET, MASK_DRET, match_opcode, 0 },
-{"sfence.vm", "I",   "",     MATCH_SFENCE_VM, MASK_SFENCE_VM | MASK_RS1, match_opcode, 0 },
-{"sfence.vm", "I",   "s",    MATCH_SFENCE_VM, MASK_SFENCE_VM, match_opcode, 0 },
-{"wfi",       "I",   "",     MATCH_WFI, MASK_WFI, match_opcode, 0 },
-
-/* Terminate the list.  */
-{0, 0, 0, 0, 0, 0, 0}
+static const char* rv_ireg_name_sym[] = {
+    "zero", "ra",   "sp",   "gp",   "tp",   "t0",   "t1",   "t2",
+    "s0",   "s1",   "a0",   "a1",   "a2",   "a3",   "a4",   "a5",
+    "a6",   "a7",   "s2",   "s3",   "s4",   "s5",   "s6",   "s7",
+    "s8",   "s9",   "s10",  "s11",  "t3",   "t4",   "t5",   "t6",
+    NULL
 };
 
-/*
- * definiton from opcode/riscv-dis.c
- */
-
-struct riscv_private_data
-{
-  bfd_vma gp;
-  bfd_vma print_addr;
-  bfd_vma hi_addr[OP_MASK_RD + 1];
+static const char* rv_freg_name_sym[] = {
+    "ft0",  "ft1",  "ft2",  "ft3",  "ft4",  "ft5",  "ft6",  "ft7",
+    "fs0",  "fs1",  "fa0",  "fa1",  "fa2",  "fa3",  "fa4",  "fa5",
+    "fa6",  "fa7",  "fs2",  "fs3",  "fs4",  "fs5",  "fs6",  "fs7",
+    "fs8",  "fs9",  "fs10", "fs11", "ft8",  "ft9",  "ft10", "ft11",
+    NULL
 };
 
-static const char * const *riscv_gpr_names;
-static const char * const *riscv_fpr_names;
+/* instruction formats */
 
-/* Other options */
-static int no_aliases;	/* If set disassemble as most general inst.  */
+#define rv_fmt_none                   "O\t"
+#define rv_fmt_rs1                    "O\t1"
+#define rv_fmt_offset                 "O\to"
+#define rv_fmt_pred_succ              "O\tp,s"
+#define rv_fmt_rs1_rs2                "O\t1,2"
+#define rv_fmt_rd_imm                 "O\t0,i"
+#define rv_fmt_rd_offset              "O\t0,o"
+#define rv_fmt_rd_rs1_rs2             "O\t0,1,2"
+#define rv_fmt_frd_rs1                "O\t3,1"
+#define rv_fmt_rd_frs1                "O\t0,4"
+#define rv_fmt_rd_frs1_frs2           "O\t0,4,5"
+#define rv_fmt_frd_frs1_frs2          "O\t3,4,5"
+#define rv_fmt_rm_frd_frs1            "O\tr,3,4"
+#define rv_fmt_rm_frd_rs1             "O\tr,3,1"
+#define rv_fmt_rm_rd_frs1             "O\tr,0,4"
+#define rv_fmt_rm_frd_frs1_frs2       "O\tr,3,4,5"
+#define rv_fmt_rm_frd_frs1_frs2_frs3  "O\tr,3,4,5,6"
+#define rv_fmt_rd_rs1_imm             "O\t0,1,i"
+#define rv_fmt_rd_rs1_offset          "O\t0,1,i"
+#define rv_fmt_rd_offset_rs1          "O\t0,i(1)"
+#define rv_fmt_frd_offset_rs1         "O\t3,i(1)"
+#define rv_fmt_rd_csr_rs1             "O\t0,c,1"
+#define rv_fmt_rd_csr_zimm            "O\t0,c,7"
+#define rv_fmt_rs2_offset_rs1         "O\t2,i(1)"
+#define rv_fmt_frs2_offset_rs1        "O\t5,i(1)"
+#define rv_fmt_rs1_rs2_offset         "O\t1,2,o"
+#define rv_fmt_rs2_rs1_offset         "O\t2,1,o"
+#define rv_fmt_aqrl_rd_rs2_rs1        "OAR\t0,2,(1)"
+#define rv_fmt_aqrl_rd_rs1            "OAR\t0,(1)"
+#define rv_fmt_rd                     "O\t0"
+#define rv_fmt_rd_zimm                "O\t0,7"
+#define rv_fmt_rd_rs1                 "O\t0,1"
+#define rv_fmt_rd_rs2                 "O\t0,2"
+#define rv_fmt_rs1_offset             "O\t1,o"
+#define rv_fmt_rs2_offset             "O\t2,o"
 
-static void
-set_default_riscv_dis_options (void)
+/* pseudo-instruction constraints */
+
+static const rvc_constraint rvcc_jal[] = { rvc_rd_eq_ra, rvc_end };
+static const rvc_constraint rvcc_jalr[] = { rvc_rd_eq_ra, rvc_imm_eq_zero, rvc_end };
+static const rvc_constraint rvcc_nop[] = { rvc_rd_eq_x0, rvc_rs1_eq_x0, rvc_imm_eq_zero, rvc_end };
+static const rvc_constraint rvcc_mv[] = { rvc_imm_eq_zero, rvc_end };
+static const rvc_constraint rvcc_not[] = { rvc_imm_eq_n1, rvc_end };
+static const rvc_constraint rvcc_neg[] = { rvc_rs1_eq_x0, rvc_end };
+static const rvc_constraint rvcc_negw[] = { rvc_rs1_eq_x0, rvc_end };
+static const rvc_constraint rvcc_sext_w[] = { rvc_rs2_eq_x0, rvc_end };
+static const rvc_constraint rvcc_seqz[] = { rvc_imm_eq_p1, rvc_end };
+static const rvc_constraint rvcc_snez[] = { rvc_rs1_eq_x0, rvc_end };
+static const rvc_constraint rvcc_sltz[] = { rvc_rs2_eq_x0, rvc_end };
+static const rvc_constraint rvcc_sgtz[] = { rvc_rs1_eq_x0, rvc_end };
+static const rvc_constraint rvcc_fmv_s[] = { rvc_rs2_eq_rs1, rvc_end };
+static const rvc_constraint rvcc_fabs_s[] = { rvc_rs2_eq_rs1, rvc_end };
+static const rvc_constraint rvcc_fneg_s[] = { rvc_rs2_eq_rs1, rvc_end };
+static const rvc_constraint rvcc_fmv_d[] = { rvc_rs2_eq_rs1, rvc_end };
+static const rvc_constraint rvcc_fabs_d[] = { rvc_rs2_eq_rs1, rvc_end };
+static const rvc_constraint rvcc_fneg_d[] = { rvc_rs2_eq_rs1, rvc_end };
+static const rvc_constraint rvcc_fmv_q[] = { rvc_rs2_eq_rs1, rvc_end };
+static const rvc_constraint rvcc_fabs_q[] = { rvc_rs2_eq_rs1, rvc_end };
+static const rvc_constraint rvcc_fneg_q[] = { rvc_rs2_eq_rs1, rvc_end };
+static const rvc_constraint rvcc_beqz[] = { rvc_rs2_eq_x0, rvc_end };
+static const rvc_constraint rvcc_bnez[] = { rvc_rs2_eq_x0, rvc_end };
+static const rvc_constraint rvcc_blez[] = { rvc_rs1_eq_x0, rvc_end };
+static const rvc_constraint rvcc_bgez[] = { rvc_rs2_eq_x0, rvc_end };
+static const rvc_constraint rvcc_bltz[] = { rvc_rs2_eq_x0, rvc_end };
+static const rvc_constraint rvcc_bgtz[] = { rvc_rs1_eq_x0, rvc_end };
+static const rvc_constraint rvcc_ble[] = { rvc_end };
+static const rvc_constraint rvcc_bleu[] = { rvc_end };
+static const rvc_constraint rvcc_bgt[] = { rvc_end };
+static const rvc_constraint rvcc_bgtu[] = { rvc_end };
+static const rvc_constraint rvcc_j[] = { rvc_rd_eq_x0, rvc_end };
+static const rvc_constraint rvcc_ret[] = { rvc_rd_eq_x0, rvc_rs1_eq_ra, rvc_end };
+static const rvc_constraint rvcc_jr[] = { rvc_rd_eq_x0, rvc_imm_eq_zero, rvc_end };
+static const rvc_constraint rvcc_rdcycle[] = { rvc_rs1_eq_x0, rvc_csr_eq_0xc00, rvc_end };
+static const rvc_constraint rvcc_rdtime[] = { rvc_rs1_eq_x0, rvc_csr_eq_0xc01, rvc_end };
+static const rvc_constraint rvcc_rdinstret[] = { rvc_rs1_eq_x0, rvc_csr_eq_0xc02, rvc_end };
+static const rvc_constraint rvcc_rdcycleh[] = { rvc_rs1_eq_x0, rvc_csr_eq_0xc80, rvc_end };
+static const rvc_constraint rvcc_rdtimeh[] = { rvc_rs1_eq_x0, rvc_csr_eq_0xc81, rvc_end };
+static const rvc_constraint rvcc_rdinstreth[] = { rvc_rs1_eq_x0, rvc_csr_eq_0xc80, rvc_end };
+static const rvc_constraint rvcc_frcsr[] = { rvc_rs1_eq_x0, rvc_csr_eq_0x003, rvc_end };
+static const rvc_constraint rvcc_frrm[] = { rvc_rs1_eq_x0, rvc_csr_eq_0x002, rvc_end };
+static const rvc_constraint rvcc_frflags[] = { rvc_rs1_eq_x0, rvc_csr_eq_0x001, rvc_end };
+static const rvc_constraint rvcc_fscsr[] = { rvc_csr_eq_0x003, rvc_end };
+static const rvc_constraint rvcc_fsrm[] = { rvc_csr_eq_0x002, rvc_end };
+static const rvc_constraint rvcc_fsflags[] = { rvc_csr_eq_0x001, rvc_end };
+static const rvc_constraint rvcc_fsrmi[] = { rvc_csr_eq_0x002, rvc_end };
+static const rvc_constraint rvcc_fsflagsi[] = { rvc_csr_eq_0x001, rvc_end };
+
+/* pseudo-instruction metadata */
+
+static const rv_comp_data rvcp_jal[] = {
+    { rv_op_j, rvcc_j },
+    { rv_op_jal, rvcc_jal },
+    { rv_op_illegal, NULL }
+};
+
+static const rv_comp_data rvcp_jalr[] = {
+    { rv_op_ret, rvcc_ret },
+    { rv_op_jr, rvcc_jr },
+    { rv_op_jalr, rvcc_jalr },
+    { rv_op_illegal, NULL }
+};
+
+static const rv_comp_data rvcp_beq[] = {
+    { rv_op_beqz, rvcc_beqz },
+    { rv_op_illegal, NULL }
+};
+
+static const rv_comp_data rvcp_bne[] = {
+    { rv_op_bnez, rvcc_bnez },
+    { rv_op_illegal, NULL }
+};
+
+static const rv_comp_data rvcp_blt[] = {
+    { rv_op_bltz, rvcc_bltz },
+    { rv_op_bgtz, rvcc_bgtz },
+    { rv_op_bgt, rvcc_bgt },
+    { rv_op_illegal, NULL }
+};
+
+static const rv_comp_data rvcp_bge[] = {
+    { rv_op_blez, rvcc_blez },
+    { rv_op_bgez, rvcc_bgez },
+    { rv_op_ble, rvcc_ble },
+    { rv_op_illegal, NULL }
+};
+
+static const rv_comp_data rvcp_bltu[] = {
+    { rv_op_bgtu, rvcc_bgtu },
+    { rv_op_illegal, NULL }
+};
+
+static const rv_comp_data rvcp_bgeu[] = {
+    { rv_op_bleu, rvcc_bleu },
+    { rv_op_illegal, NULL }
+};
+
+static const rv_comp_data rvcp_addi[] = {
+    { rv_op_nop, rvcc_nop },
+    { rv_op_mv, rvcc_mv },
+    { rv_op_illegal, NULL }
+};
+
+static const rv_comp_data rvcp_sltiu[] = {
+    { rv_op_seqz, rvcc_seqz },
+    { rv_op_illegal, NULL }
+};
+
+static const rv_comp_data rvcp_xori[] = {
+    { rv_op_not, rvcc_not },
+    { rv_op_illegal, NULL }
+};
+
+static const rv_comp_data rvcp_sub[] = {
+    { rv_op_neg, rvcc_neg },
+    { rv_op_illegal, NULL }
+};
+
+static const rv_comp_data rvcp_slt[] = {
+    { rv_op_sltz, rvcc_sltz },
+    { rv_op_sgtz, rvcc_sgtz },
+    { rv_op_illegal, NULL }
+};
+
+static const rv_comp_data rvcp_sltu[] = {
+    { rv_op_snez, rvcc_snez },
+    { rv_op_illegal, NULL }
+};
+
+static const rv_comp_data rvcp_addiw[] = {
+    { rv_op_sext_w, rvcc_sext_w },
+    { rv_op_illegal, NULL }
+};
+
+static const rv_comp_data rvcp_subw[] = {
+    { rv_op_negw, rvcc_negw },
+    { rv_op_illegal, NULL }
+};
+
+static const rv_comp_data rvcp_csrrw[] = {
+    { rv_op_fscsr, rvcc_fscsr },
+    { rv_op_fsrm, rvcc_fsrm },
+    { rv_op_fsflags, rvcc_fsflags },
+    { rv_op_illegal, NULL }
+};
+
+static const rv_comp_data rvcp_csrrs[] = {
+    { rv_op_rdcycle, rvcc_rdcycle },
+    { rv_op_rdtime, rvcc_rdtime },
+    { rv_op_rdinstret, rvcc_rdinstret },
+    { rv_op_rdcycleh, rvcc_rdcycleh },
+    { rv_op_rdtimeh, rvcc_rdtimeh },
+    { rv_op_rdinstreth, rvcc_rdinstreth },
+    { rv_op_frcsr, rvcc_frcsr },
+    { rv_op_frrm, rvcc_frrm },
+    { rv_op_frflags, rvcc_frflags },
+    { rv_op_illegal, NULL }
+};
+
+static const rv_comp_data rvcp_csrrwi[] = {
+    { rv_op_fsrmi, rvcc_fsrmi },
+    { rv_op_fsflagsi, rvcc_fsflagsi },
+    { rv_op_illegal, NULL }
+};
+
+static const rv_comp_data rvcp_fsgnj_s[] = {
+    { rv_op_fmv_s, rvcc_fmv_s },
+    { rv_op_illegal, NULL }
+};
+
+static const rv_comp_data rvcp_fsgnjn_s[] = {
+    { rv_op_fneg_s, rvcc_fneg_s },
+    { rv_op_illegal, NULL }
+};
+
+static const rv_comp_data rvcp_fsgnjx_s[] = {
+    { rv_op_fabs_s, rvcc_fabs_s },
+    { rv_op_illegal, NULL }
+};
+
+static const rv_comp_data rvcp_fsgnj_d[] = {
+    { rv_op_fmv_d, rvcc_fmv_d },
+    { rv_op_illegal, NULL }
+};
+
+static const rv_comp_data rvcp_fsgnjn_d[] = {
+    { rv_op_fneg_d, rvcc_fneg_d },
+    { rv_op_illegal, NULL }
+};
+
+static const rv_comp_data rvcp_fsgnjx_d[] = {
+    { rv_op_fabs_d, rvcc_fabs_d },
+    { rv_op_illegal, NULL }
+};
+
+static const rv_comp_data rvcp_fsgnj_q[] = {
+    { rv_op_fmv_q, rvcc_fmv_q },
+    { rv_op_illegal, NULL }
+};
+
+static const rv_comp_data rvcp_fsgnjn_q[] = {
+    { rv_op_fneg_q, rvcc_fneg_q },
+    { rv_op_illegal, NULL }
+};
+
+static const rv_comp_data rvcp_fsgnjx_q[] = {
+    { rv_op_fabs_q, rvcc_fabs_q },
+    { rv_op_illegal, NULL }
+};
+
+/* instruction metadata */
+
+const rv_opcode_data opcode_data[] = {
+    { "illegal", rv_codec_illegal, rv_fmt_none, NULL, 0, 0, 0 },
+    { "lui", rv_codec_u, rv_fmt_rd_imm, NULL, 0, 0, 0 },
+    { "auipc", rv_codec_u, rv_fmt_rd_offset, NULL, 0, 0, 0 },
+    { "jal", rv_codec_uj, rv_fmt_rd_offset, rvcp_jal, 0, 0, 0 },
+    { "jalr", rv_codec_i, rv_fmt_rd_rs1_offset, rvcp_jalr, 0, 0, 0 },
+    { "beq", rv_codec_sb, rv_fmt_rs1_rs2_offset, rvcp_beq, 0, 0, 0 },
+    { "bne", rv_codec_sb, rv_fmt_rs1_rs2_offset, rvcp_bne, 0, 0, 0 },
+    { "blt", rv_codec_sb, rv_fmt_rs1_rs2_offset, rvcp_blt, 0, 0, 0 },
+    { "bge", rv_codec_sb, rv_fmt_rs1_rs2_offset, rvcp_bge, 0, 0, 0 },
+    { "bltu", rv_codec_sb, rv_fmt_rs1_rs2_offset, rvcp_bltu, 0, 0, 0 },
+    { "bgeu", rv_codec_sb, rv_fmt_rs1_rs2_offset, rvcp_bgeu, 0, 0, 0 },
+    { "lb", rv_codec_i, rv_fmt_rd_offset_rs1, NULL, 0, 0, 0 },
+    { "lh", rv_codec_i, rv_fmt_rd_offset_rs1, NULL, 0, 0, 0 },
+    { "lw", rv_codec_i, rv_fmt_rd_offset_rs1, NULL, 0, 0, 0 },
+    { "lbu", rv_codec_i, rv_fmt_rd_offset_rs1, NULL, 0, 0, 0 },
+    { "lhu", rv_codec_i, rv_fmt_rd_offset_rs1, NULL, 0, 0, 0 },
+    { "sb", rv_codec_s, rv_fmt_rs2_offset_rs1, NULL, 0, 0, 0 },
+    { "sh", rv_codec_s, rv_fmt_rs2_offset_rs1, NULL, 0, 0, 0 },
+    { "sw", rv_codec_s, rv_fmt_rs2_offset_rs1, NULL, 0, 0, 0 },
+    { "addi", rv_codec_i, rv_fmt_rd_rs1_imm, rvcp_addi, 0, 0, 0 },
+    { "slti", rv_codec_i, rv_fmt_rd_rs1_imm, NULL, 0, 0, 0 },
+    { "sltiu", rv_codec_i, rv_fmt_rd_rs1_imm, rvcp_sltiu, 0, 0, 0 },
+    { "xori", rv_codec_i, rv_fmt_rd_rs1_imm, rvcp_xori, 0, 0, 0 },
+    { "ori", rv_codec_i, rv_fmt_rd_rs1_imm, NULL, 0, 0, 0 },
+    { "andi", rv_codec_i, rv_fmt_rd_rs1_imm, NULL, 0, 0, 0 },
+    { "slli", rv_codec_i_sh7, rv_fmt_rd_rs1_imm, NULL, 0, 0, 0 },
+    { "srli", rv_codec_i_sh7, rv_fmt_rd_rs1_imm, NULL, 0, 0, 0 },
+    { "srai", rv_codec_i_sh7, rv_fmt_rd_rs1_imm, NULL, 0, 0, 0 },
+    { "add", rv_codec_r, rv_fmt_rd_rs1_rs2, NULL, 0, 0, 0 },
+    { "sub", rv_codec_r, rv_fmt_rd_rs1_rs2, rvcp_sub, 0, 0, 0 },
+    { "sll", rv_codec_r, rv_fmt_rd_rs1_rs2, NULL, 0, 0, 0 },
+    { "slt", rv_codec_r, rv_fmt_rd_rs1_rs2, rvcp_slt, 0, 0, 0 },
+    { "sltu", rv_codec_r, rv_fmt_rd_rs1_rs2, rvcp_sltu, 0, 0, 0 },
+    { "xor", rv_codec_r, rv_fmt_rd_rs1_rs2, NULL, 0, 0, 0 },
+    { "srl", rv_codec_r, rv_fmt_rd_rs1_rs2, NULL, 0, 0, 0 },
+    { "sra", rv_codec_r, rv_fmt_rd_rs1_rs2, NULL, 0, 0, 0 },
+    { "or", rv_codec_r, rv_fmt_rd_rs1_rs2, NULL, 0, 0, 0 },
+    { "and", rv_codec_r, rv_fmt_rd_rs1_rs2, NULL, 0, 0, 0 },
+    { "fence", rv_codec_r_f, rv_fmt_pred_succ, NULL, 0, 0, 0 },
+    { "fence.i", rv_codec_none, rv_fmt_none, NULL, 0, 0, 0 },
+    { "lwu", rv_codec_i, rv_fmt_rd_offset_rs1, NULL, 0, 0, 0 },
+    { "ld", rv_codec_i, rv_fmt_rd_offset_rs1, NULL, 0, 0, 0 },
+    { "sd", rv_codec_s, rv_fmt_rs2_offset_rs1, NULL, 0, 0, 0 },
+    { "addiw", rv_codec_i, rv_fmt_rd_rs1_imm, rvcp_addiw, 0, 0, 0 },
+    { "slliw", rv_codec_i_sh5, rv_fmt_rd_rs1_imm, NULL, 0, 0, 0 },
+    { "srliw", rv_codec_i_sh5, rv_fmt_rd_rs1_imm, NULL, 0, 0, 0 },
+    { "sraiw", rv_codec_i_sh5, rv_fmt_rd_rs1_imm, NULL, 0, 0, 0 },
+    { "addw", rv_codec_r, rv_fmt_rd_rs1_rs2, NULL, 0, 0, 0 },
+    { "subw", rv_codec_r, rv_fmt_rd_rs1_rs2, rvcp_subw, 0, 0, 0 },
+    { "sllw", rv_codec_r, rv_fmt_rd_rs1_rs2, NULL, 0, 0, 0 },
+    { "srlw", rv_codec_r, rv_fmt_rd_rs1_rs2, NULL, 0, 0, 0 },
+    { "sraw", rv_codec_r, rv_fmt_rd_rs1_rs2, NULL, 0, 0, 0 },
+    { "ldu", rv_codec_i, rv_fmt_rd_offset_rs1, NULL, 0, 0, 0 },
+    { "lq", rv_codec_i, rv_fmt_rd_offset_rs1, NULL, 0, 0, 0 },
+    { "sq", rv_codec_s, rv_fmt_rs2_offset_rs1, NULL, 0, 0, 0 },
+    { "addid", rv_codec_i, rv_fmt_rd_rs1_imm, NULL, 0, 0, 0 },
+    { "sllid", rv_codec_i_sh6, rv_fmt_rd_rs1_imm, NULL, 0, 0, 0 },
+    { "srlid", rv_codec_i_sh6, rv_fmt_rd_rs1_imm, NULL, 0, 0, 0 },
+    { "sraid", rv_codec_i_sh6, rv_fmt_rd_rs1_imm, NULL, 0, 0, 0 },
+    { "addd", rv_codec_r, rv_fmt_rd_rs1_rs2, NULL, 0, 0, 0 },
+    { "subd", rv_codec_r, rv_fmt_rd_rs1_rs2, NULL, 0, 0, 0 },
+    { "slld", rv_codec_r, rv_fmt_rd_rs1_rs2, NULL, 0, 0, 0 },
+    { "srld", rv_codec_r, rv_fmt_rd_rs1_rs2, NULL, 0, 0, 0 },
+    { "srad", rv_codec_r, rv_fmt_rd_rs1_rs2, NULL, 0, 0, 0 },
+    { "mul", rv_codec_r, rv_fmt_rd_rs1_rs2, NULL, 0, 0, 0 },
+    { "mulh", rv_codec_r, rv_fmt_rd_rs1_rs2, NULL, 0, 0, 0 },
+    { "mulhsu", rv_codec_r, rv_fmt_rd_rs1_rs2, NULL, 0, 0, 0 },
+    { "mulhu", rv_codec_r, rv_fmt_rd_rs1_rs2, NULL, 0, 0, 0 },
+    { "div", rv_codec_r, rv_fmt_rd_rs1_rs2, NULL, 0, 0, 0 },
+    { "divu", rv_codec_r, rv_fmt_rd_rs1_rs2, NULL, 0, 0, 0 },
+    { "rem", rv_codec_r, rv_fmt_rd_rs1_rs2, NULL, 0, 0, 0 },
+    { "remu", rv_codec_r, rv_fmt_rd_rs1_rs2, NULL, 0, 0, 0 },
+    { "mulw", rv_codec_r, rv_fmt_rd_rs1_rs2, NULL, 0, 0, 0 },
+    { "divw", rv_codec_r, rv_fmt_rd_rs1_rs2, NULL, 0, 0, 0 },
+    { "divuw", rv_codec_r, rv_fmt_rd_rs1_rs2, NULL, 0, 0, 0 },
+    { "remw", rv_codec_r, rv_fmt_rd_rs1_rs2, NULL, 0, 0, 0 },
+    { "remuw", rv_codec_r, rv_fmt_rd_rs1_rs2, NULL, 0, 0, 0 },
+    { "muld", rv_codec_r, rv_fmt_rd_rs1_rs2, NULL, 0, 0, 0 },
+    { "divd", rv_codec_r, rv_fmt_rd_rs1_rs2, NULL, 0, 0, 0 },
+    { "divud", rv_codec_r, rv_fmt_rd_rs1_rs2, NULL, 0, 0, 0 },
+    { "remd", rv_codec_r, rv_fmt_rd_rs1_rs2, NULL, 0, 0, 0 },
+    { "remud", rv_codec_r, rv_fmt_rd_rs1_rs2, NULL, 0, 0, 0 },
+    { "lr.w", rv_codec_r_l, rv_fmt_aqrl_rd_rs1, NULL, 0, 0, 0 },
+    { "sc.w", rv_codec_r_a, rv_fmt_aqrl_rd_rs2_rs1, NULL, 0, 0, 0 },
+    { "amoswap.w", rv_codec_r_a, rv_fmt_aqrl_rd_rs2_rs1, NULL, 0, 0, 0 },
+    { "amoadd.w", rv_codec_r_a, rv_fmt_aqrl_rd_rs2_rs1, NULL, 0, 0, 0 },
+    { "amoxor.w", rv_codec_r_a, rv_fmt_aqrl_rd_rs2_rs1, NULL, 0, 0, 0 },
+    { "amoor.w", rv_codec_r_a, rv_fmt_aqrl_rd_rs2_rs1, NULL, 0, 0, 0 },
+    { "amoand.w", rv_codec_r_a, rv_fmt_aqrl_rd_rs2_rs1, NULL, 0, 0, 0 },
+    { "amomin.w", rv_codec_r_a, rv_fmt_aqrl_rd_rs2_rs1, NULL, 0, 0, 0 },
+    { "amomax.w", rv_codec_r_a, rv_fmt_aqrl_rd_rs2_rs1, NULL, 0, 0, 0 },
+    { "amominu.w", rv_codec_r_a, rv_fmt_aqrl_rd_rs2_rs1, NULL, 0, 0, 0 },
+    { "amomaxu.w", rv_codec_r_a, rv_fmt_aqrl_rd_rs2_rs1, NULL, 0, 0, 0 },
+    { "lr.d", rv_codec_r_l, rv_fmt_aqrl_rd_rs1, NULL, 0, 0, 0 },
+    { "sc.d", rv_codec_r_a, rv_fmt_aqrl_rd_rs2_rs1, NULL, 0, 0, 0 },
+    { "amoswap.d", rv_codec_r_a, rv_fmt_aqrl_rd_rs2_rs1, NULL, 0, 0, 0 },
+    { "amoadd.d", rv_codec_r_a, rv_fmt_aqrl_rd_rs2_rs1, NULL, 0, 0, 0 },
+    { "amoxor.d", rv_codec_r_a, rv_fmt_aqrl_rd_rs2_rs1, NULL, 0, 0, 0 },
+    { "amoor.d", rv_codec_r_a, rv_fmt_aqrl_rd_rs2_rs1, NULL, 0, 0, 0 },
+    { "amoand.d", rv_codec_r_a, rv_fmt_aqrl_rd_rs2_rs1, NULL, 0, 0, 0 },
+    { "amomin.d", rv_codec_r_a, rv_fmt_aqrl_rd_rs2_rs1, NULL, 0, 0, 0 },
+    { "amomax.d", rv_codec_r_a, rv_fmt_aqrl_rd_rs2_rs1, NULL, 0, 0, 0 },
+    { "amominu.d", rv_codec_r_a, rv_fmt_aqrl_rd_rs2_rs1, NULL, 0, 0, 0 },
+    { "amomaxu.d", rv_codec_r_a, rv_fmt_aqrl_rd_rs2_rs1, NULL, 0, 0, 0 },
+    { "lr.q", rv_codec_r_l, rv_fmt_aqrl_rd_rs1, NULL, 0, 0, 0 },
+    { "sc.q", rv_codec_r_a, rv_fmt_aqrl_rd_rs2_rs1, NULL, 0, 0, 0 },
+    { "amoswap.q", rv_codec_r_a, rv_fmt_aqrl_rd_rs2_rs1, NULL, 0, 0, 0 },
+    { "amoadd.q", rv_codec_r_a, rv_fmt_aqrl_rd_rs2_rs1, NULL, 0, 0, 0 },
+    { "amoxor.q", rv_codec_r_a, rv_fmt_aqrl_rd_rs2_rs1, NULL, 0, 0, 0 },
+    { "amoor.q", rv_codec_r_a, rv_fmt_aqrl_rd_rs2_rs1, NULL, 0, 0, 0 },
+    { "amoand.q", rv_codec_r_a, rv_fmt_aqrl_rd_rs2_rs1, NULL, 0, 0, 0 },
+    { "amomin.q", rv_codec_r_a, rv_fmt_aqrl_rd_rs2_rs1, NULL, 0, 0, 0 },
+    { "amomax.q", rv_codec_r_a, rv_fmt_aqrl_rd_rs2_rs1, NULL, 0, 0, 0 },
+    { "amominu.q", rv_codec_r_a, rv_fmt_aqrl_rd_rs2_rs1, NULL, 0, 0, 0 },
+    { "amomaxu.q", rv_codec_r_a, rv_fmt_aqrl_rd_rs2_rs1, NULL, 0, 0, 0 },
+    { "ecall", rv_codec_none, rv_fmt_none, NULL, 0, 0, 0 },
+    { "ebreak", rv_codec_none, rv_fmt_none, NULL, 0, 0, 0 },
+    { "uret", rv_codec_none, rv_fmt_none, NULL, 0, 0, 0 },
+    { "sret", rv_codec_none, rv_fmt_none, NULL, 0, 0, 0 },
+    { "hret", rv_codec_none, rv_fmt_none, NULL, 0, 0, 0 },
+    { "mret", rv_codec_none, rv_fmt_none, NULL, 0, 0, 0 },
+    { "dret", rv_codec_none, rv_fmt_none, NULL, 0, 0, 0 },
+    { "sfence.vm", rv_codec_r, rv_fmt_rs1, NULL, 0, 0, 0 },
+    { "sfence.vma", rv_codec_r, rv_fmt_rs1_rs2, NULL, 0, 0, 0 },
+    { "wfi", rv_codec_none, rv_fmt_none, NULL, 0, 0, 0 },
+    { "csrrw", rv_codec_i_csr, rv_fmt_rd_csr_rs1, rvcp_csrrw, 0, 0, 0 },
+    { "csrrs", rv_codec_i_csr, rv_fmt_rd_csr_rs1, rvcp_csrrs, 0, 0, 0 },
+    { "csrrc", rv_codec_i_csr, rv_fmt_rd_csr_rs1, NULL, 0, 0, 0 },
+    { "csrrwi", rv_codec_i_csr, rv_fmt_rd_csr_zimm, rvcp_csrrwi, 0, 0, 0 },
+    { "csrrsi", rv_codec_i_csr, rv_fmt_rd_csr_zimm, NULL, 0, 0, 0 },
+    { "csrrci", rv_codec_i_csr, rv_fmt_rd_csr_zimm, NULL, 0, 0, 0 },
+    { "flw", rv_codec_i, rv_fmt_frd_offset_rs1, NULL, 0, 0, 0 },
+    { "fsw", rv_codec_s, rv_fmt_frs2_offset_rs1, NULL, 0, 0, 0 },
+    { "fmadd.s", rv_codec_r4_m, rv_fmt_rm_frd_frs1_frs2_frs3, NULL, 0, 0, 0 },
+    { "fmsub.s", rv_codec_r4_m, rv_fmt_rm_frd_frs1_frs2_frs3, NULL, 0, 0, 0 },
+    { "fnmsub.s", rv_codec_r4_m, rv_fmt_rm_frd_frs1_frs2_frs3, NULL, 0, 0, 0 },
+    { "fnmadd.s", rv_codec_r4_m, rv_fmt_rm_frd_frs1_frs2_frs3, NULL, 0, 0, 0 },
+    { "fadd.s", rv_codec_r_m, rv_fmt_rm_frd_frs1_frs2, NULL, 0, 0, 0 },
+    { "fsub.s", rv_codec_r_m, rv_fmt_rm_frd_frs1_frs2, NULL, 0, 0, 0 },
+    { "fmul.s", rv_codec_r_m, rv_fmt_rm_frd_frs1_frs2, NULL, 0, 0, 0 },
+    { "fdiv.s", rv_codec_r_m, rv_fmt_rm_frd_frs1_frs2, NULL, 0, 0, 0 },
+    { "fsgnj.s", rv_codec_r, rv_fmt_frd_frs1_frs2, rvcp_fsgnj_s, 0, 0, 0 },
+    { "fsgnjn.s", rv_codec_r, rv_fmt_frd_frs1_frs2, rvcp_fsgnjn_s, 0, 0, 0 },
+    { "fsgnjx.s", rv_codec_r, rv_fmt_frd_frs1_frs2, rvcp_fsgnjx_s, 0, 0, 0 },
+    { "fmin.s", rv_codec_r, rv_fmt_frd_frs1_frs2, NULL, 0, 0, 0 },
+    { "fmax.s", rv_codec_r, rv_fmt_frd_frs1_frs2, NULL, 0, 0, 0 },
+    { "fsqrt.s", rv_codec_r_m, rv_fmt_rm_frd_frs1, NULL, 0, 0, 0 },
+    { "fle.s", rv_codec_r, rv_fmt_rd_frs1_frs2, NULL, 0, 0, 0 },
+    { "flt.s", rv_codec_r, rv_fmt_rd_frs1_frs2, NULL, 0, 0, 0 },
+    { "feq.s", rv_codec_r, rv_fmt_rd_frs1_frs2, NULL, 0, 0, 0 },
+    { "fcvt.w.s", rv_codec_r_m, rv_fmt_rm_rd_frs1, NULL, 0, 0, 0 },
+    { "fcvt.wu.s", rv_codec_r_m, rv_fmt_rm_rd_frs1, NULL, 0, 0, 0 },
+    { "fcvt.s.w", rv_codec_r_m, rv_fmt_rm_frd_rs1, NULL, 0, 0, 0 },
+    { "fcvt.s.wu", rv_codec_r_m, rv_fmt_rm_frd_rs1, NULL, 0, 0, 0 },
+    { "fmv.x.s", rv_codec_r, rv_fmt_rd_frs1, NULL, 0, 0, 0 },
+    { "fclass.s", rv_codec_r, rv_fmt_rd_frs1, NULL, 0, 0, 0 },
+    { "fmv.s.x", rv_codec_r, rv_fmt_frd_rs1, NULL, 0, 0, 0 },
+    { "fcvt.l.s", rv_codec_r_m, rv_fmt_rm_rd_frs1, NULL, 0, 0, 0 },
+    { "fcvt.lu.s", rv_codec_r_m, rv_fmt_rm_rd_frs1, NULL, 0, 0, 0 },
+    { "fcvt.s.l", rv_codec_r_m, rv_fmt_rm_frd_rs1, NULL, 0, 0, 0 },
+    { "fcvt.s.lu", rv_codec_r_m, rv_fmt_rm_frd_rs1, NULL, 0, 0, 0 },
+    { "fld", rv_codec_i, rv_fmt_frd_offset_rs1, NULL, 0, 0, 0 },
+    { "fsd", rv_codec_s, rv_fmt_frs2_offset_rs1, NULL, 0, 0, 0 },
+    { "fmadd.d", rv_codec_r4_m, rv_fmt_rm_frd_frs1_frs2_frs3, NULL, 0, 0, 0 },
+    { "fmsub.d", rv_codec_r4_m, rv_fmt_rm_frd_frs1_frs2_frs3, NULL, 0, 0, 0 },
+    { "fnmsub.d", rv_codec_r4_m, rv_fmt_rm_frd_frs1_frs2_frs3, NULL, 0, 0, 0 },
+    { "fnmadd.d", rv_codec_r4_m, rv_fmt_rm_frd_frs1_frs2_frs3, NULL, 0, 0, 0 },
+    { "fadd.d", rv_codec_r_m, rv_fmt_rm_frd_frs1_frs2, NULL, 0, 0, 0 },
+    { "fsub.d", rv_codec_r_m, rv_fmt_rm_frd_frs1_frs2, NULL, 0, 0, 0 },
+    { "fmul.d", rv_codec_r_m, rv_fmt_rm_frd_frs1_frs2, NULL, 0, 0, 0 },
+    { "fdiv.d", rv_codec_r_m, rv_fmt_rm_frd_frs1_frs2, NULL, 0, 0, 0 },
+    { "fsgnj.d", rv_codec_r, rv_fmt_frd_frs1_frs2, rvcp_fsgnj_d, 0, 0, 0 },
+    { "fsgnjn.d", rv_codec_r, rv_fmt_frd_frs1_frs2, rvcp_fsgnjn_d, 0, 0, 0 },
+    { "fsgnjx.d", rv_codec_r, rv_fmt_frd_frs1_frs2, rvcp_fsgnjx_d, 0, 0, 0 },
+    { "fmin.d", rv_codec_r, rv_fmt_frd_frs1_frs2, NULL, 0, 0, 0 },
+    { "fmax.d", rv_codec_r, rv_fmt_frd_frs1_frs2, NULL, 0, 0, 0 },
+    { "fcvt.s.d", rv_codec_r_m, rv_fmt_rm_frd_frs1, NULL, 0, 0, 0 },
+    { "fcvt.d.s", rv_codec_r_m, rv_fmt_rm_frd_frs1, NULL, 0, 0, 0 },
+    { "fsqrt.d", rv_codec_r_m, rv_fmt_rm_frd_frs1, NULL, 0, 0, 0 },
+    { "fle.d", rv_codec_r, rv_fmt_rd_frs1_frs2, NULL, 0, 0, 0 },
+    { "flt.d", rv_codec_r, rv_fmt_rd_frs1_frs2, NULL, 0, 0, 0 },
+    { "feq.d", rv_codec_r, rv_fmt_rd_frs1_frs2, NULL, 0, 0, 0 },
+    { "fcvt.w.d", rv_codec_r_m, rv_fmt_rm_rd_frs1, NULL, 0, 0, 0 },
+    { "fcvt.wu.d", rv_codec_r_m, rv_fmt_rm_rd_frs1, NULL, 0, 0, 0 },
+    { "fcvt.d.w", rv_codec_r_m, rv_fmt_rm_frd_rs1, NULL, 0, 0, 0 },
+    { "fcvt.d.wu", rv_codec_r_m, rv_fmt_rm_frd_rs1, NULL, 0, 0, 0 },
+    { "fclass.d", rv_codec_r, rv_fmt_rd_frs1, NULL, 0, 0, 0 },
+    { "fcvt.l.d", rv_codec_r_m, rv_fmt_rm_rd_frs1, NULL, 0, 0, 0 },
+    { "fcvt.lu.d", rv_codec_r_m, rv_fmt_rm_rd_frs1, NULL, 0, 0, 0 },
+    { "fmv.x.d", rv_codec_r, rv_fmt_rd_frs1, NULL, 0, 0, 0 },
+    { "fcvt.d.l", rv_codec_r_m, rv_fmt_rm_frd_rs1, NULL, 0, 0, 0 },
+    { "fcvt.d.lu", rv_codec_r_m, rv_fmt_rm_frd_rs1, NULL, 0, 0, 0 },
+    { "fmv.d.x", rv_codec_r, rv_fmt_frd_rs1, NULL, 0, 0, 0 },
+    { "flq", rv_codec_i, rv_fmt_frd_offset_rs1, NULL, 0, 0, 0 },
+    { "fsq", rv_codec_s, rv_fmt_frs2_offset_rs1, NULL, 0, 0, 0 },
+    { "fmadd.q", rv_codec_r4_m, rv_fmt_rm_frd_frs1_frs2_frs3, NULL, 0, 0, 0 },
+    { "fmsub.q", rv_codec_r4_m, rv_fmt_rm_frd_frs1_frs2_frs3, NULL, 0, 0, 0 },
+    { "fnmsub.q", rv_codec_r4_m, rv_fmt_rm_frd_frs1_frs2_frs3, NULL, 0, 0, 0 },
+    { "fnmadd.q", rv_codec_r4_m, rv_fmt_rm_frd_frs1_frs2_frs3, NULL, 0, 0, 0 },
+    { "fadd.q", rv_codec_r_m, rv_fmt_rm_frd_frs1_frs2, NULL, 0, 0, 0 },
+    { "fsub.q", rv_codec_r_m, rv_fmt_rm_frd_frs1_frs2, NULL, 0, 0, 0 },
+    { "fmul.q", rv_codec_r_m, rv_fmt_rm_frd_frs1_frs2, NULL, 0, 0, 0 },
+    { "fdiv.q", rv_codec_r_m, rv_fmt_rm_frd_frs1_frs2, NULL, 0, 0, 0 },
+    { "fsgnj.q", rv_codec_r, rv_fmt_frd_frs1_frs2, rvcp_fsgnj_q, 0, 0, 0 },
+    { "fsgnjn.q", rv_codec_r, rv_fmt_frd_frs1_frs2, rvcp_fsgnjn_q, 0, 0, 0 },
+    { "fsgnjx.q", rv_codec_r, rv_fmt_frd_frs1_frs2, rvcp_fsgnjx_q, 0, 0, 0 },
+    { "fmin.q", rv_codec_r, rv_fmt_frd_frs1_frs2, NULL, 0, 0, 0 },
+    { "fmax.q", rv_codec_r, rv_fmt_frd_frs1_frs2, NULL, 0, 0, 0 },
+    { "fcvt.s.q", rv_codec_r_m, rv_fmt_rm_frd_frs1, NULL, 0, 0, 0 },
+    { "fcvt.q.s", rv_codec_r_m, rv_fmt_rm_frd_frs1, NULL, 0, 0, 0 },
+    { "fcvt.d.q", rv_codec_r_m, rv_fmt_rm_frd_frs1, NULL, 0, 0, 0 },
+    { "fcvt.q.d", rv_codec_r_m, rv_fmt_rm_frd_frs1, NULL, 0, 0, 0 },
+    { "fsqrt.q", rv_codec_r_m, rv_fmt_rm_frd_frs1, NULL, 0, 0, 0 },
+    { "fle.q", rv_codec_r, rv_fmt_rd_frs1_frs2, NULL, 0, 0, 0 },
+    { "flt.q", rv_codec_r, rv_fmt_rd_frs1_frs2, NULL, 0, 0, 0 },
+    { "feq.q", rv_codec_r, rv_fmt_rd_frs1_frs2, NULL, 0, 0, 0 },
+    { "fcvt.w.q", rv_codec_r_m, rv_fmt_rm_rd_frs1, NULL, 0, 0, 0 },
+    { "fcvt.wu.q", rv_codec_r_m, rv_fmt_rm_rd_frs1, NULL, 0, 0, 0 },
+    { "fcvt.q.w", rv_codec_r_m, rv_fmt_rm_frd_rs1, NULL, 0, 0, 0 },
+    { "fcvt.q.wu", rv_codec_r_m, rv_fmt_rm_frd_rs1, NULL, 0, 0, 0 },
+    { "fclass.q", rv_codec_r, rv_fmt_rd_frs1, NULL, 0, 0, 0 },
+    { "fcvt.l.q", rv_codec_r_m, rv_fmt_rm_rd_frs1, NULL, 0, 0, 0 },
+    { "fcvt.lu.q", rv_codec_r_m, rv_fmt_rm_rd_frs1, NULL, 0, 0, 0 },
+    { "fcvt.q.l", rv_codec_r_m, rv_fmt_rm_frd_rs1, NULL, 0, 0, 0 },
+    { "fcvt.q.lu", rv_codec_r_m, rv_fmt_rm_frd_rs1, NULL, 0, 0, 0 },
+    { "fmv.x.q", rv_codec_r, rv_fmt_rd_frs1, NULL, 0, 0, 0 },
+    { "fmv.q.x", rv_codec_r, rv_fmt_frd_rs1, NULL, 0, 0, 0 },
+    { "c.addi4spn", rv_codec_ciw_4spn, rv_fmt_rd_rs1_imm, NULL, rv_op_addi, rv_op_addi, rv_op_addi },
+    { "c.fld", rv_codec_cl_ld, rv_fmt_frd_offset_rs1, NULL, rv_op_fld, rv_op_fld, 0 },
+    { "c.lw", rv_codec_cl_lw, rv_fmt_rd_offset_rs1, NULL, rv_op_lw, rv_op_lw, rv_op_lw },
+    { "c.flw", rv_codec_cl_lw, rv_fmt_frd_offset_rs1, NULL, rv_op_flw, 0, 0 },
+    { "c.fsd", rv_codec_cs_sd, rv_fmt_frs2_offset_rs1, NULL, rv_op_fsd, rv_op_fsd, 0 },
+    { "c.sw", rv_codec_cs_sw, rv_fmt_rs2_offset_rs1, NULL, rv_op_sw, rv_op_sw, rv_op_sw },
+    { "c.fsw", rv_codec_cs_sw, rv_fmt_frs2_offset_rs1, NULL, rv_op_fsw, 0, 0 },
+    { "c.nop", rv_codec_ci_none, rv_fmt_none, NULL, rv_op_addi, rv_op_addi, rv_op_addi },
+    { "c.addi", rv_codec_ci, rv_fmt_rd_rs1_imm, NULL, rv_op_addi, rv_op_addi, rv_op_addi },
+    { "c.jal", rv_codec_cj_jal, rv_fmt_rd_offset, NULL, rv_op_jal, 0, 0 },
+    { "c.li", rv_codec_ci_li, rv_fmt_rd_rs1_imm, NULL, rv_op_addi, rv_op_addi, rv_op_addi },
+    { "c.addi16sp", rv_codec_ci_16sp, rv_fmt_rd_rs1_imm, NULL, rv_op_addi, rv_op_addi, rv_op_addi },
+    { "c.lui", rv_codec_ci_lui, rv_fmt_rd_imm, NULL, rv_op_lui, rv_op_lui, rv_op_lui },
+    { "c.srli", rv_codec_cb_sh6, rv_fmt_rd_rs1_imm, NULL, rv_op_srli, rv_op_srli, rv_op_srli },
+    { "c.srai", rv_codec_cb_sh6, rv_fmt_rd_rs1_imm, NULL, rv_op_srai, rv_op_srai, rv_op_srai },
+    { "c.andi", rv_codec_cb_imm, rv_fmt_rd_rs1_imm, NULL, rv_op_andi, rv_op_andi, rv_op_andi },
+    { "c.sub", rv_codec_cs, rv_fmt_rd_rs1_rs2, NULL, rv_op_sub, rv_op_sub, rv_op_sub },
+    { "c.xor", rv_codec_cs, rv_fmt_rd_rs1_rs2, NULL, rv_op_xor, rv_op_xor, rv_op_xor },
+    { "c.or", rv_codec_cs, rv_fmt_rd_rs1_rs2, NULL, rv_op_or, rv_op_or, rv_op_or },
+    { "c.and", rv_codec_cs, rv_fmt_rd_rs1_rs2, NULL, rv_op_and, rv_op_and, rv_op_and },
+    { "c.subw", rv_codec_cs, rv_fmt_rd_rs1_rs2, NULL, rv_op_subw, rv_op_subw, rv_op_subw },
+    { "c.addw", rv_codec_cs, rv_fmt_rd_rs1_rs2, NULL, rv_op_addw, rv_op_addw, rv_op_addw },
+    { "c.j", rv_codec_cj, rv_fmt_rd_offset, NULL, rv_op_jal, rv_op_jal, rv_op_jal },
+    { "c.beqz", rv_codec_cb, rv_fmt_rs1_rs2_offset, NULL, rv_op_beq, rv_op_beq, rv_op_beq },
+    { "c.bnez", rv_codec_cb, rv_fmt_rs1_rs2_offset, NULL, rv_op_bne, rv_op_bne, rv_op_bne },
+    { "c.slli", rv_codec_ci_sh6, rv_fmt_rd_rs1_imm, NULL, rv_op_slli, rv_op_slli, rv_op_slli },
+    { "c.fldsp", rv_codec_ci_ldsp, rv_fmt_frd_offset_rs1, NULL, rv_op_fld, rv_op_fld, rv_op_fld },
+    { "c.lwsp", rv_codec_ci_lwsp, rv_fmt_rd_offset_rs1, NULL, rv_op_lw, rv_op_lw, rv_op_lw },
+    { "c.flwsp", rv_codec_ci_lwsp, rv_fmt_frd_offset_rs1, NULL, rv_op_flw, 0, 0 },
+    { "c.jr", rv_codec_cr_jr, rv_fmt_rd_rs1_offset, NULL, rv_op_jalr, rv_op_jalr, rv_op_jalr },
+    { "c.mv", rv_codec_cr_mv, rv_fmt_rd_rs1_rs2, NULL, rv_op_addi, rv_op_addi, rv_op_addi },
+    { "c.ebreak", rv_codec_ci_none, rv_fmt_none, NULL, rv_op_ebreak, rv_op_ebreak, rv_op_ebreak },
+    { "c.jalr", rv_codec_cr_jalr, rv_fmt_rd_rs1_offset, NULL, rv_op_jalr, rv_op_jalr, rv_op_jalr },
+    { "c.add", rv_codec_cr, rv_fmt_rd_rs1_rs2, NULL, rv_op_add, rv_op_add, rv_op_add },
+    { "c.fsdsp", rv_codec_css_sdsp, rv_fmt_frs2_offset_rs1, NULL, rv_op_fsd, rv_op_fsd, rv_op_fsd },
+    { "c.swsp", rv_codec_css_swsp, rv_fmt_rs2_offset_rs1, NULL, rv_op_sw, rv_op_sw, rv_op_sw },
+    { "c.fswsp", rv_codec_css_swsp, rv_fmt_frs2_offset_rs1, NULL, rv_op_fsw, 0, 0 },
+    { "c.ld", rv_codec_cl_ld, rv_fmt_rd_offset_rs1, NULL, 0, rv_op_ld, rv_op_ld },
+    { "c.sd", rv_codec_cs_sd, rv_fmt_rs2_offset_rs1, NULL, 0, rv_op_sd, rv_op_sd },
+    { "c.addiw", rv_codec_ci, rv_fmt_rd_rs1_imm, NULL, 0, rv_op_addiw, rv_op_addiw },
+    { "c.ldsp", rv_codec_ci_ldsp, rv_fmt_rd_offset_rs1, NULL, 0, rv_op_ld, rv_op_ld },
+    { "c.sdsp", rv_codec_css_sdsp, rv_fmt_rs2_offset_rs1, NULL, 0, rv_op_sd, rv_op_sd },
+    { "c.lq", rv_codec_cl_lq, rv_fmt_rd_offset_rs1, NULL, 0, 0, rv_op_lq },
+    { "c.sq", rv_codec_cs_sq, rv_fmt_rs2_offset_rs1, NULL, 0, 0, rv_op_sq },
+    { "c.lqsp", rv_codec_ci_lqsp, rv_fmt_rd_offset_rs1, NULL, 0, 0, rv_op_lq },
+    { "c.sqsp", rv_codec_css_sqsp, rv_fmt_rs2_offset_rs1, NULL, 0, 0, rv_op_sq },
+    { "nop", rv_codec_i, rv_fmt_none, NULL, 0, 0, 0 },
+    { "mv", rv_codec_i, rv_fmt_rd_rs1, NULL, 0, 0, 0 },
+    { "not", rv_codec_i, rv_fmt_rd_rs1, NULL, 0, 0, 0 },
+    { "neg", rv_codec_r, rv_fmt_rd_rs2, NULL, 0, 0, 0 },
+    { "negw", rv_codec_r, rv_fmt_rd_rs2, NULL, 0, 0, 0 },
+    { "sext.w", rv_codec_i, rv_fmt_rd_rs1, NULL, 0, 0, 0 },
+    { "seqz", rv_codec_i, rv_fmt_rd_rs1, NULL, 0, 0, 0 },
+    { "snez", rv_codec_r, rv_fmt_rd_rs2, NULL, 0, 0, 0 },
+    { "sltz", rv_codec_r, rv_fmt_rd_rs1, NULL, 0, 0, 0 },
+    { "sgtz", rv_codec_r, rv_fmt_rd_rs2, NULL, 0, 0, 0 },
+    { "fmv.s", rv_codec_r, rv_fmt_rd_rs1, NULL, 0, 0, 0 },
+    { "fabs.s", rv_codec_r, rv_fmt_rd_rs1, NULL, 0, 0, 0 },
+    { "fneg.s", rv_codec_r, rv_fmt_rd_rs1, NULL, 0, 0, 0 },
+    { "fmv.d", rv_codec_r, rv_fmt_rd_rs1, NULL, 0, 0, 0 },
+    { "fabs.d", rv_codec_r, rv_fmt_rd_rs1, NULL, 0, 0, 0 },
+    { "fneg.d", rv_codec_r, rv_fmt_rd_rs1, NULL, 0, 0, 0 },
+    { "fmv.q", rv_codec_r, rv_fmt_rd_rs1, NULL, 0, 0, 0 },
+    { "fabs.q", rv_codec_r, rv_fmt_rd_rs1, NULL, 0, 0, 0 },
+    { "fneg.q", rv_codec_r, rv_fmt_rd_rs1, NULL, 0, 0, 0 },
+    { "beqz", rv_codec_sb, rv_fmt_rs1_offset, NULL, 0, 0, 0 },
+    { "bnez", rv_codec_sb, rv_fmt_rs1_offset, NULL, 0, 0, 0 },
+    { "blez", rv_codec_sb, rv_fmt_rs2_offset, NULL, 0, 0, 0 },
+    { "bgez", rv_codec_sb, rv_fmt_rs1_offset, NULL, 0, 0, 0 },
+    { "bltz", rv_codec_sb, rv_fmt_rs1_offset, NULL, 0, 0, 0 },
+    { "bgtz", rv_codec_sb, rv_fmt_rs2_offset, NULL, 0, 0, 0 },
+    { "ble", rv_codec_sb, rv_fmt_rs2_rs1_offset, NULL, 0, 0, 0 },
+    { "bleu", rv_codec_sb, rv_fmt_rs2_rs1_offset, NULL, 0, 0, 0 },
+    { "bgt", rv_codec_sb, rv_fmt_rs2_rs1_offset, NULL, 0, 0, 0 },
+    { "bgtu", rv_codec_sb, rv_fmt_rs2_rs1_offset, NULL, 0, 0, 0 },
+    { "j", rv_codec_uj, rv_fmt_offset, NULL, 0, 0, 0 },
+    { "ret", rv_codec_i, rv_fmt_none, NULL, 0, 0, 0 },
+    { "jr", rv_codec_i, rv_fmt_rs1, NULL, 0, 0, 0 },
+    { "rdcycle", rv_codec_i_csr, rv_fmt_rd, NULL, 0, 0, 0 },
+    { "rdtime", rv_codec_i_csr, rv_fmt_rd, NULL, 0, 0, 0 },
+    { "rdinstret", rv_codec_i_csr, rv_fmt_rd, NULL, 0, 0, 0 },
+    { "rdcycleh", rv_codec_i_csr, rv_fmt_rd, NULL, 0, 0, 0 },
+    { "rdtimeh", rv_codec_i_csr, rv_fmt_rd, NULL, 0, 0, 0 },
+    { "rdinstreth", rv_codec_i_csr, rv_fmt_rd, NULL, 0, 0, 0 },
+    { "frcsr", rv_codec_i_csr, rv_fmt_rd, NULL, 0, 0, 0 },
+    { "frrm", rv_codec_i_csr, rv_fmt_rd, NULL, 0, 0, 0 },
+    { "frflags", rv_codec_i_csr, rv_fmt_rd, NULL, 0, 0, 0 },
+    { "fscsr", rv_codec_i_csr, rv_fmt_rd_rs1, NULL, 0, 0, 0 },
+    { "fsrm", rv_codec_i_csr, rv_fmt_rd_rs1, NULL, 0, 0, 0 },
+    { "fsflags", rv_codec_i_csr, rv_fmt_rd_rs1, NULL, 0, 0, 0 },
+    { "fsrmi", rv_codec_i_csr, rv_fmt_rd_zimm, NULL, 0, 0, 0 },
+    { "fsflagsi", rv_codec_i_csr, rv_fmt_rd_zimm, NULL, 0, 0, 0 },
+};
+
+/* CSR names */
+
+static const char* csr_name(int csrno)
 {
-  riscv_gpr_names = riscv_gpr_names_abi;
-  riscv_fpr_names = riscv_fpr_names_abi;
-  no_aliases = 0;
-}
-
-#if 0
-static void
-parse_riscv_dis_option (const char *option)
-{
-  if (strcmp (option, "no-aliases") == 0)
-    no_aliases = 1;
-  else if (strcmp (option, "numeric") == 0)
-    {
-      riscv_gpr_names = riscv_gpr_names_numeric;
-      riscv_fpr_names = riscv_fpr_names_numeric;
+    switch(csrno) {
+        case 0x0000: return "ustatus";
+        case 0x0001: return "fflags";
+        case 0x0002: return "frm";
+        case 0x0003: return "fcsr";
+        case 0x0004: return "uie";
+        case 0x0005: return "utvec";
+        case 0x0040: return "uscratch";
+        case 0x0041: return "uepc";
+        case 0x0042: return "ucause";
+        case 0x0043: return "utval";
+        case 0x0044: return "uip";
+        case 0x0100: return "sstatus";
+        case 0x0102: return "sedeleg";
+        case 0x0103: return "sideleg";
+        case 0x0104: return "sie";
+        case 0x0105: return "stvec";
+        case 0x0106: return "scounteren";
+        case 0x0140: return "sscratch";
+        case 0x0141: return "sepc";
+        case 0x0142: return "scause";
+        case 0x0143: return "stval";
+        case 0x0144: return "sip";
+        case 0x0180: return "satp";
+        case 0x0200: return "hstatus";
+        case 0x0202: return "hedeleg";
+        case 0x0203: return "hideleg";
+        case 0x0204: return "hie";
+        case 0x0205: return "htvec";
+        case 0x0240: return "hscratch";
+        case 0x0241: return "hepc";
+        case 0x0242: return "hcause";
+        case 0x0243: return "hbadaddr";
+        case 0x0244: return "hip";
+        case 0x0300: return "mstatus";
+        case 0x0301: return "misa";
+        case 0x0302: return "medeleg";
+        case 0x0303: return "mideleg";
+        case 0x0304: return "mie";
+        case 0x0305: return "mtvec";
+        case 0x0306: return "mcounteren";
+        case 0x0320: return "mucounteren";
+        case 0x0321: return "mscounteren";
+        case 0x0322: return "mhcounteren";
+        case 0x0323: return "mhpmevent3";
+        case 0x0324: return "mhpmevent4";
+        case 0x0325: return "mhpmevent5";
+        case 0x0326: return "mhpmevent6";
+        case 0x0327: return "mhpmevent7";
+        case 0x0328: return "mhpmevent8";
+        case 0x0329: return "mhpmevent9";
+        case 0x032a: return "mhpmevent10";
+        case 0x032b: return "mhpmevent11";
+        case 0x032c: return "mhpmevent12";
+        case 0x032d: return "mhpmevent13";
+        case 0x032e: return "mhpmevent14";
+        case 0x032f: return "mhpmevent15";
+        case 0x0330: return "mhpmevent16";
+        case 0x0331: return "mhpmevent17";
+        case 0x0332: return "mhpmevent18";
+        case 0x0333: return "mhpmevent19";
+        case 0x0334: return "mhpmevent20";
+        case 0x0335: return "mhpmevent21";
+        case 0x0336: return "mhpmevent22";
+        case 0x0337: return "mhpmevent23";
+        case 0x0338: return "mhpmevent24";
+        case 0x0339: return "mhpmevent25";
+        case 0x033a: return "mhpmevent26";
+        case 0x033b: return "mhpmevent27";
+        case 0x033c: return "mhpmevent28";
+        case 0x033d: return "mhpmevent29";
+        case 0x033e: return "mhpmevent30";
+        case 0x033f: return "mhpmevent31";
+        case 0x0340: return "mscratch";
+        case 0x0341: return "mepc";
+        case 0x0342: return "mcause";
+        case 0x0343: return "mtval";
+        case 0x0344: return "mip";
+        case 0x0380: return "mbase";
+        case 0x0381: return "mbound";
+        case 0x0382: return "mibase";
+        case 0x0383: return "mibound";
+        case 0x0384: return "mdbase";
+        case 0x0385: return "mdbound";
+        case 0x03a0: return "pmpcfg3";
+        case 0x03b0: return "pmpaddr0";
+        case 0x03b1: return "pmpaddr1";
+        case 0x03b2: return "pmpaddr2";
+        case 0x03b3: return "pmpaddr3";
+        case 0x03b4: return "pmpaddr4";
+        case 0x03b5: return "pmpaddr5";
+        case 0x03b6: return "pmpaddr6";
+        case 0x03b7: return "pmpaddr7";
+        case 0x03b8: return "pmpaddr8";
+        case 0x03b9: return "pmpaddr9";
+        case 0x03ba: return "pmpaddr10";
+        case 0x03bb: return "pmpaddr11";
+        case 0x03bc: return "pmpaddr12";
+        case 0x03bd: return "pmpaddr14";
+        case 0x03be: return "pmpaddr13";
+        case 0x03bf: return "pmpaddr15";
+        case 0x0780: return "mtohost";
+        case 0x0781: return "mfromhost";
+        case 0x0782: return "mreset";
+        case 0x0783: return "mipi";
+        case 0x0784: return "miobase";
+        case 0x07a0: return "tselect";
+        case 0x07a1: return "tdata1";
+        case 0x07a2: return "tdata2";
+        case 0x07a3: return "tdata3";
+        case 0x07b0: return "dcsr";
+        case 0x07b1: return "dpc";
+        case 0x07b2: return "dscratch";
+        case 0x0b00: return "mcycle";
+        case 0x0b01: return "mtime";
+        case 0x0b02: return "minstret";
+        case 0x0b03: return "mhpmcounter3";
+        case 0x0b04: return "mhpmcounter4";
+        case 0x0b05: return "mhpmcounter5";
+        case 0x0b06: return "mhpmcounter6";
+        case 0x0b07: return "mhpmcounter7";
+        case 0x0b08: return "mhpmcounter8";
+        case 0x0b09: return "mhpmcounter9";
+        case 0x0b0a: return "mhpmcounter10";
+        case 0x0b0b: return "mhpmcounter11";
+        case 0x0b0c: return "mhpmcounter12";
+        case 0x0b0d: return "mhpmcounter13";
+        case 0x0b0e: return "mhpmcounter14";
+        case 0x0b0f: return "mhpmcounter15";
+        case 0x0b10: return "mhpmcounter16";
+        case 0x0b11: return "mhpmcounter17";
+        case 0x0b12: return "mhpmcounter18";
+        case 0x0b13: return "mhpmcounter19";
+        case 0x0b14: return "mhpmcounter20";
+        case 0x0b15: return "mhpmcounter21";
+        case 0x0b16: return "mhpmcounter22";
+        case 0x0b17: return "mhpmcounter23";
+        case 0x0b18: return "mhpmcounter24";
+        case 0x0b19: return "mhpmcounter25";
+        case 0x0b1a: return "mhpmcounter26";
+        case 0x0b1b: return "mhpmcounter27";
+        case 0x0b1c: return "mhpmcounter28";
+        case 0x0b1d: return "mhpmcounter29";
+        case 0x0b1e: return "mhpmcounter30";
+        case 0x0b1f: return "mhpmcounter31";
+        case 0x0b80: return "mcycleh";
+        case 0x0b81: return "mtimeh";
+        case 0x0b82: return "minstreth";
+        case 0x0b83: return "mhpmcounter3h";
+        case 0x0b84: return "mhpmcounter4h";
+        case 0x0b85: return "mhpmcounter5h";
+        case 0x0b86: return "mhpmcounter6h";
+        case 0x0b87: return "mhpmcounter7h";
+        case 0x0b88: return "mhpmcounter8h";
+        case 0x0b89: return "mhpmcounter9h";
+        case 0x0b8a: return "mhpmcounter10h";
+        case 0x0b8b: return "mhpmcounter11h";
+        case 0x0b8c: return "mhpmcounter12h";
+        case 0x0b8d: return "mhpmcounter13h";
+        case 0x0b8e: return "mhpmcounter14h";
+        case 0x0b8f: return "mhpmcounter15h";
+        case 0x0b90: return "mhpmcounter16h";
+        case 0x0b91: return "mhpmcounter17h";
+        case 0x0b92: return "mhpmcounter18h";
+        case 0x0b93: return "mhpmcounter19h";
+        case 0x0b94: return "mhpmcounter20h";
+        case 0x0b95: return "mhpmcounter21h";
+        case 0x0b96: return "mhpmcounter22h";
+        case 0x0b97: return "mhpmcounter23h";
+        case 0x0b98: return "mhpmcounter24h";
+        case 0x0b99: return "mhpmcounter25h";
+        case 0x0b9a: return "mhpmcounter26h";
+        case 0x0b9b: return "mhpmcounter27h";
+        case 0x0b9c: return "mhpmcounter28h";
+        case 0x0b9d: return "mhpmcounter29h";
+        case 0x0b9e: return "mhpmcounter30h";
+        case 0x0b9f: return "mhpmcounter31h";
+        case 0x0c00: return "cycle";
+        case 0x0c01: return "time";
+        case 0x0c02: return "instret";
+        case 0x0c80: return "cycleh";
+        case 0x0c81: return "timeh";
+        case 0x0c82: return "instreth";
+        case 0x0d00: return "scycle";
+        case 0x0d01: return "stime";
+        case 0x0d02: return "sinstret";
+        case 0x0d80: return "scycleh";
+        case 0x0d81: return "stimeh";
+        case 0x0d82: return "sinstreth";
+        case 0x0e00: return "hcycle";
+        case 0x0e01: return "htime";
+        case 0x0e02: return "hinstret";
+        case 0x0e80: return "hcycleh";
+        case 0x0e81: return "htimeh";
+        case 0x0e82: return "hinstreth";
+        case 0x0f11: return "mvendorid";
+        case 0x0f12: return "marchid";
+        case 0x0f13: return "mimpid";
+        case 0x0f14: return "mhartid";
+        default: return NULL;
     }
-  else
-    {
-      /* Invalid option.  */
-      fprintf (stderr, _("Unrecognized disassembler option: %s\n"), option);
+}
+
+/* decode opcode */
+
+static rv_opcode decode_inst_op(rv_inst inst, rv_isa isa)
+{
+    rv_opcode op = rv_op_illegal;
+    switch (((inst >> 0) & 0b11) /* inst[1:0] */) {
+        case 0:
+            // c.addi4spn c.fld c.lw c.flw c.fsd c.sw c.fsw c.ld c.sd c.lq c.sq
+            switch (((inst >> 13) & 0b111) /* inst[15:13] */) {
+                case 0: op = rv_op_c_addi4spn; break;
+                case 1:
+                    if (isa == rv128) op = rv_op_c_lq;
+                    else op = rv_op_c_fld;
+                    break;
+                case 2: op = rv_op_c_lw; break;
+                case 3: 
+                    if (isa == rv32) op = rv_op_c_flw;
+                    else op = rv_op_c_ld;
+                    break;
+                case 5:
+                    if (isa == rv128) op = rv_op_c_sq;
+                    else op = rv_op_c_fsd;
+                    break;
+                case 6: op = rv_op_c_sw; break;
+                case 7: 
+                    if (isa == rv32) op = rv_op_c_fsw;
+                    else op = rv_op_c_sd;
+                    break;
+            }
+            break;
+        case 1:
+            // c.nop c.addi c.jal c.li c.addi16sp c.lui c.srli c.srai c.andi c.sub c.xor c.or ...
+            switch (((inst >> 13) & 0b111) /* inst[15:13] */) {
+                case 0:
+                    // c.nop c.addi
+                    switch (((inst >> 2) & 0b11111111111) /* inst[12:2] */) {
+                        case 0: op = rv_op_c_nop; break;
+                        default: op = rv_op_c_addi; break;
+                    }
+                    break;
+                case 1: 
+                    if (isa == rv32) op = rv_op_c_jal;
+                    else op = rv_op_c_addiw;
+                    break;
+                case 2: op = rv_op_c_li; break;
+                case 3:
+                    // c.addi16sp c.lui
+                    switch (((inst >> 7) & 0b11111) /* inst[11:7] */) {
+                        case 2: op = rv_op_c_addi16sp; break;
+                        default: op = rv_op_c_lui; break;
+                    }
+                    break;
+                case 4:
+                    // c.srli c.srai c.andi c.sub c.xor c.or c.and c.subw c.addw c.srli c.srai
+                    switch (((inst >> 10) & 0b11) /* inst[11:10] */) {
+                        case 0: 
+                            op = rv_op_c_srli;
+                            break;
+                        case 1: 
+                            op = rv_op_c_srai;
+                            break;
+                        case 2: op = rv_op_c_andi; break;
+                        case 3:
+                            // c.sub c.xor c.or c.and c.subw c.addw
+                            switch (((inst >> 10) & 0b100) | ((inst >> 5) & 0b011) /* inst[12|6:5] */) {
+                                case 0: op = rv_op_c_sub; break;
+                                case 1: op = rv_op_c_xor; break;
+                                case 2: op = rv_op_c_or; break;
+                                case 3: op = rv_op_c_and; break;
+                                case 4: op = rv_op_c_subw; break;
+                                case 5: op = rv_op_c_addw; break;
+                            }
+                            break;
+                    }
+                    break;
+                case 5: op = rv_op_c_j; break;
+                case 6: op = rv_op_c_beqz; break;
+                case 7: op = rv_op_c_bnez; break;
+            }
+            break;
+        case 2:
+            // c.slli c.fldsp c.lwsp c.flwsp c.jr c.mv c.ebreak c.jalr c.add c.fsdsp c.swsp c.fswsp ...
+            switch (((inst >> 13) & 0b111) /* inst[15:13] */) {
+                case 0: 
+                    op = rv_op_c_slli;
+                    break;
+                case 1:
+                    if (isa == rv128) op = rv_op_c_lqsp;
+                    else op = rv_op_c_fldsp;
+                    break;
+                case 2: op = rv_op_c_lwsp; break;
+                case 3: 
+                    if (isa == rv32) op = rv_op_c_flwsp;
+                    else op = rv_op_c_ldsp;
+                    break;
+                case 4:
+                    // c.jr c.mv c.ebreak c.jalr c.add
+                    switch (((inst >> 12) & 0b1) /* inst[12] */) {
+                        case 0:
+                            // c.jr c.mv
+                            switch (((inst >> 2) & 0b11111) /* inst[6:2] */) {
+                                case 0: op = rv_op_c_jr; break;
+                                default: op = rv_op_c_mv; break;
+                            }
+                            break;
+                        case 1:
+                            // c.ebreak c.jalr c.add
+                            switch (((inst >> 2) & 0b11111) /* inst[6:2] */) {
+                                case 0:
+                                    // c.ebreak c.jalr
+                                    switch (((inst >> 7) & 0b11111) /* inst[11:7] */) {
+                                        case 0: op = rv_op_c_ebreak; break;
+                                        default: op = rv_op_c_jalr; break;
+                                    }
+                                    break;
+                                default: op = rv_op_c_add; break;
+                            }
+                            break;
+                    }
+                    break;
+                case 5:
+                    if (isa == rv128) op = rv_op_c_sqsp;
+                    else op = rv_op_c_fsdsp; break;
+                case 6: op = rv_op_c_swsp; break;
+                case 7: 
+                    if (isa == rv32) op = rv_op_c_fswsp;
+                    else op = rv_op_c_sdsp;
+                    break;
+            }
+            break;
+        case 3:
+            // lui auipc jal jalr beq bne blt bge bltu bgeu lb lh ...
+            switch (((inst >> 2) & 0b11111) /* inst[6:2] */) {
+                case 0:
+                    // lb lh lw lbu lhu lwu ld ldu
+                    switch (((inst >> 12) & 0b111) /* inst[14:12] */) {
+                        case 0: op = rv_op_lb; break;
+                        case 1: op = rv_op_lh; break;
+                        case 2: op = rv_op_lw; break;
+                        case 3: op = rv_op_ld; break;
+                        case 4: op = rv_op_lbu; break;
+                        case 5: op = rv_op_lhu; break;
+                        case 6: op = rv_op_lwu; break;
+                        case 7: op = rv_op_ldu; break;
+                    }
+                    break;
+                case 1:
+                    // flw fld flq
+                    switch (((inst >> 12) & 0b111) /* inst[14:12] */) {
+                        case 2: op = rv_op_flw; break;
+                        case 3: op = rv_op_fld; break;
+                        case 4: op = rv_op_flq; break;
+                    }
+                    break;
+                case 3:
+                    // fence fence.i lq
+                    switch (((inst >> 12) & 0b111) /* inst[14:12] */) {
+                        case 0: op = rv_op_fence; break;
+                        case 1: op = rv_op_fence_i; break;
+                        case 2: op = rv_op_lq; break;
+                    }
+                    break;
+                case 4:
+                    // addi slti sltiu xori ori andi slli srli srai slli srli srai ...
+                    switch (((inst >> 12) & 0b111) /* inst[14:12] */) {
+                        case 0: op = rv_op_addi; break;
+                        case 1:
+                            // slli slli slli
+                            switch (((inst >> 27) & 0b11111) /* inst[31:27] */) {
+                                case 0: 
+                                    op = rv_op_slli;
+                                    break;
+                            }
+                            break;
+                        case 2: op = rv_op_slti; break;
+                        case 3: op = rv_op_sltiu; break;
+                        case 4: op = rv_op_xori; break;
+                        case 5:
+                            // srli srai srli srai srli srai
+                            switch (((inst >> 27) & 0b11111) /* inst[31:27] */) {
+                                case 0: 
+                                    op = rv_op_srli;
+                                    break;
+                                case 8: 
+                                    op = rv_op_srai;
+                                    break;
+                            }
+                            break;
+                        case 6: op = rv_op_ori; break;
+                        case 7: op = rv_op_andi; break;
+                    }
+                    break;
+                case 5: op = rv_op_auipc; break;
+                case 6:
+                    // addiw slliw srliw sraiw
+                    switch (((inst >> 12) & 0b111) /* inst[14:12] */) {
+                        case 0: op = rv_op_addiw; break;
+                        case 1:
+                            // slliw
+                            switch (((inst >> 25) & 0b1111111) /* inst[31:25] */) {
+                                case 0: op = rv_op_slliw; break;
+                            }
+                            break;
+                        case 5:
+                            // srliw sraiw
+                            switch (((inst >> 25) & 0b1111111) /* inst[31:25] */) {
+                                case 0: op = rv_op_srliw; break;
+                                case 32: op = rv_op_sraiw; break;
+                            }
+                            break;
+                    }
+                    break;
+                case 8:
+                    // sb sh sw sd sq
+                    switch (((inst >> 12) & 0b111) /* inst[14:12] */) {
+                        case 0: op = rv_op_sb; break;
+                        case 1: op = rv_op_sh; break;
+                        case 2: op = rv_op_sw; break;
+                        case 3: op = rv_op_sd; break;
+                        case 4: op = rv_op_sq; break;
+                    }
+                    break;
+                case 9:
+                    // fsw fsd fsq
+                    switch (((inst >> 12) & 0b111) /* inst[14:12] */) {
+                        case 2: op = rv_op_fsw; break;
+                        case 3: op = rv_op_fsd; break;
+                        case 4: op = rv_op_fsq; break;
+                    }
+                    break;
+                case 11:
+                    // lr.w sc.w amoswap.w amoadd.w amoxor.w amoor.w amoand.w amomin.w amomax.w amominu.w amomaxu.w lr.d ...
+                    switch (((inst >> 24) & 0b11111000) | ((inst >> 12) & 0b00000111) /* inst[31:27|14:12] */) {
+                        case 2: op = rv_op_amoadd_w; break;
+                        case 3: op = rv_op_amoadd_d; break;
+                        case 4: op = rv_op_amoadd_q; break;
+                        case 10: op = rv_op_amoswap_w; break;
+                        case 11: op = rv_op_amoswap_d; break;
+                        case 12: op = rv_op_amoswap_q; break;
+                        case 18:
+                            // lr.w
+                            switch (((inst >> 20) & 0b11111) /* inst[24:20] */) {
+                                case 0: op = rv_op_lr_w; break;
+                            }
+                            break;
+                        case 19:
+                            // lr.d
+                            switch (((inst >> 20) & 0b11111) /* inst[24:20] */) {
+                                case 0: op = rv_op_lr_d; break;
+                            }
+                            break;
+                        case 20:
+                            // lr.q
+                            switch (((inst >> 20) & 0b11111) /* inst[24:20] */) {
+                                case 0: op = rv_op_lr_q; break;
+                            }
+                            break;
+                        case 26: op = rv_op_sc_w; break;
+                        case 27: op = rv_op_sc_d; break;
+                        case 28: op = rv_op_sc_q; break;
+                        case 34: op = rv_op_amoxor_w; break;
+                        case 35: op = rv_op_amoxor_d; break;
+                        case 36: op = rv_op_amoxor_q; break;
+                        case 66: op = rv_op_amoor_w; break;
+                        case 67: op = rv_op_amoor_d; break;
+                        case 68: op = rv_op_amoor_q; break;
+                        case 98: op = rv_op_amoand_w; break;
+                        case 99: op = rv_op_amoand_d; break;
+                        case 100: op = rv_op_amoand_q; break;
+                        case 130: op = rv_op_amomin_w; break;
+                        case 131: op = rv_op_amomin_d; break;
+                        case 132: op = rv_op_amomin_q; break;
+                        case 162: op = rv_op_amomax_w; break;
+                        case 163: op = rv_op_amomax_d; break;
+                        case 164: op = rv_op_amomax_q; break;
+                        case 194: op = rv_op_amominu_w; break;
+                        case 195: op = rv_op_amominu_d; break;
+                        case 196: op = rv_op_amominu_q; break;
+                        case 226: op = rv_op_amomaxu_w; break;
+                        case 227: op = rv_op_amomaxu_d; break;
+                        case 228: op = rv_op_amomaxu_q; break;
+                    }
+                    break;
+                case 12:
+                    // add sub sll slt sltu xor srl sra or and mul mulh ...
+                    switch (((inst >> 22) & 0b1111111000) | ((inst >> 12) & 0b0000000111) /* inst[31:25|14:12] */) {
+                        case 0: op = rv_op_add; break;
+                        case 1: op = rv_op_sll; break;
+                        case 2: op = rv_op_slt; break;
+                        case 3: op = rv_op_sltu; break;
+                        case 4: op = rv_op_xor; break;
+                        case 5: op = rv_op_srl; break;
+                        case 6: op = rv_op_or; break;
+                        case 7: op = rv_op_and; break;
+                        case 8: op = rv_op_mul; break;
+                        case 9: op = rv_op_mulh; break;
+                        case 10: op = rv_op_mulhsu; break;
+                        case 11: op = rv_op_mulhu; break;
+                        case 12: op = rv_op_div; break;
+                        case 13: op = rv_op_divu; break;
+                        case 14: op = rv_op_rem; break;
+                        case 15: op = rv_op_remu; break;
+                        case 256: op = rv_op_sub; break;
+                        case 261: op = rv_op_sra; break;
+                    }
+                    break;
+                case 13: op = rv_op_lui; break;
+                case 14:
+                    // addw subw sllw srlw sraw mulw divw divuw remw remuw
+                    switch (((inst >> 22) & 0b1111111000) | ((inst >> 12) & 0b0000000111) /* inst[31:25|14:12] */) {
+                        case 0: op = rv_op_addw; break;
+                        case 1: op = rv_op_sllw; break;
+                        case 5: op = rv_op_srlw; break;
+                        case 8: op = rv_op_mulw; break;
+                        case 12: op = rv_op_divw; break;
+                        case 13: op = rv_op_divuw; break;
+                        case 14: op = rv_op_remw; break;
+                        case 15: op = rv_op_remuw; break;
+                        case 256: op = rv_op_subw; break;
+                        case 261: op = rv_op_sraw; break;
+                    }
+                    break;
+                case 16:
+                    // fmadd.s fmadd.d fmadd.q
+                    switch (((inst >> 25) & 0b11) /* inst[26:25] */) {
+                        case 0: op = rv_op_fmadd_s; break;
+                        case 1: op = rv_op_fmadd_d; break;
+                        case 3: op = rv_op_fmadd_q; break;
+                    }
+                    break;
+                case 17:
+                    // fmsub.s fmsub.d fmsub.q
+                    switch (((inst >> 25) & 0b11) /* inst[26:25] */) {
+                        case 0: op = rv_op_fmsub_s; break;
+                        case 1: op = rv_op_fmsub_d; break;
+                        case 3: op = rv_op_fmsub_q; break;
+                    }
+                    break;
+                case 18:
+                    // fnmsub.s fnmsub.d fnmsub.q
+                    switch (((inst >> 25) & 0b11) /* inst[26:25] */) {
+                        case 0: op = rv_op_fnmsub_s; break;
+                        case 1: op = rv_op_fnmsub_d; break;
+                        case 3: op = rv_op_fnmsub_q; break;
+                    }
+                    break;
+                case 19:
+                    // fnmadd.s fnmadd.d fnmadd.q
+                    switch (((inst >> 25) & 0b11) /* inst[26:25] */) {
+                        case 0: op = rv_op_fnmadd_s; break;
+                        case 1: op = rv_op_fnmadd_d; break;
+                        case 3: op = rv_op_fnmadd_q; break;
+                    }
+                    break;
+                case 20:
+                    // fadd.s fsub.s fmul.s fdiv.s fsgnj.s fsgnjn.s fsgnjx.s fmin.s fmax.s fsqrt.s fle.s flt.s ...
+                    switch (((inst >> 25) & 0b1111111) /* inst[31:25] */) {
+                        case 0: op = rv_op_fadd_s; break;
+                        case 1: op = rv_op_fadd_d; break;
+                        case 3: op = rv_op_fadd_q; break;
+                        case 4: op = rv_op_fsub_s; break;
+                        case 5: op = rv_op_fsub_d; break;
+                        case 7: op = rv_op_fsub_q; break;
+                        case 8: op = rv_op_fmul_s; break;
+                        case 9: op = rv_op_fmul_d; break;
+                        case 11: op = rv_op_fmul_q; break;
+                        case 12: op = rv_op_fdiv_s; break;
+                        case 13: op = rv_op_fdiv_d; break;
+                        case 15: op = rv_op_fdiv_q; break;
+                        case 16:
+                            // fsgnj.s fsgnjn.s fsgnjx.s
+                            switch (((inst >> 12) & 0b111) /* inst[14:12] */) {
+                                case 0: op = rv_op_fsgnj_s; break;
+                                case 1: op = rv_op_fsgnjn_s; break;
+                                case 2: op = rv_op_fsgnjx_s; break;
+                            }
+                            break;
+                        case 17:
+                            // fsgnj.d fsgnjn.d fsgnjx.d
+                            switch (((inst >> 12) & 0b111) /* inst[14:12] */) {
+                                case 0: op = rv_op_fsgnj_d; break;
+                                case 1: op = rv_op_fsgnjn_d; break;
+                                case 2: op = rv_op_fsgnjx_d; break;
+                            }
+                            break;
+                        case 19:
+                            // fsgnj.q fsgnjn.q fsgnjx.q
+                            switch (((inst >> 12) & 0b111) /* inst[14:12] */) {
+                                case 0: op = rv_op_fsgnj_q; break;
+                                case 1: op = rv_op_fsgnjn_q; break;
+                                case 2: op = rv_op_fsgnjx_q; break;
+                            }
+                            break;
+                        case 20:
+                            // fmin.s fmax.s
+                            switch (((inst >> 12) & 0b111) /* inst[14:12] */) {
+                                case 0: op = rv_op_fmin_s; break;
+                                case 1: op = rv_op_fmax_s; break;
+                            }
+                            break;
+                        case 21:
+                            // fmin.d fmax.d
+                            switch (((inst >> 12) & 0b111) /* inst[14:12] */) {
+                                case 0: op = rv_op_fmin_d; break;
+                                case 1: op = rv_op_fmax_d; break;
+                            }
+                            break;
+                        case 23:
+                            // fmin.q fmax.q
+                            switch (((inst >> 12) & 0b111) /* inst[14:12] */) {
+                                case 0: op = rv_op_fmin_q; break;
+                                case 1: op = rv_op_fmax_q; break;
+                            }
+                            break;
+                        case 32:
+                            // fcvt.s.d fcvt.s.q
+                            switch (((inst >> 20) & 0b11111) /* inst[24:20] */) {
+                                case 1: op = rv_op_fcvt_s_d; break;
+                                case 3: op = rv_op_fcvt_s_q; break;
+                            }
+                            break;
+                        case 33:
+                            // fcvt.d.s fcvt.d.q
+                            switch (((inst >> 20) & 0b11111) /* inst[24:20] */) {
+                                case 0: op = rv_op_fcvt_d_s; break;
+                                case 3: op = rv_op_fcvt_d_q; break;
+                            }
+                            break;
+                        case 35:
+                            // fcvt.q.s fcvt.q.d
+                            switch (((inst >> 20) & 0b11111) /* inst[24:20] */) {
+                                case 0: op = rv_op_fcvt_q_s; break;
+                                case 1: op = rv_op_fcvt_q_d; break;
+                            }
+                            break;
+                        case 44:
+                            // fsqrt.s
+                            switch (((inst >> 20) & 0b11111) /* inst[24:20] */) {
+                                case 0: op = rv_op_fsqrt_s; break;
+                            }
+                            break;
+                        case 45:
+                            // fsqrt.d
+                            switch (((inst >> 20) & 0b11111) /* inst[24:20] */) {
+                                case 0: op = rv_op_fsqrt_d; break;
+                            }
+                            break;
+                        case 47:
+                            // fsqrt.q
+                            switch (((inst >> 20) & 0b11111) /* inst[24:20] */) {
+                                case 0: op = rv_op_fsqrt_q; break;
+                            }
+                            break;
+                        case 80:
+                            // fle.s flt.s feq.s
+                            switch (((inst >> 12) & 0b111) /* inst[14:12] */) {
+                                case 0: op = rv_op_fle_s; break;
+                                case 1: op = rv_op_flt_s; break;
+                                case 2: op = rv_op_feq_s; break;
+                            }
+                            break;
+                        case 81:
+                            // fle.d flt.d feq.d
+                            switch (((inst >> 12) & 0b111) /* inst[14:12] */) {
+                                case 0: op = rv_op_fle_d; break;
+                                case 1: op = rv_op_flt_d; break;
+                                case 2: op = rv_op_feq_d; break;
+                            }
+                            break;
+                        case 83:
+                            // fle.q flt.q feq.q
+                            switch (((inst >> 12) & 0b111) /* inst[14:12] */) {
+                                case 0: op = rv_op_fle_q; break;
+                                case 1: op = rv_op_flt_q; break;
+                                case 2: op = rv_op_feq_q; break;
+                            }
+                            break;
+                        case 96:
+                            // fcvt.w.s fcvt.wu.s fcvt.l.s fcvt.lu.s
+                            switch (((inst >> 20) & 0b11111) /* inst[24:20] */) {
+                                case 0: op = rv_op_fcvt_w_s; break;
+                                case 1: op = rv_op_fcvt_wu_s; break;
+                                case 2: op = rv_op_fcvt_l_s; break;
+                                case 3: op = rv_op_fcvt_lu_s; break;
+                            }
+                            break;
+                        case 97:
+                            // fcvt.w.d fcvt.wu.d fcvt.l.d fcvt.lu.d
+                            switch (((inst >> 20) & 0b11111) /* inst[24:20] */) {
+                                case 0: op = rv_op_fcvt_w_d; break;
+                                case 1: op = rv_op_fcvt_wu_d; break;
+                                case 2: op = rv_op_fcvt_l_d; break;
+                                case 3: op = rv_op_fcvt_lu_d; break;
+                            }
+                            break;
+                        case 99:
+                            // fcvt.w.q fcvt.wu.q fcvt.l.q fcvt.lu.q
+                            switch (((inst >> 20) & 0b11111) /* inst[24:20] */) {
+                                case 0: op = rv_op_fcvt_w_q; break;
+                                case 1: op = rv_op_fcvt_wu_q; break;
+                                case 2: op = rv_op_fcvt_l_q; break;
+                                case 3: op = rv_op_fcvt_lu_q; break;
+                            }
+                            break;
+                        case 104:
+                            // fcvt.s.w fcvt.s.wu fcvt.s.l fcvt.s.lu
+                            switch (((inst >> 20) & 0b11111) /* inst[24:20] */) {
+                                case 0: op = rv_op_fcvt_s_w; break;
+                                case 1: op = rv_op_fcvt_s_wu; break;
+                                case 2: op = rv_op_fcvt_s_l; break;
+                                case 3: op = rv_op_fcvt_s_lu; break;
+                            }
+                            break;
+                        case 105:
+                            // fcvt.d.w fcvt.d.wu fcvt.d.l fcvt.d.lu
+                            switch (((inst >> 20) & 0b11111) /* inst[24:20] */) {
+                                case 0: op = rv_op_fcvt_d_w; break;
+                                case 1: op = rv_op_fcvt_d_wu; break;
+                                case 2: op = rv_op_fcvt_d_l; break;
+                                case 3: op = rv_op_fcvt_d_lu; break;
+                            }
+                            break;
+                        case 107:
+                            // fcvt.q.w fcvt.q.wu fcvt.q.l fcvt.q.lu
+                            switch (((inst >> 20) & 0b11111) /* inst[24:20] */) {
+                                case 0: op = rv_op_fcvt_q_w; break;
+                                case 1: op = rv_op_fcvt_q_wu; break;
+                                case 2: op = rv_op_fcvt_q_l; break;
+                                case 3: op = rv_op_fcvt_q_lu; break;
+                            }
+                            break;
+                        case 112:
+                            // fmv.x.s fclass.s
+                            switch (((inst >> 17) & 0b11111000) | ((inst >> 12) & 0b00000111) /* inst[24:20|14:12] */) {
+                                case 0: op = rv_op_fmv_x_s; break;
+                                case 1: op = rv_op_fclass_s; break;
+                            }
+                            break;
+                        case 113:
+                            // fclass.d fmv.x.d
+                            switch (((inst >> 17) & 0b11111000) | ((inst >> 12) & 0b00000111) /* inst[24:20|14:12] */) {
+                                case 0: op = rv_op_fmv_x_d; break;
+                                case 1: op = rv_op_fclass_d; break;
+                            }
+                            break;
+                        case 115:
+                            // fclass.q fmv.x.q
+                            switch (((inst >> 17) & 0b11111000) | ((inst >> 12) & 0b00000111) /* inst[24:20|14:12] */) {
+                                case 0: op = rv_op_fmv_x_q; break;
+                                case 1: op = rv_op_fclass_q; break;
+                            }
+                            break;
+                        case 120:
+                            // fmv.s.x
+                            switch (((inst >> 17) & 0b11111000) | ((inst >> 12) & 0b00000111) /* inst[24:20|14:12] */) {
+                                case 0: op = rv_op_fmv_s_x; break;
+                            }
+                            break;
+                        case 121:
+                            // fmv.d.x
+                            switch (((inst >> 17) & 0b11111000) | ((inst >> 12) & 0b00000111) /* inst[24:20|14:12] */) {
+                                case 0: op = rv_op_fmv_d_x; break;
+                            }
+                            break;
+                        case 123:
+                            // fmv.q.x
+                            switch (((inst >> 17) & 0b11111000) | ((inst >> 12) & 0b00000111) /* inst[24:20|14:12] */) {
+                                case 0: op = rv_op_fmv_q_x; break;
+                            }
+                            break;
+                    }
+                    break;
+                case 22:
+                    // addid sllid srlid sraid
+                    switch (((inst >> 12) & 0b111) /* inst[14:12] */) {
+                        case 0: op = rv_op_addid; break;
+                        case 1:
+                            // sllid
+                            switch (((inst >> 26) & 0b111111) /* inst[31:26] */) {
+                                case 0: op = rv_op_sllid; break;
+                            }
+                            break;
+                        case 5:
+                            // srlid sraid
+                            switch (((inst >> 26) & 0b111111) /* inst[31:26] */) {
+                                case 0: op = rv_op_srlid; break;
+                                case 16: op = rv_op_sraid; break;
+                            }
+                            break;
+                    }
+                    break;
+                case 24:
+                    // beq bne blt bge bltu bgeu
+                    switch (((inst >> 12) & 0b111) /* inst[14:12] */) {
+                        case 0: op = rv_op_beq; break;
+                        case 1: op = rv_op_bne; break;
+                        case 4: op = rv_op_blt; break;
+                        case 5: op = rv_op_bge; break;
+                        case 6: op = rv_op_bltu; break;
+                        case 7: op = rv_op_bgeu; break;
+                    }
+                    break;
+                case 25:
+                    // jalr
+                    switch (((inst >> 12) & 0b111) /* inst[14:12] */) {
+                        case 0: op = rv_op_jalr; break;
+                    }
+                    break;
+                case 27: op = rv_op_jal; break;
+                case 28:
+                    // ecall ebreak uret sret hret mret dret sfence.vm sfence.vma wfi csrrw csrrs ...
+                    switch (((inst >> 12) & 0b111) /* inst[14:12] */) {
+                        case 0:
+                            // ecall ebreak uret sret hret mret dret sfence.vm sfence.vma wfi
+                            switch (((inst >> 20) & 0b111111100000) | ((inst >> 7) & 0b000000011111) /* inst[31:25|11:7] */) {
+                                case 0:
+                                    // ecall ebreak uret
+                                    switch (((inst >> 15) & 0b1111111111) /* inst[24:15] */) {
+                                        case 0: op = rv_op_ecall; break;
+                                        case 32: op = rv_op_ebreak; break;
+                                        case 64: op = rv_op_uret; break;
+                                    }
+                                    break;
+                                case 256:
+                                    // sret sfence.vm wfi
+                                    switch (((inst >> 20) & 0b11111) /* inst[24:20] */) {
+                                        case 2:
+                                            // sret
+                                            switch (((inst >> 15) & 0b11111) /* inst[19:15] */) {
+                                                case 0: op = rv_op_sret; break;
+                                            }
+                                            break;
+                                        case 4: op = rv_op_sfence_vm; break;
+                                        case 5:
+                                            // wfi
+                                            switch (((inst >> 15) & 0b11111) /* inst[19:15] */) {
+                                                case 0: op = rv_op_wfi; break;
+                                            }
+                                            break;
+                                    }
+                                    break;
+                                case 288: op = rv_op_sfence_vma; break;
+                                case 512:
+                                    // hret
+                                    switch (((inst >> 15) & 0b1111111111) /* inst[24:15] */) {
+                                        case 64: op = rv_op_hret; break;
+                                    }
+                                    break;
+                                case 768:
+                                    // mret
+                                    switch (((inst >> 15) & 0b1111111111) /* inst[24:15] */) {
+                                        case 64: op = rv_op_mret; break;
+                                    }
+                                    break;
+                                case 1952:
+                                    // dret
+                                    switch (((inst >> 15) & 0b1111111111) /* inst[24:15] */) {
+                                        case 576: op = rv_op_dret; break;
+                                    }
+                                    break;
+                            }
+                            break;
+                        case 1: op = rv_op_csrrw; break;
+                        case 2: op = rv_op_csrrs; break;
+                        case 3: op = rv_op_csrrc; break;
+                        case 5: op = rv_op_csrrwi; break;
+                        case 6: op = rv_op_csrrsi; break;
+                        case 7: op = rv_op_csrrci; break;
+                    }
+                    break;
+                case 30:
+                    // addd subd slld srld srad muld divd divud remd remud
+                    switch (((inst >> 22) & 0b1111111000) | ((inst >> 12) & 0b0000000111) /* inst[31:25|14:12] */) {
+                        case 0: op = rv_op_addd; break;
+                        case 1: op = rv_op_slld; break;
+                        case 5: op = rv_op_srld; break;
+                        case 8: op = rv_op_muld; break;
+                        case 12: op = rv_op_divd; break;
+                        case 13: op = rv_op_divud; break;
+                        case 14: op = rv_op_remd; break;
+                        case 15: op = rv_op_remud; break;
+                        case 256: op = rv_op_subd; break;
+                        case 261: op = rv_op_srad; break;
+                    }
+                    break;
+            }
+            break;
+    }
+    return op;
+}
+
+/* operand extractors */
+
+static uint32_t operand_rd(rv_inst inst) { return (inst << 52) >> 59; }
+static uint32_t operand_rs1(rv_inst inst) { return (inst << 44) >> 59; }
+static uint32_t operand_rs2(rv_inst inst) { return (inst << 39) >> 59; }
+static uint32_t operand_rs3(rv_inst inst) { return (inst << 32) >> 59; }
+static uint32_t operand_aq(rv_inst inst) { return (inst << 37) >> 63; }
+static uint32_t operand_rl(rv_inst inst) { return (inst << 38) >> 63; }
+static uint32_t operand_pred(rv_inst inst) { return (inst << 36) >> 60; }
+static uint32_t operand_succ(rv_inst inst) { return (inst << 40) >> 60; }
+static uint32_t operand_rm(rv_inst inst) { return (inst << 49) >> 61; }
+static uint32_t operand_shamt5(rv_inst inst) { return (inst << 39) >> 59; }
+static uint32_t operand_shamt6(rv_inst inst) { return (inst << 38) >> 58; }
+static uint32_t operand_shamt7(rv_inst inst) { return (inst << 37) >> 57; }
+static uint32_t operand_crdq(rv_inst inst) { return (inst << 59) >> 61; }
+static uint32_t operand_crs1q(rv_inst inst) { return (inst << 54) >> 61; }
+static uint32_t operand_crs1rdq(rv_inst inst) { return (inst << 54) >> 61; }
+static uint32_t operand_crs2q(rv_inst inst) { return (inst << 59) >> 61; }
+static uint32_t operand_crd(rv_inst inst) { return (inst << 52) >> 59; }
+static uint32_t operand_crs1(rv_inst inst) { return (inst << 52) >> 59; }
+static uint32_t operand_crs1rd(rv_inst inst) { return (inst << 52) >> 59; }
+static uint32_t operand_crs2(rv_inst inst) {  return (inst << 57) >> 59; }
+static uint32_t operand_cimmsh5(rv_inst inst) { return (inst << 57) >> 59; }
+static uint32_t operand_csr12(rv_inst inst) { return (inst << 32) >> 52; }
+
+static int32_t operand_imm12(rv_inst inst) {
+    return ((int64_t)inst << 32) >> 52;
+}
+
+static int32_t operand_imm20(rv_inst inst) {
+    return (((int64_t)inst << 32) >> 44) << 12;
+}
+
+static int32_t operand_jimm20(rv_inst inst) {
+    return (((int64_t)inst << 32) >> 63) << 20 |
+        ((inst << 33) >> 54) << 1 |
+        ((inst << 43) >> 63) << 11 |
+        ((inst << 44) >> 56) << 12;
+}
+
+static int32_t operand_simm12(rv_inst inst) {
+    return (((int64_t)inst << 32) >> 57) << 5 |
+        (inst << 52) >> 59;
+}
+
+static int32_t operand_sbimm12(rv_inst inst) {
+    return (((int64_t)inst << 32) >> 63) << 12 |
+        ((inst << 33) >> 58) << 5 |
+        ((inst << 52) >> 60) << 1 |
+        ((inst << 56) >> 63) << 11;
+}
+
+static uint32_t operand_cimmsh6(rv_inst inst) {
+    return ((inst << 51) >> 63) << 5 |
+        (inst << 57) >> 59;
+}
+
+static int32_t operand_cimmi(rv_inst inst) {
+    return (((int64_t)inst << 51) >> 63) << 5 |
+        (inst << 57) >> 59;
+}
+
+static int32_t operand_cimmui(rv_inst inst) {
+    return (((int64_t)inst << 51) >> 63) << 17 |
+        ((inst << 57) >> 59) << 12;
+}
+
+static uint32_t operand_cimmlwsp(rv_inst inst) {
+    return ((inst << 51) >> 63) << 5 |
+        ((inst << 57) >> 61) << 2 |
+        ((inst << 60) >> 62) << 6;
+}
+
+static uint32_t operand_cimmldsp(rv_inst inst) {
+    return ((inst << 51) >> 63) << 5 |
+        ((inst << 57) >> 62) << 3 |
+        ((inst << 59) >> 61) << 6;
+}
+
+static uint32_t operand_cimmlqsp(rv_inst inst) {
+    return ((inst << 51) >> 63) << 5 |
+        ((inst << 57) >> 63) << 4 |
+        ((inst << 58) >> 60) << 6;
+}
+
+static int32_t operand_cimm16sp(rv_inst inst) {
+    return (((int64_t)inst << 51) >> 63) << 9 |
+        ((inst << 57) >> 63) << 4 |
+        ((inst << 58) >> 63) << 6 |
+        ((inst << 59) >> 62) << 7 |
+        ((inst << 61) >> 63) << 5;
+}
+
+static int32_t operand_cimmj(rv_inst inst) {
+    return (((int64_t)inst << 51) >> 63) << 11 |
+        ((inst << 52) >> 63) << 4 |
+        ((inst << 53) >> 62) << 8 |
+        ((inst << 55) >> 63) << 10 |
+        ((inst << 56) >> 63) << 6 |
+        ((inst << 57) >> 63) << 7 |
+        ((inst << 58) >> 61) << 1 |
+        ((inst << 61) >> 63) << 5;
+}
+
+static int32_t operand_cimmb(rv_inst inst) {
+    return (((int64_t)inst << 51) >> 63) << 8 |
+        ((inst << 52) >> 62) << 3 |
+        ((inst << 57) >> 62) << 6 |
+        ((inst << 59) >> 62) << 1 |
+        ((inst << 61) >> 63) << 5;
+}
+
+static uint32_t operand_cimmswsp(rv_inst inst) {
+    return ((inst << 51) >> 60) << 2 |
+        ((inst << 55) >> 62) << 6;
+}
+
+static uint32_t operand_cimmsdsp(rv_inst inst) {
+    return ((inst << 51) >> 61) << 3 |
+        ((inst << 54) >> 61) << 6;
+}
+
+static uint32_t operand_cimmsqsp(rv_inst inst) {
+    return ((inst << 51) >> 62) << 4 |
+        ((inst << 53) >> 60) << 6;
+}
+
+static uint32_t operand_cimm4spn(rv_inst inst) {
+    return ((inst << 51) >> 62) << 4 |
+        ((inst << 53) >> 60) << 6 |
+        ((inst << 57) >> 63) << 2 |
+        ((inst << 58) >> 63) << 3;
+}
+
+static uint32_t operand_cimmw(rv_inst inst) {
+    return ((inst << 51) >> 61) << 3 |
+        ((inst << 57) >> 63) << 2 |
+        ((inst << 58) >> 63) << 6;
+}
+
+static uint32_t operand_cimmd(rv_inst inst) {
+    return ((inst << 51) >> 61) << 3 |
+        ((inst << 57) >> 62) << 6;
+}
+
+static uint32_t operand_cimmq(rv_inst inst) {
+    return ((inst << 51) >> 62) << 4 |
+        ((inst << 53) >> 63) << 8 |
+        ((inst << 57) >> 62) << 6;
+}
+
+/* decode operands */
+
+static void decode_rv_instype(rv_decode *dec, rv_inst inst)
+{
+    dec->codec = opcode_data[dec->op].codec;
+    switch (dec->codec) {
+        case rv_codec_none:
+            dec->rd = dec->rs1 = dec->rs2 = rv_ireg_zero;
+            dec->imm = 0;
+            break;
+        case rv_codec_u:
+            dec->rd = operand_rd(inst);
+            dec->rs1 = dec->rs2 = rv_ireg_zero;
+            dec->imm = operand_imm20(inst);
+            break;
+        case rv_codec_uj:
+            dec->rd = operand_rd(inst);
+            dec->rs1 = dec->rs2 = rv_ireg_zero;
+            dec->imm = operand_jimm20(inst);
+            break;
+        case rv_codec_i:
+            dec->rd = operand_rd(inst);
+            dec->rs1 = operand_rs1(inst);
+            dec->rs2 = rv_ireg_zero;
+            dec->imm = operand_imm12(inst);
+            break;
+        case rv_codec_i_sh5:
+            dec->rd = operand_rd(inst);
+            dec->rs1 = operand_rs1(inst);
+            dec->rs2 = rv_ireg_zero;
+            dec->imm = operand_shamt5(inst);
+            break;
+        case rv_codec_i_sh6:
+            dec->rd = operand_rd(inst);
+            dec->rs1 = operand_rs1(inst);
+            dec->rs2 = rv_ireg_zero;
+            dec->imm = operand_shamt6(inst);
+            break;
+        case rv_codec_i_sh7:
+            dec->rd = operand_rd(inst);
+            dec->rs1 = operand_rs1(inst);
+            dec->rs2 = rv_ireg_zero;
+            dec->imm = operand_shamt7(inst);
+            break;
+        case rv_codec_i_csr:
+            dec->rd = operand_rd(inst);
+            dec->rs1 = operand_rs1(inst);
+            dec->rs2 = rv_ireg_zero;
+            dec->imm = operand_csr12(inst);
+            break;
+        case rv_codec_s:
+            dec->rd = rv_ireg_zero;
+            dec->rs1 = operand_rs1(inst);
+            dec->rs2 = operand_rs2(inst);
+            dec->imm = operand_simm12(inst);
+            break;
+        case rv_codec_sb:
+            dec->rd = rv_ireg_zero;
+            dec->rs1 = operand_rs1(inst);
+            dec->rs2 = operand_rs2(inst);
+            dec->imm = operand_sbimm12(inst);
+            break;
+        case rv_codec_r:
+            dec->rd = operand_rd(inst);
+            dec->rs1 = operand_rs1(inst);
+            dec->rs2 = operand_rs2(inst);
+            dec->imm = 0;
+            break;
+        case rv_codec_r_m:
+            dec->rd = operand_rd(inst);
+            dec->rs1 = operand_rs1(inst);
+            dec->rs2 = operand_rs2(inst);
+            dec->imm = 0;
+            dec->rm = operand_rm(inst);
+            break;
+        case rv_codec_r4_m:
+            dec->rd = operand_rd(inst);
+            dec->rs1 = operand_rs1(inst);
+            dec->rs2 = operand_rs2(inst);
+            dec->rs3 = operand_rs3(inst);
+            dec->imm = 0;
+            dec->rm = operand_rm(inst);
+            break;
+        case rv_codec_r_a:
+            dec->rd = operand_rd(inst);
+            dec->rs1 = operand_rs1(inst);
+            dec->rs2 = operand_rs2(inst);
+            dec->imm = 0;
+            dec->aq = operand_aq(inst);
+            dec->rl = operand_rl(inst);
+            break;
+        case rv_codec_r_l:
+            dec->rd = operand_rd(inst);
+            dec->rs1 = operand_rs1(inst);
+            dec->rs2 = rv_ireg_zero;
+            dec->imm = 0;
+            dec->aq = operand_aq(inst);
+            dec->rl = operand_rl(inst);
+            break;
+        case rv_codec_r_f:
+            dec->rd = dec->rs1 = dec->rs2 = rv_ireg_zero;
+            dec->pred = operand_pred(inst);
+            dec->succ = operand_succ(inst);
+            dec->imm = 0;
+            break;
+        case rv_codec_cb:
+            dec->rd = rv_ireg_zero;
+            dec->rs1 = operand_crs1q(inst) + 8;
+            dec->rs2 = rv_ireg_zero;
+            dec->imm = operand_cimmb(inst);
+            break;
+        case rv_codec_cb_imm:
+            dec->rd = dec->rs1 = operand_crs1rdq(inst) + 8;
+            dec->rs2 = rv_ireg_zero;
+            dec->imm = operand_cimmi(inst);
+            break;
+        case rv_codec_cb_sh5:
+            dec->rd = dec->rs1 = operand_crs1rdq(inst) + 8;
+            dec->rs2 = rv_ireg_zero;
+            dec->imm = operand_cimmsh5(inst);
+            break;
+        case rv_codec_cb_sh6:
+            dec->rd = dec->rs1 = operand_crs1rdq(inst) + 8;
+            dec->rs2 = rv_ireg_zero;
+            dec->imm = operand_cimmsh6(inst);
+            break;
+        case rv_codec_ci:
+            dec->rd = dec->rs1 = operand_crs1rd(inst);
+            dec->rs2 = rv_ireg_zero;
+            dec->imm = operand_cimmi(inst);
+            break;
+        case rv_codec_ci_sh5:
+            dec->rd = dec->rs1 = operand_crs1rd(inst);
+            dec->rs2 = rv_ireg_zero;
+            dec->imm = operand_cimmsh5(inst);
+            break;
+        case rv_codec_ci_sh6:
+            dec->rd = dec->rs1 = operand_crs1rd(inst);
+            dec->rs2 = rv_ireg_zero;
+            dec->imm = operand_cimmsh6(inst);
+            break;
+        case rv_codec_ci_16sp:
+            dec->rd = rv_ireg_sp;
+            dec->rs1 = rv_ireg_sp;
+            dec->rs2 = rv_ireg_zero;
+            dec->imm = operand_cimm16sp(inst);
+            break;
+        case rv_codec_ci_lwsp:
+            dec->rd = operand_crd(inst);
+            dec->rs1 = rv_ireg_sp;
+            dec->rs2 = rv_ireg_zero;
+            dec->imm = operand_cimmlwsp(inst);
+            break;
+        case rv_codec_ci_ldsp:
+            dec->rd = operand_crd(inst);
+            dec->rs1 = rv_ireg_sp;
+            dec->rs2 = rv_ireg_zero;
+            dec->imm = operand_cimmldsp(inst);
+            break;
+        case rv_codec_ci_lqsp:
+            dec->rd = operand_crd(inst);
+            dec->rs1 = rv_ireg_sp;
+            dec->rs2 = rv_ireg_zero;
+            dec->imm = operand_cimmlqsp(inst);
+            break;
+        case rv_codec_ci_li:
+            dec->rd = operand_crd(inst);
+            dec->rs1 = rv_ireg_zero;
+            dec->rs2 = rv_ireg_zero;
+            dec->imm = operand_cimmi(inst);
+            break;
+        case rv_codec_ci_lui:
+            dec->rd = operand_crd(inst);
+            dec->rs1 = rv_ireg_zero;
+            dec->rs2 = rv_ireg_zero;
+            dec->imm = operand_cimmui(inst);
+            break;
+        case rv_codec_ci_none:
+            dec->rd = dec->rs1 = dec->rs2 = rv_ireg_zero;
+            dec->imm = 0;
+            break;
+        case rv_codec_ciw_4spn:
+            dec->rd = operand_crdq(inst) + 8;
+            dec->rs1 = rv_ireg_sp;
+            dec->rs2 = rv_ireg_zero;
+            dec->imm = operand_cimm4spn(inst);
+            break;
+        case rv_codec_cj:
+            dec->rd = dec->rs1 = dec->rs2 = rv_ireg_zero;
+            dec->imm = operand_cimmj(inst);
+            break;
+        case rv_codec_cj_jal:
+            dec->rd = rv_ireg_ra;
+            dec->rs1 = dec->rs2 = rv_ireg_zero;
+            dec->imm = operand_cimmj(inst);
+            break;
+        case rv_codec_cl_lw:
+            dec->rd = operand_crdq(inst) + 8;
+            dec->rs1 = operand_crs1q(inst) + 8;
+            dec->rs2 = rv_ireg_zero;
+            dec->imm = operand_cimmw(inst);
+            break;
+        case rv_codec_cl_ld:
+            dec->rd = operand_crdq(inst) + 8;
+            dec->rs1 = operand_crs1q(inst) + 8;
+            dec->rs2 = rv_ireg_zero;
+            dec->imm = operand_cimmd(inst);
+            break;
+        case rv_codec_cl_lq:
+            dec->rd = operand_crdq(inst) + 8;
+            dec->rs1 = operand_crs1q(inst) + 8;
+            dec->rs2 = rv_ireg_zero;
+            dec->imm = operand_cimmq(inst);
+            break;
+        case rv_codec_cr:
+            dec->rd = dec->rs1 = operand_crs1rd(inst);
+            dec->rs2 = operand_crs2(inst);
+            dec->imm = 0;
+            break;
+        case rv_codec_cr_mv:
+            dec->rd = operand_crd(inst);
+            dec->rs1 = operand_crs2(inst);
+            dec->rs2 = rv_ireg_zero;
+            dec->imm = 0;
+            break;
+        case rv_codec_cr_jalr:
+            dec->rd = rv_ireg_ra;
+            dec->rs1 = operand_crs1(inst);
+            dec->rs2 = rv_ireg_zero;
+            dec->imm = 0;
+            break;
+        case rv_codec_cr_jr:
+            dec->rd = rv_ireg_zero;
+            dec->rs1 = operand_crs1(inst);
+            dec->rs2 = rv_ireg_zero;
+            dec->imm = 0;
+            break;
+        case rv_codec_cs:
+            dec->rd = dec->rs1 = operand_crs1rdq(inst) + 8;
+            dec->rs2 = operand_crs2q(inst) + 8;
+            dec->imm = 0;
+            break;
+        case rv_codec_cs_sw:
+            dec->rd = rv_ireg_zero;
+            dec->rs1 = operand_crs1q(inst) + 8;
+            dec->rs2 = operand_crs2q(inst) + 8;
+            dec->imm = operand_cimmw(inst);
+            break;
+        case rv_codec_cs_sd:
+            dec->rd = rv_ireg_zero;
+            dec->rs1 = operand_crs1q(inst) + 8;
+            dec->rs2 = operand_crs2q(inst) + 8;
+            dec->imm = operand_cimmd(inst);
+            break;
+        case rv_codec_cs_sq:
+            dec->rd = rv_ireg_zero;
+            dec->rs1 = operand_crs1q(inst) + 8;
+            dec->rs2 = operand_crs2q(inst) + 8;
+            dec->imm = operand_cimmq(inst);
+            break;
+        case rv_codec_css_swsp:
+            dec->rd = rv_ireg_zero;
+            dec->rs1 = rv_ireg_sp;
+            dec->rs2 = operand_crs2(inst);
+            dec->imm = operand_cimmswsp(inst);
+            break;
+        case rv_codec_css_sdsp:
+            dec->rd = rv_ireg_zero;
+            dec->rs1 = rv_ireg_sp;
+            dec->rs2 = operand_crs2(inst);
+            dec->imm = operand_cimmsdsp(inst);
+            break;
+        case rv_codec_css_sqsp:
+            dec->rd = rv_ireg_zero;
+            dec->rs1 = rv_ireg_sp;
+            dec->rs2 = operand_crs2(inst);
+            dec->imm = operand_cimmsqsp(inst);
+            break;
+    };
+}
+
+/* check constraint */
+
+static bool constraint_check(rv_decode *dec, const rvc_constraint *c)
+{
+    int32_t imm = dec->imm;
+    uint8_t rd = dec->rd, rs1 = dec->rs1, rs2 = dec->rs2;
+    while (*c != rvc_end) {
+        switch (*c) {
+            case rvc_simm_6:         if (!(imm >= -32 && imm < 32)) return false; break;
+            case rvc_imm_6:          if (!(imm <= 0b111111)) return false; break;
+            case rvc_imm_7:          if (!(imm <= 0b1111111)) return false; break;
+            case rvc_imm_8:          if (!(imm <= 0b11111111)) return false; break;
+            case rvc_imm_9:          if (!(imm <= 0b111111111)) return false; break;
+            case rvc_imm_10:         if (!(imm <= 0b1111111111)) return false; break;
+            case rvc_imm_12:         if (!(imm <= 0b111111111111)) return false; break;
+            case rvc_imm_18:         if (!(imm <= 0b111111111111111111)) return false; break;
+            case rvc_imm_nz:         if (!(imm != 0)) return false; break;
+            case rvc_imm_x2:         if (!((imm & 0b1) == 0)) return false; break;
+            case rvc_imm_x4:         if (!((imm & 0b11) == 0)) return false; break;
+            case rvc_imm_x8:         if (!((imm & 0b111) == 0)) return false; break;
+            case rvc_imm_x16:        if (!((imm & 0b1111) == 0)) return false; break;
+            case rvc_rd_b3:          if (!(rd  >= 8 && rd  <= 15)) return false; break;
+            case rvc_rs1_b3:         if (!(rs1 >= 8 && rs1 <= 15)) return false; break;
+            case rvc_rs2_b3:         if (!(rs2 >= 8 && rs2 <= 15)) return false; break;
+            case rvc_rd_eq_rs1:      if (!(rd == rs1)) return false; break;
+            case rvc_rd_eq_ra:       if (!(rd == 1)) return false; break;
+            case rvc_rd_eq_sp:       if (!(rd == 2)) return false; break;
+            case rvc_rd_eq_x0:       if (!(rd == 0)) return false; break;
+            case rvc_rs1_eq_sp:      if (!(rs1 == 2)) return false; break;
+            case rvc_rs1_eq_x0:      if (!(rs1 == 0)) return false; break;
+            case rvc_rs2_eq_x0:      if (!(rs2 == 0)) return false; break;
+            case rvc_rd_ne_x0_x2:    if (!(rd != 0 && rd != 2)) return false; break;
+            case rvc_rd_ne_x0:       if (!(rd != 0)) return false; break;
+            case rvc_rs1_ne_x0:      if (!(rs1 != 0)) return false; break;
+            case rvc_rs2_ne_x0:      if (!(rs2 != 0)) return false; break;
+            case rvc_rs2_eq_rs1:     if (!(rs2 == rs1)) return false; break;
+            case rvc_rs1_eq_ra:      if (!(rs1 == 1)) return false; break;
+            case rvc_imm_eq_zero:    if (!(imm == 0)) return false; break;
+            case rvc_imm_eq_n1:      if (!(imm == -1)) return false; break;
+            case rvc_imm_eq_p1:      if (!(imm == 1)) return false; break;
+            case rvc_csr_eq_0x001:   if (!(imm == 0x001)) return false; break;
+            case rvc_csr_eq_0x002:   if (!(imm == 0x002)) return false; break;
+            case rvc_csr_eq_0x003:   if (!(imm == 0x003)) return false; break;
+            case rvc_csr_eq_0xc00:   if (!(imm == 0xc00)) return false; break;
+            case rvc_csr_eq_0xc01:   if (!(imm == 0xc01)) return false; break;
+            case rvc_csr_eq_0xc02:   if (!(imm == 0xc02)) return false; break;
+            case rvc_csr_eq_0xc80:   if (!(imm == 0xc80)) return false; break;
+            case rvc_csr_eq_0xc81:   if (!(imm == 0xc81)) return false; break;
+            case rvc_csr_eq_0xc82:   if (!(imm == 0xc82)) return false; break;
+            default:                 break;
+        }
+        c++;
+    }
+    return true;
+}
+
+/* instruction length */
+
+static size_t inst_length(rv_inst inst)
+{
+    /* NOTE: supports maximum instruction size of 64-bits */
+
+    /* instruction length coding
+     *
+     *      aa - 16 bit aa != 11
+     *   bbb11 - 32 bit bbb != 111
+     *  011111 - 48 bit
+     * 0111111 - 64 bit
+     */
+
+    return (inst &      0b11) != 0b11      ? 2
+         : (inst &   0b11100) != 0b11100   ? 4
+         : (inst &  0b111111) == 0b011111  ? 6
+         : (inst & 0b1111111) == 0b0111111 ? 8
+         : 0;
+}
+
+/* format instruction */
+
+static void append(char *s1, const char *s2, size_t n)
+{
+    size_t l1 = strlen(s1);
+    if (n - l1 - 1 > 0) strncat(s1, s2, n - l1);
+}
+
+static void format_inst(char *buf, size_t buflen, size_t tab, rv_decode *dec)
+{
+    char tmp[64];
+    const char *fmt;
+
+    if (dec->op == rv_op_illegal) {
+        size_t len = inst_length(dec->inst);
+        switch (len) {
+            case 2:
+                snprintf(buf, buflen, "(0x%04" PRIx64 ")", dec->inst);
+                break;
+            case 4:
+                snprintf(buf, buflen, "(0x%08" PRIx64 ")", dec->inst);
+                break;
+            case 6:
+                snprintf(buf, buflen, "(0x%012" PRIx64 ")", dec->inst);
+                break;
+            default:
+                snprintf(buf, buflen, "(0x%016" PRIx64 ")", dec->inst);
+                break;
+        }               
+        return;
+    }
+
+    fmt = opcode_data[dec->op].format;
+    while (*fmt) {
+        switch (*fmt) {
+            case 'O': append(buf, opcode_data[dec->op].name, buflen); break;
+            case '(': append(buf, "(", buflen); break;
+            case ',': append(buf, ",", buflen); break;
+            case ')': append(buf, ")", buflen); break;
+            case '0': append(buf, rv_ireg_name_sym[dec->rd], buflen); break;
+            case '1': append(buf, rv_ireg_name_sym[dec->rs1], buflen); break;
+            case '2': append(buf, rv_ireg_name_sym[dec->rs2], buflen); break;
+            case '3': append(buf, rv_freg_name_sym[dec->rd], buflen); break;
+            case '4': append(buf, rv_freg_name_sym[dec->rs1], buflen); break;
+            case '5': append(buf, rv_freg_name_sym[dec->rs2], buflen); break;
+            case '6': append(buf, rv_freg_name_sym[dec->rs3], buflen); break;
+            case '7':
+                snprintf(tmp, sizeof(tmp), "%d", dec->rs1);
+                append(buf, tmp, buflen);
+                break;
+            case 'i':
+                snprintf(tmp, sizeof(tmp), "%d", dec->imm);
+                append(buf, tmp, buflen);
+                break;
+            case 'o':
+                snprintf(tmp, sizeof(tmp), "%d", dec->imm);
+                append(buf, tmp, buflen);
+                while (strlen(buf) < tab * 2) append(buf, " ", buflen);
+                snprintf(tmp, sizeof(tmp), "# 0x%" PRIx64,
+                    dec->pc + dec->imm);
+                append(buf, tmp, buflen);
+                break;
+            case 'c': {
+                const char * name = csr_name(dec->imm & 0xfff);
+                if (name) {
+                    append(buf, name, buflen);
+                }
+                else {
+                    snprintf(tmp, sizeof(tmp), "0x%03x", dec->imm & 0xfff);
+                    append(buf, tmp, buflen);
+                }
+                break;
+            }
+            case 'r':
+                switch(dec->rm) {
+                    case rv_rm_rne: append(buf, "rne", buflen); break;
+                    case rv_rm_rtz: append(buf, "rtz", buflen); break;
+                    case rv_rm_rdn: append(buf, "rdn", buflen); break;
+                    case rv_rm_rup: append(buf, "rup", buflen); break;
+                    case rv_rm_rmm: append(buf, "rmm", buflen); break;
+                    case rv_rm_dyn: append(buf, "dyn", buflen); break;
+                    default:        append(buf, "inv", buflen); break;
+                }
+                break;
+            case 'p':
+                if (dec->pred & rv_fence_i) append(buf, "i", buflen);
+                if (dec->pred & rv_fence_o) append(buf, "o", buflen);
+                if (dec->pred & rv_fence_r) append(buf, "r", buflen);
+                if (dec->pred & rv_fence_w) append(buf, "w", buflen);
+                break;
+            case 's':
+                if (dec->succ & rv_fence_i) append(buf, "i", buflen);
+                if (dec->succ & rv_fence_o) append(buf, "o", buflen);
+                if (dec->succ & rv_fence_r) append(buf, "r", buflen);
+                if (dec->succ & rv_fence_w) append(buf, "w", buflen);
+                break;
+            case '\t':
+                while (strlen(buf) < tab) append(buf, " ", buflen);
+                break;
+            case 'A': if (dec->aq) append(buf, ".aq", buflen); break;
+            case 'R': if (dec->rl) append(buf, ".rl", buflen); break;
+            default:
+                break;
+        }
+        fmt++;
     }
 }
 
-static void
-parse_riscv_dis_options (const char *opts_in)
+/* decode instruction to pseudo-instruction */
+
+static void decode_pseudo_inst(rv_decode *dec)
 {
-  char *opts = xstrdup (opts_in), *opt = opts, *opt_end = opts;
-
-  set_default_riscv_dis_options ();
-
-  for ( ; opt_end != NULL; opt = opt_end + 1)
-    {
-      if ((opt_end = strchr (opt, ',')) != NULL)
-	*opt_end = 0;
-      parse_riscv_dis_option (opt);
-    }
-
-  free (opts);
-}
-#endif
-
-/* Print one argument from an array.  */
-
-static void
-arg_print (struct disassemble_info *info, unsigned long val,
-	   const char* const* array, size_t size)
-{
-  const char *s = val >= size || array[val] == NULL ? "unknown" : array[val];
-  (*info->fprintf_func) (info->stream, "%s", s);
-}
-
-static void
-maybe_print_address (struct riscv_private_data *pd, int base_reg, int offset)
-{
-  if (pd->hi_addr[base_reg] != (bfd_vma)-1)
-    {
-      pd->print_addr = pd->hi_addr[base_reg] + offset;
-      pd->hi_addr[base_reg] = -1;
-    }
-  else if (base_reg == X_GP && pd->gp != (bfd_vma)-1)
-    pd->print_addr = pd->gp + offset;
-  else if (base_reg == X_TP || base_reg == 0)
-    pd->print_addr = offset;
-}
-
-/* Print insn arguments for 32/64-bit code.  */
-
-static void
-print_insn_args (const char *d, insn_t l, bfd_vma pc, disassemble_info *info)
-{
-  struct riscv_private_data *pd = info->private_data;
-  int rs1 = (l >> OP_SH_RS1) & OP_MASK_RS1;
-  int rd = (l >> OP_SH_RD) & OP_MASK_RD;
-  fprintf_function print = info->fprintf_func;
-
-  if (*d != '\0')
-    print (info->stream, "\t");
-
-  for (; *d != '\0'; d++)
-    {
-      switch (*d)
-	{
-	case 'C': /* RVC */
-	  switch (*++d)
-	    {
-	    case 's': /* RS1 x8-x15 */
-	    case 'w': /* RS1 x8-x15 */
-	      print (info->stream, "%s",
-		     riscv_gpr_names[EXTRACT_OPERAND (CRS1S, l) + 8]);
-	      break;
-	    case 't': /* RS2 x8-x15 */
-	    case 'x': /* RS2 x8-x15 */
-	      print (info->stream, "%s",
-		     riscv_gpr_names[EXTRACT_OPERAND (CRS2S, l) + 8]);
-	      break;
-	    case 'U': /* RS1, constrained to equal RD */
-	      print (info->stream, "%s", riscv_gpr_names[rd]);
-	      break;
-	    case 'c': /* RS1, constrained to equal sp */
-	      print (info->stream, "%s", riscv_gpr_names[X_SP]);
-	      break;
-	    case 'V': /* RS2 */
-	      print (info->stream, "%s",
-		     riscv_gpr_names[EXTRACT_OPERAND (CRS2, l)]);
-	      break;
-	    case 'i':
-	      print (info->stream, "%d", (int)EXTRACT_RVC_SIMM3 (l));
-	      break;
-	    case 'j':
-	      print (info->stream, "%d", (int)EXTRACT_RVC_IMM (l));
-	      break;
-	    case 'k':
-	      print (info->stream, "%d", (int)EXTRACT_RVC_LW_IMM (l));
-	      break;
-	    case 'l':
-	      print (info->stream, "%d", (int)EXTRACT_RVC_LD_IMM (l));
-	      break;
-	    case 'm':
-	      print (info->stream, "%d", (int)EXTRACT_RVC_LWSP_IMM (l));
-	      break;
-	    case 'n':
-	      print (info->stream, "%d", (int)EXTRACT_RVC_LDSP_IMM (l));
-	      break;
-	    case 'K':
-	      print (info->stream, "%d", (int)EXTRACT_RVC_ADDI4SPN_IMM (l));
-	      break;
-	    case 'L':
-	      print (info->stream, "%d", (int)EXTRACT_RVC_ADDI16SP_IMM (l));
-	      break;
-	    case 'M':
-	      print (info->stream, "%d", (int)EXTRACT_RVC_SWSP_IMM (l));
-	      break;
-	    case 'N':
-	      print (info->stream, "%d", (int)EXTRACT_RVC_SDSP_IMM (l));
-	      break;
-	    case 'p':
-	      info->target = EXTRACT_RVC_B_IMM (l) + pc;
-	      (*info->print_address_func) (info->target, info);
-	      break;
-	    case 'a':
-	      info->target = EXTRACT_RVC_J_IMM (l) + pc;
-	      (*info->print_address_func) (info->target, info);
-	      break;
-	    case 'u':
-	      print (info->stream, "0x%x",
-		     (int)(EXTRACT_RVC_IMM (l) & (RISCV_BIGIMM_REACH-1)));
-	      break;
-	    case '>':
-	      print (info->stream, "0x%x", (int)EXTRACT_RVC_IMM (l) & 0x3f);
-	      break;
-	    case '<':
-	      print (info->stream, "0x%x", (int)EXTRACT_RVC_IMM (l) & 0x1f);
-	      break;
-	    case 'T': /* floating-point RS2 */
-	      print (info->stream, "%s",
-		     riscv_fpr_names[EXTRACT_OPERAND (CRS2, l)]);
-	      break;
-	    case 'D': /* floating-point RS2 x8-x15 */
-	      print (info->stream, "%s",
-		     riscv_fpr_names[EXTRACT_OPERAND (CRS2S, l) + 8]);
-	      break;
-	    }
-	  break;
-
-	case ',':
-	case '(':
-	case ')':
-	case '[':
-	case ']':
-	  print (info->stream, "%c", *d);
-	  break;
-
-	case '0':
-	  /* Only print constant 0 if it is the last argument */
-	  if (!d[1])
-	    print (info->stream, "0");
-	  break;
-
-	case 'b':
-	case 's':
-	  print (info->stream, "%s", riscv_gpr_names[rs1]);
-	  break;
-
-	case 't':
-	  print (info->stream, "%s",
-		 riscv_gpr_names[EXTRACT_OPERAND (RS2, l)]);
-	  break;
-
-	case 'u':
-	  print (info->stream, "0x%x",
-		 (unsigned)EXTRACT_UTYPE_IMM (l) >> RISCV_IMM_BITS);
-	  break;
-
-	case 'm':
-	  arg_print (info, EXTRACT_OPERAND (RM, l),
-		     riscv_rm, ARRAY_SIZE (riscv_rm));
-	  break;
-
-	case 'P':
-	  arg_print (info, EXTRACT_OPERAND (PRED, l),
-		     riscv_pred_succ, ARRAY_SIZE (riscv_pred_succ));
-	  break;
-
-	case 'Q':
-	  arg_print (info, EXTRACT_OPERAND (SUCC, l),
-		     riscv_pred_succ, ARRAY_SIZE (riscv_pred_succ));
-	  break;
-
-	case 'o':
-	  maybe_print_address (pd, rs1, EXTRACT_ITYPE_IMM (l));
-	case 'j':
-	  if (((l & MASK_ADDI) == MATCH_ADDI && rs1 != 0)
-	      || (l & MASK_JALR) == MATCH_JALR)
-	    maybe_print_address (pd, rs1, EXTRACT_ITYPE_IMM (l));
-	  print (info->stream, "%d", (int)EXTRACT_ITYPE_IMM (l));
-	  break;
-
-	case 'q':
-	  maybe_print_address (pd, rs1, EXTRACT_STYPE_IMM (l));
-	  print (info->stream, "%d", (int)EXTRACT_STYPE_IMM (l));
-	  break;
-
-	case 'a':
-	  info->target = EXTRACT_UJTYPE_IMM (l) + pc;
-	  (*info->print_address_func) (info->target, info);
-	  break;
-
-	case 'p':
-	  info->target = EXTRACT_SBTYPE_IMM (l) + pc;
-	  (*info->print_address_func) (info->target, info);
-	  break;
-
-	case 'd':
-	  if ((l & MASK_AUIPC) == MATCH_AUIPC)
-	    pd->hi_addr[rd] = pc + EXTRACT_UTYPE_IMM (l);
-	  else if ((l & MASK_LUI) == MATCH_LUI)
-	    pd->hi_addr[rd] = EXTRACT_UTYPE_IMM (l);
-	  else if ((l & MASK_C_LUI) == MATCH_C_LUI)
-	    pd->hi_addr[rd] = EXTRACT_RVC_LUI_IMM (l);
-	  print (info->stream, "%s", riscv_gpr_names[rd]);
-	  break;
-
-	case 'z':
-	  print (info->stream, "%s", riscv_gpr_names[0]);
-	  break;
-
-	case '>':
-	  print (info->stream, "0x%x", (int)EXTRACT_OPERAND (SHAMT, l));
-	  break;
-
-	case '<':
-	  print (info->stream, "0x%x", (int)EXTRACT_OPERAND (SHAMTW, l));
-	  break;
-
-	case 'S':
-	case 'U':
-	  print (info->stream, "%s", riscv_fpr_names[rs1]);
-	  break;
-
-	case 'T':
-	  print (info->stream, "%s", riscv_fpr_names[EXTRACT_OPERAND (RS2, l)]);
-	  break;
-
-	case 'D':
-	  print (info->stream, "%s", riscv_fpr_names[rd]);
-	  break;
-
-	case 'R':
-	  print (info->stream, "%s", riscv_fpr_names[EXTRACT_OPERAND (RS3, l)]);
-	  break;
-
-	case 'E':
-	  {
-	    const char* csr_name = NULL;
-	    unsigned int csr = EXTRACT_OPERAND (CSR, l);
-	    switch (csr)
-	      {
-#define DECLARE_CSR(name, num) case num: csr_name = #name; break;
-#include "disas/riscv-opc.h"
-#undef DECLARE_CSR
-	      }
-	    if (csr_name)
-	      print (info->stream, "%s", csr_name);
-	    else
-	      print (info->stream, "0x%x", csr);
-	    break;
-	  }
-
-	case 'Z':
-	  print (info->stream, "%d", rs1);
-	  break;
-
-	default:
-	  /* xgettext:c-format */
-	  print (info->stream, "# internal error, undefined modifier (%c)",
-		 *d);
-	  return;
-	}
+    const rv_comp_data *comp_data = opcode_data[dec->op].pseudo;
+    if (!comp_data) return;
+    while (comp_data->constraints) {
+        if (constraint_check(dec, comp_data->constraints)) {
+            dec->op = comp_data->op;
+            dec->codec = opcode_data[dec->op].codec;
+            return;
+        }
+        comp_data++;
     }
 }
 
-/* Print the RISC-V instruction at address MEMADDR in debugged memory,
-   on using INFO.  Returns length of the instruction, in bytes.
-   BIGENDIAN must be 1 if this is big-endian code, 0 if
-   this is little-endian code.  */
+/* decompress instruction */
+
+static void decompress_inst_rv32(rv_decode *dec)
+{
+    int decomp_op = opcode_data[dec->op].decomp_rv32;
+    if (decomp_op != rv_op_illegal) {
+        dec->op = decomp_op;
+        dec->codec = opcode_data[decomp_op].codec;
+    }
+}
+
+static void decompress_inst_rv64(rv_decode *dec)
+{
+    int decomp_op = opcode_data[dec->op].decomp_rv64;
+    if (decomp_op != rv_op_illegal) {
+        dec->op = decomp_op;
+        dec->codec = opcode_data[decomp_op].codec;
+    }
+}
+
+static void decompress_inst_rv128(rv_decode *dec)
+{
+    int decomp_op = opcode_data[dec->op].decomp_rv128;
+    if (decomp_op != rv_op_illegal) {
+        dec->op = decomp_op;
+        dec->codec = opcode_data[decomp_op].codec;
+    }
+}
+
+/* disassemble instruction */
+
+static void
+disasm_inst(char *buf, size_t buflen, rv_isa isa, uint64_t pc, rv_inst inst)
+{
+    rv_decode dec = { 0 };
+    dec.pc = pc;
+    dec.inst = inst;
+    dec.op = decode_inst_op(inst, isa);
+    decode_rv_instype(&dec, inst);
+    switch (isa) {
+        case rv32: decompress_inst_rv32(&dec); break;
+        case rv64: decompress_inst_rv64(&dec); break;
+        case rv128: decompress_inst_rv128(&dec); break;
+    }
+    decode_pseudo_inst(&dec);
+    format_inst(buf, buflen, 16, &dec);
+}
 
 static int
-riscv_disassemble_insn (bfd_vma memaddr, insn_t word, disassemble_info *info)
+print_insn_riscv(bfd_vma memaddr, struct disassemble_info *info, rv_isa isa)
 {
-  const struct riscv_opcode *op;
-  static bfd_boolean init = 0;
-  static const struct riscv_opcode *riscv_hash[OP_MASK_OP + 1];
-  struct riscv_private_data *pd;
-  int insnlen;
+    char buf[128] = { 0 };
+    bfd_byte packet[2];
+    rv_inst inst = 0;
+    size_t len = 2;
+    bfd_vma n;
+    int status;
 
-#define OP_HASH_IDX(i) ((i) & (riscv_insn_length (i) == 2 ? 0x3 : OP_MASK_OP))
-
-  /* Build a hash table to shorten the search time.  */
-  if (! init)
-    {
-      for (op = riscv_opcodes; op->name; op++)
-	if (!riscv_hash[OP_HASH_IDX (op->match)])
-	  riscv_hash[OP_HASH_IDX (op->match)] = op;
-
-      init = 1;
+    /* Instructions are made of 2-byte packets in little-endian order */
+    for (n = 0; n < len; n += 2) {
+        status = (*info->read_memory_func)(memaddr + n, packet, 2, info);
+        if (status != 0) {
+            /* Don't fail just because we fell off the end.  */
+            if (n > 0) break;
+            (*info->memory_error_func)(status, memaddr, info);
+            return status;
+        }
+        inst |= ((rv_inst) bfd_getl16 (packet)) << (8 * n);
+        if (n == 0) len = inst_length(inst);
     }
 
-  if (info->private_data == NULL)
-    {
-      int i;
+    /* TODO - need access to TARGET_RISCV32 or TARGET_RISCV64 */
+    disasm_inst(buf, sizeof(buf), isa, memaddr, inst);
 
-      pd = info->private_data = g_malloc0(sizeof (struct riscv_private_data));
-      pd->gp = -1;
-      pd->print_addr = -1;
-      for (i = 0; i < (int)ARRAY_SIZE (pd->hi_addr); i++)
-	pd->hi_addr[i] = -1;
+    (*info->fprintf_func)(info->stream, "%s", buf);
 
-#if 0
-      for (i = 0; i < info->symtab_size; i++)
-	if (strcmp (bfd_asymbol_name (info->symtab[i]), "_gp") == 0)
-	  pd->gp = bfd_asymbol_value (info->symtab[i]);
-#endif
-    }
-  else
-    pd = info->private_data;
-
-  insnlen = riscv_insn_length (word);
-
-  info->bytes_per_chunk = insnlen % 4 == 0 ? 4 : 2;
-  info->bytes_per_line = 8;
-  info->display_endian = info->endian;
-  info->insn_info_valid = 1;
-  info->branch_delay_insns = 0;
-  info->data_size = 0;
-  info->insn_type = dis_nonbranch;
-  info->target = 0;
-  info->target2 = 0;
-
-  op = riscv_hash[OP_HASH_IDX (word)];
-  if (op != NULL)
-    {
-      int xlen = 0;
-
-#if 0
-      /* The incoming section might not always be complete.  */
-      if (info->section != NULL)
-	{
-	  Elf_Internal_Ehdr *ehdr = elf_elfheader (info->section->owner);
-	  xlen = ehdr->e_ident[EI_CLASS] == ELFCLASS64 ? 64 : 32;
-	}
-#endif
-
-      for (; op->name; op++)
-	{
-	  /* Does the opcode match?  */
-	  if (! (op->match_func) (op, word))
-	    continue;
-	  /* Is this a pseudo-instruction and may we print it as such?  */
-	  if (no_aliases && (op->pinfo & INSN_ALIAS))
-	    continue;
-	  /* Is this instruction restricted to a certain value of XLEN?  */
-	  if (isdigit (op->subset[0]) && atoi (op->subset) != xlen)
-	    continue;
-
-	  /* It's a match.  */
-	  (*info->fprintf_func) (info->stream, "%s", op->name);
-	  print_insn_args (op->args, word, memaddr, info);
-
-#if 0
-	  /* Try to disassemble multi-instruction addressing sequences.  */
-	  if (pd->print_addr != (bfd_vma)-1)
-	    {
-	      info->target = pd->print_addr;
-	      (*info->fprintf_func) (info->stream, " # ");
-	      (*info->print_address_func) (info->target, info);
-	      pd->print_addr = -1;
-	    }
-#endif
-
-	  return insnlen;
-	}
-    }
-
-  /* We did not find a match, so just print the instruction bits.  */
-  info->insn_type = dis_noninsn;
-  (*info->fprintf_func) (info->stream, "0x%llx", (unsigned long long)word);
-  return insnlen;
+    return len;
 }
 
-int
-print_insn_riscv (bfd_vma memaddr, struct disassemble_info *info)
+int print_insn_riscv32(bfd_vma memaddr, struct disassemble_info *info)
 {
-  bfd_byte packet[2];
-  insn_t insn = 0;
-  bfd_vma n;
-  int status;
-
-#if 0
-  if (info->disassembler_options != NULL)
-    {
-      parse_riscv_dis_options (info->disassembler_options);
-      /* Avoid repeatedly parsing the options.  */
-      info->disassembler_options = NULL;
-    }
-  else if (riscv_gpr_names == NULL)
-#endif
-    set_default_riscv_dis_options ();
-
-  /* Instructions are a sequence of 2-byte packets in little-endian order.  */
-  for (n = 0; n < sizeof (insn) && n < riscv_insn_length (insn); n += 2)
-    {
-      status = (*info->read_memory_func) (memaddr + n, packet, 2, info);
-      if (status != 0)
-	{
-	  /* Don't fail just because we fell off the end.  */
-	  if (n > 0)
-	    break;
-	  (*info->memory_error_func) (status, memaddr, info);
-	  return status;
-	}
-
-      insn |= ((insn_t) bfd_getl16 (packet)) << (8 * n);
-    }
-
-  return riscv_disassemble_insn (memaddr, insn, info);
+    return print_insn_riscv(memaddr, info, rv32);
 }
 
-#if 0
-void
-print_riscv_disassembler_options (FILE *stream)
+int print_insn_riscv64(bfd_vma memaddr, struct disassemble_info *info)
 {
-  fprintf (stream, _("\n\
-The following RISC-V-specific disassembler options are supported for use\n\
-with the -M switch (multiple options should be separated by commas):\n"));
-
-  fprintf (stream, _("\n\
-  numeric       Print numeric reigster names, rather than ABI names.\n"));
-
-  fprintf (stream, _("\n\
-  no-aliases    Disassemble only into canonical instructions, rather\n\
-                than into pseudoinstructions.\n"));
-
-  fprintf (stream, _("\n"));
+    return print_insn_riscv(memaddr, info, rv64);
 }
-#endif

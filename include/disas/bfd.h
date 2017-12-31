@@ -415,7 +415,8 @@ int print_insn_crisv10          (bfd_vma, disassemble_info*);
 int print_insn_microblaze       (bfd_vma, disassemble_info*);
 int print_insn_ia64             (bfd_vma, disassemble_info*);
 int print_insn_lm32             (bfd_vma, disassemble_info*);
-int print_insn_riscv            (bfd_vma, disassemble_info*);
+int print_insn_riscv32          (bfd_vma, disassemble_info*);
+int print_insn_riscv64          (bfd_vma, disassemble_info*);
 
 #if 0
 /* Fetch the disassembler for a given BFD, if that support is available.  */
