@@ -145,8 +145,9 @@ void host_to_target_sigset(target_sigset_t *d, const sigset_t *s)
     int i;
 
     host_to_target_sigset_internal(&d1, s);
-    for(i = 0;i < TARGET_NSIG_WORDS; i++)
+    for (i = 0; i < TARGET_NSIG_WORDS; i++) {
         d->sig[i] = tswapal(d1.sig[i]);
+    }
 }
 
 static void target_to_host_sigset_internal(sigset_t *d,
@@ -166,8 +167,9 @@ void target_to_host_sigset(sigset_t *d, const target_sigset_t *s)
     target_sigset_t s1;
     int i;
 
-    for(i = 0;i < TARGET_NSIG_WORDS; i++)
+    for (i = 0; i < TARGET_NSIG_WORDS; i++) {
         s1.sig[i] = tswapal(s->sig[i]);
+    }
     target_to_host_sigset_internal(d, &s1);
 }
 
@@ -186,8 +188,9 @@ void target_to_host_old_sigset(sigset_t *sigset,
     int i;
 
     d.sig[0] = *old_sigset;
-    for(i = 1;i < TARGET_NSIG_WORDS; i++)
+    for (i = 1; i < TARGET_NSIG_WORDS; i++) {
         d.sig[i] = 0;
+    }
     target_to_host_sigset(sigset, &d);
 }
 
@@ -474,11 +477,11 @@ void signal_init(void)
     int host_sig;
 
     /* generate signal conversion tables */
-    for(i = 1; i < _NSIG; i++) {
+    for (i = 1; i < _NSIG; i++) {
         if (host_to_target_signal_table[i] == 0)
             host_to_target_signal_table[i] = i;
     }
-    for(i = 1; i < _NSIG; i++) {
+    for (i = 1; i < _NSIG; i++) {
         j = host_to_target_signal_table[i];
         target_to_host_signal_table[j] = i;
     }
@@ -493,7 +496,7 @@ void signal_init(void)
     sigfillset(&act.sa_mask);
     act.sa_flags = SA_SIGINFO;
     act.sa_sigaction = host_signal_handler;
-    for(i = 1; i <= TARGET_NSIG; i++) {
+    for (i = 1; i <= TARGET_NSIG; i++) {
         host_sig = target_to_host_signal(i);
         sigaction(host_sig, NULL, &oact);
         if (oact.sa_sigaction == (void *)SIG_IGN) {
@@ -535,6 +538,7 @@ static void force_sig(int sig)
  * up the signal frame. oldsig is the signal we were trying to handle
  * at the point of failure.
  */
+#if !defined(TARGET_RISCV)
 static void force_sigsegv(int oldsig)
 {
     if (oldsig == SIGSEGV) {
@@ -545,6 +549,8 @@ static void force_sigsegv(int oldsig)
     }
     force_sig(TARGET_SIGSEGV);
 }
+#endif
+
 #endif
 
 /* abort execution with signal */
@@ -1129,7 +1135,7 @@ static void setup_frame(int sig, struct target_sigaction *ka,
     setup_sigcontext(&frame->sc, &frame->fpstate, env, set->sig[0],
             frame_addr + offsetof(struct sigframe, fpstate));
 
-    for(i = 1; i < TARGET_NSIG_WORDS; i++) {
+    for (i = 1; i < TARGET_NSIG_WORDS; i++) {
         __put_user(set->sig[i], &frame->extramask[i - 1]);
     }
 
@@ -1210,7 +1216,7 @@ static void setup_rt_frame(int sig, struct target_sigaction *ka,
     setup_sigcontext(&frame->uc.tuc_mcontext, &frame->fpstate, env,
             set->sig[0], frame_addr + offsetof(struct rt_sigframe, fpstate));
 
-    for(i = 0; i < TARGET_NSIG_WORDS; i++) {
+    for (i = 0; i < TARGET_NSIG_WORDS; i++) {
         __put_user(set->sig[i], &frame->uc.tuc_sigmask.sig[i]);
     }
 
@@ -1348,7 +1354,7 @@ long do_sigreturn(CPUX86State *env)
         goto badframe;
     /* set blocked signals */
     __get_user(target_set.sig[0], &frame->sc.oldmask);
-    for(i = 1; i < TARGET_NSIG_WORDS; i++) {
+    for (i = 1; i < TARGET_NSIG_WORDS; i++) {
         __get_user(target_set.sig[i], &frame->extramask[i - 1]);
     }
 
@@ -1957,7 +1963,7 @@ static void setup_sigframe_v2(struct target_ucontext_v2 *uc,
     /* Write terminating magic word */
     __put_user(0, regspace);
 
-    for(i = 0; i < TARGET_NSIG_WORDS; i++) {
+    for (i = 0; i < TARGET_NSIG_WORDS; i++) {
         __put_user(set->sig[i], &uc->tuc_sigmask.sig[i]);
     }
 }
@@ -1977,7 +1983,7 @@ static void setup_frame_v1(int usig, struct target_sigaction *ka,
 
     setup_sigcontext(&frame->sc, regs, set->sig[0]);
 
-    for(i = 1; i < TARGET_NSIG_WORDS; i++) {
+    for (i = 1; i < TARGET_NSIG_WORDS; i++) {
         __put_user(set->sig[i], &frame->extramask[i - 1]);
     }
 
@@ -2054,7 +2060,7 @@ static void setup_rt_frame_v1(int usig, struct target_sigaction *ka,
     memcpy(&frame->uc.tuc_stack, &stack, sizeof(stack));
 
     setup_sigcontext(&frame->uc.tuc_mcontext, env, set->sig[0]);
-    for(i = 0; i < TARGET_NSIG_WORDS; i++) {
+    for (i = 0; i < TARGET_NSIG_WORDS; i++) {
         __put_user(set->sig[i], &frame->uc.tuc_sigmask.sig[i]);
     }
 
@@ -2168,7 +2174,7 @@ static long do_sigreturn_v1(CPUARMState *env)
     }
 
     __get_user(set.sig[0], &frame->sc.oldmask);
-    for(i = 1; i < TARGET_NSIG_WORDS; i++) {
+    for (i = 1; i < TARGET_NSIG_WORDS; i++) {
         __get_user(set.sig[i], &frame->extramask[i - 1]);
     }
 
@@ -2731,7 +2737,7 @@ long do_sigreturn(CPUSPARCState *env)
          * the races which exist anyways.
          */
     __get_user(set.sig[0], &sf->info.si_mask);
-    for(i = 1; i < TARGET_NSIG_WORDS; i++) {
+    for (i = 1; i < TARGET_NSIG_WORDS; i++) {
         __get_user(set.sig[i], &sf->extramask[i - 1]);
     }
 
@@ -3232,7 +3238,7 @@ static void setup_frame(int sig, struct target_sigaction * ka,
 
     setup_sigcontext(regs, &frame->sf_sc);
 
-    for(i = 0; i < TARGET_NSIG_WORDS; i++) {
+    for (i = 0; i < TARGET_NSIG_WORDS; i++) {
         __put_user(set->sig[i], &frame->sf_mask.sig[i]);
     }
 
@@ -3276,7 +3282,7 @@ long do_sigreturn(CPUMIPSState *regs)
     if (!lock_user_struct(VERIFY_READ, frame, frame_addr, 1))
         goto badframe;
 
-    for(i = 0; i < TARGET_NSIG_WORDS; i++) {
+    for (i = 0; i < TARGET_NSIG_WORDS; i++) {
         __get_user(target_set.sig[i], &frame->sf_mask.sig[i]);
     }
 
@@ -3337,7 +3343,7 @@ static void setup_rt_frame(int sig, struct target_sigaction *ka,
 
     setup_sigcontext(env, &frame->rs_uc.tuc_mcontext);
 
-    for(i = 0; i < TARGET_NSIG_WORDS; i++) {
+    for (i = 0; i < TARGET_NSIG_WORDS; i++) {
         __put_user(set->sig[i], &frame->rs_uc.tuc_sigmask.sig[i]);
     }
 
@@ -3632,7 +3638,7 @@ static void setup_rt_frame(int sig, struct target_sigaction *ka,
                &frame->uc.tuc_stack.ss_size);
     setup_sigcontext(&frame->uc.tuc_mcontext,
                      regs, set->sig[0]);
-    for(i = 0; i < TARGET_NSIG_WORDS; i++) {
+    for (i = 0; i < TARGET_NSIG_WORDS; i++) {
         __put_user(set->sig[i], &frame->uc.tuc_sigmask.sig[i]);
     }
 
@@ -3682,7 +3688,7 @@ long do_sigreturn(CPUSH4State *regs)
     }
 
     __get_user(target_set.sig[0], &frame->sc.oldmask);
-    for(i = 1; i < TARGET_NSIG_WORDS; i++) {
+    for (i = 1; i < TARGET_NSIG_WORDS; i++) {
         __get_user(target_set.sig[i], &frame->extramask[i - 1]);
     }
 
@@ -3869,7 +3875,7 @@ static void setup_frame(int sig, struct target_sigaction *ka,
     /* Save the mask.  */
     __put_user(set->sig[0], &frame->uc.tuc_mcontext.oldmask);
 
-    for(i = 1; i < TARGET_NSIG_WORDS; i++) {
+    for (i = 1; i < TARGET_NSIG_WORDS; i++) {
         __put_user(set->sig[i], &frame->extramask[i - 1]);
     }
 
@@ -3936,7 +3942,7 @@ long do_sigreturn(CPUMBState *env)
 
     /* Restore blocked signals */
     __get_user(target_set.sig[0], &frame->uc.tuc_mcontext.oldmask);
-    for(i = 1; i < TARGET_NSIG_WORDS; i++) {
+    for (i = 1; i < TARGET_NSIG_WORDS; i++) {
         __get_user(target_set.sig[i], &frame->extramask[i - 1]);
     }
     target_to_host_sigset_internal(&set, &target_set);
@@ -4065,7 +4071,7 @@ static void setup_frame(int sig, struct target_sigaction *ka,
     /* Save the mask.  */
     __put_user(set->sig[0], &frame->sc.oldmask);
 
-    for(i = 1; i < TARGET_NSIG_WORDS; i++) {
+    for (i = 1; i < TARGET_NSIG_WORDS; i++) {
         __put_user(set->sig[i], &frame->extramask[i - 1]);
     }
 
@@ -4108,7 +4114,7 @@ long do_sigreturn(CPUCRISState *env)
 
     /* Restore blocked signals */
     __get_user(target_set.sig[0], &frame->sc.oldmask);
-    for(i = 1; i < TARGET_NSIG_WORDS; i++) {
+    for (i = 1; i < TARGET_NSIG_WORDS; i++) {
         __get_user(target_set.sig[i], &frame->extramask[i - 1]);
     }
     target_to_host_sigset_internal(&set, &target_set);
@@ -5385,7 +5391,7 @@ static void setup_rt_frame(int sig, struct target_sigaction *ka,
     __put_user(h2g (&rt_sf->uc.tuc_mcontext),
                &rt_sf->uc.tuc_regs);
 #endif
-    for(i = 0; i < TARGET_NSIG_WORDS; i++) {
+    for (i = 0; i < TARGET_NSIG_WORDS; i++) {
         __put_user(set->sig[i], &rt_sf->uc.tuc_sigmask.sig[i]);
     }
 
@@ -5678,7 +5684,7 @@ static void setup_frame(int sig, struct target_sigaction *ka,
 
     setup_sigcontext(&frame->sc, env, set->sig[0]);
 
-    for(i = 1; i < TARGET_NSIG_WORDS; i++) {
+    for (i = 1; i < TARGET_NSIG_WORDS; i++) {
         __put_user(set->sig[i], &frame->extramask[i - 1]);
     }
 
@@ -5856,7 +5862,7 @@ static void setup_rt_frame(int sig, struct target_sigaction *ka,
     if (err)
         goto give_sigsegv;
 
-    for(i = 0; i < TARGET_NSIG_WORDS; i++) {
+    for (i = 0; i < TARGET_NSIG_WORDS; i++) {
         __put_user(set->sig[i], &frame->uc.tuc_sigmask.sig[i]);
     }
 
@@ -5903,7 +5909,7 @@ long do_sigreturn(CPUM68KState *env)
 
     __get_user(target_set.sig[0], &frame->sc.sc_mask);
 
-    for(i = 1; i < TARGET_NSIG_WORDS; i++) {
+    for (i = 1; i < TARGET_NSIG_WORDS; i++) {
         __get_user(target_set.sig[i], &frame->extramask[i - 1]);
     }
 
@@ -6378,6 +6384,203 @@ long do_rt_sigreturn(CPUTLGState *env)
     return -TARGET_QEMU_ESIGRETURN;
 }
 
+#elif defined(TARGET_RISCV)
+
+/* Signal handler invocation must be transparent for the code being
+   interrupted. Complete CPU (hart) state is saved on entry and restored
+   before returning from the handler. Process sigmask is also saved to block
+   signals while the handler is running. The handler gets its own stack,
+   which also doubles as storage for the CPU state and sigmask.
+
+   The code below is qemu re-implementation of arch/riscv/kernel/signal.c */
+
+struct target_sigcontext {
+    abi_long pc;
+    abi_long gpr[31]; /* x0 is not present, so all offsets must be -1 */
+    uint64_t fpr[32];
+    uint32_t fcsr;
+}; /* cf. riscv-linux:arch/riscv/include/uapi/asm/ptrace.h */
+
+struct target_ucontext {
+    unsigned long uc_flags;
+    struct target_ucontext *uc_link;
+    target_stack_t uc_stack;
+    struct target_sigcontext uc_mcontext;
+    target_sigset_t uc_sigmask;
+};
+
+struct target_rt_sigframe {
+    uint32_t tramp[2]; /* not in kernel, which uses VDSO instead */
+    struct target_siginfo info;
+    struct target_ucontext uc;
+};
+
+static abi_ulong get_sigframe(struct target_sigaction *ka,
+                              CPURISCVState *regs, size_t framesize)
+{
+    abi_ulong sp = regs->gpr[xSP];
+    int onsigstack = on_sig_stack(sp);
+
+    /* redzone */
+    /* This is the X/Open sanctioned signal stack switching.  */
+    if ((ka->sa_flags & TARGET_SA_ONSTACK) != 0 && !onsigstack) {
+        sp = target_sigaltstack_used.ss_sp + target_sigaltstack_used.ss_size;
+    }
+
+    sp -= framesize;
+    sp &= ~3UL; /* align sp on 4-byte boundary */
+
+    /* If we are on the alternate signal stack and would overflow it, don't.
+       Return an always-bogus address instead so we will die with SIGSEGV. */
+    if (onsigstack && !likely(on_sig_stack(sp))) {
+        return -1L;
+    }
+
+    return sp;
+}
+
+static void setup_sigcontext(struct target_sigcontext *sc, CPURISCVState *env)
+{
+    int i;
+
+    __put_user(env->pc, &sc->pc);
+
+    for (i = 1; i < 32; i++) {
+        __put_user(env->gpr[i], &sc->gpr[i - 1]);
+    }
+    for (i = 0; i < 32; i++) {
+        __put_user(env->fpr[i], &sc->fpr[i]);
+    }
+
+    uint32_t fcsr = csr_read_helper(env, CSR_FCSR); /*riscv_get_fcsr(env);*/
+    __put_user(fcsr, &sc->fcsr);
+}
+
+static void setup_ucontext(struct target_ucontext *uc,
+                           CPURISCVState *env, target_sigset_t *set)
+{
+    abi_ulong ss_sp = (target_ulong)target_sigaltstack_used.ss_sp;
+    abi_ulong ss_flags = sas_ss_flags(env->gpr[xSP]);
+    abi_ulong ss_size = target_sigaltstack_used.ss_size;
+
+    __put_user(0,    &(uc->uc_flags));
+    __put_user(0,    &(uc->uc_link));
+
+    __put_user(ss_sp,    &(uc->uc_stack.ss_sp));
+    __put_user(ss_flags, &(uc->uc_stack.ss_flags));
+    __put_user(ss_size,  &(uc->uc_stack.ss_size));
+
+    int i;
+    for (i = 0; i < TARGET_NSIG_WORDS; i++) {
+        __put_user(set->sig[i], &(uc->uc_sigmask.sig[i]));
+    }
+
+    setup_sigcontext(&uc->uc_mcontext, env);
+}
+
+static inline void install_sigtramp(uint32_t *tramp)
+{
+    __put_user(0x08b00893, tramp + 0);  /* li a7, 139 = __NR_rt_sigreturn */
+    __put_user(0x00000073, tramp + 1);  /* ecall */
+}
+
+static void setup_rt_frame(int sig, struct target_sigaction *ka,
+                           target_siginfo_t *info,
+                           target_sigset_t *set, CPURISCVState *env)
+{
+    abi_ulong frame_addr;
+    struct target_rt_sigframe *frame;
+
+    frame_addr = get_sigframe(ka, env, sizeof(*frame));
+    trace_user_setup_rt_frame(env, frame_addr);
+
+    if (!lock_user_struct(VERIFY_WRITE, frame, frame_addr, 0)) {
+        goto badframe;
+    }
+
+    setup_ucontext(&frame->uc, env, set);
+    tswap_siginfo(&frame->info, info);
+    install_sigtramp(frame->tramp);
+
+    env->pc = ka->_sa_handler;
+    env->gpr[xSP] = frame_addr;
+    env->gpr[xA0] = sig;
+    env->gpr[xA1] = frame_addr + offsetof(struct target_rt_sigframe, info);
+    env->gpr[xA2] = frame_addr + offsetof(struct target_rt_sigframe, uc);
+    env->gpr[xRA] = frame_addr + offsetof(struct target_rt_sigframe, tramp);
+
+    return;
+
+badframe:
+    unlock_user_struct(frame, frame_addr, 1);
+    if (sig == TARGET_SIGSEGV) {
+        ka->_sa_handler = TARGET_SIG_DFL;
+    }
+    force_sig(TARGET_SIGSEGV);
+}
+
+static void restore_sigcontext(CPURISCVState *env, struct target_sigcontext *sc)
+{
+    int i;
+
+    __get_user(env->pc, &sc->pc);
+
+    for (i = 1; i < 32; ++i) {
+        __get_user(env->gpr[i], &sc->gpr[i - 1]);
+    }
+    for (i = 0; i < 32; ++i) {
+        __get_user(env->fpr[i], &sc->fpr[i]);
+    }
+
+    uint32_t fcsr;
+    __get_user(fcsr, &sc->fcsr);
+    csr_write_helper(env, fcsr, CSR_FCSR);
+}
+
+static void restore_ucontext(CPURISCVState *env, struct target_ucontext *uc)
+{
+    sigset_t blocked;
+    target_sigset_t target_set;
+    int i;
+
+    target_sigemptyset(&target_set);
+    for (i = 0; i < TARGET_NSIG_WORDS; i++) {
+        __get_user(target_set.sig[i], &(uc->uc_sigmask.sig[i]));
+    }
+
+    target_to_host_sigset_internal(&blocked, &target_set);
+    set_sigmask(&blocked);
+
+    restore_sigcontext(env, &uc->uc_mcontext);
+}
+
+long do_rt_sigreturn(CPURISCVState *env)
+{
+    struct target_rt_sigframe *frame;
+    abi_ulong frame_addr;
+
+    frame_addr = env->gpr[xSP];
+    trace_user_do_sigreturn(env, frame_addr);
+    if (!lock_user_struct(VERIFY_READ, frame, frame_addr, 1)) {
+        goto badframe;
+    }
+
+    restore_ucontext(env, &frame->uc);
+
+    if (do_sigaltstack(frame_addr + offsetof(struct target_rt_sigframe,
+            uc.uc_stack), 0, get_sp_from_cpustate(env)) == -EFAULT) {
+        goto badframe;
+    }
+
+    unlock_user_struct(frame, frame_addr, 0);
+    return -TARGET_QEMU_ESIGRETURN;
+
+badframe:
+    unlock_user_struct(frame, frame_addr, 0);
+    force_sig(TARGET_SIGSEGV);
+    return 0;
+}
+
 #elif defined(TARGET_HPPA)
 
 struct target_sigcontext {
@@ -6669,7 +6872,8 @@ static void handle_pending_signal(CPUArchState *cpu_env, int sig,
 #if defined(TARGET_ABI_MIPSN32) || defined(TARGET_ABI_MIPSN64) \
         || defined(TARGET_OPENRISC) || defined(TARGET_TILEGX) \
         || defined(TARGET_PPC64) || defined(TARGET_HPPA) \
-        || defined(TARGET_NIOS2) || defined(TARGET_X86_64)
+        || defined(TARGET_NIOS2) || defined(TARGET_X86_64) \
+        || defined(TARGET_RISCV)
         /* These targets do not have traditional signals.  */
         setup_rt_frame(sig, sa, &k->info, &target_old_set, cpu_env);
 #else
