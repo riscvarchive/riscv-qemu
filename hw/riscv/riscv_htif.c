@@ -359,10 +359,6 @@ HTIFState *htif_mm_init(MemoryRegion *address_space,
 #endif
     }
 
-    if (!tohost_addr || !fromhost_addr) {
-        error_report("HTIF symbols not found");
-        exit(1);
-    }
     uint64_t base = MIN(tohost_addr, fromhost_addr);
     uint64_t size = MAX(tohost_addr + 8, fromhost_addr + 8) - base;
     uint64_t tohost_offset = tohost_addr - base;
@@ -383,9 +379,11 @@ HTIFState *htif_mm_init(MemoryRegion *address_space,
 #ifdef ENABLE_CHARDEV
     qemu_chr_add_handlers(s->chr, htif_can_recv, htif_recv, htif_event, s);
 #endif
-    memory_region_init_io(&s->mmio, NULL, &htif_mm_ops, s,
-                          TYPE_HTIF_UART, size);
-    memory_region_add_subregion(address_space, base, &s->mmio);
+    if (base) {
+        memory_region_init_io(&s->mmio, NULL, &htif_mm_ops, s,
+                              TYPE_HTIF_UART, size);
+        memory_region_add_subregion(address_space, base, &s->mmio);
+    }
 
     return s;
 }
