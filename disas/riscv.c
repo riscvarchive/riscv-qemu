@@ -530,14 +530,14 @@ typedef struct {
 
 typedef struct {
     const int op;
-    const rvc_constraint* constraints;
+    const rvc_constraint *constraints;
 } rv_comp_data;
 
 typedef struct {
-    const char* name;
+    const char *name;
     const rv_codec codec;
-    const char* format;
-    const rv_comp_data* pseudo;
+    const char *format;
+    const rv_comp_data *pseudo;
     const int decomp_rv32;
     const int decomp_rv64;
     const int decomp_rv128;
@@ -545,7 +545,7 @@ typedef struct {
 
 /* register names */
 
-static const char* rv_ireg_name_sym[] = {
+static const char *rv_ireg_name_sym[] = {
     "zero", "ra",   "sp",   "gp",   "tp",   "t0",   "t1",   "t2",
     "s0",   "s1",   "a0",   "a1",   "a2",   "a3",   "a4",   "a5",
     "a6",   "a7",   "s2",   "s3",   "s4",   "s5",   "s6",   "s7",
@@ -553,7 +553,7 @@ static const char* rv_ireg_name_sym[] = {
     NULL
 };
 
-static const char* rv_freg_name_sym[] = {
+static const char *rv_freg_name_sym[] = {
     "ft0",  "ft1",  "ft2",  "ft3",  "ft4",  "ft5",  "ft6",  "ft7",
     "fs0",  "fs1",  "fa0",  "fa1",  "fa2",  "fa3",  "fa4",  "fa5",
     "fa6",  "fa7",  "fs2",  "fs3",  "fs4",  "fs5",  "fs6",  "fs7",
@@ -1138,208 +1138,208 @@ const rv_opcode_data opcode_data[] = {
 
 /* CSR names */
 
-static const char* csr_name(int csrno)
+static const char *csr_name(int csrno)
 {
-    switch(csrno) {
-        case 0x0000: return "ustatus";
-        case 0x0001: return "fflags";
-        case 0x0002: return "frm";
-        case 0x0003: return "fcsr";
-        case 0x0004: return "uie";
-        case 0x0005: return "utvec";
-        case 0x0040: return "uscratch";
-        case 0x0041: return "uepc";
-        case 0x0042: return "ucause";
-        case 0x0043: return "utval";
-        case 0x0044: return "uip";
-        case 0x0100: return "sstatus";
-        case 0x0102: return "sedeleg";
-        case 0x0103: return "sideleg";
-        case 0x0104: return "sie";
-        case 0x0105: return "stvec";
-        case 0x0106: return "scounteren";
-        case 0x0140: return "sscratch";
-        case 0x0141: return "sepc";
-        case 0x0142: return "scause";
-        case 0x0143: return "stval";
-        case 0x0144: return "sip";
-        case 0x0180: return "satp";
-        case 0x0200: return "hstatus";
-        case 0x0202: return "hedeleg";
-        case 0x0203: return "hideleg";
-        case 0x0204: return "hie";
-        case 0x0205: return "htvec";
-        case 0x0240: return "hscratch";
-        case 0x0241: return "hepc";
-        case 0x0242: return "hcause";
-        case 0x0243: return "hbadaddr";
-        case 0x0244: return "hip";
-        case 0x0300: return "mstatus";
-        case 0x0301: return "misa";
-        case 0x0302: return "medeleg";
-        case 0x0303: return "mideleg";
-        case 0x0304: return "mie";
-        case 0x0305: return "mtvec";
-        case 0x0306: return "mcounteren";
-        case 0x0320: return "mucounteren";
-        case 0x0321: return "mscounteren";
-        case 0x0322: return "mhcounteren";
-        case 0x0323: return "mhpmevent3";
-        case 0x0324: return "mhpmevent4";
-        case 0x0325: return "mhpmevent5";
-        case 0x0326: return "mhpmevent6";
-        case 0x0327: return "mhpmevent7";
-        case 0x0328: return "mhpmevent8";
-        case 0x0329: return "mhpmevent9";
-        case 0x032a: return "mhpmevent10";
-        case 0x032b: return "mhpmevent11";
-        case 0x032c: return "mhpmevent12";
-        case 0x032d: return "mhpmevent13";
-        case 0x032e: return "mhpmevent14";
-        case 0x032f: return "mhpmevent15";
-        case 0x0330: return "mhpmevent16";
-        case 0x0331: return "mhpmevent17";
-        case 0x0332: return "mhpmevent18";
-        case 0x0333: return "mhpmevent19";
-        case 0x0334: return "mhpmevent20";
-        case 0x0335: return "mhpmevent21";
-        case 0x0336: return "mhpmevent22";
-        case 0x0337: return "mhpmevent23";
-        case 0x0338: return "mhpmevent24";
-        case 0x0339: return "mhpmevent25";
-        case 0x033a: return "mhpmevent26";
-        case 0x033b: return "mhpmevent27";
-        case 0x033c: return "mhpmevent28";
-        case 0x033d: return "mhpmevent29";
-        case 0x033e: return "mhpmevent30";
-        case 0x033f: return "mhpmevent31";
-        case 0x0340: return "mscratch";
-        case 0x0341: return "mepc";
-        case 0x0342: return "mcause";
-        case 0x0343: return "mtval";
-        case 0x0344: return "mip";
-        case 0x0380: return "mbase";
-        case 0x0381: return "mbound";
-        case 0x0382: return "mibase";
-        case 0x0383: return "mibound";
-        case 0x0384: return "mdbase";
-        case 0x0385: return "mdbound";
-        case 0x03a0: return "pmpcfg3";
-        case 0x03b0: return "pmpaddr0";
-        case 0x03b1: return "pmpaddr1";
-        case 0x03b2: return "pmpaddr2";
-        case 0x03b3: return "pmpaddr3";
-        case 0x03b4: return "pmpaddr4";
-        case 0x03b5: return "pmpaddr5";
-        case 0x03b6: return "pmpaddr6";
-        case 0x03b7: return "pmpaddr7";
-        case 0x03b8: return "pmpaddr8";
-        case 0x03b9: return "pmpaddr9";
-        case 0x03ba: return "pmpaddr10";
-        case 0x03bb: return "pmpaddr11";
-        case 0x03bc: return "pmpaddr12";
-        case 0x03bd: return "pmpaddr14";
-        case 0x03be: return "pmpaddr13";
-        case 0x03bf: return "pmpaddr15";
-        case 0x0780: return "mtohost";
-        case 0x0781: return "mfromhost";
-        case 0x0782: return "mreset";
-        case 0x0783: return "mipi";
-        case 0x0784: return "miobase";
-        case 0x07a0: return "tselect";
-        case 0x07a1: return "tdata1";
-        case 0x07a2: return "tdata2";
-        case 0x07a3: return "tdata3";
-        case 0x07b0: return "dcsr";
-        case 0x07b1: return "dpc";
-        case 0x07b2: return "dscratch";
-        case 0x0b00: return "mcycle";
-        case 0x0b01: return "mtime";
-        case 0x0b02: return "minstret";
-        case 0x0b03: return "mhpmcounter3";
-        case 0x0b04: return "mhpmcounter4";
-        case 0x0b05: return "mhpmcounter5";
-        case 0x0b06: return "mhpmcounter6";
-        case 0x0b07: return "mhpmcounter7";
-        case 0x0b08: return "mhpmcounter8";
-        case 0x0b09: return "mhpmcounter9";
-        case 0x0b0a: return "mhpmcounter10";
-        case 0x0b0b: return "mhpmcounter11";
-        case 0x0b0c: return "mhpmcounter12";
-        case 0x0b0d: return "mhpmcounter13";
-        case 0x0b0e: return "mhpmcounter14";
-        case 0x0b0f: return "mhpmcounter15";
-        case 0x0b10: return "mhpmcounter16";
-        case 0x0b11: return "mhpmcounter17";
-        case 0x0b12: return "mhpmcounter18";
-        case 0x0b13: return "mhpmcounter19";
-        case 0x0b14: return "mhpmcounter20";
-        case 0x0b15: return "mhpmcounter21";
-        case 0x0b16: return "mhpmcounter22";
-        case 0x0b17: return "mhpmcounter23";
-        case 0x0b18: return "mhpmcounter24";
-        case 0x0b19: return "mhpmcounter25";
-        case 0x0b1a: return "mhpmcounter26";
-        case 0x0b1b: return "mhpmcounter27";
-        case 0x0b1c: return "mhpmcounter28";
-        case 0x0b1d: return "mhpmcounter29";
-        case 0x0b1e: return "mhpmcounter30";
-        case 0x0b1f: return "mhpmcounter31";
-        case 0x0b80: return "mcycleh";
-        case 0x0b81: return "mtimeh";
-        case 0x0b82: return "minstreth";
-        case 0x0b83: return "mhpmcounter3h";
-        case 0x0b84: return "mhpmcounter4h";
-        case 0x0b85: return "mhpmcounter5h";
-        case 0x0b86: return "mhpmcounter6h";
-        case 0x0b87: return "mhpmcounter7h";
-        case 0x0b88: return "mhpmcounter8h";
-        case 0x0b89: return "mhpmcounter9h";
-        case 0x0b8a: return "mhpmcounter10h";
-        case 0x0b8b: return "mhpmcounter11h";
-        case 0x0b8c: return "mhpmcounter12h";
-        case 0x0b8d: return "mhpmcounter13h";
-        case 0x0b8e: return "mhpmcounter14h";
-        case 0x0b8f: return "mhpmcounter15h";
-        case 0x0b90: return "mhpmcounter16h";
-        case 0x0b91: return "mhpmcounter17h";
-        case 0x0b92: return "mhpmcounter18h";
-        case 0x0b93: return "mhpmcounter19h";
-        case 0x0b94: return "mhpmcounter20h";
-        case 0x0b95: return "mhpmcounter21h";
-        case 0x0b96: return "mhpmcounter22h";
-        case 0x0b97: return "mhpmcounter23h";
-        case 0x0b98: return "mhpmcounter24h";
-        case 0x0b99: return "mhpmcounter25h";
-        case 0x0b9a: return "mhpmcounter26h";
-        case 0x0b9b: return "mhpmcounter27h";
-        case 0x0b9c: return "mhpmcounter28h";
-        case 0x0b9d: return "mhpmcounter29h";
-        case 0x0b9e: return "mhpmcounter30h";
-        case 0x0b9f: return "mhpmcounter31h";
-        case 0x0c00: return "cycle";
-        case 0x0c01: return "time";
-        case 0x0c02: return "instret";
-        case 0x0c80: return "cycleh";
-        case 0x0c81: return "timeh";
-        case 0x0c82: return "instreth";
-        case 0x0d00: return "scycle";
-        case 0x0d01: return "stime";
-        case 0x0d02: return "sinstret";
-        case 0x0d80: return "scycleh";
-        case 0x0d81: return "stimeh";
-        case 0x0d82: return "sinstreth";
-        case 0x0e00: return "hcycle";
-        case 0x0e01: return "htime";
-        case 0x0e02: return "hinstret";
-        case 0x0e80: return "hcycleh";
-        case 0x0e81: return "htimeh";
-        case 0x0e82: return "hinstreth";
-        case 0x0f11: return "mvendorid";
-        case 0x0f12: return "marchid";
-        case 0x0f13: return "mimpid";
-        case 0x0f14: return "mhartid";
-        default: return NULL;
+    switch (csrno) {
+    case 0x0000: return "ustatus";
+    case 0x0001: return "fflags";
+    case 0x0002: return "frm";
+    case 0x0003: return "fcsr";
+    case 0x0004: return "uie";
+    case 0x0005: return "utvec";
+    case 0x0040: return "uscratch";
+    case 0x0041: return "uepc";
+    case 0x0042: return "ucause";
+    case 0x0043: return "utval";
+    case 0x0044: return "uip";
+    case 0x0100: return "sstatus";
+    case 0x0102: return "sedeleg";
+    case 0x0103: return "sideleg";
+    case 0x0104: return "sie";
+    case 0x0105: return "stvec";
+    case 0x0106: return "scounteren";
+    case 0x0140: return "sscratch";
+    case 0x0141: return "sepc";
+    case 0x0142: return "scause";
+    case 0x0143: return "stval";
+    case 0x0144: return "sip";
+    case 0x0180: return "satp";
+    case 0x0200: return "hstatus";
+    case 0x0202: return "hedeleg";
+    case 0x0203: return "hideleg";
+    case 0x0204: return "hie";
+    case 0x0205: return "htvec";
+    case 0x0240: return "hscratch";
+    case 0x0241: return "hepc";
+    case 0x0242: return "hcause";
+    case 0x0243: return "hbadaddr";
+    case 0x0244: return "hip";
+    case 0x0300: return "mstatus";
+    case 0x0301: return "misa";
+    case 0x0302: return "medeleg";
+    case 0x0303: return "mideleg";
+    case 0x0304: return "mie";
+    case 0x0305: return "mtvec";
+    case 0x0306: return "mcounteren";
+    case 0x0320: return "mucounteren";
+    case 0x0321: return "mscounteren";
+    case 0x0322: return "mhcounteren";
+    case 0x0323: return "mhpmevent3";
+    case 0x0324: return "mhpmevent4";
+    case 0x0325: return "mhpmevent5";
+    case 0x0326: return "mhpmevent6";
+    case 0x0327: return "mhpmevent7";
+    case 0x0328: return "mhpmevent8";
+    case 0x0329: return "mhpmevent9";
+    case 0x032a: return "mhpmevent10";
+    case 0x032b: return "mhpmevent11";
+    case 0x032c: return "mhpmevent12";
+    case 0x032d: return "mhpmevent13";
+    case 0x032e: return "mhpmevent14";
+    case 0x032f: return "mhpmevent15";
+    case 0x0330: return "mhpmevent16";
+    case 0x0331: return "mhpmevent17";
+    case 0x0332: return "mhpmevent18";
+    case 0x0333: return "mhpmevent19";
+    case 0x0334: return "mhpmevent20";
+    case 0x0335: return "mhpmevent21";
+    case 0x0336: return "mhpmevent22";
+    case 0x0337: return "mhpmevent23";
+    case 0x0338: return "mhpmevent24";
+    case 0x0339: return "mhpmevent25";
+    case 0x033a: return "mhpmevent26";
+    case 0x033b: return "mhpmevent27";
+    case 0x033c: return "mhpmevent28";
+    case 0x033d: return "mhpmevent29";
+    case 0x033e: return "mhpmevent30";
+    case 0x033f: return "mhpmevent31";
+    case 0x0340: return "mscratch";
+    case 0x0341: return "mepc";
+    case 0x0342: return "mcause";
+    case 0x0343: return "mtval";
+    case 0x0344: return "mip";
+    case 0x0380: return "mbase";
+    case 0x0381: return "mbound";
+    case 0x0382: return "mibase";
+    case 0x0383: return "mibound";
+    case 0x0384: return "mdbase";
+    case 0x0385: return "mdbound";
+    case 0x03a0: return "pmpcfg3";
+    case 0x03b0: return "pmpaddr0";
+    case 0x03b1: return "pmpaddr1";
+    case 0x03b2: return "pmpaddr2";
+    case 0x03b3: return "pmpaddr3";
+    case 0x03b4: return "pmpaddr4";
+    case 0x03b5: return "pmpaddr5";
+    case 0x03b6: return "pmpaddr6";
+    case 0x03b7: return "pmpaddr7";
+    case 0x03b8: return "pmpaddr8";
+    case 0x03b9: return "pmpaddr9";
+    case 0x03ba: return "pmpaddr10";
+    case 0x03bb: return "pmpaddr11";
+    case 0x03bc: return "pmpaddr12";
+    case 0x03bd: return "pmpaddr14";
+    case 0x03be: return "pmpaddr13";
+    case 0x03bf: return "pmpaddr15";
+    case 0x0780: return "mtohost";
+    case 0x0781: return "mfromhost";
+    case 0x0782: return "mreset";
+    case 0x0783: return "mipi";
+    case 0x0784: return "miobase";
+    case 0x07a0: return "tselect";
+    case 0x07a1: return "tdata1";
+    case 0x07a2: return "tdata2";
+    case 0x07a3: return "tdata3";
+    case 0x07b0: return "dcsr";
+    case 0x07b1: return "dpc";
+    case 0x07b2: return "dscratch";
+    case 0x0b00: return "mcycle";
+    case 0x0b01: return "mtime";
+    case 0x0b02: return "minstret";
+    case 0x0b03: return "mhpmcounter3";
+    case 0x0b04: return "mhpmcounter4";
+    case 0x0b05: return "mhpmcounter5";
+    case 0x0b06: return "mhpmcounter6";
+    case 0x0b07: return "mhpmcounter7";
+    case 0x0b08: return "mhpmcounter8";
+    case 0x0b09: return "mhpmcounter9";
+    case 0x0b0a: return "mhpmcounter10";
+    case 0x0b0b: return "mhpmcounter11";
+    case 0x0b0c: return "mhpmcounter12";
+    case 0x0b0d: return "mhpmcounter13";
+    case 0x0b0e: return "mhpmcounter14";
+    case 0x0b0f: return "mhpmcounter15";
+    case 0x0b10: return "mhpmcounter16";
+    case 0x0b11: return "mhpmcounter17";
+    case 0x0b12: return "mhpmcounter18";
+    case 0x0b13: return "mhpmcounter19";
+    case 0x0b14: return "mhpmcounter20";
+    case 0x0b15: return "mhpmcounter21";
+    case 0x0b16: return "mhpmcounter22";
+    case 0x0b17: return "mhpmcounter23";
+    case 0x0b18: return "mhpmcounter24";
+    case 0x0b19: return "mhpmcounter25";
+    case 0x0b1a: return "mhpmcounter26";
+    case 0x0b1b: return "mhpmcounter27";
+    case 0x0b1c: return "mhpmcounter28";
+    case 0x0b1d: return "mhpmcounter29";
+    case 0x0b1e: return "mhpmcounter30";
+    case 0x0b1f: return "mhpmcounter31";
+    case 0x0b80: return "mcycleh";
+    case 0x0b81: return "mtimeh";
+    case 0x0b82: return "minstreth";
+    case 0x0b83: return "mhpmcounter3h";
+    case 0x0b84: return "mhpmcounter4h";
+    case 0x0b85: return "mhpmcounter5h";
+    case 0x0b86: return "mhpmcounter6h";
+    case 0x0b87: return "mhpmcounter7h";
+    case 0x0b88: return "mhpmcounter8h";
+    case 0x0b89: return "mhpmcounter9h";
+    case 0x0b8a: return "mhpmcounter10h";
+    case 0x0b8b: return "mhpmcounter11h";
+    case 0x0b8c: return "mhpmcounter12h";
+    case 0x0b8d: return "mhpmcounter13h";
+    case 0x0b8e: return "mhpmcounter14h";
+    case 0x0b8f: return "mhpmcounter15h";
+    case 0x0b90: return "mhpmcounter16h";
+    case 0x0b91: return "mhpmcounter17h";
+    case 0x0b92: return "mhpmcounter18h";
+    case 0x0b93: return "mhpmcounter19h";
+    case 0x0b94: return "mhpmcounter20h";
+    case 0x0b95: return "mhpmcounter21h";
+    case 0x0b96: return "mhpmcounter22h";
+    case 0x0b97: return "mhpmcounter23h";
+    case 0x0b98: return "mhpmcounter24h";
+    case 0x0b99: return "mhpmcounter25h";
+    case 0x0b9a: return "mhpmcounter26h";
+    case 0x0b9b: return "mhpmcounter27h";
+    case 0x0b9c: return "mhpmcounter28h";
+    case 0x0b9d: return "mhpmcounter29h";
+    case 0x0b9e: return "mhpmcounter30h";
+    case 0x0b9f: return "mhpmcounter31h";
+    case 0x0c00: return "cycle";
+    case 0x0c01: return "time";
+    case 0x0c02: return "instret";
+    case 0x0c80: return "cycleh";
+    case 0x0c81: return "timeh";
+    case 0x0c82: return "instreth";
+    case 0x0d00: return "scycle";
+    case 0x0d01: return "stime";
+    case 0x0d02: return "sinstret";
+    case 0x0d80: return "scycleh";
+    case 0x0d81: return "stimeh";
+    case 0x0d82: return "sinstreth";
+    case 0x0e00: return "hcycle";
+    case 0x0e01: return "htime";
+    case 0x0e02: return "hinstret";
+    case 0x0e80: return "hcycleh";
+    case 0x0e81: return "htimeh";
+    case 0x0e82: return "hinstreth";
+    case 0x0f11: return "mvendorid";
+    case 0x0f12: return "marchid";
+    case 0x0f13: return "mimpid";
+    case 0x0f14: return "mhartid";
+    default: return NULL;
     }
 }
 
@@ -1348,716 +1348,726 @@ static const char* csr_name(int csrno)
 static rv_opcode decode_inst_op(rv_inst inst, rv_isa isa)
 {
     rv_opcode op = rv_op_illegal;
-    switch (((inst >> 0) & 0b11) /* inst[1:0] */) {
+    switch (((inst >> 0) & 0b11)) {
+    case 0:
+        switch (((inst >> 13) & 0b111)) {
+        case 0: op = rv_op_c_addi4spn; break;
+        case 1:
+            if (isa == rv128) {
+                op = rv_op_c_lq;
+            } else {
+                op = rv_op_c_fld;
+            }
+            break;
+        case 2: op = rv_op_c_lw; break;
+        case 3:
+            if (isa == rv32) {
+                op = rv_op_c_flw;
+            } else {
+                op = rv_op_c_ld;
+            }
+            break;
+        case 5:
+            if (isa == rv128) {
+                op = rv_op_c_sq;
+            } else {
+                op = rv_op_c_fsd;
+            }
+            break;
+        case 6: op = rv_op_c_sw; break;
+        case 7:
+            if (isa == rv32) {
+                op = rv_op_c_fsw;
+            } else {
+                op = rv_op_c_sd;
+            }
+            break;
+        }
+        break;
+    case 1:
+        switch (((inst >> 13) & 0b111)) {
         case 0:
-            // c.addi4spn c.fld c.lw c.flw c.fsd c.sw c.fsw c.ld c.sd c.lq c.sq
-            switch (((inst >> 13) & 0b111) /* inst[15:13] */) {
-                case 0: op = rv_op_c_addi4spn; break;
-                case 1:
-                    if (isa == rv128) op = rv_op_c_lq;
-                    else op = rv_op_c_fld;
-                    break;
-                case 2: op = rv_op_c_lw; break;
-                case 3: 
-                    if (isa == rv32) op = rv_op_c_flw;
-                    else op = rv_op_c_ld;
-                    break;
-                case 5:
-                    if (isa == rv128) op = rv_op_c_sq;
-                    else op = rv_op_c_fsd;
-                    break;
-                case 6: op = rv_op_c_sw; break;
-                case 7: 
-                    if (isa == rv32) op = rv_op_c_fsw;
-                    else op = rv_op_c_sd;
-                    break;
+            switch (((inst >> 2) & 0b11111111111)) {
+            case 0: op = rv_op_c_nop; break;
+            default: op = rv_op_c_addi; break;
             }
             break;
         case 1:
-            // c.nop c.addi c.jal c.li c.addi16sp c.lui c.srli c.srai c.andi c.sub c.xor c.or ...
-            switch (((inst >> 13) & 0b111) /* inst[15:13] */) {
-                case 0:
-                    // c.nop c.addi
-                    switch (((inst >> 2) & 0b11111111111) /* inst[12:2] */) {
-                        case 0: op = rv_op_c_nop; break;
-                        default: op = rv_op_c_addi; break;
-                    }
-                    break;
-                case 1: 
-                    if (isa == rv32) op = rv_op_c_jal;
-                    else op = rv_op_c_addiw;
-                    break;
-                case 2: op = rv_op_c_li; break;
-                case 3:
-                    // c.addi16sp c.lui
-                    switch (((inst >> 7) & 0b11111) /* inst[11:7] */) {
-                        case 2: op = rv_op_c_addi16sp; break;
-                        default: op = rv_op_c_lui; break;
-                    }
-                    break;
-                case 4:
-                    // c.srli c.srai c.andi c.sub c.xor c.or c.and c.subw c.addw c.srli c.srai
-                    switch (((inst >> 10) & 0b11) /* inst[11:10] */) {
-                        case 0: 
-                            op = rv_op_c_srli;
-                            break;
-                        case 1: 
-                            op = rv_op_c_srai;
-                            break;
-                        case 2: op = rv_op_c_andi; break;
-                        case 3:
-                            // c.sub c.xor c.or c.and c.subw c.addw
-                            switch (((inst >> 10) & 0b100) | ((inst >> 5) & 0b011) /* inst[12|6:5] */) {
-                                case 0: op = rv_op_c_sub; break;
-                                case 1: op = rv_op_c_xor; break;
-                                case 2: op = rv_op_c_or; break;
-                                case 3: op = rv_op_c_and; break;
-                                case 4: op = rv_op_c_subw; break;
-                                case 5: op = rv_op_c_addw; break;
-                            }
-                            break;
-                    }
-                    break;
-                case 5: op = rv_op_c_j; break;
-                case 6: op = rv_op_c_beqz; break;
-                case 7: op = rv_op_c_bnez; break;
+            if (isa == rv32) {
+                op = rv_op_c_jal;
+            } else {
+                op = rv_op_c_addiw;
             }
             break;
-        case 2:
-            // c.slli c.fldsp c.lwsp c.flwsp c.jr c.mv c.ebreak c.jalr c.add c.fsdsp c.swsp c.fswsp ...
-            switch (((inst >> 13) & 0b111) /* inst[15:13] */) {
-                case 0: 
-                    op = rv_op_c_slli;
-                    break;
-                case 1:
-                    if (isa == rv128) op = rv_op_c_lqsp;
-                    else op = rv_op_c_fldsp;
-                    break;
-                case 2: op = rv_op_c_lwsp; break;
-                case 3: 
-                    if (isa == rv32) op = rv_op_c_flwsp;
-                    else op = rv_op_c_ldsp;
-                    break;
-                case 4:
-                    // c.jr c.mv c.ebreak c.jalr c.add
-                    switch (((inst >> 12) & 0b1) /* inst[12] */) {
-                        case 0:
-                            // c.jr c.mv
-                            switch (((inst >> 2) & 0b11111) /* inst[6:2] */) {
-                                case 0: op = rv_op_c_jr; break;
-                                default: op = rv_op_c_mv; break;
-                            }
-                            break;
-                        case 1:
-                            // c.ebreak c.jalr c.add
-                            switch (((inst >> 2) & 0b11111) /* inst[6:2] */) {
-                                case 0:
-                                    // c.ebreak c.jalr
-                                    switch (((inst >> 7) & 0b11111) /* inst[11:7] */) {
-                                        case 0: op = rv_op_c_ebreak; break;
-                                        default: op = rv_op_c_jalr; break;
-                                    }
-                                    break;
-                                default: op = rv_op_c_add; break;
-                            }
-                            break;
+        case 2: op = rv_op_c_li; break;
+        case 3:
+            switch (((inst >> 7) & 0b11111)) {
+            case 2: op = rv_op_c_addi16sp; break;
+            default: op = rv_op_c_lui; break;
+            }
+            break;
+        case 4:
+            switch (((inst >> 10) & 0b11)) {
+            case 0:
+                op = rv_op_c_srli;
+                break;
+            case 1:
+                op = rv_op_c_srai;
+                break;
+            case 2: op = rv_op_c_andi; break;
+            case 3:
+                switch (((inst >> 10) & 0b100) | ((inst >> 5) & 0b011)) {
+                case 0: op = rv_op_c_sub; break;
+                case 1: op = rv_op_c_xor; break;
+                case 2: op = rv_op_c_or; break;
+                case 3: op = rv_op_c_and; break;
+                case 4: op = rv_op_c_subw; break;
+                case 5: op = rv_op_c_addw; break;
+                }
+                break;
+            }
+            break;
+        case 5: op = rv_op_c_j; break;
+        case 6: op = rv_op_c_beqz; break;
+        case 7: op = rv_op_c_bnez; break;
+        }
+        break;
+    case 2:
+        switch (((inst >> 13) & 0b111)) {
+        case 0:
+            op = rv_op_c_slli;
+            break;
+        case 1:
+            if (isa == rv128) {
+                op = rv_op_c_lqsp;
+            } else {
+                op = rv_op_c_fldsp;
+            }
+            break;
+        case 2: op = rv_op_c_lwsp; break;
+        case 3:
+            if (isa == rv32) {
+                op = rv_op_c_flwsp;
+            } else {
+                op = rv_op_c_ldsp;
+            }
+            break;
+        case 4:
+            switch (((inst >> 12) & 0b1)) {
+            case 0:
+                switch (((inst >> 2) & 0b11111)) {
+                case 0: op = rv_op_c_jr; break;
+                default: op = rv_op_c_mv; break;
+                }
+                break;
+            case 1:
+                switch (((inst >> 2) & 0b11111)) {
+                case 0:
+                    switch (((inst >> 7) & 0b11111)) {
+                    case 0: op = rv_op_c_ebreak; break;
+                    default: op = rv_op_c_jalr; break;
                     }
                     break;
-                case 5:
-                    if (isa == rv128) op = rv_op_c_sqsp;
-                    else op = rv_op_c_fsdsp; break;
-                case 6: op = rv_op_c_swsp; break;
-                case 7: 
-                    if (isa == rv32) op = rv_op_c_fswsp;
-                    else op = rv_op_c_sdsp;
-                    break;
+                default: op = rv_op_c_add; break;
+                }
+                break;
+            }
+            break;
+        case 5:
+            if (isa == rv128) {
+                op = rv_op_c_sqsp;
+            } else {
+                op = rv_op_c_fsdsp; break;
+            }
+        case 6: op = rv_op_c_swsp; break;
+        case 7:
+            if (isa == rv32) {
+                op = rv_op_c_fswsp;
+            } else {
+                op = rv_op_c_sdsp;
+            }
+            break;
+        }
+        break;
+    case 3:
+        switch (((inst >> 2) & 0b11111)) {
+        case 0:
+            switch (((inst >> 12) & 0b111)) {
+            case 0: op = rv_op_lb; break;
+            case 1: op = rv_op_lh; break;
+            case 2: op = rv_op_lw; break;
+            case 3: op = rv_op_ld; break;
+            case 4: op = rv_op_lbu; break;
+            case 5: op = rv_op_lhu; break;
+            case 6: op = rv_op_lwu; break;
+            case 7: op = rv_op_ldu; break;
+            }
+            break;
+        case 1:
+            switch (((inst >> 12) & 0b111)) {
+            case 2: op = rv_op_flw; break;
+            case 3: op = rv_op_fld; break;
+            case 4: op = rv_op_flq; break;
             }
             break;
         case 3:
-            // lui auipc jal jalr beq bne blt bge bltu bgeu lb lh ...
-            switch (((inst >> 2) & 0b11111) /* inst[6:2] */) {
-                case 0:
-                    // lb lh lw lbu lhu lwu ld ldu
-                    switch (((inst >> 12) & 0b111) /* inst[14:12] */) {
-                        case 0: op = rv_op_lb; break;
-                        case 1: op = rv_op_lh; break;
-                        case 2: op = rv_op_lw; break;
-                        case 3: op = rv_op_ld; break;
-                        case 4: op = rv_op_lbu; break;
-                        case 5: op = rv_op_lhu; break;
-                        case 6: op = rv_op_lwu; break;
-                        case 7: op = rv_op_ldu; break;
-                    }
-                    break;
-                case 1:
-                    // flw fld flq
-                    switch (((inst >> 12) & 0b111) /* inst[14:12] */) {
-                        case 2: op = rv_op_flw; break;
-                        case 3: op = rv_op_fld; break;
-                        case 4: op = rv_op_flq; break;
-                    }
-                    break;
-                case 3:
-                    // fence fence.i lq
-                    switch (((inst >> 12) & 0b111) /* inst[14:12] */) {
-                        case 0: op = rv_op_fence; break;
-                        case 1: op = rv_op_fence_i; break;
-                        case 2: op = rv_op_lq; break;
-                    }
-                    break;
-                case 4:
-                    // addi slti sltiu xori ori andi slli srli srai slli srli srai ...
-                    switch (((inst >> 12) & 0b111) /* inst[14:12] */) {
-                        case 0: op = rv_op_addi; break;
-                        case 1:
-                            // slli slli slli
-                            switch (((inst >> 27) & 0b11111) /* inst[31:27] */) {
-                                case 0: 
-                                    op = rv_op_slli;
-                                    break;
-                            }
-                            break;
-                        case 2: op = rv_op_slti; break;
-                        case 3: op = rv_op_sltiu; break;
-                        case 4: op = rv_op_xori; break;
-                        case 5:
-                            // srli srai srli srai srli srai
-                            switch (((inst >> 27) & 0b11111) /* inst[31:27] */) {
-                                case 0: 
-                                    op = rv_op_srli;
-                                    break;
-                                case 8: 
-                                    op = rv_op_srai;
-                                    break;
-                            }
-                            break;
-                        case 6: op = rv_op_ori; break;
-                        case 7: op = rv_op_andi; break;
-                    }
-                    break;
-                case 5: op = rv_op_auipc; break;
-                case 6:
-                    // addiw slliw srliw sraiw
-                    switch (((inst >> 12) & 0b111) /* inst[14:12] */) {
-                        case 0: op = rv_op_addiw; break;
-                        case 1:
-                            // slliw
-                            switch (((inst >> 25) & 0b1111111) /* inst[31:25] */) {
-                                case 0: op = rv_op_slliw; break;
-                            }
-                            break;
-                        case 5:
-                            // srliw sraiw
-                            switch (((inst >> 25) & 0b1111111) /* inst[31:25] */) {
-                                case 0: op = rv_op_srliw; break;
-                                case 32: op = rv_op_sraiw; break;
-                            }
-                            break;
-                    }
-                    break;
-                case 8:
-                    // sb sh sw sd sq
-                    switch (((inst >> 12) & 0b111) /* inst[14:12] */) {
-                        case 0: op = rv_op_sb; break;
-                        case 1: op = rv_op_sh; break;
-                        case 2: op = rv_op_sw; break;
-                        case 3: op = rv_op_sd; break;
-                        case 4: op = rv_op_sq; break;
-                    }
-                    break;
-                case 9:
-                    // fsw fsd fsq
-                    switch (((inst >> 12) & 0b111) /* inst[14:12] */) {
-                        case 2: op = rv_op_fsw; break;
-                        case 3: op = rv_op_fsd; break;
-                        case 4: op = rv_op_fsq; break;
-                    }
-                    break;
-                case 11:
-                    // lr.w sc.w amoswap.w amoadd.w amoxor.w amoor.w amoand.w amomin.w amomax.w amominu.w amomaxu.w lr.d ...
-                    switch (((inst >> 24) & 0b11111000) | ((inst >> 12) & 0b00000111) /* inst[31:27|14:12] */) {
-                        case 2: op = rv_op_amoadd_w; break;
-                        case 3: op = rv_op_amoadd_d; break;
-                        case 4: op = rv_op_amoadd_q; break;
-                        case 10: op = rv_op_amoswap_w; break;
-                        case 11: op = rv_op_amoswap_d; break;
-                        case 12: op = rv_op_amoswap_q; break;
-                        case 18:
-                            // lr.w
-                            switch (((inst >> 20) & 0b11111) /* inst[24:20] */) {
-                                case 0: op = rv_op_lr_w; break;
-                            }
-                            break;
-                        case 19:
-                            // lr.d
-                            switch (((inst >> 20) & 0b11111) /* inst[24:20] */) {
-                                case 0: op = rv_op_lr_d; break;
-                            }
-                            break;
-                        case 20:
-                            // lr.q
-                            switch (((inst >> 20) & 0b11111) /* inst[24:20] */) {
-                                case 0: op = rv_op_lr_q; break;
-                            }
-                            break;
-                        case 26: op = rv_op_sc_w; break;
-                        case 27: op = rv_op_sc_d; break;
-                        case 28: op = rv_op_sc_q; break;
-                        case 34: op = rv_op_amoxor_w; break;
-                        case 35: op = rv_op_amoxor_d; break;
-                        case 36: op = rv_op_amoxor_q; break;
-                        case 66: op = rv_op_amoor_w; break;
-                        case 67: op = rv_op_amoor_d; break;
-                        case 68: op = rv_op_amoor_q; break;
-                        case 98: op = rv_op_amoand_w; break;
-                        case 99: op = rv_op_amoand_d; break;
-                        case 100: op = rv_op_amoand_q; break;
-                        case 130: op = rv_op_amomin_w; break;
-                        case 131: op = rv_op_amomin_d; break;
-                        case 132: op = rv_op_amomin_q; break;
-                        case 162: op = rv_op_amomax_w; break;
-                        case 163: op = rv_op_amomax_d; break;
-                        case 164: op = rv_op_amomax_q; break;
-                        case 194: op = rv_op_amominu_w; break;
-                        case 195: op = rv_op_amominu_d; break;
-                        case 196: op = rv_op_amominu_q; break;
-                        case 226: op = rv_op_amomaxu_w; break;
-                        case 227: op = rv_op_amomaxu_d; break;
-                        case 228: op = rv_op_amomaxu_q; break;
-                    }
-                    break;
-                case 12:
-                    // add sub sll slt sltu xor srl sra or and mul mulh ...
-                    switch (((inst >> 22) & 0b1111111000) | ((inst >> 12) & 0b0000000111) /* inst[31:25|14:12] */) {
-                        case 0: op = rv_op_add; break;
-                        case 1: op = rv_op_sll; break;
-                        case 2: op = rv_op_slt; break;
-                        case 3: op = rv_op_sltu; break;
-                        case 4: op = rv_op_xor; break;
-                        case 5: op = rv_op_srl; break;
-                        case 6: op = rv_op_or; break;
-                        case 7: op = rv_op_and; break;
-                        case 8: op = rv_op_mul; break;
-                        case 9: op = rv_op_mulh; break;
-                        case 10: op = rv_op_mulhsu; break;
-                        case 11: op = rv_op_mulhu; break;
-                        case 12: op = rv_op_div; break;
-                        case 13: op = rv_op_divu; break;
-                        case 14: op = rv_op_rem; break;
-                        case 15: op = rv_op_remu; break;
-                        case 256: op = rv_op_sub; break;
-                        case 261: op = rv_op_sra; break;
-                    }
-                    break;
-                case 13: op = rv_op_lui; break;
-                case 14:
-                    // addw subw sllw srlw sraw mulw divw divuw remw remuw
-                    switch (((inst >> 22) & 0b1111111000) | ((inst >> 12) & 0b0000000111) /* inst[31:25|14:12] */) {
-                        case 0: op = rv_op_addw; break;
-                        case 1: op = rv_op_sllw; break;
-                        case 5: op = rv_op_srlw; break;
-                        case 8: op = rv_op_mulw; break;
-                        case 12: op = rv_op_divw; break;
-                        case 13: op = rv_op_divuw; break;
-                        case 14: op = rv_op_remw; break;
-                        case 15: op = rv_op_remuw; break;
-                        case 256: op = rv_op_subw; break;
-                        case 261: op = rv_op_sraw; break;
-                    }
-                    break;
-                case 16:
-                    // fmadd.s fmadd.d fmadd.q
-                    switch (((inst >> 25) & 0b11) /* inst[26:25] */) {
-                        case 0: op = rv_op_fmadd_s; break;
-                        case 1: op = rv_op_fmadd_d; break;
-                        case 3: op = rv_op_fmadd_q; break;
-                    }
-                    break;
-                case 17:
-                    // fmsub.s fmsub.d fmsub.q
-                    switch (((inst >> 25) & 0b11) /* inst[26:25] */) {
-                        case 0: op = rv_op_fmsub_s; break;
-                        case 1: op = rv_op_fmsub_d; break;
-                        case 3: op = rv_op_fmsub_q; break;
-                    }
-                    break;
-                case 18:
-                    // fnmsub.s fnmsub.d fnmsub.q
-                    switch (((inst >> 25) & 0b11) /* inst[26:25] */) {
-                        case 0: op = rv_op_fnmsub_s; break;
-                        case 1: op = rv_op_fnmsub_d; break;
-                        case 3: op = rv_op_fnmsub_q; break;
-                    }
-                    break;
-                case 19:
-                    // fnmadd.s fnmadd.d fnmadd.q
-                    switch (((inst >> 25) & 0b11) /* inst[26:25] */) {
-                        case 0: op = rv_op_fnmadd_s; break;
-                        case 1: op = rv_op_fnmadd_d; break;
-                        case 3: op = rv_op_fnmadd_q; break;
-                    }
-                    break;
-                case 20:
-                    // fadd.s fsub.s fmul.s fdiv.s fsgnj.s fsgnjn.s fsgnjx.s fmin.s fmax.s fsqrt.s fle.s flt.s ...
-                    switch (((inst >> 25) & 0b1111111) /* inst[31:25] */) {
-                        case 0: op = rv_op_fadd_s; break;
-                        case 1: op = rv_op_fadd_d; break;
-                        case 3: op = rv_op_fadd_q; break;
-                        case 4: op = rv_op_fsub_s; break;
-                        case 5: op = rv_op_fsub_d; break;
-                        case 7: op = rv_op_fsub_q; break;
-                        case 8: op = rv_op_fmul_s; break;
-                        case 9: op = rv_op_fmul_d; break;
-                        case 11: op = rv_op_fmul_q; break;
-                        case 12: op = rv_op_fdiv_s; break;
-                        case 13: op = rv_op_fdiv_d; break;
-                        case 15: op = rv_op_fdiv_q; break;
-                        case 16:
-                            // fsgnj.s fsgnjn.s fsgnjx.s
-                            switch (((inst >> 12) & 0b111) /* inst[14:12] */) {
-                                case 0: op = rv_op_fsgnj_s; break;
-                                case 1: op = rv_op_fsgnjn_s; break;
-                                case 2: op = rv_op_fsgnjx_s; break;
-                            }
-                            break;
-                        case 17:
-                            // fsgnj.d fsgnjn.d fsgnjx.d
-                            switch (((inst >> 12) & 0b111) /* inst[14:12] */) {
-                                case 0: op = rv_op_fsgnj_d; break;
-                                case 1: op = rv_op_fsgnjn_d; break;
-                                case 2: op = rv_op_fsgnjx_d; break;
-                            }
-                            break;
-                        case 19:
-                            // fsgnj.q fsgnjn.q fsgnjx.q
-                            switch (((inst >> 12) & 0b111) /* inst[14:12] */) {
-                                case 0: op = rv_op_fsgnj_q; break;
-                                case 1: op = rv_op_fsgnjn_q; break;
-                                case 2: op = rv_op_fsgnjx_q; break;
-                            }
-                            break;
-                        case 20:
-                            // fmin.s fmax.s
-                            switch (((inst >> 12) & 0b111) /* inst[14:12] */) {
-                                case 0: op = rv_op_fmin_s; break;
-                                case 1: op = rv_op_fmax_s; break;
-                            }
-                            break;
-                        case 21:
-                            // fmin.d fmax.d
-                            switch (((inst >> 12) & 0b111) /* inst[14:12] */) {
-                                case 0: op = rv_op_fmin_d; break;
-                                case 1: op = rv_op_fmax_d; break;
-                            }
-                            break;
-                        case 23:
-                            // fmin.q fmax.q
-                            switch (((inst >> 12) & 0b111) /* inst[14:12] */) {
-                                case 0: op = rv_op_fmin_q; break;
-                                case 1: op = rv_op_fmax_q; break;
-                            }
-                            break;
-                        case 32:
-                            // fcvt.s.d fcvt.s.q
-                            switch (((inst >> 20) & 0b11111) /* inst[24:20] */) {
-                                case 1: op = rv_op_fcvt_s_d; break;
-                                case 3: op = rv_op_fcvt_s_q; break;
-                            }
-                            break;
-                        case 33:
-                            // fcvt.d.s fcvt.d.q
-                            switch (((inst >> 20) & 0b11111) /* inst[24:20] */) {
-                                case 0: op = rv_op_fcvt_d_s; break;
-                                case 3: op = rv_op_fcvt_d_q; break;
-                            }
-                            break;
-                        case 35:
-                            // fcvt.q.s fcvt.q.d
-                            switch (((inst >> 20) & 0b11111) /* inst[24:20] */) {
-                                case 0: op = rv_op_fcvt_q_s; break;
-                                case 1: op = rv_op_fcvt_q_d; break;
-                            }
-                            break;
-                        case 44:
-                            // fsqrt.s
-                            switch (((inst >> 20) & 0b11111) /* inst[24:20] */) {
-                                case 0: op = rv_op_fsqrt_s; break;
-                            }
-                            break;
-                        case 45:
-                            // fsqrt.d
-                            switch (((inst >> 20) & 0b11111) /* inst[24:20] */) {
-                                case 0: op = rv_op_fsqrt_d; break;
-                            }
-                            break;
-                        case 47:
-                            // fsqrt.q
-                            switch (((inst >> 20) & 0b11111) /* inst[24:20] */) {
-                                case 0: op = rv_op_fsqrt_q; break;
-                            }
-                            break;
-                        case 80:
-                            // fle.s flt.s feq.s
-                            switch (((inst >> 12) & 0b111) /* inst[14:12] */) {
-                                case 0: op = rv_op_fle_s; break;
-                                case 1: op = rv_op_flt_s; break;
-                                case 2: op = rv_op_feq_s; break;
-                            }
-                            break;
-                        case 81:
-                            // fle.d flt.d feq.d
-                            switch (((inst >> 12) & 0b111) /* inst[14:12] */) {
-                                case 0: op = rv_op_fle_d; break;
-                                case 1: op = rv_op_flt_d; break;
-                                case 2: op = rv_op_feq_d; break;
-                            }
-                            break;
-                        case 83:
-                            // fle.q flt.q feq.q
-                            switch (((inst >> 12) & 0b111) /* inst[14:12] */) {
-                                case 0: op = rv_op_fle_q; break;
-                                case 1: op = rv_op_flt_q; break;
-                                case 2: op = rv_op_feq_q; break;
-                            }
-                            break;
-                        case 96:
-                            // fcvt.w.s fcvt.wu.s fcvt.l.s fcvt.lu.s
-                            switch (((inst >> 20) & 0b11111) /* inst[24:20] */) {
-                                case 0: op = rv_op_fcvt_w_s; break;
-                                case 1: op = rv_op_fcvt_wu_s; break;
-                                case 2: op = rv_op_fcvt_l_s; break;
-                                case 3: op = rv_op_fcvt_lu_s; break;
-                            }
-                            break;
-                        case 97:
-                            // fcvt.w.d fcvt.wu.d fcvt.l.d fcvt.lu.d
-                            switch (((inst >> 20) & 0b11111) /* inst[24:20] */) {
-                                case 0: op = rv_op_fcvt_w_d; break;
-                                case 1: op = rv_op_fcvt_wu_d; break;
-                                case 2: op = rv_op_fcvt_l_d; break;
-                                case 3: op = rv_op_fcvt_lu_d; break;
-                            }
-                            break;
-                        case 99:
-                            // fcvt.w.q fcvt.wu.q fcvt.l.q fcvt.lu.q
-                            switch (((inst >> 20) & 0b11111) /* inst[24:20] */) {
-                                case 0: op = rv_op_fcvt_w_q; break;
-                                case 1: op = rv_op_fcvt_wu_q; break;
-                                case 2: op = rv_op_fcvt_l_q; break;
-                                case 3: op = rv_op_fcvt_lu_q; break;
-                            }
-                            break;
-                        case 104:
-                            // fcvt.s.w fcvt.s.wu fcvt.s.l fcvt.s.lu
-                            switch (((inst >> 20) & 0b11111) /* inst[24:20] */) {
-                                case 0: op = rv_op_fcvt_s_w; break;
-                                case 1: op = rv_op_fcvt_s_wu; break;
-                                case 2: op = rv_op_fcvt_s_l; break;
-                                case 3: op = rv_op_fcvt_s_lu; break;
-                            }
-                            break;
-                        case 105:
-                            // fcvt.d.w fcvt.d.wu fcvt.d.l fcvt.d.lu
-                            switch (((inst >> 20) & 0b11111) /* inst[24:20] */) {
-                                case 0: op = rv_op_fcvt_d_w; break;
-                                case 1: op = rv_op_fcvt_d_wu; break;
-                                case 2: op = rv_op_fcvt_d_l; break;
-                                case 3: op = rv_op_fcvt_d_lu; break;
-                            }
-                            break;
-                        case 107:
-                            // fcvt.q.w fcvt.q.wu fcvt.q.l fcvt.q.lu
-                            switch (((inst >> 20) & 0b11111) /* inst[24:20] */) {
-                                case 0: op = rv_op_fcvt_q_w; break;
-                                case 1: op = rv_op_fcvt_q_wu; break;
-                                case 2: op = rv_op_fcvt_q_l; break;
-                                case 3: op = rv_op_fcvt_q_lu; break;
-                            }
-                            break;
-                        case 112:
-                            // fmv.x.s fclass.s
-                            switch (((inst >> 17) & 0b11111000) | ((inst >> 12) & 0b00000111) /* inst[24:20|14:12] */) {
-                                case 0: op = rv_op_fmv_x_s; break;
-                                case 1: op = rv_op_fclass_s; break;
-                            }
-                            break;
-                        case 113:
-                            // fclass.d fmv.x.d
-                            switch (((inst >> 17) & 0b11111000) | ((inst >> 12) & 0b00000111) /* inst[24:20|14:12] */) {
-                                case 0: op = rv_op_fmv_x_d; break;
-                                case 1: op = rv_op_fclass_d; break;
-                            }
-                            break;
-                        case 115:
-                            // fclass.q fmv.x.q
-                            switch (((inst >> 17) & 0b11111000) | ((inst >> 12) & 0b00000111) /* inst[24:20|14:12] */) {
-                                case 0: op = rv_op_fmv_x_q; break;
-                                case 1: op = rv_op_fclass_q; break;
-                            }
-                            break;
-                        case 120:
-                            // fmv.s.x
-                            switch (((inst >> 17) & 0b11111000) | ((inst >> 12) & 0b00000111) /* inst[24:20|14:12] */) {
-                                case 0: op = rv_op_fmv_s_x; break;
-                            }
-                            break;
-                        case 121:
-                            // fmv.d.x
-                            switch (((inst >> 17) & 0b11111000) | ((inst >> 12) & 0b00000111) /* inst[24:20|14:12] */) {
-                                case 0: op = rv_op_fmv_d_x; break;
-                            }
-                            break;
-                        case 123:
-                            // fmv.q.x
-                            switch (((inst >> 17) & 0b11111000) | ((inst >> 12) & 0b00000111) /* inst[24:20|14:12] */) {
-                                case 0: op = rv_op_fmv_q_x; break;
-                            }
-                            break;
-                    }
-                    break;
-                case 22:
-                    // addid sllid srlid sraid
-                    switch (((inst >> 12) & 0b111) /* inst[14:12] */) {
-                        case 0: op = rv_op_addid; break;
-                        case 1:
-                            // sllid
-                            switch (((inst >> 26) & 0b111111) /* inst[31:26] */) {
-                                case 0: op = rv_op_sllid; break;
-                            }
-                            break;
-                        case 5:
-                            // srlid sraid
-                            switch (((inst >> 26) & 0b111111) /* inst[31:26] */) {
-                                case 0: op = rv_op_srlid; break;
-                                case 16: op = rv_op_sraid; break;
-                            }
-                            break;
-                    }
-                    break;
-                case 24:
-                    // beq bne blt bge bltu bgeu
-                    switch (((inst >> 12) & 0b111) /* inst[14:12] */) {
-                        case 0: op = rv_op_beq; break;
-                        case 1: op = rv_op_bne; break;
-                        case 4: op = rv_op_blt; break;
-                        case 5: op = rv_op_bge; break;
-                        case 6: op = rv_op_bltu; break;
-                        case 7: op = rv_op_bgeu; break;
-                    }
-                    break;
-                case 25:
-                    // jalr
-                    switch (((inst >> 12) & 0b111) /* inst[14:12] */) {
-                        case 0: op = rv_op_jalr; break;
-                    }
-                    break;
-                case 27: op = rv_op_jal; break;
-                case 28:
-                    // ecall ebreak uret sret hret mret dret sfence.vm sfence.vma wfi csrrw csrrs ...
-                    switch (((inst >> 12) & 0b111) /* inst[14:12] */) {
-                        case 0:
-                            // ecall ebreak uret sret hret mret dret sfence.vm sfence.vma wfi
-                            switch (((inst >> 20) & 0b111111100000) | ((inst >> 7) & 0b000000011111) /* inst[31:25|11:7] */) {
-                                case 0:
-                                    // ecall ebreak uret
-                                    switch (((inst >> 15) & 0b1111111111) /* inst[24:15] */) {
-                                        case 0: op = rv_op_ecall; break;
-                                        case 32: op = rv_op_ebreak; break;
-                                        case 64: op = rv_op_uret; break;
-                                    }
-                                    break;
-                                case 256:
-                                    // sret sfence.vm wfi
-                                    switch (((inst >> 20) & 0b11111) /* inst[24:20] */) {
-                                        case 2:
-                                            // sret
-                                            switch (((inst >> 15) & 0b11111) /* inst[19:15] */) {
-                                                case 0: op = rv_op_sret; break;
-                                            }
-                                            break;
-                                        case 4: op = rv_op_sfence_vm; break;
-                                        case 5:
-                                            // wfi
-                                            switch (((inst >> 15) & 0b11111) /* inst[19:15] */) {
-                                                case 0: op = rv_op_wfi; break;
-                                            }
-                                            break;
-                                    }
-                                    break;
-                                case 288: op = rv_op_sfence_vma; break;
-                                case 512:
-                                    // hret
-                                    switch (((inst >> 15) & 0b1111111111) /* inst[24:15] */) {
-                                        case 64: op = rv_op_hret; break;
-                                    }
-                                    break;
-                                case 768:
-                                    // mret
-                                    switch (((inst >> 15) & 0b1111111111) /* inst[24:15] */) {
-                                        case 64: op = rv_op_mret; break;
-                                    }
-                                    break;
-                                case 1952:
-                                    // dret
-                                    switch (((inst >> 15) & 0b1111111111) /* inst[24:15] */) {
-                                        case 576: op = rv_op_dret; break;
-                                    }
-                                    break;
-                            }
-                            break;
-                        case 1: op = rv_op_csrrw; break;
-                        case 2: op = rv_op_csrrs; break;
-                        case 3: op = rv_op_csrrc; break;
-                        case 5: op = rv_op_csrrwi; break;
-                        case 6: op = rv_op_csrrsi; break;
-                        case 7: op = rv_op_csrrci; break;
-                    }
-                    break;
-                case 30:
-                    // addd subd slld srld srad muld divd divud remd remud
-                    switch (((inst >> 22) & 0b1111111000) | ((inst >> 12) & 0b0000000111) /* inst[31:25|14:12] */) {
-                        case 0: op = rv_op_addd; break;
-                        case 1: op = rv_op_slld; break;
-                        case 5: op = rv_op_srld; break;
-                        case 8: op = rv_op_muld; break;
-                        case 12: op = rv_op_divd; break;
-                        case 13: op = rv_op_divud; break;
-                        case 14: op = rv_op_remd; break;
-                        case 15: op = rv_op_remud; break;
-                        case 256: op = rv_op_subd; break;
-                        case 261: op = rv_op_srad; break;
-                    }
-                    break;
+            switch (((inst >> 12) & 0b111)) {
+            case 0: op = rv_op_fence; break;
+            case 1: op = rv_op_fence_i; break;
+            case 2: op = rv_op_lq; break;
             }
             break;
+        case 4:
+            switch (((inst >> 12) & 0b111)) {
+            case 0: op = rv_op_addi; break;
+            case 1:
+                switch (((inst >> 27) & 0b11111)) {
+                case 0: op = rv_op_slli; break;
+                }
+                break;
+            case 2: op = rv_op_slti; break;
+            case 3: op = rv_op_sltiu; break;
+            case 4: op = rv_op_xori; break;
+            case 5:
+                switch (((inst >> 27) & 0b11111)) {
+                case 0: op = rv_op_srli; break;
+                case 8: op = rv_op_srai; break;
+                }
+                break;
+            case 6: op = rv_op_ori; break;
+            case 7: op = rv_op_andi; break;
+            }
+            break;
+        case 5: op = rv_op_auipc; break;
+        case 6:
+            switch (((inst >> 12) & 0b111)) {
+            case 0: op = rv_op_addiw; break;
+            case 1:
+                switch (((inst >> 25) & 0b1111111)) {
+                case 0: op = rv_op_slliw; break;
+                }
+                break;
+            case 5:
+                switch (((inst >> 25) & 0b1111111)) {
+                case 0: op = rv_op_srliw; break;
+                case 32: op = rv_op_sraiw; break;
+                }
+                break;
+            }
+            break;
+        case 8:
+            switch (((inst >> 12) & 0b111)) {
+            case 0: op = rv_op_sb; break;
+            case 1: op = rv_op_sh; break;
+            case 2: op = rv_op_sw; break;
+            case 3: op = rv_op_sd; break;
+            case 4: op = rv_op_sq; break;
+            }
+            break;
+        case 9:
+            switch (((inst >> 12) & 0b111)) {
+            case 2: op = rv_op_fsw; break;
+            case 3: op = rv_op_fsd; break;
+            case 4: op = rv_op_fsq; break;
+            }
+            break;
+        case 11:
+            switch (((inst >> 24) & 0b11111000) | ((inst >> 12) & 0b00000111)) {
+            case 2: op = rv_op_amoadd_w; break;
+            case 3: op = rv_op_amoadd_d; break;
+            case 4: op = rv_op_amoadd_q; break;
+            case 10: op = rv_op_amoswap_w; break;
+            case 11: op = rv_op_amoswap_d; break;
+            case 12: op = rv_op_amoswap_q; break;
+            case 18:
+                switch (((inst >> 20) & 0b11111)) {
+                case 0: op = rv_op_lr_w; break;
+                }
+                break;
+            case 19:
+                switch (((inst >> 20) & 0b11111)) {
+                case 0: op = rv_op_lr_d; break;
+                }
+                break;
+            case 20:
+                switch (((inst >> 20) & 0b11111)) {
+                case 0: op = rv_op_lr_q; break;
+                }
+                break;
+            case 26: op = rv_op_sc_w; break;
+            case 27: op = rv_op_sc_d; break;
+            case 28: op = rv_op_sc_q; break;
+            case 34: op = rv_op_amoxor_w; break;
+            case 35: op = rv_op_amoxor_d; break;
+            case 36: op = rv_op_amoxor_q; break;
+            case 66: op = rv_op_amoor_w; break;
+            case 67: op = rv_op_amoor_d; break;
+            case 68: op = rv_op_amoor_q; break;
+            case 98: op = rv_op_amoand_w; break;
+            case 99: op = rv_op_amoand_d; break;
+            case 100: op = rv_op_amoand_q; break;
+            case 130: op = rv_op_amomin_w; break;
+            case 131: op = rv_op_amomin_d; break;
+            case 132: op = rv_op_amomin_q; break;
+            case 162: op = rv_op_amomax_w; break;
+            case 163: op = rv_op_amomax_d; break;
+            case 164: op = rv_op_amomax_q; break;
+            case 194: op = rv_op_amominu_w; break;
+            case 195: op = rv_op_amominu_d; break;
+            case 196: op = rv_op_amominu_q; break;
+            case 226: op = rv_op_amomaxu_w; break;
+            case 227: op = rv_op_amomaxu_d; break;
+            case 228: op = rv_op_amomaxu_q; break;
+            }
+            break;
+        case 12:
+            switch (((inst >> 22) & 0b1111111000) | ((inst >> 12) & 0b0000000111)) {
+            case 0: op = rv_op_add; break;
+            case 1: op = rv_op_sll; break;
+            case 2: op = rv_op_slt; break;
+            case 3: op = rv_op_sltu; break;
+            case 4: op = rv_op_xor; break;
+            case 5: op = rv_op_srl; break;
+            case 6: op = rv_op_or; break;
+            case 7: op = rv_op_and; break;
+            case 8: op = rv_op_mul; break;
+            case 9: op = rv_op_mulh; break;
+            case 10: op = rv_op_mulhsu; break;
+            case 11: op = rv_op_mulhu; break;
+            case 12: op = rv_op_div; break;
+            case 13: op = rv_op_divu; break;
+            case 14: op = rv_op_rem; break;
+            case 15: op = rv_op_remu; break;
+            case 256: op = rv_op_sub; break;
+            case 261: op = rv_op_sra; break;
+            }
+            break;
+        case 13: op = rv_op_lui; break;
+        case 14:
+            switch (((inst >> 22) & 0b1111111000) | ((inst >> 12) & 0b0000000111)) {
+            case 0: op = rv_op_addw; break;
+            case 1: op = rv_op_sllw; break;
+            case 5: op = rv_op_srlw; break;
+            case 8: op = rv_op_mulw; break;
+            case 12: op = rv_op_divw; break;
+            case 13: op = rv_op_divuw; break;
+            case 14: op = rv_op_remw; break;
+            case 15: op = rv_op_remuw; break;
+            case 256: op = rv_op_subw; break;
+            case 261: op = rv_op_sraw; break;
+            }
+            break;
+        case 16:
+            switch (((inst >> 25) & 0b11)) {
+            case 0: op = rv_op_fmadd_s; break;
+            case 1: op = rv_op_fmadd_d; break;
+            case 3: op = rv_op_fmadd_q; break;
+            }
+            break;
+        case 17:
+            switch (((inst >> 25) & 0b11)) {
+            case 0: op = rv_op_fmsub_s; break;
+            case 1: op = rv_op_fmsub_d; break;
+            case 3: op = rv_op_fmsub_q; break;
+            }
+            break;
+        case 18:
+            switch (((inst >> 25) & 0b11)) {
+            case 0: op = rv_op_fnmsub_s; break;
+            case 1: op = rv_op_fnmsub_d; break;
+            case 3: op = rv_op_fnmsub_q; break;
+            }
+            break;
+        case 19:
+            switch (((inst >> 25) & 0b11)) {
+            case 0: op = rv_op_fnmadd_s; break;
+            case 1: op = rv_op_fnmadd_d; break;
+            case 3: op = rv_op_fnmadd_q; break;
+            }
+            break;
+        case 20:
+            switch (((inst >> 25) & 0b1111111)) {
+            case 0: op = rv_op_fadd_s; break;
+            case 1: op = rv_op_fadd_d; break;
+            case 3: op = rv_op_fadd_q; break;
+            case 4: op = rv_op_fsub_s; break;
+            case 5: op = rv_op_fsub_d; break;
+            case 7: op = rv_op_fsub_q; break;
+            case 8: op = rv_op_fmul_s; break;
+            case 9: op = rv_op_fmul_d; break;
+            case 11: op = rv_op_fmul_q; break;
+            case 12: op = rv_op_fdiv_s; break;
+            case 13: op = rv_op_fdiv_d; break;
+            case 15: op = rv_op_fdiv_q; break;
+            case 16:
+                switch (((inst >> 12) & 0b111)) {
+                case 0: op = rv_op_fsgnj_s; break;
+                case 1: op = rv_op_fsgnjn_s; break;
+                case 2: op = rv_op_fsgnjx_s; break;
+                }
+                break;
+            case 17:
+                switch (((inst >> 12) & 0b111)) {
+                case 0: op = rv_op_fsgnj_d; break;
+                case 1: op = rv_op_fsgnjn_d; break;
+                case 2: op = rv_op_fsgnjx_d; break;
+                }
+                break;
+            case 19:
+                switch (((inst >> 12) & 0b111)) {
+                case 0: op = rv_op_fsgnj_q; break;
+                case 1: op = rv_op_fsgnjn_q; break;
+                case 2: op = rv_op_fsgnjx_q; break;
+                }
+                break;
+            case 20:
+                switch (((inst >> 12) & 0b111)) {
+                case 0: op = rv_op_fmin_s; break;
+                case 1: op = rv_op_fmax_s; break;
+                }
+                break;
+            case 21:
+                switch (((inst >> 12) & 0b111)) {
+                case 0: op = rv_op_fmin_d; break;
+                case 1: op = rv_op_fmax_d; break;
+                }
+                break;
+            case 23:
+                switch (((inst >> 12) & 0b111)) {
+                case 0: op = rv_op_fmin_q; break;
+                case 1: op = rv_op_fmax_q; break;
+                }
+                break;
+            case 32:
+                switch (((inst >> 20) & 0b11111)) {
+                case 1: op = rv_op_fcvt_s_d; break;
+                case 3: op = rv_op_fcvt_s_q; break;
+                }
+                break;
+            case 33:
+                switch (((inst >> 20) & 0b11111)) {
+                case 0: op = rv_op_fcvt_d_s; break;
+                case 3: op = rv_op_fcvt_d_q; break;
+                }
+                break;
+            case 35:
+                switch (((inst >> 20) & 0b11111)) {
+                case 0: op = rv_op_fcvt_q_s; break;
+                case 1: op = rv_op_fcvt_q_d; break;
+                }
+                break;
+            case 44:
+                switch (((inst >> 20) & 0b11111)) {
+                case 0: op = rv_op_fsqrt_s; break;
+                }
+                break;
+            case 45:
+                switch (((inst >> 20) & 0b11111)) {
+                case 0: op = rv_op_fsqrt_d; break;
+                }
+                break;
+            case 47:
+                switch (((inst >> 20) & 0b11111)) {
+                case 0: op = rv_op_fsqrt_q; break;
+                }
+                break;
+            case 80:
+                switch (((inst >> 12) & 0b111)) {
+                case 0: op = rv_op_fle_s; break;
+                case 1: op = rv_op_flt_s; break;
+                case 2: op = rv_op_feq_s; break;
+                }
+                break;
+            case 81:
+                switch (((inst >> 12) & 0b111)) {
+                case 0: op = rv_op_fle_d; break;
+                case 1: op = rv_op_flt_d; break;
+                case 2: op = rv_op_feq_d; break;
+                }
+                break;
+            case 83:
+                switch (((inst >> 12) & 0b111)) {
+                case 0: op = rv_op_fle_q; break;
+                case 1: op = rv_op_flt_q; break;
+                case 2: op = rv_op_feq_q; break;
+                }
+                break;
+            case 96:
+                switch (((inst >> 20) & 0b11111)) {
+                case 0: op = rv_op_fcvt_w_s; break;
+                case 1: op = rv_op_fcvt_wu_s; break;
+                case 2: op = rv_op_fcvt_l_s; break;
+                case 3: op = rv_op_fcvt_lu_s; break;
+                }
+                break;
+            case 97:
+                switch (((inst >> 20) & 0b11111)) {
+                case 0: op = rv_op_fcvt_w_d; break;
+                case 1: op = rv_op_fcvt_wu_d; break;
+                case 2: op = rv_op_fcvt_l_d; break;
+                case 3: op = rv_op_fcvt_lu_d; break;
+                }
+                break;
+            case 99:
+                switch (((inst >> 20) & 0b11111)) {
+                case 0: op = rv_op_fcvt_w_q; break;
+                case 1: op = rv_op_fcvt_wu_q; break;
+                case 2: op = rv_op_fcvt_l_q; break;
+                case 3: op = rv_op_fcvt_lu_q; break;
+                }
+                break;
+            case 104:
+                switch (((inst >> 20) & 0b11111)) {
+                case 0: op = rv_op_fcvt_s_w; break;
+                case 1: op = rv_op_fcvt_s_wu; break;
+                case 2: op = rv_op_fcvt_s_l; break;
+                case 3: op = rv_op_fcvt_s_lu; break;
+                }
+                break;
+            case 105:
+                switch (((inst >> 20) & 0b11111)) {
+                case 0: op = rv_op_fcvt_d_w; break;
+                case 1: op = rv_op_fcvt_d_wu; break;
+                case 2: op = rv_op_fcvt_d_l; break;
+                case 3: op = rv_op_fcvt_d_lu; break;
+                }
+                break;
+            case 107:
+                switch (((inst >> 20) & 0b11111)) {
+                case 0: op = rv_op_fcvt_q_w; break;
+                case 1: op = rv_op_fcvt_q_wu; break;
+                case 2: op = rv_op_fcvt_q_l; break;
+                case 3: op = rv_op_fcvt_q_lu; break;
+                }
+                break;
+            case 112:
+                switch (((inst >> 17) & 0b11111000) | ((inst >> 12) & 0b00000111)) {
+                case 0: op = rv_op_fmv_x_s; break;
+                case 1: op = rv_op_fclass_s; break;
+                }
+                break;
+            case 113:
+                switch (((inst >> 17) & 0b11111000) | ((inst >> 12) & 0b00000111)) {
+                case 0: op = rv_op_fmv_x_d; break;
+                case 1: op = rv_op_fclass_d; break;
+                }
+                break;
+            case 115:
+                switch (((inst >> 17) & 0b11111000) | ((inst >> 12) & 0b00000111)) {
+                case 0: op = rv_op_fmv_x_q; break;
+                case 1: op = rv_op_fclass_q; break;
+                }
+                break;
+            case 120:
+                switch (((inst >> 17) & 0b11111000) | ((inst >> 12) & 0b00000111)) {
+                case 0: op = rv_op_fmv_s_x; break;
+                }
+                break;
+            case 121:
+                switch (((inst >> 17) & 0b11111000) | ((inst >> 12) & 0b00000111)) {
+                case 0: op = rv_op_fmv_d_x; break;
+                }
+                break;
+            case 123:
+                switch (((inst >> 17) & 0b11111000) | ((inst >> 12) & 0b00000111)) {
+                case 0: op = rv_op_fmv_q_x; break;
+                }
+                break;
+            }
+            break;
+        case 22:
+            switch (((inst >> 12) & 0b111)) {
+            case 0: op = rv_op_addid; break;
+            case 1:
+                switch (((inst >> 26) & 0b111111)) {
+                case 0: op = rv_op_sllid; break;
+                }
+                break;
+            case 5:
+                switch (((inst >> 26) & 0b111111)) {
+                case 0: op = rv_op_srlid; break;
+                case 16: op = rv_op_sraid; break;
+                }
+                break;
+            }
+            break;
+        case 24:
+            switch (((inst >> 12) & 0b111)) {
+            case 0: op = rv_op_beq; break;
+            case 1: op = rv_op_bne; break;
+            case 4: op = rv_op_blt; break;
+            case 5: op = rv_op_bge; break;
+            case 6: op = rv_op_bltu; break;
+            case 7: op = rv_op_bgeu; break;
+            }
+            break;
+        case 25:
+            switch (((inst >> 12) & 0b111)) {
+            case 0: op = rv_op_jalr; break;
+            }
+            break;
+        case 27: op = rv_op_jal; break;
+        case 28:
+            switch (((inst >> 12) & 0b111)) {
+            case 0:
+                switch (((inst >> 20) & 0b111111100000) | ((inst >> 7) & 0b000000011111)) {
+                case 0:
+                    switch (((inst >> 15) & 0b1111111111)) {
+                    case 0: op = rv_op_ecall; break;
+                    case 32: op = rv_op_ebreak; break;
+                    case 64: op = rv_op_uret; break;
+                    }
+                    break;
+                case 256:
+                    switch (((inst >> 20) & 0b11111)) {
+                    case 2:
+                        switch (((inst >> 15) & 0b11111)) {
+                        case 0: op = rv_op_sret; break;
+                        }
+                        break;
+                    case 4: op = rv_op_sfence_vm; break;
+                    case 5:
+                        switch (((inst >> 15) & 0b11111)) {
+                        case 0: op = rv_op_wfi; break;
+                        }
+                        break;
+                    }
+                    break;
+                case 288: op = rv_op_sfence_vma; break;
+                case 512:
+                    switch (((inst >> 15) & 0b1111111111)) {
+                    case 64: op = rv_op_hret; break;
+                    }
+                    break;
+                case 768:
+                    switch (((inst >> 15) & 0b1111111111)) {
+                    case 64: op = rv_op_mret; break;
+                    }
+                    break;
+                case 1952:
+                    switch (((inst >> 15) & 0b1111111111)) {
+                    case 576: op = rv_op_dret; break;
+                    }
+                    break;
+                }
+                break;
+            case 1: op = rv_op_csrrw; break;
+            case 2: op = rv_op_csrrs; break;
+            case 3: op = rv_op_csrrc; break;
+            case 5: op = rv_op_csrrwi; break;
+            case 6: op = rv_op_csrrsi; break;
+            case 7: op = rv_op_csrrci; break;
+            }
+            break;
+        case 30:
+            switch (((inst >> 22) & 0b1111111000) | ((inst >> 12) & 0b0000000111)) {
+            case 0: op = rv_op_addd; break;
+            case 1: op = rv_op_slld; break;
+            case 5: op = rv_op_srld; break;
+            case 8: op = rv_op_muld; break;
+            case 12: op = rv_op_divd; break;
+            case 13: op = rv_op_divud; break;
+            case 14: op = rv_op_remd; break;
+            case 15: op = rv_op_remud; break;
+            case 256: op = rv_op_subd; break;
+            case 261: op = rv_op_srad; break;
+            }
+            break;
+        }
+        break;
     }
     return op;
 }
 
 /* operand extractors */
 
-static uint32_t operand_rd(rv_inst inst) { return (inst << 52) >> 59; }
-static uint32_t operand_rs1(rv_inst inst) { return (inst << 44) >> 59; }
-static uint32_t operand_rs2(rv_inst inst) { return (inst << 39) >> 59; }
-static uint32_t operand_rs3(rv_inst inst) { return (inst << 32) >> 59; }
-static uint32_t operand_aq(rv_inst inst) { return (inst << 37) >> 63; }
-static uint32_t operand_rl(rv_inst inst) { return (inst << 38) >> 63; }
-static uint32_t operand_pred(rv_inst inst) { return (inst << 36) >> 60; }
-static uint32_t operand_succ(rv_inst inst) { return (inst << 40) >> 60; }
-static uint32_t operand_rm(rv_inst inst) { return (inst << 49) >> 61; }
-static uint32_t operand_shamt5(rv_inst inst) { return (inst << 39) >> 59; }
-static uint32_t operand_shamt6(rv_inst inst) { return (inst << 38) >> 58; }
-static uint32_t operand_shamt7(rv_inst inst) { return (inst << 37) >> 57; }
-static uint32_t operand_crdq(rv_inst inst) { return (inst << 59) >> 61; }
-static uint32_t operand_crs1q(rv_inst inst) { return (inst << 54) >> 61; }
-static uint32_t operand_crs1rdq(rv_inst inst) { return (inst << 54) >> 61; }
-static uint32_t operand_crs2q(rv_inst inst) { return (inst << 59) >> 61; }
-static uint32_t operand_crd(rv_inst inst) { return (inst << 52) >> 59; }
-static uint32_t operand_crs1(rv_inst inst) { return (inst << 52) >> 59; }
-static uint32_t operand_crs1rd(rv_inst inst) { return (inst << 52) >> 59; }
-static uint32_t operand_crs2(rv_inst inst) {  return (inst << 57) >> 59; }
-static uint32_t operand_cimmsh5(rv_inst inst) { return (inst << 57) >> 59; }
-static uint32_t operand_csr12(rv_inst inst) { return (inst << 32) >> 52; }
+static uint32_t operand_rd(rv_inst inst) {
+    return (inst << 52) >> 59;
+}
+
+static uint32_t operand_rs1(rv_inst inst) {
+    return (inst << 44) >> 59;
+}
+
+static uint32_t operand_rs2(rv_inst inst) {
+    return (inst << 39) >> 59;
+}
+
+static uint32_t operand_rs3(rv_inst inst) {
+    return (inst << 32) >> 59;
+}
+
+static uint32_t operand_aq(rv_inst inst) {
+    return (inst << 37) >> 63;
+}
+
+static uint32_t operand_rl(rv_inst inst) {
+    return (inst << 38) >> 63;
+}
+
+static uint32_t operand_pred(rv_inst inst) {
+    return (inst << 36) >> 60;
+}
+
+static uint32_t operand_succ(rv_inst inst) {
+    return (inst << 40) >> 60;
+}
+
+static uint32_t operand_rm(rv_inst inst) {
+    return (inst << 49) >> 61;
+}
+
+static uint32_t operand_shamt5(rv_inst inst) {
+    return (inst << 39) >> 59;
+}
+
+static uint32_t operand_shamt6(rv_inst inst) {
+    return (inst << 38) >> 58;
+}
+
+static uint32_t operand_shamt7(rv_inst inst) {
+    return (inst << 37) >> 57;
+}
+
+static uint32_t operand_crdq(rv_inst inst) {
+    return (inst << 59) >> 61;
+}
+
+static uint32_t operand_crs1q(rv_inst inst) {
+    return (inst << 54) >> 61;
+}
+
+static uint32_t operand_crs1rdq(rv_inst inst) {
+    return (inst << 54) >> 61;
+}
+
+static uint32_t operand_crs2q(rv_inst inst) {
+    return (inst << 59) >> 61;
+}
+
+static uint32_t operand_crd(rv_inst inst) {
+    return (inst << 52) >> 59;
+}
+
+static uint32_t operand_crs1(rv_inst inst) {
+    return (inst << 52) >> 59;
+}
+
+static uint32_t operand_crs1rd(rv_inst inst) {
+    return (inst << 52) >> 59;
+}
+
+static uint32_t operand_crs2(rv_inst inst) {
+    return (inst << 57) >> 59;
+}
+
+static uint32_t operand_cimmsh5(rv_inst inst) {
+    return (inst << 57) >> 59;
+}
+
+static uint32_t operand_csr12(rv_inst inst) {
+    return (inst << 32) >> 52;
+}
 
 static int32_t operand_imm12(rv_inst inst) {
     return ((int64_t)inst << 32) >> 52;
@@ -2191,278 +2201,278 @@ static void decode_rv_instype(rv_decode *dec, rv_inst inst)
 {
     dec->codec = opcode_data[dec->op].codec;
     switch (dec->codec) {
-        case rv_codec_none:
-            dec->rd = dec->rs1 = dec->rs2 = rv_ireg_zero;
-            dec->imm = 0;
-            break;
-        case rv_codec_u:
-            dec->rd = operand_rd(inst);
-            dec->rs1 = dec->rs2 = rv_ireg_zero;
-            dec->imm = operand_imm20(inst);
-            break;
-        case rv_codec_uj:
-            dec->rd = operand_rd(inst);
-            dec->rs1 = dec->rs2 = rv_ireg_zero;
-            dec->imm = operand_jimm20(inst);
-            break;
-        case rv_codec_i:
-            dec->rd = operand_rd(inst);
-            dec->rs1 = operand_rs1(inst);
-            dec->rs2 = rv_ireg_zero;
-            dec->imm = operand_imm12(inst);
-            break;
-        case rv_codec_i_sh5:
-            dec->rd = operand_rd(inst);
-            dec->rs1 = operand_rs1(inst);
-            dec->rs2 = rv_ireg_zero;
-            dec->imm = operand_shamt5(inst);
-            break;
-        case rv_codec_i_sh6:
-            dec->rd = operand_rd(inst);
-            dec->rs1 = operand_rs1(inst);
-            dec->rs2 = rv_ireg_zero;
-            dec->imm = operand_shamt6(inst);
-            break;
-        case rv_codec_i_sh7:
-            dec->rd = operand_rd(inst);
-            dec->rs1 = operand_rs1(inst);
-            dec->rs2 = rv_ireg_zero;
-            dec->imm = operand_shamt7(inst);
-            break;
-        case rv_codec_i_csr:
-            dec->rd = operand_rd(inst);
-            dec->rs1 = operand_rs1(inst);
-            dec->rs2 = rv_ireg_zero;
-            dec->imm = operand_csr12(inst);
-            break;
-        case rv_codec_s:
-            dec->rd = rv_ireg_zero;
-            dec->rs1 = operand_rs1(inst);
-            dec->rs2 = operand_rs2(inst);
-            dec->imm = operand_simm12(inst);
-            break;
-        case rv_codec_sb:
-            dec->rd = rv_ireg_zero;
-            dec->rs1 = operand_rs1(inst);
-            dec->rs2 = operand_rs2(inst);
-            dec->imm = operand_sbimm12(inst);
-            break;
-        case rv_codec_r:
-            dec->rd = operand_rd(inst);
-            dec->rs1 = operand_rs1(inst);
-            dec->rs2 = operand_rs2(inst);
-            dec->imm = 0;
-            break;
-        case rv_codec_r_m:
-            dec->rd = operand_rd(inst);
-            dec->rs1 = operand_rs1(inst);
-            dec->rs2 = operand_rs2(inst);
-            dec->imm = 0;
-            dec->rm = operand_rm(inst);
-            break;
-        case rv_codec_r4_m:
-            dec->rd = operand_rd(inst);
-            dec->rs1 = operand_rs1(inst);
-            dec->rs2 = operand_rs2(inst);
-            dec->rs3 = operand_rs3(inst);
-            dec->imm = 0;
-            dec->rm = operand_rm(inst);
-            break;
-        case rv_codec_r_a:
-            dec->rd = operand_rd(inst);
-            dec->rs1 = operand_rs1(inst);
-            dec->rs2 = operand_rs2(inst);
-            dec->imm = 0;
-            dec->aq = operand_aq(inst);
-            dec->rl = operand_rl(inst);
-            break;
-        case rv_codec_r_l:
-            dec->rd = operand_rd(inst);
-            dec->rs1 = operand_rs1(inst);
-            dec->rs2 = rv_ireg_zero;
-            dec->imm = 0;
-            dec->aq = operand_aq(inst);
-            dec->rl = operand_rl(inst);
-            break;
-        case rv_codec_r_f:
-            dec->rd = dec->rs1 = dec->rs2 = rv_ireg_zero;
-            dec->pred = operand_pred(inst);
-            dec->succ = operand_succ(inst);
-            dec->imm = 0;
-            break;
-        case rv_codec_cb:
-            dec->rd = rv_ireg_zero;
-            dec->rs1 = operand_crs1q(inst) + 8;
-            dec->rs2 = rv_ireg_zero;
-            dec->imm = operand_cimmb(inst);
-            break;
-        case rv_codec_cb_imm:
-            dec->rd = dec->rs1 = operand_crs1rdq(inst) + 8;
-            dec->rs2 = rv_ireg_zero;
-            dec->imm = operand_cimmi(inst);
-            break;
-        case rv_codec_cb_sh5:
-            dec->rd = dec->rs1 = operand_crs1rdq(inst) + 8;
-            dec->rs2 = rv_ireg_zero;
-            dec->imm = operand_cimmsh5(inst);
-            break;
-        case rv_codec_cb_sh6:
-            dec->rd = dec->rs1 = operand_crs1rdq(inst) + 8;
-            dec->rs2 = rv_ireg_zero;
-            dec->imm = operand_cimmsh6(inst);
-            break;
-        case rv_codec_ci:
-            dec->rd = dec->rs1 = operand_crs1rd(inst);
-            dec->rs2 = rv_ireg_zero;
-            dec->imm = operand_cimmi(inst);
-            break;
-        case rv_codec_ci_sh5:
-            dec->rd = dec->rs1 = operand_crs1rd(inst);
-            dec->rs2 = rv_ireg_zero;
-            dec->imm = operand_cimmsh5(inst);
-            break;
-        case rv_codec_ci_sh6:
-            dec->rd = dec->rs1 = operand_crs1rd(inst);
-            dec->rs2 = rv_ireg_zero;
-            dec->imm = operand_cimmsh6(inst);
-            break;
-        case rv_codec_ci_16sp:
-            dec->rd = rv_ireg_sp;
-            dec->rs1 = rv_ireg_sp;
-            dec->rs2 = rv_ireg_zero;
-            dec->imm = operand_cimm16sp(inst);
-            break;
-        case rv_codec_ci_lwsp:
-            dec->rd = operand_crd(inst);
-            dec->rs1 = rv_ireg_sp;
-            dec->rs2 = rv_ireg_zero;
-            dec->imm = operand_cimmlwsp(inst);
-            break;
-        case rv_codec_ci_ldsp:
-            dec->rd = operand_crd(inst);
-            dec->rs1 = rv_ireg_sp;
-            dec->rs2 = rv_ireg_zero;
-            dec->imm = operand_cimmldsp(inst);
-            break;
-        case rv_codec_ci_lqsp:
-            dec->rd = operand_crd(inst);
-            dec->rs1 = rv_ireg_sp;
-            dec->rs2 = rv_ireg_zero;
-            dec->imm = operand_cimmlqsp(inst);
-            break;
-        case rv_codec_ci_li:
-            dec->rd = operand_crd(inst);
-            dec->rs1 = rv_ireg_zero;
-            dec->rs2 = rv_ireg_zero;
-            dec->imm = operand_cimmi(inst);
-            break;
-        case rv_codec_ci_lui:
-            dec->rd = operand_crd(inst);
-            dec->rs1 = rv_ireg_zero;
-            dec->rs2 = rv_ireg_zero;
-            dec->imm = operand_cimmui(inst);
-            break;
-        case rv_codec_ci_none:
-            dec->rd = dec->rs1 = dec->rs2 = rv_ireg_zero;
-            dec->imm = 0;
-            break;
-        case rv_codec_ciw_4spn:
-            dec->rd = operand_crdq(inst) + 8;
-            dec->rs1 = rv_ireg_sp;
-            dec->rs2 = rv_ireg_zero;
-            dec->imm = operand_cimm4spn(inst);
-            break;
-        case rv_codec_cj:
-            dec->rd = dec->rs1 = dec->rs2 = rv_ireg_zero;
-            dec->imm = operand_cimmj(inst);
-            break;
-        case rv_codec_cj_jal:
-            dec->rd = rv_ireg_ra;
-            dec->rs1 = dec->rs2 = rv_ireg_zero;
-            dec->imm = operand_cimmj(inst);
-            break;
-        case rv_codec_cl_lw:
-            dec->rd = operand_crdq(inst) + 8;
-            dec->rs1 = operand_crs1q(inst) + 8;
-            dec->rs2 = rv_ireg_zero;
-            dec->imm = operand_cimmw(inst);
-            break;
-        case rv_codec_cl_ld:
-            dec->rd = operand_crdq(inst) + 8;
-            dec->rs1 = operand_crs1q(inst) + 8;
-            dec->rs2 = rv_ireg_zero;
-            dec->imm = operand_cimmd(inst);
-            break;
-        case rv_codec_cl_lq:
-            dec->rd = operand_crdq(inst) + 8;
-            dec->rs1 = operand_crs1q(inst) + 8;
-            dec->rs2 = rv_ireg_zero;
-            dec->imm = operand_cimmq(inst);
-            break;
-        case rv_codec_cr:
-            dec->rd = dec->rs1 = operand_crs1rd(inst);
-            dec->rs2 = operand_crs2(inst);
-            dec->imm = 0;
-            break;
-        case rv_codec_cr_mv:
-            dec->rd = operand_crd(inst);
-            dec->rs1 = operand_crs2(inst);
-            dec->rs2 = rv_ireg_zero;
-            dec->imm = 0;
-            break;
-        case rv_codec_cr_jalr:
-            dec->rd = rv_ireg_ra;
-            dec->rs1 = operand_crs1(inst);
-            dec->rs2 = rv_ireg_zero;
-            dec->imm = 0;
-            break;
-        case rv_codec_cr_jr:
-            dec->rd = rv_ireg_zero;
-            dec->rs1 = operand_crs1(inst);
-            dec->rs2 = rv_ireg_zero;
-            dec->imm = 0;
-            break;
-        case rv_codec_cs:
-            dec->rd = dec->rs1 = operand_crs1rdq(inst) + 8;
-            dec->rs2 = operand_crs2q(inst) + 8;
-            dec->imm = 0;
-            break;
-        case rv_codec_cs_sw:
-            dec->rd = rv_ireg_zero;
-            dec->rs1 = operand_crs1q(inst) + 8;
-            dec->rs2 = operand_crs2q(inst) + 8;
-            dec->imm = operand_cimmw(inst);
-            break;
-        case rv_codec_cs_sd:
-            dec->rd = rv_ireg_zero;
-            dec->rs1 = operand_crs1q(inst) + 8;
-            dec->rs2 = operand_crs2q(inst) + 8;
-            dec->imm = operand_cimmd(inst);
-            break;
-        case rv_codec_cs_sq:
-            dec->rd = rv_ireg_zero;
-            dec->rs1 = operand_crs1q(inst) + 8;
-            dec->rs2 = operand_crs2q(inst) + 8;
-            dec->imm = operand_cimmq(inst);
-            break;
-        case rv_codec_css_swsp:
-            dec->rd = rv_ireg_zero;
-            dec->rs1 = rv_ireg_sp;
-            dec->rs2 = operand_crs2(inst);
-            dec->imm = operand_cimmswsp(inst);
-            break;
-        case rv_codec_css_sdsp:
-            dec->rd = rv_ireg_zero;
-            dec->rs1 = rv_ireg_sp;
-            dec->rs2 = operand_crs2(inst);
-            dec->imm = operand_cimmsdsp(inst);
-            break;
-        case rv_codec_css_sqsp:
-            dec->rd = rv_ireg_zero;
-            dec->rs1 = rv_ireg_sp;
-            dec->rs2 = operand_crs2(inst);
-            dec->imm = operand_cimmsqsp(inst);
-            break;
+    case rv_codec_none:
+        dec->rd = dec->rs1 = dec->rs2 = rv_ireg_zero;
+        dec->imm = 0;
+        break;
+    case rv_codec_u:
+        dec->rd = operand_rd(inst);
+        dec->rs1 = dec->rs2 = rv_ireg_zero;
+        dec->imm = operand_imm20(inst);
+        break;
+    case rv_codec_uj:
+        dec->rd = operand_rd(inst);
+        dec->rs1 = dec->rs2 = rv_ireg_zero;
+        dec->imm = operand_jimm20(inst);
+        break;
+    case rv_codec_i:
+        dec->rd = operand_rd(inst);
+        dec->rs1 = operand_rs1(inst);
+        dec->rs2 = rv_ireg_zero;
+        dec->imm = operand_imm12(inst);
+        break;
+    case rv_codec_i_sh5:
+        dec->rd = operand_rd(inst);
+        dec->rs1 = operand_rs1(inst);
+        dec->rs2 = rv_ireg_zero;
+        dec->imm = operand_shamt5(inst);
+        break;
+    case rv_codec_i_sh6:
+        dec->rd = operand_rd(inst);
+        dec->rs1 = operand_rs1(inst);
+        dec->rs2 = rv_ireg_zero;
+        dec->imm = operand_shamt6(inst);
+        break;
+    case rv_codec_i_sh7:
+        dec->rd = operand_rd(inst);
+        dec->rs1 = operand_rs1(inst);
+        dec->rs2 = rv_ireg_zero;
+        dec->imm = operand_shamt7(inst);
+        break;
+    case rv_codec_i_csr:
+        dec->rd = operand_rd(inst);
+        dec->rs1 = operand_rs1(inst);
+        dec->rs2 = rv_ireg_zero;
+        dec->imm = operand_csr12(inst);
+        break;
+    case rv_codec_s:
+        dec->rd = rv_ireg_zero;
+        dec->rs1 = operand_rs1(inst);
+        dec->rs2 = operand_rs2(inst);
+        dec->imm = operand_simm12(inst);
+        break;
+    case rv_codec_sb:
+        dec->rd = rv_ireg_zero;
+        dec->rs1 = operand_rs1(inst);
+        dec->rs2 = operand_rs2(inst);
+        dec->imm = operand_sbimm12(inst);
+        break;
+    case rv_codec_r:
+        dec->rd = operand_rd(inst);
+        dec->rs1 = operand_rs1(inst);
+        dec->rs2 = operand_rs2(inst);
+        dec->imm = 0;
+        break;
+    case rv_codec_r_m:
+        dec->rd = operand_rd(inst);
+        dec->rs1 = operand_rs1(inst);
+        dec->rs2 = operand_rs2(inst);
+        dec->imm = 0;
+        dec->rm = operand_rm(inst);
+        break;
+    case rv_codec_r4_m:
+        dec->rd = operand_rd(inst);
+        dec->rs1 = operand_rs1(inst);
+        dec->rs2 = operand_rs2(inst);
+        dec->rs3 = operand_rs3(inst);
+        dec->imm = 0;
+        dec->rm = operand_rm(inst);
+        break;
+    case rv_codec_r_a:
+        dec->rd = operand_rd(inst);
+        dec->rs1 = operand_rs1(inst);
+        dec->rs2 = operand_rs2(inst);
+        dec->imm = 0;
+        dec->aq = operand_aq(inst);
+        dec->rl = operand_rl(inst);
+        break;
+    case rv_codec_r_l:
+        dec->rd = operand_rd(inst);
+        dec->rs1 = operand_rs1(inst);
+        dec->rs2 = rv_ireg_zero;
+        dec->imm = 0;
+        dec->aq = operand_aq(inst);
+        dec->rl = operand_rl(inst);
+        break;
+    case rv_codec_r_f:
+        dec->rd = dec->rs1 = dec->rs2 = rv_ireg_zero;
+        dec->pred = operand_pred(inst);
+        dec->succ = operand_succ(inst);
+        dec->imm = 0;
+        break;
+    case rv_codec_cb:
+        dec->rd = rv_ireg_zero;
+        dec->rs1 = operand_crs1q(inst) + 8;
+        dec->rs2 = rv_ireg_zero;
+        dec->imm = operand_cimmb(inst);
+        break;
+    case rv_codec_cb_imm:
+        dec->rd = dec->rs1 = operand_crs1rdq(inst) + 8;
+        dec->rs2 = rv_ireg_zero;
+        dec->imm = operand_cimmi(inst);
+        break;
+    case rv_codec_cb_sh5:
+        dec->rd = dec->rs1 = operand_crs1rdq(inst) + 8;
+        dec->rs2 = rv_ireg_zero;
+        dec->imm = operand_cimmsh5(inst);
+        break;
+    case rv_codec_cb_sh6:
+        dec->rd = dec->rs1 = operand_crs1rdq(inst) + 8;
+        dec->rs2 = rv_ireg_zero;
+        dec->imm = operand_cimmsh6(inst);
+        break;
+    case rv_codec_ci:
+        dec->rd = dec->rs1 = operand_crs1rd(inst);
+        dec->rs2 = rv_ireg_zero;
+        dec->imm = operand_cimmi(inst);
+        break;
+    case rv_codec_ci_sh5:
+        dec->rd = dec->rs1 = operand_crs1rd(inst);
+        dec->rs2 = rv_ireg_zero;
+        dec->imm = operand_cimmsh5(inst);
+        break;
+    case rv_codec_ci_sh6:
+        dec->rd = dec->rs1 = operand_crs1rd(inst);
+        dec->rs2 = rv_ireg_zero;
+        dec->imm = operand_cimmsh6(inst);
+        break;
+    case rv_codec_ci_16sp:
+        dec->rd = rv_ireg_sp;
+        dec->rs1 = rv_ireg_sp;
+        dec->rs2 = rv_ireg_zero;
+        dec->imm = operand_cimm16sp(inst);
+        break;
+    case rv_codec_ci_lwsp:
+        dec->rd = operand_crd(inst);
+        dec->rs1 = rv_ireg_sp;
+        dec->rs2 = rv_ireg_zero;
+        dec->imm = operand_cimmlwsp(inst);
+        break;
+    case rv_codec_ci_ldsp:
+        dec->rd = operand_crd(inst);
+        dec->rs1 = rv_ireg_sp;
+        dec->rs2 = rv_ireg_zero;
+        dec->imm = operand_cimmldsp(inst);
+        break;
+    case rv_codec_ci_lqsp:
+        dec->rd = operand_crd(inst);
+        dec->rs1 = rv_ireg_sp;
+        dec->rs2 = rv_ireg_zero;
+        dec->imm = operand_cimmlqsp(inst);
+        break;
+    case rv_codec_ci_li:
+        dec->rd = operand_crd(inst);
+        dec->rs1 = rv_ireg_zero;
+        dec->rs2 = rv_ireg_zero;
+        dec->imm = operand_cimmi(inst);
+        break;
+    case rv_codec_ci_lui:
+        dec->rd = operand_crd(inst);
+        dec->rs1 = rv_ireg_zero;
+        dec->rs2 = rv_ireg_zero;
+        dec->imm = operand_cimmui(inst);
+        break;
+    case rv_codec_ci_none:
+        dec->rd = dec->rs1 = dec->rs2 = rv_ireg_zero;
+        dec->imm = 0;
+        break;
+    case rv_codec_ciw_4spn:
+        dec->rd = operand_crdq(inst) + 8;
+        dec->rs1 = rv_ireg_sp;
+        dec->rs2 = rv_ireg_zero;
+        dec->imm = operand_cimm4spn(inst);
+        break;
+    case rv_codec_cj:
+        dec->rd = dec->rs1 = dec->rs2 = rv_ireg_zero;
+        dec->imm = operand_cimmj(inst);
+        break;
+    case rv_codec_cj_jal:
+        dec->rd = rv_ireg_ra;
+        dec->rs1 = dec->rs2 = rv_ireg_zero;
+        dec->imm = operand_cimmj(inst);
+        break;
+    case rv_codec_cl_lw:
+        dec->rd = operand_crdq(inst) + 8;
+        dec->rs1 = operand_crs1q(inst) + 8;
+        dec->rs2 = rv_ireg_zero;
+        dec->imm = operand_cimmw(inst);
+        break;
+    case rv_codec_cl_ld:
+        dec->rd = operand_crdq(inst) + 8;
+        dec->rs1 = operand_crs1q(inst) + 8;
+        dec->rs2 = rv_ireg_zero;
+        dec->imm = operand_cimmd(inst);
+        break;
+    case rv_codec_cl_lq:
+        dec->rd = operand_crdq(inst) + 8;
+        dec->rs1 = operand_crs1q(inst) + 8;
+        dec->rs2 = rv_ireg_zero;
+        dec->imm = operand_cimmq(inst);
+        break;
+    case rv_codec_cr:
+        dec->rd = dec->rs1 = operand_crs1rd(inst);
+        dec->rs2 = operand_crs2(inst);
+        dec->imm = 0;
+        break;
+    case rv_codec_cr_mv:
+        dec->rd = operand_crd(inst);
+        dec->rs1 = operand_crs2(inst);
+        dec->rs2 = rv_ireg_zero;
+        dec->imm = 0;
+        break;
+    case rv_codec_cr_jalr:
+        dec->rd = rv_ireg_ra;
+        dec->rs1 = operand_crs1(inst);
+        dec->rs2 = rv_ireg_zero;
+        dec->imm = 0;
+        break;
+    case rv_codec_cr_jr:
+        dec->rd = rv_ireg_zero;
+        dec->rs1 = operand_crs1(inst);
+        dec->rs2 = rv_ireg_zero;
+        dec->imm = 0;
+        break;
+    case rv_codec_cs:
+        dec->rd = dec->rs1 = operand_crs1rdq(inst) + 8;
+        dec->rs2 = operand_crs2q(inst) + 8;
+        dec->imm = 0;
+        break;
+    case rv_codec_cs_sw:
+        dec->rd = rv_ireg_zero;
+        dec->rs1 = operand_crs1q(inst) + 8;
+        dec->rs2 = operand_crs2q(inst) + 8;
+        dec->imm = operand_cimmw(inst);
+        break;
+    case rv_codec_cs_sd:
+        dec->rd = rv_ireg_zero;
+        dec->rs1 = operand_crs1q(inst) + 8;
+        dec->rs2 = operand_crs2q(inst) + 8;
+        dec->imm = operand_cimmd(inst);
+        break;
+    case rv_codec_cs_sq:
+        dec->rd = rv_ireg_zero;
+        dec->rs1 = operand_crs1q(inst) + 8;
+        dec->rs2 = operand_crs2q(inst) + 8;
+        dec->imm = operand_cimmq(inst);
+        break;
+    case rv_codec_css_swsp:
+        dec->rd = rv_ireg_zero;
+        dec->rs1 = rv_ireg_sp;
+        dec->rs2 = operand_crs2(inst);
+        dec->imm = operand_cimmswsp(inst);
+        break;
+    case rv_codec_css_sdsp:
+        dec->rd = rv_ireg_zero;
+        dec->rs1 = rv_ireg_sp;
+        dec->rs2 = operand_crs2(inst);
+        dec->imm = operand_cimmsdsp(inst);
+        break;
+    case rv_codec_css_sqsp:
+        dec->rd = rv_ireg_zero;
+        dec->rs1 = rv_ireg_sp;
+        dec->rs2 = operand_crs2(inst);
+        dec->imm = operand_cimmsqsp(inst);
+        break;
     };
 }
 
@@ -2474,48 +2484,212 @@ static bool constraint_check(rv_decode *dec, const rvc_constraint *c)
     uint8_t rd = dec->rd, rs1 = dec->rs1, rs2 = dec->rs2;
     while (*c != rvc_end) {
         switch (*c) {
-            case rvc_simm_6:         if (!(imm >= -32 && imm < 32)) return false; break;
-            case rvc_imm_6:          if (!(imm <= 0b111111)) return false; break;
-            case rvc_imm_7:          if (!(imm <= 0b1111111)) return false; break;
-            case rvc_imm_8:          if (!(imm <= 0b11111111)) return false; break;
-            case rvc_imm_9:          if (!(imm <= 0b111111111)) return false; break;
-            case rvc_imm_10:         if (!(imm <= 0b1111111111)) return false; break;
-            case rvc_imm_12:         if (!(imm <= 0b111111111111)) return false; break;
-            case rvc_imm_18:         if (!(imm <= 0b111111111111111111)) return false; break;
-            case rvc_imm_nz:         if (!(imm != 0)) return false; break;
-            case rvc_imm_x2:         if (!((imm & 0b1) == 0)) return false; break;
-            case rvc_imm_x4:         if (!((imm & 0b11) == 0)) return false; break;
-            case rvc_imm_x8:         if (!((imm & 0b111) == 0)) return false; break;
-            case rvc_imm_x16:        if (!((imm & 0b1111) == 0)) return false; break;
-            case rvc_rd_b3:          if (!(rd  >= 8 && rd  <= 15)) return false; break;
-            case rvc_rs1_b3:         if (!(rs1 >= 8 && rs1 <= 15)) return false; break;
-            case rvc_rs2_b3:         if (!(rs2 >= 8 && rs2 <= 15)) return false; break;
-            case rvc_rd_eq_rs1:      if (!(rd == rs1)) return false; break;
-            case rvc_rd_eq_ra:       if (!(rd == 1)) return false; break;
-            case rvc_rd_eq_sp:       if (!(rd == 2)) return false; break;
-            case rvc_rd_eq_x0:       if (!(rd == 0)) return false; break;
-            case rvc_rs1_eq_sp:      if (!(rs1 == 2)) return false; break;
-            case rvc_rs1_eq_x0:      if (!(rs1 == 0)) return false; break;
-            case rvc_rs2_eq_x0:      if (!(rs2 == 0)) return false; break;
-            case rvc_rd_ne_x0_x2:    if (!(rd != 0 && rd != 2)) return false; break;
-            case rvc_rd_ne_x0:       if (!(rd != 0)) return false; break;
-            case rvc_rs1_ne_x0:      if (!(rs1 != 0)) return false; break;
-            case rvc_rs2_ne_x0:      if (!(rs2 != 0)) return false; break;
-            case rvc_rs2_eq_rs1:     if (!(rs2 == rs1)) return false; break;
-            case rvc_rs1_eq_ra:      if (!(rs1 == 1)) return false; break;
-            case rvc_imm_eq_zero:    if (!(imm == 0)) return false; break;
-            case rvc_imm_eq_n1:      if (!(imm == -1)) return false; break;
-            case rvc_imm_eq_p1:      if (!(imm == 1)) return false; break;
-            case rvc_csr_eq_0x001:   if (!(imm == 0x001)) return false; break;
-            case rvc_csr_eq_0x002:   if (!(imm == 0x002)) return false; break;
-            case rvc_csr_eq_0x003:   if (!(imm == 0x003)) return false; break;
-            case rvc_csr_eq_0xc00:   if (!(imm == 0xc00)) return false; break;
-            case rvc_csr_eq_0xc01:   if (!(imm == 0xc01)) return false; break;
-            case rvc_csr_eq_0xc02:   if (!(imm == 0xc02)) return false; break;
-            case rvc_csr_eq_0xc80:   if (!(imm == 0xc80)) return false; break;
-            case rvc_csr_eq_0xc81:   if (!(imm == 0xc81)) return false; break;
-            case rvc_csr_eq_0xc82:   if (!(imm == 0xc82)) return false; break;
-            default:                 break;
+        case rvc_simm_6:
+            if (!(imm >= -32 && imm < 32)) {
+                return false;
+            }
+            break;
+        case rvc_imm_6:
+            if (!(imm <= 63)) {
+                return false;
+            }
+            break;
+        case rvc_imm_7:
+            if (!(imm <= 127)) {
+                return false;
+            }
+            break;
+        case rvc_imm_8:
+            if (!(imm <= 255)) {
+                return false;
+            }
+            break;
+        case rvc_imm_9:
+            if (!(imm <= 511)) {
+                return false;
+            }
+            break;
+        case rvc_imm_10:
+            if (!(imm <= 1023)) {
+                return false;
+            }
+            break;
+        case rvc_imm_12:
+            if (!(imm <= 4095)) {
+                return false;
+            }
+            break;
+        case rvc_imm_18:
+            if (!(imm <= 262143)) {
+                return false;
+            }
+            break;
+        case rvc_imm_nz:
+            if (!(imm != 0)) {
+                return false;
+            }
+            break;
+        case rvc_imm_x2:
+            if (!((imm & 0b1) == 0)) {
+                return false;
+            }
+            break;
+        case rvc_imm_x4:
+            if (!((imm & 0b11) == 0)) {
+                return false;
+            }
+            break;
+        case rvc_imm_x8:
+            if (!((imm & 0b111) == 0)) {
+                return false;
+            }
+            break;
+        case rvc_imm_x16:
+            if (!((imm & 0b1111) == 0)) {
+                return false;
+            }
+            break;
+        case rvc_rd_b3:
+            if (!(rd  >= 8 && rd  <= 15)) {
+                return false;
+            }
+            break;
+        case rvc_rs1_b3:
+            if (!(rs1 >= 8 && rs1 <= 15)) {
+                return false;
+            }
+            break;
+        case rvc_rs2_b3:
+            if (!(rs2 >= 8 && rs2 <= 15)) {
+                return false;
+            }
+            break;
+        case rvc_rd_eq_rs1:
+            if (!(rd == rs1)) {
+                return false;
+            }
+            break;
+        case rvc_rd_eq_ra:
+            if (!(rd == 1)) {
+                return false;
+            }
+            break;
+        case rvc_rd_eq_sp:
+            if (!(rd == 2)) {
+                return false;
+            }
+            break;
+        case rvc_rd_eq_x0:
+            if (!(rd == 0)) {
+                return false;
+            }
+            break;
+        case rvc_rs1_eq_sp:
+            if (!(rs1 == 2)) {
+                return false;
+            }
+            break;
+        case rvc_rs1_eq_x0:
+            if (!(rs1 == 0)) {
+                return false;
+            }
+            break;
+        case rvc_rs2_eq_x0:
+            if (!(rs2 == 0)) {
+                return false;
+            }
+            break;
+        case rvc_rd_ne_x0_x2:
+            if (!(rd != 0 && rd != 2)) {
+                return false;
+            }
+            break;
+        case rvc_rd_ne_x0:
+            if (!(rd != 0)) {
+                return false;
+            }
+            break;
+        case rvc_rs1_ne_x0:
+            if (!(rs1 != 0)) {
+                return false;
+            }
+            break;
+        case rvc_rs2_ne_x0:
+            if (!(rs2 != 0)) {
+                return false;
+            }
+            break;
+        case rvc_rs2_eq_rs1:
+            if (!(rs2 == rs1)) {
+                return false;
+            }
+            break;
+        case rvc_rs1_eq_ra:
+            if (!(rs1 == 1)) {
+                return false;
+            }
+            break;
+        case rvc_imm_eq_zero:
+            if (!(imm == 0)) {
+                return false;
+            }
+            break;
+        case rvc_imm_eq_n1:
+            if (!(imm == -1)) {
+                return false;
+            }
+            break;
+        case rvc_imm_eq_p1:
+            if (!(imm == 1)) {
+                return false;
+            }
+            break;
+        case rvc_csr_eq_0x001:
+            if (!(imm == 0x001)) {
+                return false;
+            }
+            break;
+        case rvc_csr_eq_0x002:
+            if (!(imm == 0x002)) {
+                return false;
+            }
+            break;
+        case rvc_csr_eq_0x003:
+            if (!(imm == 0x003)) {
+                return false;
+            }
+            break;
+        case rvc_csr_eq_0xc00:
+            if (!(imm == 0xc00)) {
+                return false;
+            }
+            break;
+        case rvc_csr_eq_0xc01:
+            if (!(imm == 0xc01)) {
+                return false;
+            }
+            break;
+        case rvc_csr_eq_0xc02:
+            if (!(imm == 0xc02)) {
+                return false;
+            }
+            break;
+        case rvc_csr_eq_0xc80:
+            if (!(imm == 0xc80)) {
+                return false;
+            }
+            break;
+        case rvc_csr_eq_0xc81:
+            if (!(imm == 0xc81)) {
+                return false;
+            }
+            break;
+        case rvc_csr_eq_0xc82:
+            if (!(imm == 0xc82)) {
+                return false;
+            }
+            break;
+        default: break;
         }
         c++;
     }
@@ -2548,7 +2722,9 @@ static size_t inst_length(rv_inst inst)
 static void append(char *s1, const char *s2, size_t n)
 {
     size_t l1 = strlen(s1);
-    if (n - l1 - 1 > 0) strncat(s1, s2, n - l1);
+    if (n - l1 - 1 > 0) {
+        strncat(s1, s2, n - l1);
+    }
 }
 
 static void format_inst(char *buf, size_t buflen, size_t tab, rv_decode *dec)
@@ -2559,93 +2735,120 @@ static void format_inst(char *buf, size_t buflen, size_t tab, rv_decode *dec)
     if (dec->op == rv_op_illegal) {
         size_t len = inst_length(dec->inst);
         switch (len) {
-            case 2:
-                snprintf(buf, buflen, "(0x%04" PRIx64 ")", dec->inst);
-                break;
-            case 4:
-                snprintf(buf, buflen, "(0x%08" PRIx64 ")", dec->inst);
-                break;
-            case 6:
-                snprintf(buf, buflen, "(0x%012" PRIx64 ")", dec->inst);
-                break;
-            default:
-                snprintf(buf, buflen, "(0x%016" PRIx64 ")", dec->inst);
-                break;
-        }               
+        case 2:
+            snprintf(buf, buflen, "(0x%04" PRIx64 ")", dec->inst);
+            break;
+        case 4:
+            snprintf(buf, buflen, "(0x%08" PRIx64 ")", dec->inst);
+            break;
+        case 6:
+            snprintf(buf, buflen, "(0x%012" PRIx64 ")", dec->inst);
+            break;
+        default:
+            snprintf(buf, buflen, "(0x%016" PRIx64 ")", dec->inst);
+            break;
+        }
         return;
     }
 
     fmt = opcode_data[dec->op].format;
     while (*fmt) {
         switch (*fmt) {
-            case 'O': append(buf, opcode_data[dec->op].name, buflen); break;
-            case '(': append(buf, "(", buflen); break;
-            case ',': append(buf, ",", buflen); break;
-            case ')': append(buf, ")", buflen); break;
-            case '0': append(buf, rv_ireg_name_sym[dec->rd], buflen); break;
-            case '1': append(buf, rv_ireg_name_sym[dec->rs1], buflen); break;
-            case '2': append(buf, rv_ireg_name_sym[dec->rs2], buflen); break;
-            case '3': append(buf, rv_freg_name_sym[dec->rd], buflen); break;
-            case '4': append(buf, rv_freg_name_sym[dec->rs1], buflen); break;
-            case '5': append(buf, rv_freg_name_sym[dec->rs2], buflen); break;
-            case '6': append(buf, rv_freg_name_sym[dec->rs3], buflen); break;
-            case '7':
-                snprintf(tmp, sizeof(tmp), "%d", dec->rs1);
-                append(buf, tmp, buflen);
-                break;
-            case 'i':
-                snprintf(tmp, sizeof(tmp), "%d", dec->imm);
-                append(buf, tmp, buflen);
-                break;
-            case 'o':
-                snprintf(tmp, sizeof(tmp), "%d", dec->imm);
-                append(buf, tmp, buflen);
-                while (strlen(buf) < tab * 2) append(buf, " ", buflen);
-                snprintf(tmp, sizeof(tmp), "# 0x%" PRIx64,
-                    dec->pc + dec->imm);
-                append(buf, tmp, buflen);
-                break;
-            case 'c': {
-                const char * name = csr_name(dec->imm & 0xfff);
-                if (name) {
-                    append(buf, name, buflen);
-                }
-                else {
-                    snprintf(tmp, sizeof(tmp), "0x%03x", dec->imm & 0xfff);
-                    append(buf, tmp, buflen);
-                }
-                break;
+        case 'O': append(buf, opcode_data[dec->op].name, buflen); break;
+        case '(': append(buf, "(", buflen); break;
+        case ',': append(buf, ",", buflen); break;
+        case ')': append(buf, ")", buflen); break;
+        case '0': append(buf, rv_ireg_name_sym[dec->rd], buflen); break;
+        case '1': append(buf, rv_ireg_name_sym[dec->rs1], buflen); break;
+        case '2': append(buf, rv_ireg_name_sym[dec->rs2], buflen); break;
+        case '3': append(buf, rv_freg_name_sym[dec->rd], buflen); break;
+        case '4': append(buf, rv_freg_name_sym[dec->rs1], buflen); break;
+        case '5': append(buf, rv_freg_name_sym[dec->rs2], buflen); break;
+        case '6': append(buf, rv_freg_name_sym[dec->rs3], buflen); break;
+        case '7':
+            snprintf(tmp, sizeof(tmp), "%d", dec->rs1);
+            append(buf, tmp, buflen);
+            break;
+        case 'i':
+            snprintf(tmp, sizeof(tmp), "%d", dec->imm);
+            append(buf, tmp, buflen);
+            break;
+        case 'o':
+            snprintf(tmp, sizeof(tmp), "%d", dec->imm);
+            append(buf, tmp, buflen);
+            while (strlen(buf) < tab * 2) {
+                append(buf, " ", buflen);
             }
-            case 'r':
-                switch(dec->rm) {
-                    case rv_rm_rne: append(buf, "rne", buflen); break;
-                    case rv_rm_rtz: append(buf, "rtz", buflen); break;
-                    case rv_rm_rdn: append(buf, "rdn", buflen); break;
-                    case rv_rm_rup: append(buf, "rup", buflen); break;
-                    case rv_rm_rmm: append(buf, "rmm", buflen); break;
-                    case rv_rm_dyn: append(buf, "dyn", buflen); break;
-                    default:        append(buf, "inv", buflen); break;
-                }
-                break;
-            case 'p':
-                if (dec->pred & rv_fence_i) append(buf, "i", buflen);
-                if (dec->pred & rv_fence_o) append(buf, "o", buflen);
-                if (dec->pred & rv_fence_r) append(buf, "r", buflen);
-                if (dec->pred & rv_fence_w) append(buf, "w", buflen);
-                break;
-            case 's':
-                if (dec->succ & rv_fence_i) append(buf, "i", buflen);
-                if (dec->succ & rv_fence_o) append(buf, "o", buflen);
-                if (dec->succ & rv_fence_r) append(buf, "r", buflen);
-                if (dec->succ & rv_fence_w) append(buf, "w", buflen);
-                break;
-            case '\t':
-                while (strlen(buf) < tab) append(buf, " ", buflen);
-                break;
-            case 'A': if (dec->aq) append(buf, ".aq", buflen); break;
-            case 'R': if (dec->rl) append(buf, ".rl", buflen); break;
-            default:
-                break;
+            snprintf(tmp, sizeof(tmp), "# 0x%" PRIx64,
+                dec->pc + dec->imm);
+            append(buf, tmp, buflen);
+            break;
+        case 'c': {
+            const char *name = csr_name(dec->imm & 0xfff);
+            if (name) {
+                append(buf, name, buflen);
+            } else {
+                snprintf(tmp, sizeof(tmp), "0x%03x", dec->imm & 0xfff);
+                append(buf, tmp, buflen);
+            }
+            break;
+        }
+        case 'r':
+            switch (dec->rm) {
+            case rv_rm_rne: append(buf, "rne", buflen); break;
+            case rv_rm_rtz: append(buf, "rtz", buflen); break;
+            case rv_rm_rdn: append(buf, "rdn", buflen); break;
+            case rv_rm_rup: append(buf, "rup", buflen); break;
+            case rv_rm_rmm: append(buf, "rmm", buflen); break;
+            case rv_rm_dyn: append(buf, "dyn", buflen); break;
+            default:        append(buf, "inv", buflen); break;
+            }
+            break;
+        case 'p':
+            if (dec->pred & rv_fence_i) {
+                append(buf, "i", buflen);
+            }
+            if (dec->pred & rv_fence_o) {
+                append(buf, "o", buflen);
+            }
+            if (dec->pred & rv_fence_r) {
+                append(buf, "r", buflen);
+            }
+            if (dec->pred & rv_fence_w) {
+                append(buf, "w", buflen);
+            }
+            break;
+        case 's':
+            if (dec->succ & rv_fence_i) {
+                append(buf, "i", buflen);
+            }
+            if (dec->succ & rv_fence_o) {
+                append(buf, "o", buflen);
+            }
+            if (dec->succ & rv_fence_r) {
+                append(buf, "r", buflen);
+            }
+            if (dec->succ & rv_fence_w) {
+                append(buf, "w", buflen);
+            }
+            break;
+        case '\t':
+            while (strlen(buf) < tab) {
+                append(buf, " ", buflen);
+            }
+            break;
+        case 'A':
+            if (dec->aq) {
+                append(buf, ".aq", buflen);
+            }
+            break;
+        case 'R':
+            if (dec->rl) {
+                append(buf, ".rl", buflen);
+            }
+            break;
+        default:
+            break;
         }
         fmt++;
     }
@@ -2656,7 +2859,9 @@ static void format_inst(char *buf, size_t buflen, size_t tab, rv_decode *dec)
 static void decode_pseudo_inst(rv_decode *dec)
 {
     const rv_comp_data *comp_data = opcode_data[dec->op].pseudo;
-    if (!comp_data) return;
+    if (!comp_data) {
+        return;
+    }
     while (comp_data->constraints) {
         if (constraint_check(dec, comp_data->constraints)) {
             dec->op = comp_data->op;
@@ -2707,9 +2912,9 @@ disasm_inst(char *buf, size_t buflen, rv_isa isa, uint64_t pc, rv_inst inst)
     dec.op = decode_inst_op(inst, isa);
     decode_rv_instype(&dec, inst);
     switch (isa) {
-        case rv32: decompress_inst_rv32(&dec); break;
-        case rv64: decompress_inst_rv64(&dec); break;
-        case rv128: decompress_inst_rv128(&dec); break;
+    case rv32: decompress_inst_rv32(&dec); break;
+    case rv64: decompress_inst_rv64(&dec); break;
+    case rv128: decompress_inst_rv128(&dec); break;
     }
     decode_pseudo_inst(&dec);
     format_inst(buf, buflen, 16, &dec);
@@ -2730,12 +2935,16 @@ print_insn_riscv(bfd_vma memaddr, struct disassemble_info *info, rv_isa isa)
         status = (*info->read_memory_func)(memaddr + n, packet, 2, info);
         if (status != 0) {
             /* Don't fail just because we fell off the end.  */
-            if (n > 0) break;
+            if (n > 0) {
+                break;
+            }
             (*info->memory_error_func)(status, memaddr, info);
             return status;
         }
-        inst |= ((rv_inst) bfd_getl16 (packet)) << (8 * n);
-        if (n == 0) len = inst_length(inst);
+        inst |= ((rv_inst) bfd_getl16(packet)) << (8 * n);
+        if (n == 0) {
+            len = inst_length(inst);
+        }
     }
 
     /* TODO - need access to TARGET_RISCV32 or TARGET_RISCV64 */
