@@ -139,6 +139,9 @@ static int get_physical_address(CPURISCVState *env, hwaddr *physical,
 
     int levels, ptidxbits, ptesize, vm, sum;
     int mxr = get_field(env->mstatus, MSTATUS_MXR);
+    /* TODO(sorear): This logic is broken.  PUM and MXR need to be encoded
+       in the mmu_idx so that translations with different rules do not
+       cross-contaminate. */
 
     if (env->priv_ver >= PRIV_VERSION_1_10_0) {
         base = get_field(env->satp, SATP_PPN) << PGSHIFT;
