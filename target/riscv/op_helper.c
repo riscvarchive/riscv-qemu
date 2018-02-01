@@ -624,8 +624,10 @@ target_ulong helper_sret(CPURISCVState *env, target_ulong cpu_pc_deb)
 
     target_ulong mstatus = env->mstatus;
     target_ulong prev_priv = get_field(mstatus, MSTATUS_SPP);
-    mstatus = set_field(mstatus, MSTATUS_UIE << prev_priv,
-                        get_field(mstatus, MSTATUS_SPIE));
+    mstatus = set_field(mstatus,
+        env->priv_ver >= PRIV_VERSION_1_10_0 ?
+        MSTATUS_SIE : MSTATUS_UIE << prev_priv,
+        get_field(mstatus, MSTATUS_SPIE));
     mstatus = set_field(mstatus, MSTATUS_SPIE, 0);
     mstatus = set_field(mstatus, MSTATUS_SPP, PRV_U);
     riscv_set_mode(env, prev_priv);
@@ -647,8 +649,10 @@ target_ulong helper_mret(CPURISCVState *env, target_ulong cpu_pc_deb)
 
     target_ulong mstatus = env->mstatus;
     target_ulong prev_priv = get_field(mstatus, MSTATUS_MPP);
-    mstatus = set_field(mstatus, MSTATUS_UIE << prev_priv,
-                        get_field(mstatus, MSTATUS_MPIE));
+    mstatus = set_field(mstatus,
+        env->priv_ver >= PRIV_VERSION_1_10_0 ?
+        MSTATUS_MIE : MSTATUS_UIE << prev_priv,
+        get_field(mstatus, MSTATUS_MPIE));
     mstatus = set_field(mstatus, MSTATUS_MPIE, 0);
     mstatus = set_field(mstatus, MSTATUS_MPP, PRV_U);
     riscv_set_mode(env, prev_priv);
