@@ -232,6 +232,7 @@ static void riscv_cpu_reset(CPUState *cs)
 #endif
     env->pc = DEFAULT_RSTVEC;
     cs->exception_index = EXCP_NONE;
+    set_default_nan_mode(1, &env->fp_status);
 }
 
 static void riscv_cpu_disas_set_info(CPUState *s, disassemble_info *info)
