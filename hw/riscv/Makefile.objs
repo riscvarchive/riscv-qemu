@@ -5,6 +5,7 @@ obj-y += sifive_e300.o
 obj-y += sifive_clint.o
 obj-y += sifive_prci.o
 obj-y += sifive_plic.o
+obj-y += sifive_test.o
 obj-y += sifive_u500.o
 obj-y += sifive_uart.o
 obj-y += spike_v1_09.o

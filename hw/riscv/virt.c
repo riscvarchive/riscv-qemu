@@ -37,6 +37,7 @@
 #include "hw/riscv/riscv_hart.h"
 #include "hw/riscv/sifive_plic.h"
 #include "hw/riscv/sifive_clint.h"
+#include "hw/riscv/sifive_test.h"
 #include "hw/riscv/virt.h"
 #include "chardev/char.h"
 #include "sysemu/arch_init.h"
@@ -50,6 +51,7 @@ static const struct MemmapEntry {
 } virt_memmap[] = {
     [VIRT_DEBUG] =    {        0x0,      0x100 },
     [VIRT_MROM] =     {     0x1000,     0x2000 },
+    [VIRT_TEST] =     {     0x4000,     0x1000 },
     [VIRT_CLINT] =    {  0x2000000,    0x10000 },
     [VIRT_PLIC] =     {  0xc000000,  0x4000000 },
     [VIRT_UART0] =    { 0x10000000,      0x100 },
@@ -208,6 +210,14 @@ static void create_fdt(RISCVVirtState *s, const struct MemmapEntry *memmap,
         g_free(nodename);
     }
 
+    nodename = g_strdup_printf("/test@%lx",
+        (long)memmap[VIRT_TEST].base);
+    qemu_fdt_add_subnode(fdt, nodename);
+    qemu_fdt_setprop_string(fdt, nodename, "compatible", "sifive,test0");
+    qemu_fdt_setprop_cells(fdt, nodename, "reg",
+        0x0, memmap[VIRT_TEST].base,
+        0x0, memmap[VIRT_TEST].size);
+
     nodename = g_strdup_printf("/uart@%lx",
         (long)memmap[VIRT_UART0].base);
     qemu_fdt_add_subnode(fdt, nodename);
@@ -317,6 +327,7 @@ static void riscv_virt_board_init(MachineState *machine)
     sifive_clint_create(memmap[VIRT_CLINT].base,
         memmap[VIRT_CLINT].size, smp_cpus,
         SIFIVE_SIP_BASE, SIFIVE_TIMECMP_BASE, SIFIVE_TIME_BASE);
+    sifive_test_create(memmap[VIRT_TEST].base);
 
     for (i = 0; i < VIRTIO_COUNT; i++) {
         sysbus_create_simple("virtio-mmio",
