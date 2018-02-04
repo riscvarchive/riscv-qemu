@@ -154,6 +154,7 @@ inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
         dirty |= (mstatus & MSTATUS_XS) == MSTATUS_XS;
         mstatus = set_field(mstatus, MSTATUS_SD, dirty);
         env->mstatus = mstatus;
+        cpu_riscv_set_tb_flags(env);
         break;
     }
     case CSR_MIP: {
@@ -329,6 +330,7 @@ inline void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
         mask &= env->misa_mask;
 
         env->misa = (val_to_write & mask) | (env->misa & ~mask);
+        cpu_riscv_set_tb_flags(env);
         break;
     }
     case CSR_PMPCFG0:
@@ -609,6 +611,7 @@ void riscv_set_mode(CPURISCVState *env, target_ulong newpriv)
     }
     helper_tlb_flush(env);
     env->priv = newpriv;
+    cpu_riscv_set_tb_flags(env);
 }
 
 target_ulong helper_sret(CPURISCVState *env, target_ulong cpu_pc_deb)

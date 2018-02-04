@@ -59,6 +59,26 @@
 #define NB_MMU_MODES 4
 #define MMU_USER_IDX 3
 
+/* tb_flags must contain all information that affects execution of ordinary
+ * instructions (helpers can look at the CPURISCVState) */
+
+#define RISCV_TF_MISA_M    (1 << 0)
+#define RISCV_TF_MISA_A    (1 << 1)
+#define RISCV_TF_MISA_F    (1 << 2)
+#define RISCV_TF_MISA_D    (1 << 3)
+#define RISCV_TF_MISA_C    (1 << 4)
+
+#define RISCV_TF_IAT_SHIFT 5
+#define RISCV_TF_IAT_MASK  (7 << 5)
+
+#define RISCV_TF_DAT_SHIFT 8
+#define RISCV_TF_DAT_MASK  (7 << 8)
+
+#define RISCV_TF_XLEN32    (0 << 11)
+#define RISCV_TF_XLEN64    (1 << 11)
+#define RISCV_TF_XLEN128   (2 << 11)
+#define RISCV_TF_XLEN_MASK (3 << 11)
+
 #define SSIP_IRQ (env->irq[0])
 #define STIP_IRQ (env->irq[1])
 #define MSIP_IRQ (env->irq[2])
@@ -87,6 +107,7 @@ struct CPURISCVState {
     target_ulong badaddr;
 
     uint32_t mucounteren;
+    uint32_t tb_flags;
 
     target_ulong user_ver;
     target_ulong priv_ver;
@@ -220,6 +241,28 @@ char *riscv_isa_string(RISCVCPU *cpu);
 void riscv_cpu_list(FILE *f, fprintf_function cpu_fprintf);
 int riscv_cpu_mmu_index(CPURISCVState *env, bool ifetch);
 
+static inline void cpu_riscv_set_tb_flags(CPURISCVState *env)
+{
+    env->tb_flags = 0;
+    if (env->misa & (1L << ('A' - 'A'))) {
+        env->tb_flags |= RISCV_TF_MISA_A;
+    }
+    if (env->misa & (1L << ('D' - 'A'))) {
+        env->tb_flags |= RISCV_TF_MISA_D;
+    }
+    if (env->misa & (1L << ('F' - 'A'))) {
+        env->tb_flags |= RISCV_TF_MISA_F;
+    }
+    if (env->misa & (1L << ('M' - 'A'))) {
+        env->tb_flags |= RISCV_TF_MISA_M;
+    }
+    if (env->misa & (1L << ('C' - 'A'))) {
+        env->tb_flags |= RISCV_TF_MISA_C;
+    }
+    env->tb_flags |= cpu_mmu_index(env, true) << RISCV_TF_IAT_SHIFT;
+    env->tb_flags |= cpu_mmu_index(env, false) << RISCV_TF_DAT_SHIFT;
+}
+
 #define cpu_init(cpu_model) cpu_generic_init(TYPE_RISCV_CPU, cpu_model)
 #define cpu_signal_handler cpu_riscv_signal_handler
 #define cpu_list riscv_cpu_list
@@ -248,7 +291,7 @@ static inline void cpu_get_tb_cpu_state(CPURISCVState *env, target_ulong *pc,
 {
     *pc = env->pc;
     *cs_base = 0;
-    *flags = 0; /* necessary to avoid compiler warning */
+    *flags = env->tb_flags;
 }
 
 static inline int riscv_mstatus_fs(CPURISCVState *env)
