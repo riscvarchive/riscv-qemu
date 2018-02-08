@@ -7675,6 +7675,9 @@ int float128_compare_quiet(float128 a, float128 b, float_status *status)
  * minnummag() and maxnummag() functions correspond to minNumMag()
  * and minNumMag() from the IEEE-754 2008.
  */
+
+enum { ieee2008 = 1, ieee201x = 2 };
+
 #define MINMAX(s)                                                       \
 static inline float ## s float ## s ## _minmax(float ## s a, float ## s b,     \
                                                int ismin, int isieee,   \
@@ -7687,12 +7690,26 @@ static inline float ## s float ## s ## _minmax(float ## s a, float ## s b,     \
     b = float ## s ## _squash_input_denormal(b, status);                \
     if (float ## s ## _is_any_nan(a) ||                                 \
         float ## s ## _is_any_nan(b)) {                                 \
-        if (isieee) {                                                   \
+        if (isieee == ieee2008) {                                       \
             if (float ## s ## _is_quiet_nan(a, status) &&               \
                 !float ## s ##_is_any_nan(b)) {                         \
                 return b;                                               \
             } else if (float ## s ## _is_quiet_nan(b, status) &&        \
-                       !float ## s ## _is_any_nan(a)) {                \
+                       !float ## s ## _is_any_nan(a)) {                 \
+                return a;                                               \
+            }                                                           \
+        } else if (isieee == ieee201x) {                                \
+            if (float ## s ## _is_any_nan(a) &&                         \
+                !float ## s ##_is_any_nan(b)) {                         \
+                if (!float ## s ## _is_quiet_nan(a, status)) {          \
+                    float_raise(float_flag_invalid, status);            \
+                }                                                       \
+                return b;                                               \
+            } else if (float ## s ## _is_any_nan(b) &&                  \
+                       !float ## s ## _is_any_nan(a)) {                 \
+                if (!float ## s ## _is_quiet_nan(b, status)) {          \
+                    float_raise(float_flag_invalid, status);            \
+                }                                                       \
                 return a;                                               \
             }                                                           \
         }                                                               \
@@ -7743,25 +7760,37 @@ float ## s float ## s ## _max(float ## s a, float ## s b,               \
 float ## s float ## s ## _minnum(float ## s a, float ## s b,            \
                                  float_status *status)                  \
 {                                                                       \
-    return float ## s ## _minmax(a, b, 1, 1, 0, status);                \
+    return float ## s ## _minmax(a, b, 1, ieee2008, 0, status);         \
 }                                                                       \
                                                                         \
 float ## s float ## s ## _maxnum(float ## s a, float ## s b,            \
                                  float_status *status)                  \
 {                                                                       \
-    return float ## s ## _minmax(a, b, 0, 1, 0, status);                \
+    return float ## s ## _minmax(a, b, 0, ieee2008, 0, status);         \
+}                                                                       \
+                                                                        \
+float ## s float ## s ## _minimumnumber(float ## s a, float ## s b,     \
+                                 float_status *status)                  \
+{                                                                       \
+    return float ## s ## _minmax(a, b, 1, ieee201x, 0, status);         \
+}                                                                       \
+                                                                        \
+float ## s float ## s ## _maximumnumber(float ## s a, float ## s b,     \
+                                 float_status *status)                  \
+{                                                                       \
+    return float ## s ## _minmax(a, b, 0, ieee201x, 0, status);         \
 }                                                                       \
                                                                         \
 float ## s float ## s ## _minnummag(float ## s a, float ## s b,         \
                                     float_status *status)               \
 {                                                                       \
-    return float ## s ## _minmax(a, b, 1, 1, 1, status);                \
+    return float ## s ## _minmax(a, b, 1, ieee2008, 1, status);         \
 }                                                                       \
                                                                         \
 float ## s float ## s ## _maxnummag(float ## s a, float ## s b,         \
                                     float_status *status)               \
 {                                                                       \
-    return float ## s ## _minmax(a, b, 0, 1, 1, status);                \
+    return float ## s ## _minmax(a, b, 0, ieee2008, 1, status);         \
 }
 
 MINMAX(32)
