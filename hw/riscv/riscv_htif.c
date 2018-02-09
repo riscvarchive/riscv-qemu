@@ -37,8 +37,6 @@
 #include "exec/address-spaces.h"
 #include "qemu/error-report.h"
 
-#define ENABLE_CHARDEV
-
 #define RISCV_DEBUG_HTIF 0
 #define HTIF_DEBUG(fmt, ...)                                               \
     do {                                                                   \
@@ -67,7 +65,6 @@ void htif_symbol_callback(const char *st_name, int st_info, uint64_t st_value,
     }
 }
 
-#ifdef ENABLE_CHARDEV
 /*
  * Called by the char dev to see if HTIF is ready to accept input.
  */
@@ -119,7 +116,6 @@ static int htif_be_change(void *opaque)
 
     return 0;
 }
-#endif
 
 static void dma_strcopy(HTIFState *htifstate, char *str, hwaddr phys_addr)
 {
@@ -191,9 +187,7 @@ static void htif_handle_tohost_write(HTIFState *htifstate, uint64_t val_written)
             htifstate->env->mtohost = 0; /* clear to indicate we read */
             return;
         } else if (cmd == 0x1) {
-            #ifdef ENABLE_CHARDEV
             qemu_chr_fe_write(&htifstate->chr, (uint8_t *)&payload, 1);
-            #endif
             resp = 0x100 | (uint8_t)payload;
         } else if (cmd == 0xFF) {
             /* use what */
@@ -323,11 +317,9 @@ HTIFState *htif_mm_init(MemoryRegion *address_space,
     s->pending_read = 0;
     s->allow_tohost = 0;
     s->fromhost_inprogress = 0;
-#ifdef ENABLE_CHARDEV
     qemu_chr_fe_init(&s->chr, chr, &error_abort);
     qemu_chr_fe_set_handlers(&s->chr, htif_can_recv, htif_recv, htif_event,
         htif_be_change, s, NULL, true);
-#endif
     if (base) {
         memory_region_init_io(&s->mmio, NULL, &htif_mm_ops, s,
                             TYPE_HTIF_UART, size);
