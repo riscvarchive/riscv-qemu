@@ -238,23 +238,23 @@ static void raise_mmu_exception(CPURISCVState *env, target_ulong address,
     int page_fault_exceptions =
         (env->priv_ver >= PRIV_VERSION_1_10_0) &&
         get_field(env->satp, SATP_MODE) != VM_1_10_MBARE;
-    int exception = 0;
-    if (access_type == MMU_INST_FETCH) { /* inst access */
-        exception = page_fault_exceptions ?
+    switch (access_type) {
+    case MMU_INST_FETCH:
+        cs->exception_index = page_fault_exceptions ?
             RISCV_EXCP_INST_PAGE_FAULT : RISCV_EXCP_INST_ACCESS_FAULT;
-        env->badaddr = address;
-    } else if (access_type == MMU_DATA_STORE) { /* store access */
-        exception = page_fault_exceptions ?
-            RISCV_EXCP_STORE_PAGE_FAULT : RISCV_EXCP_STORE_AMO_ACCESS_FAULT;
-        env->badaddr = address;
-    } else if (access_type == MMU_DATA_LOAD) { /* load access */
-        exception = page_fault_exceptions ?
+        break;
+    case MMU_DATA_LOAD:
+        cs->exception_index = page_fault_exceptions ?
             RISCV_EXCP_LOAD_PAGE_FAULT : RISCV_EXCP_LOAD_ACCESS_FAULT;
-        env->badaddr = address;
-    } else {
+        break;
+    case MMU_DATA_STORE:
+        cs->exception_index = page_fault_exceptions ?
+            RISCV_EXCP_STORE_PAGE_FAULT : RISCV_EXCP_STORE_AMO_ACCESS_FAULT;
+        break;
+    default:
         g_assert_not_reached();
     }
-    cs->exception_index = exception;
+    env->badaddr = address;
 }
 
 hwaddr riscv_cpu_get_phys_page_debug(CPUState *cs, vaddr addr)
@@ -276,18 +276,20 @@ void riscv_cpu_do_unaligned_access(CPUState *cs, vaddr addr,
 {
     RISCVCPU *cpu = RISCV_CPU(cs);
     CPURISCVState *env = &cpu->env;
-    if (access_type == MMU_INST_FETCH) {
+    switch (access_type) {
+    case MMU_INST_FETCH:
         cs->exception_index = RISCV_EXCP_INST_ADDR_MIS;
-        env->badaddr = addr;
-    } else if (access_type == MMU_DATA_STORE) {
-        cs->exception_index = RISCV_EXCP_STORE_AMO_ADDR_MIS;
-        env->badaddr = addr;
-    } else if (access_type == MMU_DATA_LOAD) {
+        break;
+    case MMU_DATA_LOAD:
         cs->exception_index = RISCV_EXCP_LOAD_ADDR_MIS;
-        env->badaddr = addr;
-    } else {
+        break;
+    case MMU_DATA_STORE:
+        cs->exception_index = RISCV_EXCP_STORE_AMO_ADDR_MIS;
+        break;
+    default:
         g_assert_not_reached();
     }
+    env->badaddr = addr;
     do_raise_exception_err(env, cs->exception_index, retaddr);
 }
 
@@ -336,7 +338,17 @@ int riscv_cpu_handle_mmu_fault(CPUState *cs, vaddr address, int size,
         raise_mmu_exception(env, address, rw);
     }
 #else
-    cs->exception_index = QEMU_USER_EXCP_FAULT;
+    switch (rw) {
+    case MMU_INST_FETCH:
+        cs->exception_index = RISCV_EXCP_INST_PAGE_FAULT;
+        break;
+    case MMU_DATA_LOAD:
+        cs->exception_index = RISCV_EXCP_LOAD_PAGE_FAULT;
+        break;
+    case MMU_DATA_STORE:
+        cs->exception_index = RISCV_EXCP_STORE_PAGE_FAULT;
+        break;
+    }
 #endif
     return ret;
 }

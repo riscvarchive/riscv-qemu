@@ -1,6 +1,3 @@
-/* not RISC-V exception codes - this is for qemu user-mode */
-#define QEMU_USER_EXCP_FAULT               0xd
-
 #define xRA 1   /* return address (aka link register) */
 #define xSP 2   /* stack pointer */
 #define xGP 3   /* global pointer */
