@@ -66,9 +66,9 @@ static uint64_t load_kernel(const char *kernel_filename)
 {
     uint64_t kernel_entry, kernel_high;
 
-    if (load_elf(kernel_filename, identity_translate, NULL,
-                 &kernel_entry, NULL, &kernel_high,
-                 0, ELF_MACHINE, 1, 0) < 0) {
+    if (load_elf_ram_sym(kernel_filename, identity_translate, NULL,
+            &kernel_entry, NULL, &kernel_high, 0, ELF_MACHINE, 1, 0,
+            NULL, true, htif_symbol_callback) < 0) {
         error_report("qemu: could not load kernel '%s'", kernel_filename);
         exit(1);
     }
@@ -234,7 +234,7 @@ static void riscv_spike_board_init(MachineState *machine)
     /* add memory mapped htif registers at location specified in the symbol
        table of the elf being loaded (thus kernel_filename is passed to the
        init rather than an address) */
-    htif_mm_init(system_memory, machine->kernel_filename,
+    htif_mm_init(system_memory,
         s->soc.harts[0].env.irq[4], boot_rom,
         &s->soc.harts[0].env, serial_hds[0]);
 

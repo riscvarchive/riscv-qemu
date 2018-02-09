@@ -1,4 +1,3 @@
-obj-y += riscv_elf.o
 obj-y += riscv_htif.o
 obj-y += riscv_hart.o
 obj-y += sifive_e300.o

@@ -54,9 +54,13 @@ typedef struct HTIFState {
 extern const VMStateDescription vmstate_htif;
 extern const MemoryRegionOps htif_io_ops;
 
+/* HTIF symbol callback */
+void htif_symbol_callback(const char *st_name, int st_info, uint64_t st_value,
+    uint64_t st_size);
+
 /* legacy pre qom */
 HTIFState *htif_mm_init(MemoryRegion *address_space,
-    const char *kernel_filename, qemu_irq irq, MemoryRegion *main_mem,
+    qemu_irq irq, MemoryRegion *main_mem,
     CPURISCVState *env, Chardev *chr);
 
 #endif

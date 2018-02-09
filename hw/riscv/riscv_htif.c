@@ -36,7 +36,6 @@
 #include "qemu/timer.h"
 #include "exec/address-spaces.h"
 #include "qemu/error-report.h"
-#include "hw/riscv/riscv_elf.h"
 
 #define ENABLE_CHARDEV
 
@@ -47,6 +46,26 @@
             qemu_log_mask(LOG_TRACE, "%s: " fmt, __func__, ##__VA_ARGS__); \
         }                                                                  \
     } while (0)
+
+static uint64_t fromhost_addr, tohost_addr;
+
+void htif_symbol_callback(const char *st_name, int st_info, uint64_t st_value,
+    uint64_t st_size)
+{
+    if (strcmp("fromhost", st_name) == 0) {
+        fromhost_addr = st_value;
+        if (st_size != 8) {
+            error_report("HTIF fromhost must be 8 bytes");
+            exit(1);
+        }
+    } else if (strcmp("tohost", st_name) == 0) {
+        tohost_addr = st_value;
+        if (st_size != 8) {
+            error_report("HTIF tohost must be 8 bytes");
+            exit(1);
+        }
+    }
+}
 
 #ifdef ENABLE_CHARDEV
 /*
@@ -285,63 +304,9 @@ static const MemoryRegionOps htif_mm_ops = {
 };
 
 HTIFState *htif_mm_init(MemoryRegion *address_space,
-    const char *kernel_filename, qemu_irq irq, MemoryRegion *main_mem,
+    qemu_irq irq, MemoryRegion *main_mem,
     CPURISCVState *env, Chardev *chr)
 {
-    uint64_t fromhost_addr = 0, tohost_addr = 0;
-
-    /* get fromhost/tohost addresses from the ELF, as spike/fesvr do */
-    if (kernel_filename) {
-#if defined(TARGET_RISCV64)
-        Elf_obj64 *e = elf_open64(kernel_filename);
-#else
-        Elf_obj32 *e = elf_open32(kernel_filename);
-#endif
-
-        const char *fromhost = "fromhost";
-        const char *tohost = "tohost";
-
-#if defined(TARGET_RISCV64)
-        Elf64_Sym *curr_sym = elf_firstsym64(e);
-#else
-        Elf32_Sym *curr_sym = elf_firstsym32(e);
-#endif
-        while (curr_sym) {
-#if defined(TARGET_RISCV64)
-            char *symname = elf_symname64(e, curr_sym);
-#else
-            char *symname = elf_symname32(e, curr_sym);
-#endif
-
-            if (strcmp(fromhost, symname) == 0) {
-                /* get fromhost addr */
-                fromhost_addr = curr_sym->st_value;
-                if (curr_sym->st_size != 8) {
-                    error_report("HTIF fromhost must be 8 bytes");
-                    exit(1);
-                }
-            } else if (strcmp(tohost, symname) == 0) {
-                /* get tohost addr */
-                tohost_addr = curr_sym->st_value;
-                if (curr_sym->st_size != 8) {
-                    error_report("HTIF tohost must be 8 bytes");
-                    exit(1);
-                }
-            }
-#if defined(TARGET_RISCV64)
-            curr_sym = elf_nextsym64(e, curr_sym);
-#else
-            curr_sym = elf_nextsym32(e, curr_sym);
-#endif
-        }
-
-#if defined(TARGET_RISCV64)
-        elf_close64(e);
-#else
-        elf_close32(e);
-#endif
-    }
-
     uint64_t base = MIN(tohost_addr, fromhost_addr);
     uint64_t size = MAX(tohost_addr + 8, fromhost_addr + 8) - base;
     uint64_t tohost_offset = tohost_addr - base;
