@@ -85,8 +85,6 @@ struct CPURISCVState {
 
     target_ulong badaddr;
 
-    uint32_t mucounteren;
-
     target_ulong user_ver;
     target_ulong priv_ver;
     target_ulong misa;
@@ -115,6 +113,7 @@ struct CPURISCVState {
     target_ulong mcause;
     target_ulong mtval;  /* since: priv-1.10.0 */
 
+    uint32_t mucounteren;
     uint32_t mscounteren;
     target_ulong scounteren; /* since: priv-1.10.0 */
     target_ulong mcounteren; /* since: priv-1.10.0 */
@@ -226,7 +225,6 @@ void QEMU_NORETURN do_raise_exception_err(CPURISCVState *env,
                                           uint32_t exception, uintptr_t pc);
 
 /* hw/riscv/sifive_clint.c  - supplies instret by approximating */
-uint64_t cpu_riscv_read_instret(CPURISCVState *env);
 uint64_t cpu_riscv_read_rtc(void);
 
 target_ulong cpu_riscv_get_fflags(CPURISCVState *env);

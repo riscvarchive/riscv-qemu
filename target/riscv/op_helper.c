@@ -347,20 +347,22 @@ target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno)
     target_ulong ctr_en = env->priv == PRV_U ? env->mucounteren :
                    env->priv == PRV_S ? env->mscounteren : -1U;
 #else
-    target_ulong ctr_en = env->mucounteren;
+    target_ulong ctr_en = -1;
 #endif
     target_ulong ctr_ok = (ctr_en >> (csrno & 31)) & 1;
 
-    if (ctr_ok) {
-        if (csrno >= CSR_HPMCOUNTER3 && csrno <= CSR_HPMCOUNTER31) {
+    if (csrno >= CSR_HPMCOUNTER3 && csrno <= CSR_HPMCOUNTER31) {
+        if (ctr_ok) {
             return 0;
         }
-#if defined(TARGET_RISCV32)
-        if (csrno >= CSR_HPMCOUNTER3H && csrno <= CSR_HPMCOUNTER31H) {
-            return 0;
-        }
-#endif
     }
+#if defined(TARGET_RISCV32)
+    if (csrno >= CSR_HPMCOUNTER3H && csrno <= CSR_HPMCOUNTER31H) {
+        if (ctr_ok) {
+            return 0;
+        }
+    }
+#endif
     if (csrno >= CSR_MHPMCOUNTER3 && csrno <= CSR_MHPMCOUNTER31) {
         return 0;
     }
@@ -384,37 +386,47 @@ target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno)
         validate_mstatus_fs(env, GETPC());
         return (cpu_riscv_get_fflags(env) << FSR_AEXC_SHIFT
                 | env->frm << FSR_RD_SHIFT);
+
 #ifdef CONFIG_USER_ONLY
+    /* use cpu_get_host_ticks() for user emulation */
     case CSR_TIME:
-    case CSR_CYCLE:
-    case CSR_INSTRET:
-        return (target_ulong)cpu_get_host_ticks();
-    case CSR_TIMEH:
-    case CSR_CYCLEH:
-    case CSR_INSTRETH:
+        return cpu_get_host_ticks();
 #if defined(TARGET_RISCV32)
-        return (target_ulong)(cpu_get_host_ticks() >> 32);
+    case CSR_TIMEH:
+        return cpu_get_host_ticks() >> 32;
 #endif
-        break;
-#endif
-#ifndef CONFIG_USER_ONLY
+#else
+    /* use cpu_riscv_read_rtc() for system emulation */
     case CSR_TIME:
         return cpu_riscv_read_rtc();
+#if defined(TARGET_RISCV32)
     case CSR_TIMEH:
-        return (target_ulong)(cpu_riscv_read_rtc() >> 32);
+        return cpu_riscv_read_rtc() >> 32;
+#endif
+#endif
     case CSR_INSTRET:
     case CSR_CYCLE:
         if (ctr_ok) {
-            return cpu_riscv_read_instret(env);
+            return cpu_get_host_ticks();
         }
         break;
+#if defined(TARGET_RISCV32)
+    case CSR_INSTRETH:
+    case CSR_CYCLEH:
+        if (ctr_ok) {
+            return cpu_get_host_ticks() >> 32;
+        }
+        break;
+#endif
+
+#ifndef CONFIG_USER_ONLY
     case CSR_MINSTRET:
     case CSR_MCYCLE:
-        return cpu_riscv_read_instret(env);
+        return cpu_get_host_ticks();
     case CSR_MINSTRETH:
     case CSR_MCYCLEH:
 #if defined(TARGET_RISCV32)
-        return cpu_riscv_read_instret(env) >> 32;
+        return cpu_get_host_ticks() >> 32;
 #endif
         break;
     case CSR_MUCOUNTEREN:
