@@ -224,9 +224,6 @@ int cpu_riscv_signal_handler(int host_signum, void *pinfo, void *puc);
 void QEMU_NORETURN do_raise_exception_err(CPURISCVState *env,
                                           uint32_t exception, uintptr_t pc);
 
-/* hw/riscv/sifive_clint.c  - supplies instret by approximating */
-uint64_t cpu_riscv_read_rtc(void);
-
 target_ulong cpu_riscv_get_fflags(CPURISCVState *env);
 void cpu_riscv_set_fflags(CPURISCVState *env, target_ulong);
 

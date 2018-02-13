@@ -386,22 +386,13 @@ target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno)
         validate_mstatus_fs(env, GETPC());
         return (cpu_riscv_get_fflags(env) << FSR_AEXC_SHIFT
                 | env->frm << FSR_RD_SHIFT);
-
+    /* rdtime/rdtimeh is trapped and emulated by bbl in system mode */
 #ifdef CONFIG_USER_ONLY
-    /* use cpu_get_host_ticks() for user emulation */
     case CSR_TIME:
         return cpu_get_host_ticks();
 #if defined(TARGET_RISCV32)
     case CSR_TIMEH:
         return cpu_get_host_ticks() >> 32;
-#endif
-#else
-    /* use cpu_riscv_read_rtc() for system emulation */
-    case CSR_TIME:
-        return cpu_riscv_read_rtc();
-#if defined(TARGET_RISCV32)
-    case CSR_TIMEH:
-        return cpu_riscv_read_rtc() >> 32;
 #endif
 #endif
     case CSR_INSTRET:
@@ -418,7 +409,6 @@ target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno)
         }
         break;
 #endif
-
 #ifndef CONFIG_USER_ONLY
     case CSR_MINSTRET:
     case CSR_MCYCLE:

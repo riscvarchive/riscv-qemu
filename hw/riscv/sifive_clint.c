@@ -35,7 +35,7 @@
 /* See: riscv-pk/machine/sbi_entry.S and arch/riscv/kernel/time.c */
 #define TIMER_FREQ (10 * 1000 * 1000)
 
-uint64_t cpu_riscv_read_rtc(void)
+static uint64_t cpu_riscv_read_rtc(void)
 {
     return muldiv64(qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL), TIMER_FREQ,
                     NANOSECONDS_PER_SECOND);
