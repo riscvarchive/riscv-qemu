@@ -56,17 +56,7 @@ static int riscv_cpu_hw_interrupts_pending(CPURISCVState *env)
                           -s_enabled;
 
     if (enabled_interrupts) {
-        target_ulong counted = ctz64(enabled_interrupts); /* since non-zero */
-        if (counted == IRQ_X_HOST) {
-            /* we're handing it to the cpu now, so get rid of the qemu irq */
-            qemu_irq_lower(HTIF_IRQ);
-        } else if (counted == IRQ_M_TIMER) {
-            /* we're handing it to the cpu now, so get rid of the qemu irq */
-            qemu_irq_lower(MTIP_IRQ);
-        } else if (counted == IRQ_S_TIMER || counted == IRQ_H_TIMER) {
-            /* don't lower irq here */
-        }
-        return counted;
+        return ctz64(enabled_interrupts); /* since non-zero */
     } else {
         return EXCP_NONE; /* indicates no pending interrupt */
     }
