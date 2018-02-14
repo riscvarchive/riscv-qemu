@@ -202,7 +202,6 @@ static uint32_t sifive_plic_claim(SiFivePLICState *plic, uint32_t addrid)
     return 0;
 }
 
-/* CPU wants to read rtc or timecmp register */
 static uint64_t sifive_plic_read(void *opaque, hwaddr addr, unsigned size)
 {
     SiFivePLICState *plic = opaque;
@@ -275,7 +274,6 @@ err:
     return 0;
 }
 
-/* CPU wrote to rtc or timecmp register */
 static void sifive_plic_write(void *opaque, hwaddr addr, uint64_t value,
         unsigned size)
 {
