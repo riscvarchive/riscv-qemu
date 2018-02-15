@@ -6718,10 +6718,12 @@ case "$target_name" in
   riscv32)
     TARGET_BASE_ARCH=riscv
     TARGET_ABI_DIR=riscv
+    mttcg=yes
   ;;
   riscv64)
     TARGET_BASE_ARCH=riscv
     TARGET_ABI_DIR=riscv
+    mttcg=yes
   ;;
   sh4|sh4eb)
     TARGET_ARCH=sh4
