@@ -146,30 +146,21 @@ void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
         break;
     }
     case CSR_MIP: {
-        target_ulong mask = MIP_SSIP | MIP_STIP | MIP_SEIP;
-        qemu_mutex_lock_iothread();
         /*
          * Since the writeable bits in MIP are not set asynchrously by the
          * CLINT, no additional locking is needed for read-modifiy-write
          * CSR operations
          */
-        env->mip = (env->mip & ~mask) |
-            (val_to_write & mask);
-        if (env->mip & MIP_SSIP) {
-            qemu_irq_raise(SSIP_IRQ);
-        } else {
-            qemu_irq_lower(SSIP_IRQ);
-        }
-        if (env->mip & MIP_STIP) {
-            qemu_irq_raise(STIP_IRQ);
-        } else {
-            qemu_irq_lower(STIP_IRQ);
-        }
-        if (env->mip & MIP_SEIP) {
-            qemu_irq_raise(SEIP_IRQ);
-        } else {
-            qemu_irq_lower(SEIP_IRQ);
-        }
+        qemu_mutex_lock_iothread();
+        RISCVCPU *cpu = riscv_env_get_cpu(env);
+        riscv_set_local_interrupt(cpu, MIP_SSIP,
+                                  (val_to_write & MIP_SSIP) != 0);
+        riscv_set_local_interrupt(cpu, MIP_STIP,
+                                  (val_to_write & MIP_STIP) != 0);
+        /*
+         * csrs, csrc on mip.SEIP is not decomposable into separate read and
+         * write steps, so a different implementation is needed
+         */
         qemu_mutex_unlock_iothread();
         break;
     }
@@ -578,6 +569,19 @@ target_ulong helper_csrrc(CPURISCVState *env, target_ulong src,
 }
 
 #ifndef CONFIG_USER_ONLY
+
+/* iothread_mutex must be held */
+void riscv_set_local_interrupt(RISCVCPU *cpu, target_ulong mask, int value)
+{
+    target_ulong old_mip = cpu->env.mip;
+    cpu->env.mip = (old_mip & ~mask) | (value ? mask : 0);
+
+    if (cpu->env.mip && !old_mip) {
+        cpu_interrupt(CPU(cpu), CPU_INTERRUPT_HARD);
+    } else if (!cpu->env.mip && old_mip) {
+        cpu_reset_interrupt(CPU(cpu), CPU_INTERRUPT_HARD);
+    }
+}
 
 void riscv_set_mode(CPURISCVState *env, target_ulong newpriv)
 {

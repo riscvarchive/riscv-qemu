@@ -173,7 +173,8 @@ static void riscv_cpu_dump_state(CPUState *cs, FILE *f,
 #ifndef CONFIG_USER_ONLY
     cpu_fprintf(f, " %s " TARGET_FMT_lx "\n", "MSTATUS ",
                 env->mstatus);
-    cpu_fprintf(f, " %s " TARGET_FMT_lx "\n", "MIP     ", env->mip);
+    target_ulong mip = atomic_read(&env->mip);
+    cpu_fprintf(f, " %s " TARGET_FMT_lx "\n", "MIP     ", mip);
     cpu_fprintf(f, " %s " TARGET_FMT_lx "\n", "MIE     ", env->mie);
 #endif
 

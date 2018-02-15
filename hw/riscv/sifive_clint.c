@@ -41,78 +41,42 @@ static uint64_t cpu_riscv_read_rtc(void)
                     NANOSECONDS_PER_SECOND);
 }
 
-static void sifive_clint_irq_request(void *opaque, int irq, int level)
-{
-    /* These are not the same irq numbers visible to the emulated processor. */
-    RISCVCPU *cpu = opaque;
-    CPURISCVState *env = &cpu->env;
-    CPUState *cs = CPU(cpu);
-
-    /* The CLINT currently uses irq 0 */
-
-    if (level) {
-        cpu_interrupt(cs, CPU_INTERRUPT_HARD);
-    } else {
-        if (!env->mip) {
-            /* no interrupts pending, no host interrupt for HTIF, reset */
-            cpu_reset_interrupt(cs, CPU_INTERRUPT_HARD);
-        }
-    }
-}
-
 /*
  * Called when timecmp is written to update the QEMU timer or immediately
  * trigger timer interrupt if mtimecmp <= current timer value.
  */
-static void sifive_clint_timer_update(CPURISCVState *env)
+static void sifive_clint_write_timecmp(RISCVCPU *cpu, uint64_t value)
 {
     uint64_t next;
     uint64_t diff;
 
     uint64_t rtc_r = cpu_riscv_read_rtc();
 
-    if (env->timecmp <= rtc_r) {
+    cpu->env.timecmp = value;
+    if (cpu->env.timecmp <= rtc_r) {
         /* if we're setting an MTIMECMP value in the "past",
            immediately raise the timer interrupt */
-        env->mip |= MIP_MTIP;
-        qemu_irq_raise(env->irq[3]);
+        riscv_set_local_interrupt(cpu, MIP_MTIP, 1);
         return;
     }
 
     /* otherwise, set up the future timer interrupt */
-    diff = env->timecmp - rtc_r;
+    riscv_set_local_interrupt(cpu, MIP_MTIP, 0);
+    diff = cpu->env.timecmp - rtc_r;
     /* back to ns (note args switched in muldiv64) */
     next = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) +
         muldiv64(diff, NANOSECONDS_PER_SECOND, TIMER_FREQ);
-    timer_mod(env->timer, next);
-}
-
-/*
- * Called by the callback used when the timer set using timer_mod expires.
- * Should raise the timer interrupt line
- */
-static void sifive_clint_timer_expire(CPURISCVState *env)
-{
-    /* do not call update here */
-    env->mip |= MIP_MTIP;
-    qemu_irq_raise(env->irq[3]);
-}
-
-static void sifive_clint_write_timecmp(CPURISCVState *env, uint64_t value)
-{
-    env->timecmp = value;
-    env->mip &= ~MIP_MTIP;
-    sifive_clint_timer_update(env);
+    timer_mod(cpu->env.timer, next);
 }
 
 /*
  * Callback used when the timer set using timer_mod expires.
+ * Should raise the timer interrupt line
  */
 static void sifive_clint_timer_cb(void *opaque)
 {
-    CPURISCVState *env;
-    env = opaque;
-    sifive_clint_timer_expire(env);
+    RISCVCPU *cpu = opaque;
+    riscv_set_local_interrupt(cpu, MIP_MTIP, 1);
 }
 
 /* CPU wants to read rtc or timecmp register */
@@ -177,13 +141,7 @@ static void sifive_clint_write(void *opaque, hwaddr addr, uint64_t value,
         if (!env) {
             error_report("clint: invalid timecmp hartid: %zu", hartid);
         } else if ((addr & 0x3) == 0) {
-            if (value) {
-                env->mip |= MIP_MSIP;
-                qemu_irq_raise(env->irq[2]);
-            } else {
-                env->mip &= ~MIP_MSIP;
-                qemu_irq_lower(env->irq[2]);
-            }
+            riscv_set_local_interrupt(RISCV_CPU(cpu), MIP_MSIP, value != 0);
         } else {
             error_report("clint: invalid sip write: %08x", (uint32_t)addr);
         }
@@ -198,13 +156,13 @@ static void sifive_clint_write(void *opaque, hwaddr addr, uint64_t value,
         } else if ((addr & 0x7) == 0) {
             /* timecmp_lo */
             uint64_t timecmp = env->timecmp;
-            sifive_clint_write_timecmp(env,
+            sifive_clint_write_timecmp(RISCV_CPU(cpu),
                 timecmp << 32 | (value & 0xFFFFFFFF));
             return;
         } else if ((addr & 0x7) == 4) {
             /* timecmp_hi */
             uint64_t timecmp = env->timecmp;
-            sifive_clint_write_timecmp(env,
+            sifive_clint_write_timecmp(RISCV_CPU(cpu),
                 value << 32 | (timecmp & 0xFFFFFFFF));
         } else {
             error_report("clint: invalid timecmp write: %08x", (uint32_t)addr);
@@ -278,19 +236,15 @@ type_init(sifive_clint_register_types)
 DeviceState *sifive_clint_create(hwaddr addr, hwaddr size, uint32_t num_harts,
     uint32_t sip_base, uint32_t timecmp_base, uint32_t time_base)
 {
-    int i, j;
+    int i;
     for (i = 0; i < num_harts; i++) {
         CPUState *cpu = qemu_get_cpu(i);
         CPURISCVState *env = cpu ? cpu->env_ptr : NULL;
         if (!env) {
             continue;
         }
-        for (j = 0; j < MAX_RISCV_IRQ; j++) {
-            env->irq[j] = qemu_allocate_irq(sifive_clint_irq_request,
-                riscv_env_get_cpu(env), 0 /* irq 0 */);
-        }
         env->timer = timer_new_ns(QEMU_CLOCK_VIRTUAL,
-                                  &sifive_clint_timer_cb, env);
+                                  &sifive_clint_timer_cb, cpu);
         env->timecmp = 0;
     }
 
