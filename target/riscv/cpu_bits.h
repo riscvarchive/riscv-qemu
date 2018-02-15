@@ -347,7 +347,6 @@
 #define IRQ_H_EXT       10 /* until: priv-1.9.1 */
 #define IRQ_M_EXT       11 /* until: priv-1.9.1 */
 #define IRQ_X_COP       12 /* non-standard */
-#define IRQ_X_HOST      13 /* non-standard */
 
 /* Default addresses */
 #define DEFAULT_RSTVEC     0x00001000

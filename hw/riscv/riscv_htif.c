@@ -93,7 +93,6 @@ static void htif_recv(void *opaque, const uint8_t *buf, int size)
     uint64_t resp = 0x100 | *buf;
 
     htifstate->env->mfromhost = (val_written >> 48 << 48) | (resp << 16 >> 16);
-    qemu_irq_raise(htifstate->irq);
 }
 
 /*
@@ -230,10 +229,6 @@ static void htif_handle_tohost_write(HTIFState *htifstate, uint64_t val_written)
     */
     htifstate->env->mfromhost = (val_written >> 48 << 48) | (resp << 16 >> 16);
     htifstate->env->mtohost = 0; /* clear to indicate we read */
-    if (htifstate->env->mfromhost != 0) {
-        /* raise HTIF interrupt */
-        qemu_irq_raise(htifstate->irq);
-    }
 }
 
 #define TOHOST_OFFSET1 (htifstate->tohost_offset)
@@ -282,9 +277,6 @@ static void htif_mm_write(void *opaque, hwaddr addr,
         htifstate->env->mfromhost = value & 0xFFFFFFFF;
     } else if (addr == FROMHOST_OFFSET2) {
         htifstate->env->mfromhost |= value << 32;
-        if (htifstate->env->mfromhost == 0x0) {
-            qemu_irq_lower(htifstate->irq);
-        }
         htifstate->fromhost_inprogress = 0;
     } else {
         qemu_log("Invalid htif write: address %016" PRIx64,
@@ -297,8 +289,7 @@ static const MemoryRegionOps htif_mm_ops = {
     .write = htif_mm_write,
 };
 
-HTIFState *htif_mm_init(MemoryRegion *address_space,
-    qemu_irq irq, MemoryRegion *main_mem,
+HTIFState *htif_mm_init(MemoryRegion *address_space, MemoryRegion *main_mem,
     CPURISCVState *env, Chardev *chr)
 {
     uint64_t base = MIN(tohost_addr, fromhost_addr);
@@ -307,7 +298,6 @@ HTIFState *htif_mm_init(MemoryRegion *address_space,
     uint64_t fromhost_offset = fromhost_addr - base;
 
     HTIFState *s = g_malloc0(sizeof(HTIFState));
-    s->irq = irq;
     s->address_space = address_space;
     s->main_mem = main_mem;
     s->main_mem_ram_ptr = memory_region_get_ram_ptr(main_mem);

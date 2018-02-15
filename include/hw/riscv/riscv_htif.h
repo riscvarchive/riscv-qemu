@@ -40,7 +40,6 @@ typedef struct HTIFState {
     hwaddr fromhost_offset;
     uint64_t tohost_size;
     uint64_t fromhost_size;
-    qemu_irq irq; /* host interrupt line */
     MemoryRegion mmio;
     MemoryRegion *address_space;
     MemoryRegion *main_mem;
@@ -59,8 +58,7 @@ void htif_symbol_callback(const char *st_name, int st_info, uint64_t st_value,
     uint64_t st_size);
 
 /* legacy pre qom */
-HTIFState *htif_mm_init(MemoryRegion *address_space,
-    qemu_irq irq, MemoryRegion *main_mem,
+HTIFState *htif_mm_init(MemoryRegion *address_space, MemoryRegion *main_mem,
     CPURISCVState *env, Chardev *chr);
 
 #endif

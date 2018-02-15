@@ -53,7 +53,7 @@ static void sifive_clint_irq_request(void *opaque, int irq, int level)
     if (level) {
         cpu_interrupt(cs, CPU_INTERRUPT_HARD);
     } else {
-        if (!env->mip && !env->mfromhost) {
+        if (!env->mip) {
             /* no interrupts pending, no host interrupt for HTIF, reset */
             cpu_reset_interrupt(cs, CPU_INTERRUPT_HARD);
         }
