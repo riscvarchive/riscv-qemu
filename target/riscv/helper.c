@@ -174,7 +174,11 @@ static int get_physical_address(CPURISCVState *env, hwaddr *physical,
 
         /* check that physical address of PTE is legal */
         target_ulong pte_addr = base + idx * ptesize;
+#if defined (TARGET_RISCV32)
+        target_ulong pte = ldl_phys(cs->as, pte_addr);
+#elif defined (TARGET_RISCV64)
         target_ulong pte = ldq_phys(cs->as, pte_addr);
+#endif
         target_ulong ppn = pte >> PTE_PPN_SHIFT;
 
         if (PTE_TABLE(pte)) { /* next level of page table */
@@ -194,7 +198,11 @@ static int get_physical_address(CPURISCVState *env, hwaddr *physical,
             if (updated_pte != pte) {
                 pte = updated_pte;
                 /* NOTE: this should be atomic e.g. use cmpxchg */
+#if defined (TARGET_RISCV32)
+                stl_phys(cs->as, pte_addr, pte);
+#elif defined (TARGET_RISCV64)
                 stq_phys(cs->as, pte_addr, pte);
+#endif
             }
 
             /* for superpage mappings, make a fake leaf PTE for the TLB's
