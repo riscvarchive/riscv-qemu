@@ -13,6 +13,8 @@
 #define TARGET_VIRT_ADDR_SPACE_BITS 32
 #endif
 
+#define TCG_GUEST_DEFAULT_MO 0
+
 #define ELF_MACHINE EM_RISCV
 #define CPUArchState struct CPURISCVState
 
@@ -59,15 +61,6 @@
 #define NB_MMU_MODES 4
 #define MMU_USER_IDX 3
 
-#define SSIP_IRQ (env->irq[0])
-#define STIP_IRQ (env->irq[1])
-#define MSIP_IRQ (env->irq[2])
-#define MTIP_IRQ (env->irq[3])
-#define HTIF_IRQ (env->irq[4])
-#define SEIP_IRQ (env->irq[5])
-#define MEIP_IRQ (env->irq[6])
-
-#define MAX_RISCV_IRQ (8)
 #define MAX_RISCV_PMPS (16)
 
 typedef struct CPURISCVState CPURISCVState;
@@ -94,6 +87,12 @@ struct CPURISCVState {
 
     target_ulong mhartid;
     target_ulong mstatus;
+    /*
+     * CAUTION! Unlike the rest of this struct, mip is accessed asynchonously
+     * by I/O threads and other vCPUs, so hold the iothread mutex before
+     * operating on it.  CPU_INTERRUPT_HARD should be in effect iff this is
+     * non-zero.  Use riscv_cpu_set_local_interrupt.
+     */
     target_ulong mip;
     target_ulong mie;
     target_ulong mideleg;
@@ -136,7 +135,6 @@ struct CPURISCVState {
     CPU_COMMON
 
     /* Fields from here on are preserved across CPU reset. */
-    qemu_irq irq[8];
     QEMUTimer *timer; /* Internal timer */
 };
 
@@ -245,6 +243,10 @@ static inline void cpu_get_tb_cpu_state(CPURISCVState *env, target_ulong *pc,
 void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
         target_ulong csrno);
 target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno);
+
+#ifndef CONFIG_USER_ONLY
+void riscv_set_local_interrupt(RISCVCPU *cpu, target_ulong mask, int value);
+#endif
 
 #include "exec/cpu-all.h"
 

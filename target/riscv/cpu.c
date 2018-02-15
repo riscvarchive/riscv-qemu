@@ -173,7 +173,8 @@ static void riscv_cpu_dump_state(CPUState *cs, FILE *f,
 #ifndef CONFIG_USER_ONLY
     cpu_fprintf(f, " %s " TARGET_FMT_lx "\n", "MSTATUS ",
                 env->mstatus);
-    cpu_fprintf(f, " %s " TARGET_FMT_lx "\n", "MIP     ", env->mip);
+    target_ulong mip = atomic_read(&env->mip);
+    cpu_fprintf(f, " %s " TARGET_FMT_lx "\n", "MIP     ", mip);
     cpu_fprintf(f, " %s " TARGET_FMT_lx "\n", "MIE     ", env->mie);
 #endif
 
@@ -205,7 +206,13 @@ static void riscv_cpu_synchronize_from_tb(CPUState *cs, TranslationBlock *tb)
 
 static bool riscv_cpu_has_work(CPUState *cs)
 {
-    return cs->interrupt_request & CPU_INTERRUPT_HARD;
+    RISCVCPU *cpu = RISCV_CPU(cs);
+    CPURISCVState *env = &cpu->env;
+    /*
+     * Definition of the WFI instruction requires it to ignore the privilege
+     * mode and delegation registers, but respect individual enables
+     */
+    return (atomic_read(&env->mip) & env->mie) != 0;
 }
 
 void restore_state_to_opc(CPURISCVState *env, TranslationBlock *tb,

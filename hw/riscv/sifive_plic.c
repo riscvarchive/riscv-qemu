@@ -145,61 +145,19 @@ static void sifive_plic_update(SiFivePLICState *plic)
         PLICMode mode = plic->addr_config[addrid].mode;
         CPUState *cpu = qemu_get_cpu(hartid);
         CPURISCVState *env = cpu ? cpu->env_ptr : NULL;
-        int count = 0;
         if (!env) {
             continue;
         }
-        if (sifive_plic_num_irqs_pending(plic, addrid) > 0) {
-            switch (mode) {
-            case PLICMode_M:
-                if ((env->mip & MIP_MEIP) == 0) {
-                    env->mip |= MIP_MEIP;
-                    count++;
-                    if (RISCV_DEBUG_PLIC) {
-                        printf("sifive_plic_update: RAISE hart%d-%c\n",
-                            hartid, mode_to_char(mode));
-                    }
-                }
-                break;
-            case PLICMode_S:
-                if ((env->mip & MIP_SEIP) == 0) {
-                    env->mip |= MIP_SEIP;
-                    count++;
-                    if (RISCV_DEBUG_PLIC) {
-                        printf("sifive_plic_update: RAISE hart%d-%c\n",
-                            hartid, mode_to_char(mode));
-                    }
-                }
-                break;
-            default:
-                break;
-            }
-        } else {
-            switch (mode) {
-            case PLICMode_M:
-                if (env->mip & MIP_MEIP) {
-                    env->mip &= ~MIP_MEIP;
-                    if (RISCV_DEBUG_PLIC) {
-                        printf("sifive_plic_update: LOWER hart%d-%c\n",
-                            hartid, mode_to_char(mode));
-                    }
-                }
-                break;
-            case PLICMode_S:
-                if (env->mip & MIP_SEIP) {
-                    env->mip &= ~MIP_SEIP;
-                    if (RISCV_DEBUG_PLIC) {
-                        printf("sifive_plic_update: LOWER hart%d-%c\n",
-                            hartid, mode_to_char(mode));
-                    }
-                }
-                break;
-            default:
-                break;
-            }
-        }
-        if (count > 0) {
-            cpu_interrupt(cpu, CPU_INTERRUPT_HARD);
+        int level = sifive_plic_num_irqs_pending(plic, addrid) > 0;
+        switch (mode) {
+        case PLICMode_M:
+            riscv_set_local_interrupt(RISCV_CPU(cpu), MIP_MEIP, level);
+            break;
+        case PLICMode_S:
+            riscv_set_local_interrupt(RISCV_CPU(cpu), MIP_SEIP, level);
+            break;
+        default:
+            break;
         }
     }
 
