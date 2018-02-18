@@ -217,6 +217,10 @@ restart:
                     } else {
                         pte = updated_pte;
                     }
+                } else {
+                    /* misconfigured PTE in ROM (AD bits are not preset) or
+                     * PTE is in IO space and can't be updated atomically */
+                    return TRANSLATE_FAIL;
                 }
             }
 
