@@ -206,6 +206,7 @@ static void riscv_cpu_synchronize_from_tb(CPUState *cs, TranslationBlock *tb)
 
 static bool riscv_cpu_has_work(CPUState *cs)
 {
+#ifndef CONFIG_USER_ONLY
     RISCVCPU *cpu = RISCV_CPU(cs);
     CPURISCVState *env = &cpu->env;
     /*
@@ -213,6 +214,9 @@ static bool riscv_cpu_has_work(CPUState *cs)
      * mode and delegation registers, but respect individual enables
      */
     return (atomic_read(&env->mip) & env->mie) != 0;
+#else
+    return true;
+#endif
 }
 
 void restore_state_to_opc(CPURISCVState *env, TranslationBlock *tb,
