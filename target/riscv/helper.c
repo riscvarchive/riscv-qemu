@@ -195,14 +195,28 @@ static int get_physical_address(CPURISCVState *env, hwaddr *physical,
             /* if necessary, set accessed and dirty bits. */
             target_ulong updated_pte = pte | PTE_A |
                 (access_type == MMU_DATA_STORE ? PTE_D : 0);
-            if (updated_pte != pte) {
+            /*
+             * Per spec, the permissions check and setting of dirty and
+             * accessed bits needs to be atomic as viewed from other harts.
+             * This is easy enough to arrange when running harts sequentially,
+             * but if we are running harts in parallel we would need to use an
+             * atomic compare-and-swap here.
+             *
+             * Since there is no implemented atomic version of stq_phys, bail
+             * out and require the guest kernel to perform the dirty page
+             * fixup.  This is suboptimal but permitted.
+             */
+            if (updated_pte != pte && !qemu_tcg_mttcg_enabled()) {
                 pte = updated_pte;
-                /* NOTE: this should be atomic e.g. use cmpxchg */
 #if defined (TARGET_RISCV32)
                 stl_phys(cs->as, pte_addr, pte);
 #elif defined (TARGET_RISCV64)
                 stq_phys(cs->as, pte_addr, pte);
 #endif
+            }
+
+            if (!(pte & PTE_A)) {
+                return TRANSLATE_FAIL;
             }
 
             /* for superpage mappings, make a fake leaf PTE for the TLB's
@@ -216,11 +230,10 @@ static int get_physical_address(CPURISCVState *env, hwaddr *physical,
             if ((pte & PTE_X)) {
                 *prot |= PAGE_EXEC;
             }
-           /* only add write permission on stores or if the page
-              is already dirty, so that we don't miss further
-              page table walks to update the dirty bit */
-            if ((pte & PTE_W) &&
-                    (access_type == MMU_DATA_STORE || (pte & PTE_D))) {
+           /* only add write permission if the page is already or has just
+              become dirty, so that we don't miss further page table walks to
+              update the dirty bit */
+            if ((pte & PTE_W) && (pte & PTE_D)) {
                 *prot |= PAGE_WRITE;
             }
             return TRANSLATE_SUCCESS;
