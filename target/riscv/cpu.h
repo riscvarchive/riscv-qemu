@@ -93,7 +93,7 @@ struct CPURISCVState {
      * operating on it.  CPU_INTERRUPT_HARD should be in effect iff this is
      * non-zero.  Use riscv_cpu_set_local_interrupt.
      */
-    target_ulong mip;
+    uint32_t mip;        /* allow atomic_read for >= 32-bit hosts */
     target_ulong mie;
     target_ulong mideleg;
 
