@@ -44,7 +44,7 @@ int riscv_cpu_mmu_index(CPURISCVState *env, bool ifetch)
  */
 static int riscv_cpu_hw_interrupts_pending(CPURISCVState *env)
 {
-    target_ulong pending_interrupts = atomic_read(&env->mip) & env->mie;
+    target_ulong pending_interrupts = env->mip & env->mie;
 
     target_ulong mie = get_field(env->mstatus, MSTATUS_MIE);
     target_ulong m_enabled = env->priv < PRV_M || (env->priv == PRV_M && mie);
