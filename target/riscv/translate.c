@@ -1330,6 +1330,16 @@ static void gen_system(DisasContext *ctx, uint32_t opc,
     tcg_gen_movi_tl(rs1_pass, rs1);
     tcg_gen_movi_tl(csr_store, csr); /* copy into temp reg to feed to helper */
 
+#ifndef CONFIG_USER_ONLY
+    /* Extract funct7 value and check whether it matches SFENCE.VMA */
+    if ((opc == OPC_RISC_ECALL) && ((csr >> 5) == 9)) {
+        /* sfence.vma */
+        /* TODO: handle ASID specific fences */
+        gen_helper_tlb_flush(cpu_env);
+        return;
+    }
+#endif
+
     switch (opc) {
     case OPC_RISC_ECALL:
         switch (csr) {
@@ -1369,10 +1379,6 @@ static void gen_system(DisasContext *ctx, uint32_t opc,
             gen_helper_wfi(cpu_env);
             break;
         case 0x104: /* SFENCE.VM */
-            gen_helper_tlb_flush(cpu_env);
-            break;
-        case 0x120: /* SFENCE.VMA */
-            /* TODO: handle ASID specific fences */
             gen_helper_tlb_flush(cpu_env);
             break;
 #endif
