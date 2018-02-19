@@ -22,6 +22,7 @@
 #include "qemu/log.h"
 #include "cpu.h"
 #include "exec/exec-all.h"
+#include "tcg-op.h"
 
 #define RISCV_DEBUG_INTERRUPT 0
 
@@ -168,6 +169,10 @@ static int get_physical_address(CPURISCVState *env, hwaddr *physical,
 
     int ptshift = (levels - 1) * ptidxbits;
     int i;
+
+#if !TCG_OVERSIZED_GUEST
+restart:
+#endif
     for (i = 0; i < levels; i++, ptshift -= ptidxbits) {
         target_ulong idx = (addr >> (PGSHIFT + ptshift)) &
                            ((1 << ptidxbits) - 1);
@@ -195,14 +200,39 @@ static int get_physical_address(CPURISCVState *env, hwaddr *physical,
             /* if necessary, set accessed and dirty bits. */
             target_ulong updated_pte = pte | PTE_A |
                 (access_type == MMU_DATA_STORE ? PTE_D : 0);
+
+            /* Page table updates need to be atomic with MTTCG enabled */
             if (updated_pte != pte) {
-                pte = updated_pte;
-                /* NOTE: this should be atomic e.g. use cmpxchg */
-#if defined (TARGET_RISCV32)
-                stl_phys(cs->as, pte_addr, pte);
-#elif defined (TARGET_RISCV64)
-                stq_phys(cs->as, pte_addr, pte);
+                /* if accessed or dirty bits need updating, and the PTE is
+                 * in RAM, then we do so atomically with a compare and swap.
+                 * if the PTE is in IO space, then it can't be updated.
+                 * if the PTE changed, then we must re-walk the page table
+                   as the PTE is no longer valid */
+                MemoryRegion *mr;
+                hwaddr l = sizeof(target_ulong), addr1;
+                mr = address_space_translate(cs->as, pte_addr,
+                    &addr1, &l, false);
+                if (memory_access_is_direct(mr, true)) {
+                    target_ulong *pte_pa =
+                        qemu_map_ram_ptr(mr->ram_block, addr1);
+#if TCG_OVERSIZED_GUEST
+                    /* MTTCG is not enabled on oversized TCG guests so
+                     * page table updates do not need to be atomic */
+                    *pte_pa = pte = updated_pte;
+#else
+                    target_ulong old_pte =
+                        atomic_cmpxchg(pte_pa, pte, updated_pte);
+                    if (old_pte != pte) {
+                        goto restart;
+                    } else {
+                        pte = updated_pte;
+                    }
 #endif
+                } else {
+                    /* misconfigured PTE in ROM (AD bits are not preset) or
+                     * PTE is in IO space and can't be updated atomically */
+                    return TRANSLATE_FAIL;
+                }
             }
 
             /* for superpage mappings, make a fake leaf PTE for the TLB's
