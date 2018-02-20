@@ -78,7 +78,35 @@ static uint64_t load_kernel(const char *kernel_filename)
     return kernel_entry;
 }
 
-static void create_fdt(RISCVVirtState *s, const struct MemmapEntry *memmap,
+static hwaddr load_initrd(const char *filename, uint64_t mem_size,
+                          uint64_t kernel_entry, hwaddr *start)
+{
+    int size;
+
+    /* We want to put the initrd far enough into RAM that when the
+     * kernel is uncompressed it will not clobber the initrd. However
+     * on boards without much RAM we must ensure that we still leave
+     * enough room for a decent sized initrd, and on boards with large
+     * amounts of RAM we must avoid the initrd being so far up in RAM
+     * that it is outside lowmem and inaccessible to the kernel.
+     * So for boards with less  than 256MB of RAM we put the initrd
+     * halfway into RAM, and for boards with 256MB of RAM or more we put
+     * the initrd at 128MB.
+     */
+    *start = kernel_entry + MIN(mem_size / 2, 128 * 1024 * 1024);
+
+    size = load_ramdisk(filename, *start, mem_size - *start);
+    if (size == -1) {
+        size = load_image_targphys(filename, *start, mem_size - *start);
+        if (size == -1) {
+          error_report("qemu: could not load ramdisk '%s'", filename);
+          exit(1);
+        }
+    }
+    return *start + size;
+}
+
+static void *create_fdt(RISCVVirtState *s, const struct MemmapEntry *memmap,
     uint64_t mem_size, const char *cmdline)
 {
     void *fdt;
@@ -234,6 +262,8 @@ static void create_fdt(RISCVVirtState *s, const struct MemmapEntry *memmap,
     qemu_fdt_setprop_string(fdt, "/chosen", "stdout-path", nodename);
     qemu_fdt_setprop_string(fdt, "/chosen", "bootargs", cmdline);
     g_free(nodename);
+
+    return fdt;
 }
 
 static void riscv_virt_board_init(MachineState *machine)
@@ -247,6 +277,7 @@ static void riscv_virt_board_init(MachineState *machine)
     char *plic_hart_config;
     size_t plic_hart_config_len;
     int i;
+    void *fdt;
 
     /* Initialize SOC */
     object_initialize(&s->soc, sizeof(s->soc), TYPE_RISCV_HART_ARRAY);
@@ -266,7 +297,7 @@ static void riscv_virt_board_init(MachineState *machine)
         main_mem);
 
     /* create device tree */
-    create_fdt(s, memmap, machine->ram_size, machine->kernel_cmdline);
+    fdt = create_fdt(s, memmap, machine->ram_size, machine->kernel_cmdline);
 
     /* boot rom */
     memory_region_init_ram(boot_rom, NULL, "riscv_virt_board.bootrom",
@@ -274,7 +305,18 @@ static void riscv_virt_board_init(MachineState *machine)
     memory_region_add_subregion(system_memory, 0x0, boot_rom);
 
     if (machine->kernel_filename) {
-        load_kernel(machine->kernel_filename);
+        uint64_t kernel_entry = load_kernel(machine->kernel_filename);
+
+        if (machine->initrd_filename) {
+            hwaddr start;
+            hwaddr end = load_initrd(machine->initrd_filename,
+                                     machine->ram_size, kernel_entry,
+                                     &start);
+            qemu_fdt_setprop_cell(fdt, "/chosen",
+                                  "linux,initrd-start", start);
+            qemu_fdt_setprop_cell(fdt, "/chosen", "linux,initrd-end",
+                                  end);
+        }
     }
 
     /* reset vector */
