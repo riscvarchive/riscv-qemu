@@ -26,15 +26,21 @@
 /* #define DEBUG_OP */
 /* #define RISCV_DEBUG_PRINT */
 
-#define TYPE_RISCV_CPU                    "riscv"
-#define TYPE_RISCV_CPU_ANY                "riscv-any"
-#define TYPE_RISCV_CPU_IMAFDCSU_PRIV_1_09 "riscv-imafdcsu-priv1.9"
-#define TYPE_RISCV_CPU_IMAFDCSU_PRIV_1_10 "riscv-imafdcsu-priv1.10"
-#define TYPE_RISCV_CPU_IMACU_PRIV_1_10    "riscv-imacu-priv1.10"
-#define TYPE_RISCV_CPU_IMAC_PRIV_1_10     "riscv-imac-priv1.10"
+#define TYPE_RISCV_CPU "riscv-cpu"
 
-#define RISCV_CPU_TYPE_PREFIX TYPE_RISCV_CPU "-"
-#define RISCV_CPU_TYPE_NAME(name) (RISCV_CPU_TYPE_PREFIX name)
+#define RISCV_CPU_TYPE_SUFFIX "-" TYPE_RISCV_CPU
+#define RISCV_CPU_TYPE_NAME(name) (RISCV_CPU_TYPE_SUFFIX name)
+
+#define TYPE_RISCV_CPU_ANY \
+    RISCV_CPU_TYPE_NAME("any")
+#define TYPE_RISCV_CPU_IMAFDCSU_PRIV_1_09 \
+    RISCV_CPU_TYPE_NAME("generic-imafdcsu-1.9.1")
+#define TYPE_RISCV_CPU_IMAFDCSU_PRIV_1_10 \
+    RISCV_CPU_TYPE_NAME("generic-imafdcsu")
+#define TYPE_RISCV_CPU_IMACU_PRIV_1_10 \
+    RISCV_CPU_TYPE_NAME("generic-imacu")
+#define TYPE_RISCV_CPU_IMAC_PRIV_1_10 \
+    RISCV_CPU_TYPE_NAME("generic-imac")
 
 #if defined(TARGET_RISCV32)
 #define RVXLEN  ((target_ulong)1 << (TARGET_LONG_BITS - 2))
