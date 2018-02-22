@@ -23,9 +23,6 @@
 #include "exec/cpu-defs.h"
 #include "fpu/softfloat.h"
 
-/* #define DEBUG_OP */
-/* #define RISCV_DEBUG_PRINT */
-
 #define TYPE_RISCV_CPU "riscv-cpu"
 
 #define RISCV_CPU_TYPE_SUFFIX "-" TYPE_RISCV_CPU

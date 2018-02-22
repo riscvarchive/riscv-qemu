@@ -90,11 +90,6 @@ static void validate_mstatus_fs(CPURISCVState *env, uintptr_t ra)
 void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
         target_ulong csrno)
 {
-    #ifdef RISCV_DEBUG_PRINT
-    qemu_log_mask(LOG_TRACE, "Write CSR reg: 0x" TARGET_FMT_lx, csrno);
-    qemu_log_mask(LOG_TRACE, "Write CSR val: 0x" TARGET_FMT_lx, val_to_write);
-    #endif
-
 #ifndef CONFIG_USER_ONLY
     uint64_t delegable_ints = MIP_SSIP | MIP_STIP | MIP_SEIP | (1 << IRQ_X_COP);
     uint64_t all_ints = delegable_ints | MIP_MSIP | MIP_MTIP;
@@ -337,10 +332,6 @@ void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
  */
 target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno)
 {
-    #ifdef RISCV_DEBUG_PRINT
-    qemu_log_mask(LOG_TRACE, "Read CSR reg: 0x" TARGET_FMT_lx, csrno);
-    #endif
-
 #ifndef CONFIG_USER_ONLY
     target_ulong ctr_en = env->priv == PRV_U ? env->mucounteren :
                    env->priv == PRV_S ? env->mscounteren : -1U;
