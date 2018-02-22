@@ -82,7 +82,6 @@ typedef struct RISCVCPUInfo {
     void (*initfn)(Object *obj);
 } RISCVCPUInfo;
 
-#ifdef CONFIG_USER_ONLY
 static void riscv_any_cpu_init(Object *obj)
 {
     CPURISCVState *env = &RISCV_CPU(obj)->env;
@@ -90,7 +89,7 @@ static void riscv_any_cpu_init(Object *obj)
     env->user_ver = USER_VERSION_2_02_0;
     env->priv_ver = PRIV_VERSION_1_10_0;
 }
-#else
+
 static void riscv_imafdcsu_priv1_9_cpu_init(Object *obj)
 {
     CPURISCVState *env = &RISCV_CPU(obj)->env;
@@ -122,17 +121,13 @@ static void riscv_imac_priv1_10_cpu_init(Object *obj)
     env->user_ver = USER_VERSION_2_02_0;
     env->priv_ver = PRIV_VERSION_1_10_0;
 }
-#endif
 
 static const RISCVCPUInfo riscv_cpus[] = {
-#ifdef CONFIG_USER_ONLY
     { TYPE_RISCV_CPU_ANY,                riscv_any_cpu_init },
-#else
     { TYPE_RISCV_CPU_IMAFDCSU_PRIV_1_09, riscv_imafdcsu_priv1_9_cpu_init },
     { TYPE_RISCV_CPU_IMAFDCSU_PRIV_1_10, riscv_imafdcsu_priv1_10_cpu_init },
     { TYPE_RISCV_CPU_IMACU_PRIV_1_10,    riscv_imacu_priv1_10_cpu_init },
     { TYPE_RISCV_CPU_IMAC_PRIV_1_10,     riscv_imac_priv1_10_cpu_init },
-#endif
     { NULL, NULL }
 };
 
