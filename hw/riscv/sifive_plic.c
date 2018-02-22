@@ -25,6 +25,7 @@
  */
 
 #include "qemu/osdep.h"
+#include "qemu/log.h"
 #include "qemu/error-report.h"
 #include "hw/sysbus.h"
 #include "target/riscv/cpu.h"
@@ -62,27 +63,27 @@ static void sifive_plic_print_state(SiFivePLICState *plic)
     int addrid;
 
     /* pending */
-    printf("pending       : ");
+    qemu_log("pending       : ");
     for (i = plic->bitfield_words - 1; i >= 0; i--) {
-        printf("%08x", plic->pending[i]);
+        qemu_log("%08x", plic->pending[i]);
     }
-    printf("\n");
+    qemu_log("\n");
 
     /* pending */
-    printf("claimed       : ");
+    qemu_log("claimed       : ");
     for (i = plic->bitfield_words - 1; i >= 0; i--) {
-        printf("%08x", plic->claimed[i]);
+        qemu_log("%08x", plic->claimed[i]);
     }
-    printf("\n");
+    qemu_log("\n");
 
     for (addrid = 0; addrid < plic->num_addrs; addrid++) {
-        printf("hart%d-%c enable: ",
+        qemu_log("hart%d-%c enable: ",
             plic->addr_config[addrid].hartid,
             mode_to_char(plic->addr_config[addrid].mode));
         for (i = plic->bitfield_words - 1; i >= 0; i--) {
-            printf("%08x", plic->enable[addrid * plic->bitfield_words + i]);
+            qemu_log("%08x", plic->enable[addrid * plic->bitfield_words + i]);
         }
-        printf("\n");
+        qemu_log("\n");
     }
 }
 
@@ -216,7 +217,7 @@ static uint64_t sifive_plic_read(void *opaque, hwaddr addr, unsigned size)
     {
         uint32_t irq = (addr - plic->priority_base) >> 2;
         if (RISCV_DEBUG_PLIC) {
-            printf("plic: read priority: irq=%d priority=%d\n",
+            qemu_log("plic: read priority: irq=%d priority=%d\n",
                 irq, plic->source_priority[irq]);
         }
         return plic->source_priority[irq];
@@ -225,7 +226,7 @@ static uint64_t sifive_plic_read(void *opaque, hwaddr addr, unsigned size)
     {
         uint32_t word = (addr - plic->priority_base) >> 2;
         if (RISCV_DEBUG_PLIC) {
-            printf("plic: read pending: word=%d value=%d\n",
+            qemu_log("plic: read pending: word=%d value=%d\n",
                 word, plic->pending[word]);
         }
         return plic->pending[word];
@@ -236,7 +237,7 @@ static uint64_t sifive_plic_read(void *opaque, hwaddr addr, unsigned size)
         uint32_t wordid = (addr & (plic->enable_stride - 1)) >> 2;
         if (wordid < plic->bitfield_words) {
             if (RISCV_DEBUG_PLIC) {
-                printf("plic: read enable: hart%d-%c word=%d value=%x\n",
+                qemu_log("plic: read enable: hart%d-%c word=%d value=%x\n",
                     plic->addr_config[addrid].hartid,
                     mode_to_char(plic->addr_config[addrid].mode), wordid,
                     plic->enable[addrid * plic->bitfield_words + wordid]);
@@ -250,7 +251,7 @@ static uint64_t sifive_plic_read(void *opaque, hwaddr addr, unsigned size)
         uint32_t contextid = (addr & (plic->context_stride - 1));
         if (contextid == 0) {
             if (RISCV_DEBUG_PLIC) {
-                printf("plic: read priority: hart%d-%c priority=%x\n",
+                qemu_log("plic: read priority: hart%d-%c priority=%x\n",
                     plic->addr_config[addrid].hartid,
                     mode_to_char(plic->addr_config[addrid].mode),
                     plic->target_priority[addrid]);
@@ -259,7 +260,7 @@ static uint64_t sifive_plic_read(void *opaque, hwaddr addr, unsigned size)
         } else if (contextid == 4) {
             uint32_t value = sifive_plic_claim(plic, addrid);
             if (RISCV_DEBUG_PLIC) {
-                printf("plic: read claim: hart%d-%c irq=%x\n",
+                qemu_log("plic: read claim: hart%d-%c irq=%x\n",
                     plic->addr_config[addrid].hartid,
                     mode_to_char(plic->addr_config[addrid].mode),
                     value);
@@ -290,7 +291,7 @@ static void sifive_plic_write(void *opaque, hwaddr addr, uint64_t value,
         uint32_t irq = (addr - plic->priority_base) >> 2;
         plic->source_priority[irq] = value & 7;
         if (RISCV_DEBUG_PLIC) {
-            printf("plic: write priority: irq=%d priority=%d\n",
+            qemu_log("plic: write priority: irq=%d priority=%d\n",
                 irq, plic->source_priority[irq]);
         }
         return;
@@ -307,7 +308,7 @@ static void sifive_plic_write(void *opaque, hwaddr addr, uint64_t value,
         if (wordid < plic->bitfield_words) {
             plic->enable[addrid * plic->bitfield_words + wordid] = value;
             if (RISCV_DEBUG_PLIC) {
-                printf("plic: write enable: hart%d-%c word=%d value=%x\n",
+                qemu_log("plic: write enable: hart%d-%c word=%d value=%x\n",
                     plic->addr_config[addrid].hartid,
                     mode_to_char(plic->addr_config[addrid].mode), wordid,
                     plic->enable[addrid * plic->bitfield_words + wordid]);
@@ -321,7 +322,7 @@ static void sifive_plic_write(void *opaque, hwaddr addr, uint64_t value,
         uint32_t contextid = (addr & (plic->context_stride - 1));
         if (contextid == 0) {
             if (RISCV_DEBUG_PLIC) {
-                printf("plic: write priority: hart%d-%c priority=%x\n",
+                qemu_log("plic: write priority: hart%d-%c priority=%x\n",
                     plic->addr_config[addrid].hartid,
                     mode_to_char(plic->addr_config[addrid].mode),
                     plic->target_priority[addrid]);
@@ -333,7 +334,7 @@ static void sifive_plic_write(void *opaque, hwaddr addr, uint64_t value,
             return;
         } else if (contextid == 4) {
             if (RISCV_DEBUG_PLIC) {
-                printf("plic: write claim: hart%d-%c irq=%x\n",
+                qemu_log("plic: write claim: hart%d-%c irq=%x\n",
                     plic->addr_config[addrid].hartid,
                     mode_to_char(plic->addr_config[addrid].mode),
                     (uint32_t)value);
@@ -431,7 +432,7 @@ static void sifive_plic_irq_request(void *opaque, int irq, int level)
 {
     SiFivePLICState *plic = opaque;
     if (RISCV_DEBUG_PLIC) {
-        printf("sifive_plic_irq_request: irq=%d level=%d\n", irq, level);
+        qemu_log("sifive_plic_irq_request: irq=%d level=%d\n", irq, level);
     }
     sifive_plic_set_pending(plic, irq, level > 0);
     sifive_plic_update(plic);
