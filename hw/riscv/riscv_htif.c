@@ -1,7 +1,8 @@
 /*
  * QEMU RISC-V Host Target Interface (HTIF) Emulation
  *
- * Author: Sagar Karandikar, sagark@eecs.berkeley.edu
+ * Copyright (c) 2016-2017 Sagar Karandikar, sagark@eecs.berkeley.edu
+ * Copyright (c) 2017-2018 SiFive, Inc.
  *
  * This provides HTIF device emulation for QEMU. At the moment this allows
  * for identical copies of bbl/linux to run on both spike and QEMU.
