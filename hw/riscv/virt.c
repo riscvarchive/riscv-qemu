@@ -54,6 +54,14 @@ static const struct MemmapEntry {
     [VIRT_DRAM] =     { 0x80000000,        0x0 },
 };
 
+static void copy_le32_to_phys(hwaddr pa, uint32_t *rom, size_t len)
+{
+    int i;
+    for (i = 0; i < (len >> 2); i++) {
+        stl_phys(&address_space_memory, pa + (i << 2), rom[i]);
+    }
+}
+
 static uint64_t identity_translate(void *opaque, uint64_t addr)
 {
     return addr;
@@ -331,7 +339,7 @@ static void riscv_virt_board_init(MachineState *machine)
     };
 
     /* copy in the reset vector */
-    cpu_physical_memory_write(ROM_BASE, reset_vec, sizeof(reset_vec));
+    copy_le32_to_phys(ROM_BASE, reset_vec, sizeof(reset_vec));
 
     /* copy in the device tree */
     qemu_fdt_dumpdtb(s->fdt, s->fdt_size);

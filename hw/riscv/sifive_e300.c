@@ -74,6 +74,14 @@ static const struct MemmapEntry {
     [SIFIVE_E300_DTIM] =     { 0x80000000,     0x4000 }
 };
 
+static void copy_le32_to_phys(hwaddr pa, uint32_t *rom, size_t len)
+{
+    int i;
+    for (i = 0; i < (len >> 2); i++) {
+        stl_phys(&address_space_memory, pa + (i << 2), rom[i]);
+    }
+}
+
 static uint64_t identity_translate(void *opaque, uint64_t addr)
 {
     return addr;
@@ -184,7 +192,8 @@ static void riscv_sifive_e300_init(MachineState *machine)
     };
 
     /* copy in the reset vector */
-    cpu_physical_memory_write(0x1000, reset_vec, sizeof(reset_vec));
+    copy_le32_to_phys(memmap[SIFIVE_E300_MROM].base,
+        reset_vec, sizeof(reset_vec));
     memory_region_set_readonly(mask_rom, true);
 
     if (machine->kernel_filename) {
