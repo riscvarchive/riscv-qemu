@@ -1,8 +1,8 @@
 /*
  * QEMU RISC-V Spike Board
  *
- * Author: Sagar Karandikar, sagark@eecs.berkeley.edu
- * Author: Michael Clark, mjc@sifive.com
+ * Copyright (c) 2016-2017 Sagar Karandikar, sagark@eecs.berkeley.edu
+ * Copyright (c) 2017-2018 SiFive, Inc.
  *
  * This provides a RISC-V Board with the following devices:
  *
