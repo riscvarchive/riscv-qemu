@@ -1,5 +1,5 @@
 /*
- * SiFive U500 series machine interface
+ * Spike machine interface
  *
  * Copyright (c) 2017 SiFive, Inc.
  *
