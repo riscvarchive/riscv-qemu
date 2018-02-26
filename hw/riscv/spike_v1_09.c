@@ -193,7 +193,7 @@ static void riscv_spike_board_machine_init(MachineClass *mc)
     mc->is_default = 1;
 }
 
-DEFINE_MACHINE("spike_v1.9", riscv_spike_board_machine_init)
+DEFINE_MACHINE("spike_v1.9.1", riscv_spike_board_machine_init)
 
 static void riscv_spike_board_register_types(void)
 {
