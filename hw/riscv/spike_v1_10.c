@@ -264,6 +264,7 @@ static void riscv_spike_board_machine_init(MachineClass *mc)
     mc->desc = "RISC-V Spike Board (Privileged ISA v1.10)";
     mc->init = riscv_spike_board_init;
     mc->max_cpus = 1;
+    mc->is_default = 1;
 }
 
 DEFINE_MACHINE("spike_v1.10", riscv_spike_board_machine_init)
