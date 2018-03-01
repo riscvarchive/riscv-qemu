@@ -7,6 +7,5 @@ obj-y += sifive_plic.o
 obj-y += sifive_test.o
 obj-y += sifive_u.o
 obj-y += sifive_uart.o
-obj-y += spike_v1_09.o
-obj-y += spike_v1_10.o
+obj-y += spike.o
 obj-y += virt.o
