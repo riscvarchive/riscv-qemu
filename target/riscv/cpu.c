@@ -26,6 +26,8 @@
 
 /* RISC-V CPU definitions */
 
+static const char riscv_exts[26] = "IMAFDQECLBJTPVNSUHKORWXYZG";
+
 const char * const riscv_int_regnames[] = {
   "zero", "ra  ", "sp  ", "gp  ", "tp  ", "t0  ", "t1  ", "t2  ",
   "s0  ", "s1  ", "a0  ", "a1  ", "a2  ", "a3  ", "a4  ", "a5  ",
@@ -336,31 +338,15 @@ static const TypeInfo riscv_cpu_type_info = {
 
 char *riscv_isa_string(RISCVCPU *cpu)
 {
-    size_t len = 5 + ctz32(cpu->env.misa);
-    char *isa_string = g_new(char, len);
-    isa_string[0] = '\0';
-#if defined(TARGET_RISCV32)
-    strncat(isa_string, "rv32", len);
-#elif defined(TARGET_RISCV64)
-    strncat(isa_string, "rv64", len);
-#endif
-    if (cpu->env.misa & RVI) {
-        strncat(isa_string, "i", len);
-    }
-    if (cpu->env.misa & RVM) {
-        strncat(isa_string, "m", len);
-    }
-    if (cpu->env.misa & RVA) {
-        strncat(isa_string, "a", len);
-    }
-    if (cpu->env.misa & RVF) {
-        strncat(isa_string, "f", len);
-    }
-    if (cpu->env.misa & RVD) {
-        strncat(isa_string, "d", len);
-    }
-    if (cpu->env.misa & RVC) {
-        strncat(isa_string, "c", len);
+    int i;
+    size_t maxlen = 5 + ctz32(cpu->env.misa);
+    char *isa_string = g_new0(char, maxlen);
+    snprintf(isa_string, maxlen, "rv%d", TARGET_LONG_BITS);
+    for (i = 0; i < sizeof(riscv_exts); i++) {
+        if (cpu->env.misa & RV(riscv_exts[i])) {
+            isa_string[strlen(isa_string)] = riscv_exts[i] - 'A' + 'a';
+
+        }
     }
     return isa_string;
 }
