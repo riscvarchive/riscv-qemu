@@ -157,7 +157,20 @@ static void riscv_cpu_dump_state(CPUState *cs, FILE *f,
     CPURISCVState *env = &cpu->env;
     int i;
 
-    cpu_fprintf(f, "pc=0x" TARGET_FMT_lx "\n", env->pc);
+    cpu_fprintf(f, " %s " TARGET_FMT_lx "\n", "pc      ", env->pc);
+#ifndef CONFIG_USER_ONLY
+    cpu_fprintf(f, " %s " TARGET_FMT_lx "\n", "mhartid ", env->mhartid);
+    cpu_fprintf(f, " %s " TARGET_FMT_lx "\n", "mstatus ", env->mstatus);
+    cpu_fprintf(f, " %s " TARGET_FMT_lx "\n", "mip     ",
+        (target_ulong)atomic_read(&env->mip));
+    cpu_fprintf(f, " %s " TARGET_FMT_lx "\n", "mie     ", env->mie);
+    cpu_fprintf(f, " %s " TARGET_FMT_lx "\n", "mideleg ", env->mideleg);
+    cpu_fprintf(f, " %s " TARGET_FMT_lx "\n", "medeleg ", env->medeleg);
+    cpu_fprintf(f, " %s " TARGET_FMT_lx "\n", "mtvec   ", env->mtvec);
+    cpu_fprintf(f, " %s " TARGET_FMT_lx "\n", "mepc    ", env->mepc);
+    cpu_fprintf(f, " %s " TARGET_FMT_lx "\n", "mcause  ", env->mcause);
+#endif
+
     for (i = 0; i < 32; i++) {
         cpu_fprintf(f, " %s " TARGET_FMT_lx,
             riscv_int_regnames[i], env->gpr[i]);
@@ -165,19 +178,7 @@ static void riscv_cpu_dump_state(CPUState *cs, FILE *f,
             cpu_fprintf(f, "\n");
         }
     }
-
-#ifndef CONFIG_USER_ONLY
-    cpu_fprintf(f, " %s " TARGET_FMT_lx "\n", "MSTATUS ",
-                env->mstatus);
-    target_ulong mip = atomic_read(&env->mip);
-    cpu_fprintf(f, " %s " TARGET_FMT_lx "\n", "MIP     ", mip);
-    cpu_fprintf(f, " %s " TARGET_FMT_lx "\n", "MIE     ", env->mie);
-#endif
-
     for (i = 0; i < 32; i++) {
-        if ((i & 3) == 0) {
-            cpu_fprintf(f, "FPR%02d:", i);
-        }
         cpu_fprintf(f, " %s %016" PRIx64,
             riscv_fpr_regnames[i], env->fpr[i]);
         if ((i & 3) == 3) {
