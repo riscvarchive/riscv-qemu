@@ -232,14 +232,12 @@ static void spike_v1_10_0_board_init(MachineState *machine)
     cpu_physical_memory_write(memmap[SPIKE_MROM].base + sizeof(reset_vec),
         s->fdt, s->fdt_size);
 
-    /* add memory mapped htif registers at location specified in the symbol
-       table of the elf being loaded (thus kernel_filename is passed to the
-       init rather than an address) */
+    /* initialize HTIF using symbols found in load_kernel */
     htif_mm_init(system_memory, boot_rom, &s->soc.harts[0].env, serial_hds[0]);
 
     /* Core Local Interruptor (timer and IPI) */
-    sifive_clint_create(0x2000000, 0x10000, smp_cpus,
-        SIFIVE_SIP_BASE, SIFIVE_TIMECMP_BASE, SIFIVE_TIME_BASE);
+    sifive_clint_create(memmap[SPIKE_CLINT].base, memmap[SPIKE_CLINT].size,
+        smp_cpus, SIFIVE_SIP_BASE, SIFIVE_TIMECMP_BASE, SIFIVE_TIME_BASE);
 }
 
 static void spike_v1_09_1_board_init(MachineState *machine)
@@ -276,6 +274,7 @@ static void spike_v1_09_1_board_init(MachineState *machine)
         load_kernel(machine->kernel_filename);
     }
 
+    /* reset vector */
     uint32_t reset_vec[8] = {
         0x297 + memmap[SPIKE_DRAM].base - memmap[SPIKE_MROM].base, /* lui */
         0x00028067,                   /* jump to DRAM_BASE */
@@ -291,29 +290,35 @@ static void spike_v1_09_1_board_init(MachineState *machine)
         "  arch spike;\n"
         "};\n"
         "rtc {\n"
-        "  addr 0x" "40000000" ";\n"
+        "  addr 0x%" PRIx64 "x;\n"
         "};\n"
         "ram {\n"
         "  0 {\n"
-        "    addr 0x" "80000000" ";\n"
-        "    size 0x" "%016" PRIx64 ";\n"
+        "    addr 0x%" PRIx64 "x;\n"
+        "    size 0x%" PRIx64 "x;\n"
         "  };\n"
         "};\n"
         "core {\n"
         "  0" " {\n"
         "    " "0 {\n"
-        "      isa " "rv64imafd" ";\n"
-        "      timecmp 0x" "40000008" ";\n"
-        "      ipi 0x" "40001000" ";\n" /* match dummy ipi region above */
+        "      isa %s;\n"
+        "      timecmp 0x%" PRIx64 "x;\n"
+        "      ipi 0x%" PRIx64 "x;\n"
         "    };\n"
         "  };\n"
         "};\n";
 
     /* build config string with supplied memory size */
-    size_t config_string_size = strlen(config_string_tmpl) + 16;
+    char *isa = riscv_isa_string(&s->soc.harts[0]);
+    size_t config_string_size = strlen(config_string_tmpl) + 48;
     char *config_string = malloc(config_string_size);
-    snprintf(config_string, config_string_size,
-        config_string_tmpl, (uint64_t)ram_size);
+    snprintf(config_string, config_string_size, config_string_tmpl,
+        (uint64_t)memmap[SPIKE_CLINT].base + SIFIVE_TIME_BASE,
+        (uint64_t)memmap[SPIKE_DRAM].base,
+        (uint64_t)ram_size, isa,
+        (uint64_t)memmap[SPIKE_CLINT].base + SIFIVE_TIMECMP_BASE,
+        (uint64_t)memmap[SPIKE_CLINT].base + SIFIVE_SIP_BASE);
+    g_free(isa);
     size_t config_string_len = strlen(config_string);
 
     /* copy in the reset vector */
@@ -323,14 +328,12 @@ static void spike_v1_09_1_board_init(MachineState *machine)
     cpu_physical_memory_write(memmap[SPIKE_MROM].base + sizeof(reset_vec),
         config_string, config_string_len);
 
-    /* add memory mapped htif registers at location specified in the symbol
-       table of the elf being loaded (thus kernel_filename is passed to the
-       init rather than an address) */
+    /* initialize HTIF using symbols found in load_kernel */
     htif_mm_init(system_memory, boot_rom, &s->soc.harts[0].env, serial_hds[0]);
 
     /* Core Local Interruptor (timer and IPI) */
-    sifive_clint_create(0x2000000, 0x10000, smp_cpus,
-        SIFIVE_SIP_BASE, SIFIVE_TIMECMP_BASE, SIFIVE_TIME_BASE);
+    sifive_clint_create(memmap[SPIKE_CLINT].base, memmap[SPIKE_CLINT].size,
+        smp_cpus, SIFIVE_SIP_BASE, SIFIVE_TIMECMP_BASE, SIFIVE_TIME_BASE);
 }
 
 static const TypeInfo spike_v_1_09_1_device = {
