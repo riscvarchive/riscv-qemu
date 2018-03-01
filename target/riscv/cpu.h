@@ -45,7 +45,7 @@
 #define TYPE_RISCV_CPU "riscv-cpu"
 
 #define RISCV_CPU_TYPE_SUFFIX "-" TYPE_RISCV_CPU
-#define RISCV_CPU_TYPE_NAME(name) (RISCV_CPU_TYPE_SUFFIX name)
+#define RISCV_CPU_TYPE_NAME(name) (name RISCV_CPU_TYPE_SUFFIX)
 
 #define TYPE_RISCV_CPU_ANY \
     RISCV_CPU_TYPE_NAME("any")
