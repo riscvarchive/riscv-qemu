@@ -115,20 +115,11 @@ static void riscv_imacu_cpu_init(Object *obj)
     env->priv_ver = PRIV_VERSION_1_10_0;
 }
 
-static void riscv_imac_cpu_init(Object *obj)
-{
-    CPURISCVState *env = &RISCV_CPU(obj)->env;
-    env->misa = RVXLEN | RVI | RVM | RVA | RVC;
-    env->user_ver = USER_VERSION_2_02_0;
-    env->priv_ver = PRIV_VERSION_1_10_0;
-}
-
 static const RISCVCPUInfo riscv_cpus[] = {
     { TYPE_RISCV_CPU_ANY,                 riscv_any_cpu_init },
     { TYPE_RISCV_CPU_IMAFDCSU_PRIV_1_9_1, riscv_imafdcsu_priv1_9_1_cpu_init },
     { TYPE_RISCV_CPU_IMAFDCSU,            riscv_imafdcsu_cpu_init },
     { TYPE_RISCV_CPU_IMACU,               riscv_imacu_cpu_init },
-    { TYPE_RISCV_CPU_IMAC,                riscv_imac_cpu_init },
     { NULL, NULL }
 };
 

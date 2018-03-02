@@ -55,8 +55,6 @@
     RISCV_CPU_TYPE_NAME("generic-imafdcsu")
 #define TYPE_RISCV_CPU_IMACU \
     RISCV_CPU_TYPE_NAME("generic-imacu")
-#define TYPE_RISCV_CPU_IMAC \
-    RISCV_CPU_TYPE_NAME("generic-imac")
 
 #if defined(TARGET_RISCV32)
 #define RVXLEN  ((target_ulong)1 << (TARGET_LONG_BITS - 2))
