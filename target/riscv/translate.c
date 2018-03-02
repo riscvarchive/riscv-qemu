@@ -1314,7 +1314,7 @@ static void gen_fp_arith(DisasContext *ctx, uint32_t opc, int rd,
     }
 }
 
-static void gen_system(DisasContext *ctx, uint32_t opc,
+static void gen_system(CPURISCVState *env, DisasContext *ctx, uint32_t opc,
                       int rd, int rs1, int csr)
 {
     TCGv source1, csr_store, dest, rs1_pass, imm_rs1;
@@ -1357,9 +1357,13 @@ static void gen_system(DisasContext *ctx, uint32_t opc,
             gen_exception_illegal(ctx);
             break;
         case 0x102: /* SRET */
-            gen_helper_sret(cpu_pc, cpu_env, cpu_pc);
-            tcg_gen_exit_tb(0); /* no chaining */
-            ctx->bstate = BS_BRANCH;
+            if (riscv_has_ext(env, RVS)) {
+                gen_helper_sret(cpu_pc, cpu_env, cpu_pc);
+                tcg_gen_exit_tb(0); /* no chaining */
+                ctx->bstate = BS_BRANCH;
+            } else {
+                gen_exception_illegal(ctx);
+            }
             break;
         case 0x202: /* HRET */
             gen_exception_illegal(ctx);
@@ -1648,7 +1652,7 @@ static void decode_RV32_64C2(CPURISCVState *env, DisasContext *ctx)
         } else {
             if (rd == 0) {
                 /* C.EBREAK -> ebreak*/
-                gen_system(ctx, OPC_RISC_ECALL, 0, 0, 0x1);
+                gen_system(env, ctx, OPC_RISC_ECALL, 0, 0, 0x1);
             } else {
                 if (rs2 == 0) {
                     /* C.JALR -> jalr x1, rs1, 0*/
@@ -1815,7 +1819,7 @@ static void decode_RV32_64G(CPURISCVState *env, DisasContext *ctx)
 #endif
         break;
     case OPC_RISC_SYSTEM:
-        gen_system(ctx, MASK_OP_SYSTEM(ctx->opcode), rd, rs1,
+        gen_system(env, ctx, MASK_OP_SYSTEM(ctx->opcode), rd, rs1,
                    (ctx->opcode & 0xFFF00000) >> 20);
         break;
     default:

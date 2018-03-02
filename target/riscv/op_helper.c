@@ -112,6 +112,9 @@ void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
     case CSR_MSTATUS: {
         target_ulong mstatus = env->mstatus;
         target_ulong mask = 0;
+        target_ulong mpp = get_field(val_to_write, MSTATUS_MPP);
+
+        /* flush tlb on mstatus fields that affect VM */
         if (env->priv_ver <= PRIV_VERSION_1_09_1) {
             if ((val_to_write ^ mstatus) & (MSTATUS_MXR | MSTATUS_MPP |
                     MSTATUS_MPRV | MSTATUS_SUM | MSTATUS_VM)) {
@@ -132,6 +135,14 @@ void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
                 MSTATUS_SPP | MSTATUS_FS | MSTATUS_MPRV | MSTATUS_SUM |
                 MSTATUS_MPP | MSTATUS_MXR;
         }
+
+        /* silenty discard mstatus.mpp writes for unsupported modes */
+        if (mpp == PRV_H ||
+            (!riscv_has_ext(env, RVS) && mpp == PRV_S) ||
+            (!riscv_has_ext(env, RVU) && mpp == PRV_U)) {
+            mask &= ~MSTATUS_MPP;
+        }
+
         mstatus = (mstatus & ~mask) | (val_to_write & mask);
         int dirty = (mstatus & MSTATUS_FS) == MSTATUS_FS;
         dirty |= (mstatus & MSTATUS_XS) == MSTATUS_XS;
