@@ -84,69 +84,87 @@ typedef struct RISCVCPUInfo {
     void (*initfn)(Object *obj);
 } RISCVCPUInfo;
 
+static void set_misa(CPURISCVState *env, target_ulong misa)
+{
+    env->misa = misa;
+}
+
+static void set_versions(CPURISCVState *env, int user_ver, int priv_ver)
+{
+    env->user_ver = user_ver;
+    env->priv_ver = priv_ver;
+}
+
 static void set_feature(CPURISCVState *env, int feature)
 {
     env->features |= (1ULL << feature);
 }
 
+static void set_resetvec(CPURISCVState *env, int resetvec)
+{
+#ifndef CONFIG_USER_ONLY
+    env->resetvec = resetvec;
+#endif
+}
+
 static void riscv_any_cpu_init(Object *obj)
 {
     CPURISCVState *env = &RISCV_CPU(obj)->env;
-    env->misa = RVXLEN | RVI | RVM | RVA | RVF | RVD | RVC | RVU;
-    env->user_ver = USER_VERSION_2_02_0;
-    env->priv_ver = PRIV_VERSION_1_10_0;
+    set_misa(env, RVXLEN | RVI | RVM | RVA | RVF | RVD | RVC | RVU);
+    set_versions(env, USER_VERSION_2_02_0, PRIV_VERSION_1_10_0);
+    set_resetvec(env, DEFAULT_RSTVEC);
 }
 
 static void rv32gcsu_priv1_09_1_cpu_init(Object *obj)
 {
     CPURISCVState *env = &RISCV_CPU(obj)->env;
-    env->misa = RV32 | RVI | RVM | RVA | RVF | RVD | RVC | RVS | RVU;
-    env->user_ver = USER_VERSION_2_02_0;
-    env->priv_ver = PRIV_VERSION_1_09_1;
+    set_misa(env, RV32 | RVI | RVM | RVA | RVF | RVD | RVC | RVS | RVU);
+    set_versions(env, USER_VERSION_2_02_0, PRIV_VERSION_1_09_1);
+    set_resetvec(env, DEFAULT_RSTVEC);
     set_feature(env, RISCV_FEATURE_MMU);
 }
 
 static void rv32gcsu_priv1_10_0_cpu_init(Object *obj)
 {
     CPURISCVState *env = &RISCV_CPU(obj)->env;
-    env->misa = RV32 | RVI | RVM | RVA | RVF | RVD | RVC | RVS | RVU;
-    env->user_ver = USER_VERSION_2_02_0;
-    env->priv_ver = PRIV_VERSION_1_10_0;
+    set_misa(env, RV32 | RVI | RVM | RVA | RVF | RVD | RVC | RVS | RVU);
+    set_versions(env, USER_VERSION_2_02_0, PRIV_VERSION_1_10_0);
+    set_resetvec(env, DEFAULT_RSTVEC);
     set_feature(env, RISCV_FEATURE_MMU);
 }
 
 static void rv32imacu_nommu_cpu_init(Object *obj)
 {
     CPURISCVState *env = &RISCV_CPU(obj)->env;
-    env->misa = RV32 | RVI | RVM | RVA | RVC | RVU;
-    env->user_ver = USER_VERSION_2_02_0;
-    env->priv_ver = PRIV_VERSION_1_10_0;
+    set_misa(env, RV32 | RVI | RVM | RVA | RVC | RVU);
+    set_versions(env, USER_VERSION_2_02_0, PRIV_VERSION_1_10_0);
+    set_resetvec(env, DEFAULT_RSTVEC);
 }
 
 static void rv64gcsu_priv1_09_1_cpu_init(Object *obj)
 {
     CPURISCVState *env = &RISCV_CPU(obj)->env;
-    env->misa = RV64 | RVI | RVM | RVA | RVF | RVD | RVC | RVS | RVU;
-    env->user_ver = USER_VERSION_2_02_0;
-    env->priv_ver = PRIV_VERSION_1_09_1;
+    set_misa(env, RV64 | RVI | RVM | RVA | RVF | RVD | RVC | RVS | RVU);
+    set_versions(env, USER_VERSION_2_02_0, PRIV_VERSION_1_09_1);
+    set_resetvec(env, DEFAULT_RSTVEC);
     set_feature(env, RISCV_FEATURE_MMU);
 }
 
 static void rv64gcsu_priv1_10_0_cpu_init(Object *obj)
 {
     CPURISCVState *env = &RISCV_CPU(obj)->env;
-    env->misa = RV64 | RVI | RVM | RVA | RVF | RVD | RVC | RVS | RVU;
-    env->user_ver = USER_VERSION_2_02_0;
-    env->priv_ver = PRIV_VERSION_1_10_0;
+    set_misa(env, RV64 | RVI | RVM | RVA | RVF | RVD | RVC | RVS | RVU);
+    set_versions(env, USER_VERSION_2_02_0, PRIV_VERSION_1_10_0);
+    set_resetvec(env, DEFAULT_RSTVEC);
     set_feature(env, RISCV_FEATURE_MMU);
 }
 
 static void rv64imacu_nommu_cpu_init(Object *obj)
 {
     CPURISCVState *env = &RISCV_CPU(obj)->env;
-    env->misa = RV64 | RVI | RVM | RVA | RVC | RVU;
-    env->user_ver = USER_VERSION_2_02_0;
-    env->priv_ver = PRIV_VERSION_1_10_0;
+    set_misa(env, RV64 | RVI | RVM | RVA | RVC | RVU);
+    set_versions(env, USER_VERSION_2_02_0, PRIV_VERSION_1_10_0);
+    set_resetvec(env, DEFAULT_RSTVEC);
 }
 
 static const RISCVCPUInfo riscv_cpus[] = {
@@ -263,9 +281,10 @@ static void riscv_cpu_reset(CPUState *cs)
     mcc->parent_reset(cs);
 #ifndef CONFIG_USER_ONLY
     env->priv = PRV_M;
-    env->mtvec = DEFAULT_MTVEC;
+    env->mstatus &= ~(MSTATUS_MIE | MSTATUS_MPRV);
+    env->mcause = 0;
+    env->pc = env->resetvec;
 #endif
-    env->pc = DEFAULT_RSTVEC;
     cs->exception_index = EXCP_NONE;
     set_default_nan_mode(1, &env->fp_status);
 }

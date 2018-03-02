@@ -350,9 +350,6 @@
 
 /* Default addresses */
 #define DEFAULT_RSTVEC     0x00001000
-#define DEFAULT_NMIVEC     0x00001004
-#define DEFAULT_MTVEC      0x00001010
-#define CONFIG_STRING_ADDR 0x0000100C
 
 /* RV32 satp field masks */
 #define SATP32_MODE 0x80000000

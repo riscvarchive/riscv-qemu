@@ -121,6 +121,7 @@ struct CPURISCVState {
 
 #ifndef CONFIG_USER_ONLY
     target_ulong priv;
+    target_ulong resetvec;
 
     target_ulong mhartid;
     target_ulong mstatus;
