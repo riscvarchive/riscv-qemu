@@ -47,20 +47,23 @@
 #define RISCV_CPU_TYPE_SUFFIX "-" TYPE_RISCV_CPU
 #define RISCV_CPU_TYPE_NAME(name) (name RISCV_CPU_TYPE_SUFFIX)
 
-#define TYPE_RISCV_CPU_ANY \
-    RISCV_CPU_TYPE_NAME("any")
-#define TYPE_RISCV_CPU_IMAFDCSU_PRIV_1_9_1 \
-    RISCV_CPU_TYPE_NAME("generic-imafdcsu-priv-v1.9.1")
-#define TYPE_RISCV_CPU_IMAFDCSU \
-    RISCV_CPU_TYPE_NAME("generic-imafdcsu")
-#define TYPE_RISCV_CPU_IMACU_NOMMU \
-    RISCV_CPU_TYPE_NAME("generic-imacu-nommu")
+#define TYPE_RISCV_CPU_ANY              RISCV_CPU_TYPE_NAME("any")
+#define TYPE_RISCV_CPU_RV32GCSU_V1_09_1 RISCV_CPU_TYPE_NAME("rv32gcsu-v1.9.1")
+#define TYPE_RISCV_CPU_RV32GCSU_V1_10_0 RISCV_CPU_TYPE_NAME("rv32gcsu-v1.10.0")
+#define TYPE_RISCV_CPU_RV32IMACU_NOMMU  RISCV_CPU_TYPE_NAME("rv32imacu-nommu")
+#define TYPE_RISCV_CPU_RV64GCSU_V1_09_1 RISCV_CPU_TYPE_NAME("rv64gcsu-v1.9.1")
+#define TYPE_RISCV_CPU_RV64GCSU_V1_10_0 RISCV_CPU_TYPE_NAME("rv64gcsu-v1.10.0")
+#define TYPE_RISCV_CPU_RV64IMACU_NOMMU  RISCV_CPU_TYPE_NAME("rv64imacu-nommu")
+
+#define RV32 ((target_ulong)1 << (TARGET_LONG_BITS - 2))
+#define RV64 ((target_ulong)2 << (TARGET_LONG_BITS - 2))
 
 #if defined(TARGET_RISCV32)
-#define RVXLEN  ((target_ulong)1 << (TARGET_LONG_BITS - 2))
+#define RVXLEN RV32
 #elif defined(TARGET_RISCV64)
-#define RVXLEN  ((target_ulong)2 << (TARGET_LONG_BITS - 2))
+#define RVXLEN RV64
 #endif
+
 #define RV(x) ((target_ulong)1 << (x - 'A'))
 
 #define RVI RV('I')

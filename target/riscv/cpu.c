@@ -79,6 +79,7 @@ const char * const riscv_intr_names[] = {
 };
 
 typedef struct RISCVCPUInfo {
+    const int bit_widths;
     const char *name;
     void (*initfn)(Object *obj);
 } RISCVCPUInfo;
@@ -96,38 +97,67 @@ static void riscv_any_cpu_init(Object *obj)
     env->priv_ver = PRIV_VERSION_1_10_0;
 }
 
-static void riscv_imafdcsu_priv1_9_1_cpu_init(Object *obj)
+static void rv32gcsu_priv1_09_1_cpu_init(Object *obj)
 {
     CPURISCVState *env = &RISCV_CPU(obj)->env;
-    env->misa = RVXLEN | RVI | RVM | RVA | RVF | RVD | RVC | RVS | RVU;
+    env->misa = RV32 | RVI | RVM | RVA | RVF | RVD | RVC | RVS | RVU;
     env->user_ver = USER_VERSION_2_02_0;
     env->priv_ver = PRIV_VERSION_1_09_1;
     set_feature(env, RISCV_FEATURE_MMU);
 }
 
-static void riscv_imafdcsu_cpu_init(Object *obj)
+static void rv32gcsu_priv1_10_0_cpu_init(Object *obj)
 {
     CPURISCVState *env = &RISCV_CPU(obj)->env;
-    env->misa = RVXLEN | RVI | RVM | RVA | RVF | RVD | RVC | RVS | RVU;
+    env->misa = RV32 | RVI | RVM | RVA | RVF | RVD | RVC | RVS | RVU;
     env->user_ver = USER_VERSION_2_02_0;
     env->priv_ver = PRIV_VERSION_1_10_0;
     set_feature(env, RISCV_FEATURE_MMU);
 }
 
-static void riscv_imacu_nommu_cpu_init(Object *obj)
+static void rv32imacu_nommu_cpu_init(Object *obj)
 {
     CPURISCVState *env = &RISCV_CPU(obj)->env;
-    env->misa = RVXLEN | RVI | RVM | RVA | RVC | RVU;
+    env->misa = RV32 | RVI | RVM | RVA | RVC | RVU;
+    env->user_ver = USER_VERSION_2_02_0;
+    env->priv_ver = PRIV_VERSION_1_10_0;
+}
+
+static void rv64gcsu_priv1_09_1_cpu_init(Object *obj)
+{
+    CPURISCVState *env = &RISCV_CPU(obj)->env;
+    env->misa = RV64 | RVI | RVM | RVA | RVF | RVD | RVC | RVS | RVU;
+    env->user_ver = USER_VERSION_2_02_0;
+    env->priv_ver = PRIV_VERSION_1_09_1;
+    set_feature(env, RISCV_FEATURE_MMU);
+}
+
+static void rv64gcsu_priv1_10_0_cpu_init(Object *obj)
+{
+    CPURISCVState *env = &RISCV_CPU(obj)->env;
+    env->misa = RV64 | RVI | RVM | RVA | RVF | RVD | RVC | RVS | RVU;
+    env->user_ver = USER_VERSION_2_02_0;
+    env->priv_ver = PRIV_VERSION_1_10_0;
+    set_feature(env, RISCV_FEATURE_MMU);
+}
+
+static void rv64imacu_nommu_cpu_init(Object *obj)
+{
+    CPURISCVState *env = &RISCV_CPU(obj)->env;
+    env->misa = RV64 | RVI | RVM | RVA | RVC | RVU;
     env->user_ver = USER_VERSION_2_02_0;
     env->priv_ver = PRIV_VERSION_1_10_0;
 }
 
 static const RISCVCPUInfo riscv_cpus[] = {
-    { TYPE_RISCV_CPU_ANY,                 riscv_any_cpu_init },
-    { TYPE_RISCV_CPU_IMAFDCSU_PRIV_1_9_1, riscv_imafdcsu_priv1_9_1_cpu_init },
-    { TYPE_RISCV_CPU_IMAFDCSU,            riscv_imafdcsu_cpu_init },
-    { TYPE_RISCV_CPU_IMACU_NOMMU,         riscv_imacu_nommu_cpu_init },
-    { NULL, NULL }
+    { 96, TYPE_RISCV_CPU_ANY,              riscv_any_cpu_init },
+    { 32, TYPE_RISCV_CPU_RV32GCSU_V1_09_1, rv32gcsu_priv1_09_1_cpu_init },
+    { 32, TYPE_RISCV_CPU_RV32GCSU_V1_10_0, rv32gcsu_priv1_10_0_cpu_init },
+    { 32, TYPE_RISCV_CPU_RV32IMACU_NOMMU,  rv32imacu_nommu_cpu_init },
+    { 64, TYPE_RISCV_CPU_RV64GCSU_V1_09_1, rv64gcsu_priv1_09_1_cpu_init },
+    { 64, TYPE_RISCV_CPU_RV64GCSU_V1_10_0, rv64gcsu_priv1_10_0_cpu_init },
+    { 64, TYPE_RISCV_CPU_RV64IMACU_NOMMU,  rv64imacu_nommu_cpu_init },
+    { 0, NULL, NULL }
 };
 
 static ObjectClass *riscv_cpu_class_by_name(const char *cpu_model)
@@ -355,7 +385,9 @@ void riscv_cpu_list(FILE *f, fprintf_function cpu_fprintf)
     const RISCVCPUInfo *info = riscv_cpus;
 
     while (info->name) {
-        (*cpu_fprintf)(f, "%s\n", info->name);
+        if (info->bit_widths & TARGET_LONG_BITS) {
+            (*cpu_fprintf)(f, "%s\n", info->name);
+        }
         info++;
     }
 }
@@ -367,7 +399,9 @@ static void riscv_cpu_register_types(void)
     type_register_static(&riscv_cpu_type_info);
 
     while (info->name) {
-        cpu_register(info);
+        if (info->bit_widths & TARGET_LONG_BITS) {
+            cpu_register(info);
+        }
         info++;
     }
 }
