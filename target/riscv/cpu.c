@@ -83,6 +83,11 @@ typedef struct RISCVCPUInfo {
     void (*initfn)(Object *obj);
 } RISCVCPUInfo;
 
+static void set_feature(CPURISCVState *env, int feature)
+{
+    env->features |= (1ULL << feature);
+}
+
 static void riscv_any_cpu_init(Object *obj)
 {
     CPURISCVState *env = &RISCV_CPU(obj)->env;
@@ -97,6 +102,7 @@ static void riscv_imafdcsu_priv1_9_1_cpu_init(Object *obj)
     env->misa = RVXLEN | RVI | RVM | RVA | RVF | RVD | RVC | RVS | RVU;
     env->user_ver = USER_VERSION_2_02_0;
     env->priv_ver = PRIV_VERSION_1_09_1;
+    set_feature(env, RISCV_FEATURE_MMU);
 }
 
 static void riscv_imafdcsu_cpu_init(Object *obj)
@@ -105,9 +111,10 @@ static void riscv_imafdcsu_cpu_init(Object *obj)
     env->misa = RVXLEN | RVI | RVM | RVA | RVF | RVD | RVC | RVS | RVU;
     env->user_ver = USER_VERSION_2_02_0;
     env->priv_ver = PRIV_VERSION_1_10_0;
+    set_feature(env, RISCV_FEATURE_MMU);
 }
 
-static void riscv_imacu_cpu_init(Object *obj)
+static void riscv_imacu_nommu_cpu_init(Object *obj)
 {
     CPURISCVState *env = &RISCV_CPU(obj)->env;
     env->misa = RVXLEN | RVI | RVM | RVA | RVC | RVU;
@@ -119,7 +126,7 @@ static const RISCVCPUInfo riscv_cpus[] = {
     { TYPE_RISCV_CPU_ANY,                 riscv_any_cpu_init },
     { TYPE_RISCV_CPU_IMAFDCSU_PRIV_1_9_1, riscv_imafdcsu_priv1_9_1_cpu_init },
     { TYPE_RISCV_CPU_IMAFDCSU,            riscv_imafdcsu_cpu_init },
-    { TYPE_RISCV_CPU_IMACU,               riscv_imacu_cpu_init },
+    { TYPE_RISCV_CPU_IMACU_NOMMU,         riscv_imacu_nommu_cpu_init },
     { NULL, NULL }
 };
 

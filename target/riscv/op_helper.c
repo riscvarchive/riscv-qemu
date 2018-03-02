@@ -230,6 +230,9 @@ void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
         break;
     }
     case CSR_SATP: /* CSR_SPTBR */ {
+        if (!riscv_feature(env, RISCV_FEATURE_MMU)) {
+            goto do_illegal;
+        }
         if (env->priv_ver <= PRIV_VERSION_1_09_1 && (val_to_write ^ env->sptbr))
         {
             helper_tlb_flush(env);

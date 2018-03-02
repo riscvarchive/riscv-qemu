@@ -53,8 +53,8 @@
     RISCV_CPU_TYPE_NAME("generic-imafdcsu-priv-v1.9.1")
 #define TYPE_RISCV_CPU_IMAFDCSU \
     RISCV_CPU_TYPE_NAME("generic-imafdcsu")
-#define TYPE_RISCV_CPU_IMACU \
-    RISCV_CPU_TYPE_NAME("generic-imacu")
+#define TYPE_RISCV_CPU_IMACU_NOMMU \
+    RISCV_CPU_TYPE_NAME("generic-imacu-nommu")
 
 #if defined(TARGET_RISCV32)
 #define RVXLEN  ((target_ulong)1 << (TARGET_LONG_BITS - 2))
@@ -71,6 +71,14 @@
 #define RVC RV('C')
 #define RVS RV('S')
 #define RVU RV('U')
+
+/* S extension denotes that Supervisor mode exists, however it is possible
+   to have a core that support S mode but does not have an MMU and there
+   is currently no bit in misa to indicate whether an MMU exists or not
+   so a cpu features bitfield is required */
+enum {
+    RISCV_FEATURE_MMU
+};
 
 #define USER_VERSION_2_02_0 0x00020200
 #define PRIV_VERSION_1_09_1 0x00010901
@@ -101,6 +109,8 @@ struct CPURISCVState {
     target_ulong user_ver;
     target_ulong priv_ver;
     target_ulong misa;
+
+    uint32_t features;
 
 #ifndef CONFIG_USER_ONLY
     target_ulong priv;
@@ -201,6 +211,11 @@ static inline RISCVCPU *riscv_env_get_cpu(CPURISCVState *env)
 static inline int riscv_has_ext(CPURISCVState *env, target_ulong ext)
 {
     return (env->misa & ext) != 0;
+}
+
+static inline bool riscv_feature(CPURISCVState *env, int feature)
+{
+    return env->features & (1ULL << feature);
 }
 
 #include "cpu_user.h"

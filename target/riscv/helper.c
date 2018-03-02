@@ -106,7 +106,7 @@ static int get_physical_address(CPURISCVState *env, hwaddr *physical,
         }
     }
 
-    if (mode == PRV_M) {
+    if (mode == PRV_M || !riscv_feature(env, RISCV_FEATURE_MMU)) {
         *physical = addr;
         *prot = PAGE_READ | PAGE_WRITE | PAGE_EXEC;
         return TRANSLATE_SUCCESS;
