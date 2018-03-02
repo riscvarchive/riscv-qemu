@@ -263,7 +263,8 @@ static void spike_v1_09_1_board_init(MachineState *machine)
     /* register system main memory (actual RAM) */
     memory_region_init_ram(main_mem, NULL, "riscv.spike.ram",
                            machine->ram_size, &error_fatal);
-    memory_region_add_subregion(system_memory, DRAM_BASE, main_mem);
+    memory_region_add_subregion(system_memory, memmap[SPIKE_DRAM].base,
+        main_mem);
 
     /* boot rom */
     memory_region_init_ram(boot_rom, NULL, "riscv.spike.bootrom",
