@@ -122,7 +122,7 @@ static void riscv_sifive_e_init(MachineState *machine)
     object_initialize(&s->soc, sizeof(s->soc), TYPE_RISCV_HART_ARRAY);
     object_property_add_child(OBJECT(machine), "soc", OBJECT(&s->soc),
                               &error_abort);
-    object_property_set_str(OBJECT(&s->soc), TYPE_RISCV_CPU_IMAC_PRIV_1_10,
+    object_property_set_str(OBJECT(&s->soc), TYPE_RISCV_CPU_IMAC,
                             "cpu-type", &error_abort);
     object_property_set_int(OBJECT(&s->soc), smp_cpus, "num-harts",
                             &error_abort);

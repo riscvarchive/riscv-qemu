@@ -91,7 +91,7 @@ static void riscv_any_cpu_init(Object *obj)
     env->priv_ver = PRIV_VERSION_1_10_0;
 }
 
-static void riscv_imafdcsu_priv1_9_cpu_init(Object *obj)
+static void riscv_imafdcsu_priv1_9_1_cpu_init(Object *obj)
 {
     CPURISCVState *env = &RISCV_CPU(obj)->env;
     env->misa = RVXLEN | RVI | RVM | RVA | RVF | RVD | RVC | RVS | RVU;
@@ -99,7 +99,7 @@ static void riscv_imafdcsu_priv1_9_cpu_init(Object *obj)
     env->priv_ver = PRIV_VERSION_1_09_1;
 }
 
-static void riscv_imafdcsu_priv1_10_cpu_init(Object *obj)
+static void riscv_imafdcsu_cpu_init(Object *obj)
 {
     CPURISCVState *env = &RISCV_CPU(obj)->env;
     env->misa = RVXLEN | RVI | RVM | RVA | RVF | RVD | RVC | RVS | RVU;
@@ -107,7 +107,7 @@ static void riscv_imafdcsu_priv1_10_cpu_init(Object *obj)
     env->priv_ver = PRIV_VERSION_1_10_0;
 }
 
-static void riscv_imacu_priv1_10_cpu_init(Object *obj)
+static void riscv_imacu_cpu_init(Object *obj)
 {
     CPURISCVState *env = &RISCV_CPU(obj)->env;
     env->misa = RVXLEN | RVI | RVM | RVA | RVC | RVU;
@@ -115,7 +115,7 @@ static void riscv_imacu_priv1_10_cpu_init(Object *obj)
     env->priv_ver = PRIV_VERSION_1_10_0;
 }
 
-static void riscv_imac_priv1_10_cpu_init(Object *obj)
+static void riscv_imac_cpu_init(Object *obj)
 {
     CPURISCVState *env = &RISCV_CPU(obj)->env;
     env->misa = RVXLEN | RVI | RVM | RVA | RVC;
@@ -124,11 +124,11 @@ static void riscv_imac_priv1_10_cpu_init(Object *obj)
 }
 
 static const RISCVCPUInfo riscv_cpus[] = {
-    { TYPE_RISCV_CPU_ANY,                riscv_any_cpu_init },
-    { TYPE_RISCV_CPU_IMAFDCSU_PRIV_1_09, riscv_imafdcsu_priv1_9_cpu_init },
-    { TYPE_RISCV_CPU_IMAFDCSU_PRIV_1_10, riscv_imafdcsu_priv1_10_cpu_init },
-    { TYPE_RISCV_CPU_IMACU_PRIV_1_10,    riscv_imacu_priv1_10_cpu_init },
-    { TYPE_RISCV_CPU_IMAC_PRIV_1_10,     riscv_imac_priv1_10_cpu_init },
+    { TYPE_RISCV_CPU_ANY,                 riscv_any_cpu_init },
+    { TYPE_RISCV_CPU_IMAFDCSU_PRIV_1_9_1, riscv_imafdcsu_priv1_9_1_cpu_init },
+    { TYPE_RISCV_CPU_IMAFDCSU,            riscv_imafdcsu_cpu_init },
+    { TYPE_RISCV_CPU_IMACU,               riscv_imacu_cpu_init },
+    { TYPE_RISCV_CPU_IMAC,                riscv_imac_cpu_init },
     { NULL, NULL }
 };
 

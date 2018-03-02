@@ -49,13 +49,13 @@
 
 #define TYPE_RISCV_CPU_ANY \
     RISCV_CPU_TYPE_NAME("any")
-#define TYPE_RISCV_CPU_IMAFDCSU_PRIV_1_09 \
-    RISCV_CPU_TYPE_NAME("generic-imafdcsu-1.9.1")
-#define TYPE_RISCV_CPU_IMAFDCSU_PRIV_1_10 \
+#define TYPE_RISCV_CPU_IMAFDCSU_PRIV_1_9_1 \
+    RISCV_CPU_TYPE_NAME("generic-imafdcsu-priv-v1.9.1")
+#define TYPE_RISCV_CPU_IMAFDCSU \
     RISCV_CPU_TYPE_NAME("generic-imafdcsu")
-#define TYPE_RISCV_CPU_IMACU_PRIV_1_10 \
+#define TYPE_RISCV_CPU_IMACU \
     RISCV_CPU_TYPE_NAME("generic-imacu")
-#define TYPE_RISCV_CPU_IMAC_PRIV_1_10 \
+#define TYPE_RISCV_CPU_IMAC \
     RISCV_CPU_TYPE_NAME("generic-imac")
 
 #if defined(TARGET_RISCV32)
