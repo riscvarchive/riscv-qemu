@@ -108,7 +108,7 @@ static hwaddr load_initrd(const char *filename, uint64_t mem_size,
     return *start + size;
 }
 
-static void *create_fdt(RISCVVirtState *s, const struct MemmapEntry *memmap,
+static void create_fdt(RISCVVirtState *s, const struct MemmapEntry *memmap,
     uint64_t mem_size, const char *cmdline)
 {
     void *fdt;
@@ -264,8 +264,6 @@ static void *create_fdt(RISCVVirtState *s, const struct MemmapEntry *memmap,
     qemu_fdt_setprop_string(fdt, "/chosen", "stdout-path", nodename);
     qemu_fdt_setprop_string(fdt, "/chosen", "bootargs", cmdline);
     g_free(nodename);
-
-    return fdt;
 }
 
 static void riscv_virt_board_init(MachineState *machine)
@@ -279,7 +277,6 @@ static void riscv_virt_board_init(MachineState *machine)
     char *plic_hart_config;
     size_t plic_hart_config_len;
     int i;
-    void *fdt;
 
     /* Initialize SOC */
     object_initialize(&s->soc, sizeof(s->soc), TYPE_RISCV_HART_ARRAY);
@@ -299,7 +296,7 @@ static void riscv_virt_board_init(MachineState *machine)
         main_mem);
 
     /* create device tree */
-    fdt = create_fdt(s, memmap, machine->ram_size, machine->kernel_cmdline);
+    create_fdt(s, memmap, machine->ram_size, machine->kernel_cmdline);
 
     /* boot rom */
     memory_region_init_ram(boot_rom, NULL, "riscv_virt_board.bootrom",
@@ -314,9 +311,9 @@ static void riscv_virt_board_init(MachineState *machine)
             hwaddr end = load_initrd(machine->initrd_filename,
                                      machine->ram_size, kernel_entry,
                                      &start);
-            qemu_fdt_setprop_cell(fdt, "/chosen",
-                                  "linux,initrd-start", start);
-            qemu_fdt_setprop_cell(fdt, "/chosen", "linux,initrd-end",
+            qemu_fdt_setprop_cell(s->fdt, "/chosen", "linux,initrd-start",
+                                  start);
+            qemu_fdt_setprop_cell(s->fdt, "/chosen", "linux,initrd-end",
                                   end);
         }
     }
