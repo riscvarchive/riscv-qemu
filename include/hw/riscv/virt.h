@@ -19,6 +19,10 @@
 #ifndef HW_RISCV_VIRT_H
 #define HW_RISCV_VIRT_H
 
+#define TYPE_RISCV_VIRT_BOARD "riscv.virt"
+#define VIRT(obj) \
+    OBJECT_CHECK(RISCVVirtState, (obj), TYPE_RISCV_VIRT_BOARD)
+
 typedef struct {
     /*< private >*/
     SysBusDevice parent_obj;
