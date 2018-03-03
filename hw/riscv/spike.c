@@ -176,7 +176,7 @@ static void spike_v1_10_0_board_init(MachineState *machine)
     SpikeState *s = g_new0(SpikeState, 1);
     MemoryRegion *system_memory = get_system_memory();
     MemoryRegion *main_mem = g_new(MemoryRegion, 1);
-    MemoryRegion *boot_rom = g_new(MemoryRegion, 1);
+    MemoryRegion *mask_rom = g_new(MemoryRegion, 1);
 
     /* Initialize SOC */
     object_initialize(&s->soc, sizeof(s->soc), TYPE_RISCV_HART_ARRAY);
@@ -199,9 +199,9 @@ static void spike_v1_10_0_board_init(MachineState *machine)
     create_fdt(s, memmap, machine->ram_size, machine->kernel_cmdline);
 
     /* boot rom */
-    memory_region_init_ram(boot_rom, NULL, "riscv.spike.bootrom",
+    memory_region_init_ram(mask_rom, NULL, "riscv.spike.mrom",
                            s->fdt_size + 0x2000, &error_fatal);
-    memory_region_add_subregion(system_memory, 0x0, boot_rom);
+    memory_region_add_subregion(system_memory, 0x0, mask_rom);
 
     if (machine->kernel_filename) {
         load_kernel(machine->kernel_filename);
@@ -231,9 +231,10 @@ static void spike_v1_10_0_board_init(MachineState *machine)
     qemu_fdt_dumpdtb(s->fdt, s->fdt_size);
     cpu_physical_memory_write(memmap[SPIKE_MROM].base + sizeof(reset_vec),
         s->fdt, s->fdt_size);
+    memory_region_set_readonly(mask_rom, true);
 
     /* initialize HTIF using symbols found in load_kernel */
-    htif_mm_init(system_memory, boot_rom, &s->soc.harts[0].env, serial_hds[0]);
+    htif_mm_init(system_memory, mask_rom, &s->soc.harts[0].env, serial_hds[0]);
 
     /* Core Local Interruptor (timer and IPI) */
     sifive_clint_create(memmap[SPIKE_CLINT].base, memmap[SPIKE_CLINT].size,
@@ -247,7 +248,7 @@ static void spike_v1_09_1_board_init(MachineState *machine)
     SpikeState *s = g_new0(SpikeState, 1);
     MemoryRegion *system_memory = get_system_memory();
     MemoryRegion *main_mem = g_new(MemoryRegion, 1);
-    MemoryRegion *boot_rom = g_new(MemoryRegion, 1);
+    MemoryRegion *mask_rom = g_new(MemoryRegion, 1);
 
     /* Initialize SOC */
     object_initialize(&s->soc, sizeof(s->soc), TYPE_RISCV_HART_ARRAY);
@@ -267,9 +268,9 @@ static void spike_v1_09_1_board_init(MachineState *machine)
         main_mem);
 
     /* boot rom */
-    memory_region_init_ram(boot_rom, NULL, "riscv.spike.bootrom",
+    memory_region_init_ram(mask_rom, NULL, "riscv.spike.mrom",
                            0x40000, &error_fatal);
-    memory_region_add_subregion(system_memory, 0x0, boot_rom);
+    memory_region_add_subregion(system_memory, 0x0, mask_rom);
 
     if (machine->kernel_filename) {
         load_kernel(machine->kernel_filename);
@@ -328,9 +329,10 @@ static void spike_v1_09_1_board_init(MachineState *machine)
     /* copy in the config string */
     cpu_physical_memory_write(memmap[SPIKE_MROM].base + sizeof(reset_vec),
         config_string, config_string_len);
+    memory_region_set_readonly(mask_rom, true);
 
     /* initialize HTIF using symbols found in load_kernel */
-    htif_mm_init(system_memory, boot_rom, &s->soc.harts[0].env, serial_hds[0]);
+    htif_mm_init(system_memory, mask_rom, &s->soc.harts[0].env, serial_hds[0]);
 
     /* Core Local Interruptor (timer and IPI) */
     sifive_clint_create(memmap[SPIKE_CLINT].base, memmap[SPIKE_CLINT].size,

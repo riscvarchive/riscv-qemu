@@ -275,7 +275,7 @@ static void riscv_virt_board_init(MachineState *machine)
     RISCVVirtState *s = g_new0(RISCVVirtState, 1);
     MemoryRegion *system_memory = get_system_memory();
     MemoryRegion *main_mem = g_new(MemoryRegion, 1);
-    MemoryRegion *boot_rom = g_new(MemoryRegion, 1);
+    MemoryRegion *mask_rom = g_new(MemoryRegion, 1);
     char *plic_hart_config;
     size_t plic_hart_config_len;
     int i;
@@ -302,9 +302,9 @@ static void riscv_virt_board_init(MachineState *machine)
     fdt = create_fdt(s, memmap, machine->ram_size, machine->kernel_cmdline);
 
     /* boot rom */
-    memory_region_init_ram(boot_rom, NULL, "riscv_virt_board.bootrom",
+    memory_region_init_ram(mask_rom, NULL, "riscv_virt_board.mrom",
                            s->fdt_size + 0x2000, &error_fatal);
-    memory_region_add_subregion(system_memory, 0x0, boot_rom);
+    memory_region_add_subregion(system_memory, 0x0, mask_rom);
 
     if (machine->kernel_filename) {
         uint64_t kernel_entry = load_kernel(machine->kernel_filename);
@@ -345,6 +345,7 @@ static void riscv_virt_board_init(MachineState *machine)
     qemu_fdt_dumpdtb(s->fdt, s->fdt_size);
     cpu_physical_memory_write(ROM_BASE + sizeof(reset_vec),
         s->fdt, s->fdt_size);
+    memory_region_set_readonly(mask_rom, true);
 
     /* create PLIC hart topology configuration string */
     plic_hart_config_len = (strlen(VIRT_PLIC_HART_CONFIG) + 1) * smp_cpus;

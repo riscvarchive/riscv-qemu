@@ -226,7 +226,7 @@ static void riscv_sifive_u_init(MachineState *machine)
     SiFiveUState *s = g_new0(SiFiveUState, 1);
     MemoryRegion *sys_memory = get_system_memory();
     MemoryRegion *main_mem = g_new(MemoryRegion, 1);
-    MemoryRegion *boot_rom = g_new(MemoryRegion, 1);
+    MemoryRegion *mask_rom = g_new(MemoryRegion, 1);
 
     /* Initialize SOC */
     object_initialize(&s->soc, sizeof(s->soc), TYPE_RISCV_HART_ARRAY);
@@ -249,10 +249,10 @@ static void riscv_sifive_u_init(MachineState *machine)
     create_fdt(s, memmap, machine->ram_size, machine->kernel_cmdline);
 
     /* boot rom */
-    memory_region_init_ram(boot_rom, NULL, "riscv.sifive.u.mrom",
+    memory_region_init_ram(mask_rom, NULL, "riscv.sifive.u.mrom",
                            memmap[SIFIVE_U_MROM].base, &error_fatal);
-    memory_region_set_readonly(boot_rom, true);
-    memory_region_add_subregion(sys_memory, 0x0, boot_rom);
+    memory_region_set_readonly(mask_rom, true);
+    memory_region_add_subregion(sys_memory, 0x0, mask_rom);
 
     if (machine->kernel_filename) {
         load_kernel(machine->kernel_filename);
@@ -282,6 +282,7 @@ static void riscv_sifive_u_init(MachineState *machine)
     qemu_fdt_dumpdtb(s->fdt, s->fdt_size);
     cpu_physical_memory_write(memmap[SIFIVE_U_MROM].base +
         sizeof(reset_vec), s->fdt, s->fdt_size);
+    memory_region_set_readonly(mask_rom, true);
 
     /* MMIO */
     s->plic = sifive_plic_create(memmap[SIFIVE_U_PLIC].base,
