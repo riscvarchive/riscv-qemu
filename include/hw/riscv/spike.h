@@ -19,10 +19,11 @@
 #ifndef HW_SPIKE_H
 #define HW_SPIKE_H
 
-#define TYPE_RISCV_SPIKE_V1_09_1_BOARD "riscv.spike_v1_9_1"
-#define TYPE_RISCV_SPIKE_V1_10_0_BOARD "riscv.spike_v1_10"
-
 typedef struct {
+    /*< private >*/
+    SysBusDevice parent_obj;
+
+    /*< public >*/
     RISCVHartArrayState soc;
     void *fdt;
     int fdt_size;
