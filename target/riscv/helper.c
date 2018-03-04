@@ -209,6 +209,7 @@ restart:
                    as the PTE is no longer valid */
                 MemoryRegion *mr;
                 hwaddr l = sizeof(target_ulong), addr1;
+                rcu_read_lock();
                 mr = address_space_translate(cs->as, pte_addr,
                     &addr1, &l, false);
                 if (memory_access_is_direct(mr, true)) {
@@ -222,16 +223,19 @@ restart:
                     target_ulong old_pte =
                         atomic_cmpxchg(pte_pa, pte, updated_pte);
                     if (old_pte != pte) {
+                        rcu_read_unlock();
                         goto restart;
                     } else {
                         pte = updated_pte;
                     }
 #endif
                 } else {
+                    rcu_read_unlock();
                     /* misconfigured PTE in ROM (AD bits are not preset) or
                      * PTE is in IO space and can't be updated atomically */
                     return TRANSLATE_FAIL;
                 }
+                rcu_read_unlock();
             }
 
             /* for superpage mappings, make a fake leaf PTE for the TLB's
