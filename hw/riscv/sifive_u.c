@@ -52,7 +52,7 @@ static const struct MemmapEntry {
     hwaddr size;
 } sifive_u_memmap[] = {
     [SIFIVE_U_DEBUG] =    {        0x0,      0x100 },
-    [SIFIVE_U_MROM] =     {     0x1000,     0x2000 },
+    [SIFIVE_U_MROM] =     {     0x1000,    0x11000 },
     [SIFIVE_U_CLINT] =    {  0x2000000,    0x10000 },
     [SIFIVE_U_PLIC] =     {  0xc000000,  0x4000000 },
     [SIFIVE_U_UART0] =    { 0x10013000,     0x1000 },
@@ -224,7 +224,7 @@ static void riscv_sifive_u_init(MachineState *machine)
     const struct MemmapEntry *memmap = sifive_u_memmap;
 
     SiFiveUState *s = g_new0(SiFiveUState, 1);
-    MemoryRegion *sys_memory = get_system_memory();
+    MemoryRegion *system_memory = get_system_memory();
     MemoryRegion *main_mem = g_new(MemoryRegion, 1);
     MemoryRegion *mask_rom = g_new(MemoryRegion, 1);
 
@@ -242,7 +242,7 @@ static void riscv_sifive_u_init(MachineState *machine)
     /* register RAM */
     memory_region_init_ram(main_mem, NULL, "riscv.sifive.u.ram",
                            machine->ram_size, &error_fatal);
-    memory_region_add_subregion(sys_memory, memmap[SIFIVE_U_DRAM].base,
+    memory_region_add_subregion(system_memory, memmap[SIFIVE_U_DRAM].base,
         main_mem);
 
     /* create device tree */
@@ -250,9 +250,9 @@ static void riscv_sifive_u_init(MachineState *machine)
 
     /* boot rom */
     memory_region_init_ram(mask_rom, NULL, "riscv.sifive.u.mrom",
-                           memmap[SIFIVE_U_MROM].base, &error_fatal);
-    memory_region_set_readonly(mask_rom, true);
-    memory_region_add_subregion(sys_memory, 0x0, mask_rom);
+                           memmap[SIFIVE_U_MROM].size, &error_fatal);
+    memory_region_add_subregion(system_memory, memmap[SIFIVE_U_MROM].base,
+                                mask_rom);
 
     if (machine->kernel_filename) {
         load_kernel(machine->kernel_filename);
@@ -279,6 +279,10 @@ static void riscv_sifive_u_init(MachineState *machine)
     copy_le32_to_phys(memmap[SIFIVE_U_MROM].base, reset_vec, sizeof(reset_vec));
 
     /* copy in the device tree */
+    if (s->fdt_size >= memmap[SIFIVE_U_MROM].size - sizeof(reset_vec)) {
+        error_report("qemu: not enough space to store device-tree");
+        exit(1);
+    }
     qemu_fdt_dumpdtb(s->fdt, s->fdt_size);
     cpu_physical_memory_write(memmap[SIFIVE_U_MROM].base +
         sizeof(reset_vec), s->fdt, s->fdt_size);
@@ -296,9 +300,9 @@ static void riscv_sifive_u_init(MachineState *machine)
         SIFIVE_U_PLIC_CONTEXT_BASE,
         SIFIVE_U_PLIC_CONTEXT_STRIDE,
         memmap[SIFIVE_U_PLIC].size);
-    sifive_uart_create(sys_memory, memmap[SIFIVE_U_UART0].base,
+    sifive_uart_create(system_memory, memmap[SIFIVE_U_UART0].base,
         serial_hds[0], SIFIVE_PLIC(s->plic)->irqs[SIFIVE_U_UART0_IRQ]);
-    /* sifive_uart_create(sys_memory, memmap[SIFIVE_U_UART1].base,
+    /* sifive_uart_create(system_memory, memmap[SIFIVE_U_UART1].base,
         serial_hds[1], SIFIVE_PLIC(s->plic)->irqs[SIFIVE_U_UART1_IRQ]); */
     sifive_clint_create(memmap[SIFIVE_U_CLINT].base,
         memmap[SIFIVE_U_CLINT].size, smp_cpus,

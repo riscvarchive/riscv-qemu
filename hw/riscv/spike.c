@@ -46,7 +46,7 @@ static const struct MemmapEntry {
     hwaddr base;
     hwaddr size;
 } spike_memmap[] = {
-    [SPIKE_MROM] =     {     0x1000,     0x2000 },
+    [SPIKE_MROM] =     {     0x1000,    0x11000 },
     [SPIKE_CLINT] =    {  0x2000000,    0x10000 },
     [SPIKE_DRAM] =     { 0x80000000,        0x0 },
 };
@@ -200,8 +200,9 @@ static void spike_v1_10_0_board_init(MachineState *machine)
 
     /* boot rom */
     memory_region_init_ram(mask_rom, NULL, "riscv.spike.mrom",
-                           s->fdt_size + 0x2000, &error_fatal);
-    memory_region_add_subregion(system_memory, 0x0, mask_rom);
+                           memmap[SPIKE_MROM].size, &error_fatal);
+    memory_region_add_subregion(system_memory, memmap[SPIKE_MROM].base,
+                                mask_rom);
 
     if (machine->kernel_filename) {
         load_kernel(machine->kernel_filename);
@@ -228,6 +229,10 @@ static void spike_v1_10_0_board_init(MachineState *machine)
     copy_le32_to_phys(memmap[SPIKE_MROM].base, reset_vec, sizeof(reset_vec));
 
     /* copy in the device tree */
+    if (s->fdt_size >= memmap[SPIKE_MROM].size - sizeof(reset_vec)) {
+        error_report("qemu: not enough space to store device-tree");
+        exit(1);
+    }
     qemu_fdt_dumpdtb(s->fdt, s->fdt_size);
     cpu_physical_memory_write(memmap[SPIKE_MROM].base + sizeof(reset_vec),
         s->fdt, s->fdt_size);
@@ -269,8 +274,9 @@ static void spike_v1_09_1_board_init(MachineState *machine)
 
     /* boot rom */
     memory_region_init_ram(mask_rom, NULL, "riscv.spike.mrom",
-                           0x40000, &error_fatal);
-    memory_region_add_subregion(system_memory, 0x0, mask_rom);
+                           memmap[SPIKE_MROM].size, &error_fatal);
+    memory_region_add_subregion(system_memory, memmap[SPIKE_MROM].base,
+                                mask_rom);
 
     if (machine->kernel_filename) {
         load_kernel(machine->kernel_filename);

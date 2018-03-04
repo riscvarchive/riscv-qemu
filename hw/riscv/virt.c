@@ -45,8 +45,8 @@ static const struct MemmapEntry {
     hwaddr size;
 } virt_memmap[] = {
     [VIRT_DEBUG] =    {        0x0,      0x100 },
-    [VIRT_MROM] =     {     0x1000,     0x2000 },
-    [VIRT_TEST] =     {     0x4000,     0x1000 },
+    [VIRT_MROM] =     {     0x1000,    0x11000 },
+    [VIRT_TEST] =     {   0x100000,     0x1000 },
     [VIRT_CLINT] =    {  0x2000000,    0x10000 },
     [VIRT_PLIC] =     {  0xc000000,  0x4000000 },
     [VIRT_UART0] =    { 0x10000000,      0x100 },
@@ -303,8 +303,9 @@ static void riscv_virt_board_init(MachineState *machine)
 
     /* boot rom */
     memory_region_init_ram(mask_rom, NULL, "riscv_virt_board.mrom",
-                           s->fdt_size + 0x2000, &error_fatal);
-    memory_region_add_subregion(system_memory, 0x0, mask_rom);
+                           memmap[VIRT_MROM].size, &error_fatal);
+    memory_region_add_subregion(system_memory, memmap[VIRT_MROM].base,
+                                mask_rom);
 
     if (machine->kernel_filename) {
         uint64_t kernel_entry = load_kernel(machine->kernel_filename);
@@ -342,6 +343,10 @@ static void riscv_virt_board_init(MachineState *machine)
     copy_le32_to_phys(ROM_BASE, reset_vec, sizeof(reset_vec));
 
     /* copy in the device tree */
+    if (s->fdt_size >= memmap[VIRT_MROM].size - sizeof(reset_vec)) {
+        error_report("qemu: not enough space to store device-tree");
+        exit(1);
+    }
     qemu_fdt_dumpdtb(s->fdt, s->fdt_size);
     cpu_physical_memory_write(ROM_BASE + sizeof(reset_vec),
         s->fdt, s->fdt_size);
