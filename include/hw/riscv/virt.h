@@ -19,15 +19,7 @@
 #ifndef HW_VIRT_H
 #define HW_VIRT_H
 
-#define TYPE_RISCV_VIRT_BOARD "riscv.virt"
-#define VIRT(obj) \
-    OBJECT_CHECK(RISCVVirtState, (obj), TYPE_RISCV_VIRT_BOARD)
-
 typedef struct {
-    /*< private >*/
-    SysBusDevice parent_obj;
-
-    /*< public >*/
     RISCVHartArrayState soc;
     DeviceState *plic;
     void *fdt;
@@ -44,7 +36,6 @@ enum {
     VIRT_VIRTIO,
     VIRT_DRAM
 };
-
 
 enum {
     UART0_IRQ = 10,
