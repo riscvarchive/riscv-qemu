@@ -209,6 +209,9 @@ restart:
                    as the PTE is no longer valid */
                 MemoryRegion *mr;
                 hwaddr l = sizeof(target_ulong), addr1;
+                enum { success, translate_fail, restart_walk} action = success;
+
+                rcu_read_lock();
                 mr = address_space_translate(cs->as, pte_addr,
                     &addr1, &l, false);
                 if (memory_access_is_direct(mr, true)) {
@@ -222,7 +225,7 @@ restart:
                     target_ulong old_pte =
                         atomic_cmpxchg(pte_pa, pte, updated_pte);
                     if (old_pte != pte) {
-                        goto restart;
+                        action = restart_walk;
                     } else {
                         pte = updated_pte;
                     }
@@ -230,7 +233,17 @@ restart:
                 } else {
                     /* misconfigured PTE in ROM (AD bits are not preset) or
                      * PTE is in IO space and can't be updated atomically */
+                    action = translate_fail;
+                }
+                rcu_read_unlock();
+
+                switch (action) {
+                case success:
+                    break;
+                case translate_fail:
                     return TRANSLATE_FAIL;
+                case restart_walk:
+                    goto restart;
                 }
             }
 
