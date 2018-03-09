@@ -391,7 +391,7 @@ static const TypeInfo riscv_cpu_type_info = {
 char *riscv_isa_string(RISCVCPU *cpu)
 {
     int i;
-    size_t maxlen = 5 + ctz32(cpu->env.misa);
+    size_t maxlen = 5 + __builtin_popcountll(cpu->env.misa);
     char *isa_string = g_new0(char, maxlen);
     snprintf(isa_string, maxlen, "rv%d", TARGET_LONG_BITS);
     for (i = 0; i < sizeof(riscv_exts); i++) {
