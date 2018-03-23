@@ -144,8 +144,21 @@ void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
         }
 
         mstatus = (mstatus & ~mask) | (val_to_write & mask);
-        int dirty = (mstatus & MSTATUS_FS) == MSTATUS_FS;
-        dirty |= (mstatus & MSTATUS_XS) == MSTATUS_XS;
+
+        /* Note: this is a workaround for an issue where mstatus.FS
+           does not report dirty when SMP and MTTCG is enabled. This
+           workaround is technically compliant with the RISC-V Privileged
+           specification as it is legal to return only off, or dirty,
+           however this may cause unnecessary saves of floating point state.
+           Without this workaround, floating point state is not saved and
+           restored coorectly when SMP and MTTCG is enabled, */
+        if (qemu_tcg_mttcg_enabled()) {
+            /* FP is always dirty or off */
+            if (mstatus & MSTATUS_FS) mstatus |= MSTATUS_FS;
+        }
+
+        int dirty = ((mstatus & MSTATUS_FS) == MSTATUS_FS) |
+                    ((mstatus & MSTATUS_XS) == MSTATUS_XS);
         mstatus = set_field(mstatus, MSTATUS_SD, dirty);
         env->mstatus = mstatus;
         break;
