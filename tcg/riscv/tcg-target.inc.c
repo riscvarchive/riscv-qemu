@@ -438,6 +438,10 @@ static void tcg_out_movi(TCGContext *s, TCGType type, TCGReg rd,
 
     RISCVInsn add32_op = TCG_TARGET_REG_BITS == 64 ? OPC_ADDIW : OPC_ADDI;
 
+#if TCG_TARGET_REG_BITS == 64
+    ptrdiff_t offset = tcg_pcrel_diff(s, (void *)val);
+#endif
+
     if (val == lo) {
         tcg_out_opc_imm(s, OPC_ADDI, rd, TCG_REG_ZERO, val);
     } else if (val && !(val & (val - 1))) {
@@ -453,6 +457,12 @@ static void tcg_out_movi(TCGContext *s, TCGType type, TCGReg rd,
         if (lo != 0) {
             tcg_out_opc_imm(s, OPC_ADDI, rd, rd, lo);
         }
+#if TCG_TARGET_REG_BITS == 64
+    } else if (offset == sextract64(offset, 1, 31) << 1) {
+        tcg_out_opc_upper(s, OPC_AUIPC, rd, 0);
+        tcg_out_opc_imm(s, OPC_ADDI, rd, rd, 0);
+        reloc_call(s->code_ptr - 2, (tcg_insn_unit *)val);
+#endif
     } else {
         if (hi != 0) {
             tcg_out_opc_upper(s, OPC_LUI, rd, hi);
