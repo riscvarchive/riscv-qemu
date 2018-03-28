@@ -624,8 +624,8 @@ static void tcg_out_jump_internal(TCGContext *s, tcg_insn_unit *arg, bool tail)
 {
     TCGReg link = tail ? TCG_REG_ZERO : TCG_REG_RA;
     ptrdiff_t offset = tcg_pcrel_diff(s, arg);
-    if (offset == sextract64(offset, 1, 12) << 1) {
-        /* short jump: -4094 to 4096 */
+    if (offset == sextract64(offset, 1, 20) << 1) {
+        /* short jump: -2097150 to 2097152 */
         tcg_out_opc_jump(s, OPC_JAL, link, offset);
     } else if (offset == sextract64(offset, 1, 31) << 1) {
         /* long jump: -2147483646 to 2147483648 */
