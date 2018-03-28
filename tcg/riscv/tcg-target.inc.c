@@ -489,10 +489,11 @@ static void tcg_out_ldst(TCGContext *s, RISCVInsn opc, TCGReg data,
 {
     int32_t imm12 = sextract32(offset, 0, 12);
     if (offset != imm12) {
-        if (addr == TCG_REG_ZERO) {
-            addr = TCG_REG_TMP0;
+        tcg_out_movi(s, TCG_TYPE_PTR, TCG_REG_TMP0, offset - imm12);
+        if (addr != TCG_REG_ZERO) {
+            tcg_out_opc_reg(s, OPC_ADD, TCG_REG_TMP0, TCG_REG_TMP0, addr);
         }
-        tcg_out_movi(s, TCG_TYPE_PTR, addr, offset - imm12);
+        addr = TCG_REG_TMP0;
     }
     switch (opc) {
         case OPC_SB:
