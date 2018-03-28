@@ -642,10 +642,12 @@ static void tcg_out_jump_internal(TCGContext *s, tcg_insn_unit *arg, bool tail)
         tcg_out_opc_upper(s, OPC_AUIPC, TCG_REG_TMP0, 0);
         tcg_out_opc_imm(s, OPC_JALR, link, TCG_REG_TMP0, 0);
         reloc_call(s->code_ptr - 2, arg);
-    } else {
+    } else if (TCG_TARGET_REG_BITS == 64) {
         /* far jump: 64-bit */
         tcg_out_movi(s, TCG_TYPE_PTR, TCG_REG_TMP0, (tcg_target_long)arg);
         tcg_out_opc_imm(s, OPC_JALR, link, TCG_REG_TMP0, 0);
+    } else {
+        g_assert_not_reached();
     }
 }
 
