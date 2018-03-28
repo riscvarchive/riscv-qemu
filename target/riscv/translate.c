@@ -43,7 +43,7 @@ typedef struct DisasContext {
     target_ulong pc;
     target_ulong next_pc;
     uint32_t opcode;
-    uint32_t flags;
+    uint32_t mstatus_fs;
     uint32_t mem_idx;
     int singlestep_enabled;
     int bstate;
@@ -664,7 +664,7 @@ static void gen_fp_load(DisasContext *ctx, uint32_t opc, int rd,
 {
     TCGv t0;
 
-    if (!(ctx->flags & TB_FLAGS_FP_ENABLE)) {
+    if (ctx->mstatus_fs == 0) {
         gen_exception_illegal(ctx);
         return;
     }
@@ -694,7 +694,7 @@ static void gen_fp_store(DisasContext *ctx, uint32_t opc, int rs1,
 {
     TCGv t0;
 
-    if (!(ctx->flags & TB_FLAGS_FP_ENABLE)) {
+    if (ctx->mstatus_fs == 0) {
         gen_exception_illegal(ctx);
         return;
     }
@@ -985,7 +985,7 @@ static void gen_fp_arith(DisasContext *ctx, uint32_t opc, int rd,
 {
     TCGv t0 = NULL;
 
-    if (!(ctx->flags & TB_FLAGS_FP_ENABLE)) {
+    if (ctx->mstatus_fs == 0) {
         goto do_illegal;
     }
 
@@ -1863,8 +1863,8 @@ void gen_intermediate_code(CPUState *cs, TranslationBlock *tb)
 
     ctx.tb = tb;
     ctx.bstate = BS_NONE;
-    ctx.flags = tb->flags;
     ctx.mem_idx = tb->flags & TB_FLAGS_MMU_MASK;
+    ctx.mstatus_fs = tb->flags & TB_FLAGS_MSTATUS_FS;
     ctx.frm = -1;  /* unknown rounding mode */
 
     num_insns = 0;
