@@ -914,9 +914,8 @@ static void tcg_out_op(TCGContext *s, TCGOpcode opc,
         break;
 
     case INDEX_op_br:
-        tcg_out_reloc(s, s->code_ptr, R_RISCV_CALL, arg_label(a0), 0);
-        tcg_out_opc_upper(s, OPC_AUIPC, TCG_REG_TMP0, 0);
-        tcg_out_opc_imm(s, OPC_JALR, TCG_REG_ZERO, TCG_REG_TMP0, 0);
+        tcg_out_reloc(s, s->code_ptr, R_RISCV_JAL, arg_label(a0), 0);
+        tcg_out_opc_jump(s, OPC_JAL, TCG_REG_ZERO, 0);
         break;
 
     case INDEX_op_ld8u_i32:
