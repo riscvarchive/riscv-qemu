@@ -162,10 +162,10 @@ static int tcg_target_const_match(tcg_target_long val, TCGType type,
     if ((ct & TCG_CT_CONST_ZERO) && val == 0) {
         return 1;
     }
-    if ((ct & TCG_CT_CONST_S12) && val >= -2047 && val <= 2048) {
+    if ((ct & TCG_CT_CONST_S12) && val >= -2048 && val <= 2047) {
         return 1;
     }
-    if ((ct & TCG_CT_CONST_N12) && val >= -2047 && val <= 2047) {
+    if ((ct & TCG_CT_CONST_N12) && val >= -2047 && val <= 2048) {
         return 1;
     }
     return 0;
