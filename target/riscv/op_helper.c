@@ -429,25 +429,41 @@ target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno)
     case CSR_INSTRET:
     case CSR_CYCLE:
         if (ctr_ok) {
-            return cpu_get_host_ticks();
+            if (use_icount) {
+                return cpu_get_icount();
+            } else {
+                return cpu_get_host_ticks();
+            }
         }
         break;
 #if defined(TARGET_RISCV32)
     case CSR_INSTRETH:
     case CSR_CYCLEH:
         if (ctr_ok) {
-            return cpu_get_host_ticks() >> 32;
+            if (use_icount) {
+                return cpu_get_icount() >> 32;
+            } else {
+                return cpu_get_host_ticks() >> 32;
+            }
         }
         break;
 #endif
 #ifndef CONFIG_USER_ONLY
     case CSR_MINSTRET:
     case CSR_MCYCLE:
-        return cpu_get_host_ticks();
+        if (use_icount) {
+            return cpu_get_icount();
+        } else {
+            return cpu_get_host_ticks();
+        }
     case CSR_MINSTRETH:
     case CSR_MCYCLEH:
 #if defined(TARGET_RISCV32)
-        return cpu_get_host_ticks() >> 32;
+        if (use_icount) {
+            return cpu_get_icount() >> 32;
+        } else {
+            return cpu_get_host_ticks() >> 32;
+        }
 #endif
         break;
     case CSR_MUCOUNTEREN:
