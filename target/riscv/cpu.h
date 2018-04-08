@@ -282,9 +282,22 @@ static inline void cpu_get_tb_cpu_state(CPURISCVState *env, target_ulong *pc,
 #endif
 }
 
-void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
-        target_ulong csrno);
-target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno);
+int riscv_csrrw(CPURISCVState *env, int csrno, target_ulong *ret_value,
+                target_ulong new_value, target_ulong write_mask);
+
+static inline void csr_write_helper(CPURISCVState *env, target_ulong val,
+    target_ulong csrno)
+{
+    riscv_csrrw(env, csrno, NULL, val, -1);
+}
+
+static inline target_ulong csr_read_helper(CPURISCVState *env,
+    target_ulong csrno)
+{
+    target_ulong val = 0;
+    riscv_csrrw(env, csrno, &val, 0, 0);
+    return val;
+}
 
 #ifndef CONFIG_USER_ONLY
 void riscv_set_local_interrupt(RISCVCPU *cpu, target_ulong mask, int value);
