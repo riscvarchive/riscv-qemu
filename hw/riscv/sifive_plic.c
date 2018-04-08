@@ -146,10 +146,10 @@ static void sifive_plic_update(SiFivePLICState *plic)
         int level = sifive_plic_num_irqs_pending(plic, addrid) > 0;
         switch (mode) {
         case PLICMode_M:
-            riscv_set_local_interrupt(RISCV_CPU(cpu), MIP_MEIP, level);
+            riscv_set_local_interrupt(RISCV_CPU(cpu), MIP_MEIP, -!!level);
             break;
         case PLICMode_S:
-            riscv_set_local_interrupt(RISCV_CPU(cpu), MIP_SEIP, level);
+            riscv_set_local_interrupt(RISCV_CPU(cpu), MIP_SEIP, -!!level);
             break;
         default:
             break;
