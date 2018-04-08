@@ -247,7 +247,6 @@ void  riscv_cpu_do_unaligned_access(CPUState *cs, vaddr addr,
                                     uintptr_t retaddr);
 int riscv_cpu_handle_mmu_fault(CPUState *cpu, vaddr address, int size,
                               int rw, int mmu_idx);
-
 char *riscv_isa_string(RISCVCPU *cpu);
 void riscv_cpu_list(FILE *f, fprintf_function cpu_fprintf);
 
@@ -256,6 +255,9 @@ void riscv_cpu_list(FILE *f, fprintf_function cpu_fprintf);
 #define cpu_list riscv_cpu_list
 #define cpu_mmu_index riscv_cpu_mmu_index
 
+#ifndef CONFIG_USER_ONLY
+uint32_t riscv_cpu_update_mip(RISCVCPU *cpu, uint32_t mask, uint32_t value);
+#endif
 void riscv_set_mode(CPURISCVState *env, target_ulong newpriv);
 
 void riscv_translate_init(void);
@@ -285,10 +287,6 @@ static inline void cpu_get_tb_cpu_state(CPURISCVState *env, target_ulong *pc,
 void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
         target_ulong csrno);
 target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno);
-
-#ifndef CONFIG_USER_ONLY
-void riscv_set_local_interrupt(RISCVCPU *cpu, target_ulong mask, int value);
-#endif
 
 #include "exec/cpu-all.h"
 
