@@ -171,10 +171,8 @@ void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
          */
         qemu_mutex_lock_iothread();
         RISCVCPU *cpu = riscv_env_get_cpu(env);
-        riscv_set_local_interrupt(cpu, MIP_SSIP,
-                                  (val_to_write & MIP_SSIP) != 0);
-        riscv_set_local_interrupt(cpu, MIP_STIP,
-                                  (val_to_write & MIP_STIP) != 0);
+        riscv_set_local_interrupt(cpu, MIP_SSIP | MIP_STIP,
+                                  (val_to_write & (MIP_SSIP | MIP_STIP)));
         /*
          * csrs, csrc on mip.SEIP is not decomposable into separate read and
          * write steps, so a different implementation is needed
@@ -646,7 +644,7 @@ target_ulong helper_csrrc(CPURISCVState *env, target_ulong src,
 void riscv_set_local_interrupt(RISCVCPU *cpu, target_ulong mask, int value)
 {
     target_ulong old_mip = cpu->env.mip;
-    cpu->env.mip = (old_mip & ~mask) | (value ? mask : 0);
+    cpu->env.mip = (old_mip & ~mask) | (value & mask);
 
     if (cpu->env.mip && !old_mip) {
         cpu_interrupt(CPU(cpu), CPU_INTERRUPT_HARD);
