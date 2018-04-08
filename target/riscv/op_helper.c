@@ -251,10 +251,8 @@ void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
         break;
     }
     case CSR_SIP: {
-        qemu_mutex_lock_iothread();
-        target_ulong next_mip = (env->mip & ~env->mideleg)
+        target_ulong next_mip = (atomic_read(&env->mip) & ~env->mideleg)
                                 | (val_to_write & env->mideleg);
-        qemu_mutex_unlock_iothread();
         csr_write_helper(env, next_mip, CSR_MIP);
         break;
     }
@@ -489,12 +487,8 @@ target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno)
         }
         return env->mstatus & mask;
     }
-    case CSR_SIP: {
-        qemu_mutex_lock_iothread();
-        target_ulong tmp = env->mip & env->mideleg;
-        qemu_mutex_unlock_iothread();
-        return tmp;
-    }
+    case CSR_SIP:
+        return atomic_read(&env->mip) & env->mideleg;
     case CSR_SIE:
         return env->mie & env->mideleg;
     case CSR_SEPC:
@@ -524,12 +518,8 @@ target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno)
         return env->sscratch;
     case CSR_MSTATUS:
         return env->mstatus;
-    case CSR_MIP: {
-        qemu_mutex_lock_iothread();
-        target_ulong tmp = env->mip;
-        qemu_mutex_unlock_iothread();
-        return tmp;
-    }
+    case CSR_MIP:
+        return atomic_read(&env->mip);
     case CSR_MIE:
         return env->mie;
     case CSR_MEPC:
