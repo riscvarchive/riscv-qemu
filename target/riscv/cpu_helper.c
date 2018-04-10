@@ -73,16 +73,23 @@ bool riscv_cpu_exec_interrupt(CPUState *cs, int interrupt_request)
 #if !defined(CONFIG_USER_ONLY)
 
 /* iothread_mutex must be held */
-void riscv_set_local_interrupt(RISCVCPU *cpu, target_ulong mask, int value)
+uint32_t riscv_set_local_interrupt(RISCVCPU *cpu, target_ulong mask, int value)
 {
-    target_ulong old_mip = cpu->env.mip;
-    cpu->env.mip = (old_mip & ~mask) | (value & mask);
+    CPURISCVState *env = &cpu->env;
+    uint32_t old_mip, new_mip;
 
-    if (cpu->env.mip && !old_mip) {
+    do {
+        old_mip = atomic_read(&env->mip);
+        new_mip = (old_mip & ~mask) | (value & mask);
+    } while (atomic_cmpxchg(&env->mip, old_mip, new_mip) != old_mip);
+
+    if (new_mip && !old_mip) {
         cpu_interrupt(CPU(cpu), CPU_INTERRUPT_HARD);
-    } else if (!cpu->env.mip && old_mip) {
+    } else if (!new_mip && old_mip) {
         cpu_reset_interrupt(CPU(cpu), CPU_INTERRUPT_HARD);
     }
+
+    return old_mip;
 }
 
 void riscv_set_mode(CPURISCVState *env, target_ulong newpriv)
