@@ -300,7 +300,7 @@ static inline target_ulong csr_read_helper(CPURISCVState *env,
 }
 
 #ifndef CONFIG_USER_ONLY
-void riscv_set_local_interrupt(RISCVCPU *cpu, target_ulong mask, int value);
+uint32_t riscv_set_local_interrupt(RISCVCPU *cpu, target_ulong mask, int value);
 #endif
 
 #include "exec/cpu-all.h"
