@@ -24,8 +24,8 @@
 #define TARGET_PAGE_BITS 12 /* 4 KiB Pages */
 #if defined(TARGET_RISCV64)
 #define TARGET_LONG_BITS 64
-#define TARGET_PHYS_ADDR_SPACE_BITS 50
-#define TARGET_VIRT_ADDR_SPACE_BITS 39
+#define TARGET_PHYS_ADDR_SPACE_BITS 52
+#define TARGET_VIRT_ADDR_SPACE_BITS 48
 #elif defined(TARGET_RISCV32)
 #define TARGET_LONG_BITS 32
 #define TARGET_PHYS_ADDR_SPACE_BITS 34
@@ -34,7 +34,6 @@
 
 #define TCG_GUEST_DEFAULT_MO 0
 
-#define ELF_MACHINE EM_RISCV
 #define CPUArchState struct CPURISCVState
 
 #include "qemu-common.h"
@@ -72,6 +71,7 @@
 #define RV(x) ((target_ulong)1 << (x - 'A'))
 
 #define RVI RV('I')
+#define RVE RV('E') /* E and I are mutually exclusive */
 #define RVM RV('M')
 #define RVA RV('A')
 #define RVF RV('F')
@@ -83,9 +83,10 @@
 /* S extension denotes that Supervisor mode exists, however it is possible
    to have a core that support S mode but does not have an MMU and there
    is currently no bit in misa to indicate whether an MMU exists or not
-   so a cpu features bitfield is required */
+   so a cpu features bitfield is required, likewise for optional PMP support */
 enum {
-    RISCV_FEATURE_MMU
+    RISCV_FEATURE_MMU,
+    RISCV_FEATURE_PMP
 };
 
 #define USER_VERSION_2_02_0 0x00020200
@@ -151,10 +152,8 @@ struct CPURISCVState {
     target_ulong mcause;
     target_ulong mtval;  /* since: priv-1.10.0 */
 
-    uint32_t mucounteren;
-    uint32_t mscounteren;
-    target_ulong scounteren; /* since: priv-1.10.0 */
-    target_ulong mcounteren; /* since: priv-1.10.0 */
+    target_ulong scounteren;
+    target_ulong mcounteren;
 
     target_ulong sscratch;
     target_ulong mscratch;
@@ -269,8 +268,8 @@ void QEMU_NORETURN do_raise_exception_err(CPURISCVState *env,
 target_ulong cpu_riscv_get_fflags(CPURISCVState *env);
 void cpu_riscv_set_fflags(CPURISCVState *env, target_ulong);
 
-#define TB_FLAGS_MMU_MASK  3
-#define TB_FLAGS_FP_ENABLE MSTATUS_FS
+#define TB_FLAGS_MMU_MASK   3
+#define TB_FLAGS_MSTATUS_FS MSTATUS_FS
 
 static inline void cpu_get_tb_cpu_state(CPURISCVState *env, target_ulong *pc,
                                         target_ulong *cs_base, uint32_t *flags)
@@ -278,18 +277,31 @@ static inline void cpu_get_tb_cpu_state(CPURISCVState *env, target_ulong *pc,
     *pc = env->pc;
     *cs_base = 0;
 #ifdef CONFIG_USER_ONLY
-    *flags = TB_FLAGS_FP_ENABLE;
+    *flags = TB_FLAGS_MSTATUS_FS;
 #else
     *flags = cpu_mmu_index(env, 0) | (env->mstatus & MSTATUS_FS);
 #endif
 }
 
-void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
-        target_ulong csrno);
-target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno);
+int riscv_csrrw(CPURISCVState *env, int csrno, target_ulong *ret_value,
+                target_ulong new_value, target_ulong write_mask);
+
+static inline void csr_write_helper(CPURISCVState *env, target_ulong val,
+    target_ulong csrno)
+{
+    riscv_csrrw(env, csrno, NULL, val, -1);
+}
+
+static inline target_ulong csr_read_helper(CPURISCVState *env,
+    target_ulong csrno)
+{
+    target_ulong val = 0;
+    riscv_csrrw(env, csrno, &val, 0, 0);
+    return val;
+}
 
 #ifndef CONFIG_USER_ONLY
-void riscv_set_local_interrupt(RISCVCPU *cpu, target_ulong mask, int value);
+uint32_t riscv_set_local_interrupt(RISCVCPU *cpu, target_ulong mask, int value);
 #endif
 
 #include "exec/cpu-all.h"
