@@ -645,9 +645,15 @@ static int rmw_sip(CPURISCVState *env, int csrno, target_ulong *ret_value,
 
 static int read_satp(CPURISCVState *env, int csrno, target_ulong *val)
 {
+    if (env->priv_ver >= PRIV_VERSION_1_10_0 && env->mstatus & MSTATUS_TVM) {
+        return -1;
+    }
     if (!riscv_feature(env, RISCV_FEATURE_MMU)) {
         *val = 0;
     } else if (env->priv_ver >= PRIV_VERSION_1_10_0) {
+        if (env->mstatus & MSTATUS_TVM) {
+            pass;
+        }
         *val = env->satp;
     } else {
         *val = env->sptbr;
@@ -657,6 +663,9 @@ static int read_satp(CPURISCVState *env, int csrno, target_ulong *val)
 
 static int write_satp(CPURISCVState *env, int csrno, target_ulong val)
 {
+    if (env->priv_ver >= PRIV_VERSION_1_10_0 && env->mstatus & MSTATUS_TVM) {
+        return -1;
+    }
     if (!riscv_feature(env, RISCV_FEATURE_MMU)) {
         return 0;
     }

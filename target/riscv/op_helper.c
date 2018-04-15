@@ -83,6 +83,11 @@ target_ulong helper_sret(CPURISCVState *env, target_ulong cpu_pc_deb)
     }
 
     target_ulong mstatus = env->mstatus;
+    target_ulong trap_sret = get_field(mstatus, MSTATUS_TSR);
+    if (env->priv == PRV_S && trap_sret) {
+        do_raise_exception_err(env, RISCV_EXCP_ILLEGAL_INST, GETPC());
+    }
+
     target_ulong prev_priv = get_field(mstatus, MSTATUS_SPP);
     mstatus = set_field(mstatus,
         env->priv_ver >= PRIV_VERSION_1_10_0 ?
@@ -123,6 +128,13 @@ target_ulong helper_mret(CPURISCVState *env, target_ulong cpu_pc_deb)
 
 void helper_wfi(CPURISCVState *env)
 {
+    target_ulong mstatus = env->mstatus;
+    target_ulong trap_wfi = get_field(mstatus, MSTATUS_TW);
+    if (env->priv == PRV_S && trap_wfi) {
+        /* TODO: Set configurable timer interrupt. */
+        do_raise_exception_err(env, RISCV_EXCP_ILLEGAL_INST, GETPC());
+    }
+
     CPUState *cs = CPU(riscv_env_get_cpu(env));
 
     cs->halted = 1;
@@ -132,6 +144,12 @@ void helper_wfi(CPURISCVState *env)
 
 void helper_tlb_flush(CPURISCVState *env)
 {
+    target_ulong mstatus = env->mstatus;
+    target_ulong trap_vm = get_field(mstatus, MSTATUS_TVM);
+    if (env->priv == PRV_S && trap_vm) {
+        do_raise_exception_err(env, RISCV_EXCP_ILLEGAL_INST, GETPC());
+    }
+
     RISCVCPU *cpu = riscv_env_get_cpu(env);
     CPUState *cs = CPU(cpu);
     tlb_flush(cs);
