@@ -651,9 +651,6 @@ static int read_satp(CPURISCVState *env, int csrno, target_ulong *val)
     if (!riscv_feature(env, RISCV_FEATURE_MMU)) {
         *val = 0;
     } else if (env->priv_ver >= PRIV_VERSION_1_10_0) {
-        if (env->mstatus & MSTATUS_TVM) {
-            pass;
-        }
         *val = env->satp;
     } else {
         *val = env->sptbr;
