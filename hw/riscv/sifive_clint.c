@@ -26,13 +26,10 @@
 #include "hw/riscv/sifive_clint.h"
 #include "qemu/timer.h"
 
-/* See: riscv-pk/machine/sbi_entry.S and arch/riscv/kernel/time.c */
-#define TIMER_FREQ (10 * 1000 * 1000)
-
 static uint64_t cpu_riscv_read_rtc(void)
 {
-    return muldiv64(qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL), TIMER_FREQ,
-                    NANOSECONDS_PER_SECOND);
+    return muldiv64(qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL),
+        SIFIVE_CLINT_TIMEBASE_FREQ, NANOSECONDS_PER_SECOND);
 }
 
 /*
@@ -50,7 +47,7 @@ static void sifive_clint_write_timecmp(RISCVCPU *cpu, uint64_t value)
     if (cpu->env.timecmp <= rtc_r) {
         /* if we're setting an MTIMECMP value in the "past",
            immediately raise the timer interrupt */
-        riscv_set_local_interrupt(cpu, MIP_MTIP, 1);
+        riscv_set_local_interrupt(cpu, MIP_MTIP, -1);
         return;
     }
 
@@ -59,7 +56,7 @@ static void sifive_clint_write_timecmp(RISCVCPU *cpu, uint64_t value)
     diff = cpu->env.timecmp - rtc_r;
     /* back to ns (note args switched in muldiv64) */
     next = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) +
-        muldiv64(diff, NANOSECONDS_PER_SECOND, TIMER_FREQ);
+        muldiv64(diff, NANOSECONDS_PER_SECOND, SIFIVE_CLINT_TIMEBASE_FREQ);
     timer_mod(cpu->env.timer, next);
 }
 
@@ -70,7 +67,7 @@ static void sifive_clint_write_timecmp(RISCVCPU *cpu, uint64_t value)
 static void sifive_clint_timer_cb(void *opaque)
 {
     RISCVCPU *cpu = opaque;
-    riscv_set_local_interrupt(cpu, MIP_MTIP, 1);
+    riscv_set_local_interrupt(cpu, MIP_MTIP, -1);
 }
 
 /* CPU wants to read rtc or timecmp register */
@@ -135,7 +132,7 @@ static void sifive_clint_write(void *opaque, hwaddr addr, uint64_t value,
         if (!env) {
             error_report("clint: invalid timecmp hartid: %zu", hartid);
         } else if ((addr & 0x3) == 0) {
-            riscv_set_local_interrupt(RISCV_CPU(cpu), MIP_MSIP, value != 0);
+            riscv_set_local_interrupt(RISCV_CPU(cpu), MIP_MSIP, -!!value);
         } else {
             error_report("clint: invalid sip write: %08x", (uint32_t)addr);
         }
