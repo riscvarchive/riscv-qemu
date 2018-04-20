@@ -301,6 +301,24 @@ static inline target_ulong csr_read_helper(CPURISCVState *env, int csrno)
     return val;
 }
 
+typedef int (*riscv_csr_predicate_fn)(CPURISCVState *env, int csrno);
+typedef int (*riscv_csr_read_fn)(CPURISCVState *env, int csrno,
+    target_ulong *ret_value);
+typedef int (*riscv_csr_write_fn)(CPURISCVState *env, int csrno,
+    target_ulong new_value);
+typedef int (*riscv_csr_op_fn)(CPURISCVState *env, int csrno,
+    target_ulong *ret_value, target_ulong new_value, target_ulong write_mask);
+
+typedef struct {
+    riscv_csr_predicate_fn predicate;
+    riscv_csr_read_fn read;
+    riscv_csr_write_fn write;
+    riscv_csr_op_fn op;
+} riscv_csr_operations;
+
+void riscv_get_csr_ops(int csrno, riscv_csr_operations *ops);
+void riscv_set_csr_ops(int csrno, riscv_csr_operations *ops);
+
 #include "exec/cpu-all.h"
 
 #endif /* RISCV_CPU_H */
