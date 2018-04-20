@@ -23,28 +23,29 @@
 #include "qemu/main-loop.h"
 #include "exec/exec-all.h"
 
+/* CSR function table */
 
-/* Control and Status Register function table forward declaration */
+static riscv_csr_operations csr_ops[];
 
-typedef int (*riscv_csr_predicate_fn)(CPURISCVState *env, int csrno);
-typedef int (*riscv_csr_read_fn)(CPURISCVState *env, int csrno,
-    target_ulong *ret_value);
-typedef int (*riscv_csr_write_fn)(CPURISCVState *env, int csrno,
-    target_ulong new_value);
-typedef int (*riscv_csr_op_fn)(CPURISCVState *env, int csrno,
-    target_ulong *ret_value, target_ulong new_value, target_ulong write_mask);
+/* CSR function table constants */
 
-typedef struct {
-    riscv_csr_predicate_fn predicate;
-    riscv_csr_read_fn read;
-    riscv_csr_write_fn write;
-    riscv_csr_op_fn op;
-} riscv_csr_operations;
+enum {
+    CSR_TABLE_SIZE = 0xfff
+};
 
-static const riscv_csr_operations csr_ops[];
+/* CSR function table public API */
 
+void riscv_get_csr_ops(int csrno, riscv_csr_operations *ops)
+{
+    *ops = csr_ops[csrno & CSR_TABLE_SIZE];
+}
 
-/* Predicates */
+void riscv_set_csr_ops(int csrno, riscv_csr_operations *ops)
+{
+    csr_ops[csrno & CSR_TABLE_SIZE] = *ops;
+}
+
+/* CSR function table predicates (private) */
 
 static int fs(CPURISCVState *env, int csrno)
 {
@@ -779,7 +780,7 @@ int riscv_csrrw(CPURISCVState *env, int csrno, target_ulong *ret_value,
 
 /* Control and Status Register function table */
 
-static const riscv_csr_operations csr_ops[0xfff] = {
+static riscv_csr_operations csr_ops[CSR_TABLE_SIZE] = {
     /* User Floating-Point CSRs */
     [CSR_FFLAGS] =              { fs,   read_fflags,      write_fflags      },
     [CSR_FRM] =                 { fs,   read_frm,         write_frm         },
