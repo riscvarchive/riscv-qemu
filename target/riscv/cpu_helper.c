@@ -92,7 +92,7 @@ uint32_t riscv_cpu_update_mip(RISCVCPU *cpu, uint32_t mask, uint32_t value)
     return old_mip;
 }
 
-void riscv_set_mode(CPURISCVState *env, target_ulong newpriv)
+void riscv_cpu_set_mode(CPURISCVState *env, target_ulong newpriv)
 {
     if (newpriv > PRV_M) {
         g_assert_not_reached();
@@ -365,7 +365,7 @@ void riscv_cpu_do_unaligned_access(CPUState *cs, vaddr addr,
         g_assert_not_reached();
     }
     env->badaddr = addr;
-    do_raise_exception_err(env, cs->exception_index, retaddr);
+    riscv_raise_exception(env, cs->exception_index, retaddr);
 }
 
 /* called by qemu's softmmu to fill the qemu tlb */
@@ -377,7 +377,7 @@ void tlb_fill(CPUState *cs, target_ulong addr, int size,
     if (ret == TRANSLATE_FAIL) {
         RISCVCPU *cpu = RISCV_CPU(cs);
         CPURISCVState *env = &cpu->env;
-        do_raise_exception_err(env, cs->exception_index, retaddr);
+        riscv_raise_exception(env, cs->exception_index, retaddr);
     }
 }
 
@@ -529,7 +529,7 @@ void riscv_cpu_do_interrupt(CPUState *cs)
         s = set_field(s, MSTATUS_SPP, env->priv);
         s = set_field(s, MSTATUS_SIE, 0);
         env->mstatus = s;
-        riscv_set_mode(env, PRV_S);
+        riscv_cpu_set_mode(env, PRV_S);
     } else {
         /* No need to check MTVEC for misaligned - lower 2 bits cannot be set */
         env->pc = env->mtvec;
@@ -554,7 +554,7 @@ void riscv_cpu_do_interrupt(CPUState *cs)
         s = set_field(s, MSTATUS_MPP, env->priv);
         s = set_field(s, MSTATUS_MIE, 0);
         env->mstatus = s;
-        riscv_set_mode(env, PRV_M);
+        riscv_cpu_set_mode(env, PRV_M);
     }
     /* TODO yield load reservation  */
 #endif
