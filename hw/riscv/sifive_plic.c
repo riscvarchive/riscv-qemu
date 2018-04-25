@@ -84,33 +84,28 @@ static void sifive_plic_print_state(SiFivePLICState *plic)
 static
 void sifive_plic_set_pending(SiFivePLICState *plic, int irq, bool pending)
 {
-    qemu_mutex_lock(&plic->lock);
     uint32_t word = irq >> 5;
-    if (pending) {
-        plic->pending[word] |= (1 << (irq & 31));
-    } else {
-        plic->pending[word] &= ~(1 << (irq & 31));
-    }
-    qemu_mutex_unlock(&plic->lock);
+    uint32_t old, new;
+    do {
+        old = atomic_read(&plic->pending[word]);
+        new = (old & ~(1 << (irq & 31))) | (-!!pending & (1 << (irq & 31)));
+    } while (atomic_cmpxchg(&plic->pending[word], old, new) != old);
 }
 
 static
 void sifive_plic_set_claimed(SiFivePLICState *plic, int irq, bool claimed)
 {
-    qemu_mutex_lock(&plic->lock);
     uint32_t word = irq >> 5;
-    if (claimed) {
-        plic->claimed[word] |= (1 << (irq & 31));
-    } else {
-        plic->claimed[word] &= ~(1 << (irq & 31));
-    }
-    qemu_mutex_unlock(&plic->lock);
+    uint32_t old, new;
+    do {
+        old = atomic_read(&plic->claimed[word]);
+        new = (old & ~(1 << (irq & 31))) | (-!!claimed & (1 << (irq & 31)));
+    } while (atomic_cmpxchg(&plic->claimed[word], old, new) != old);
 }
 
-static
-int sifive_plic_num_irqs_pending(SiFivePLICState *plic, uint32_t addrid)
+static int sifive_plic_irqs_pending(SiFivePLICState *plic, uint32_t addrid)
 {
-    int i, j, count = 0;
+    int i, j;
     for (i = 0; i < plic->bitfield_words; i++) {
         uint32_t pending_enabled_not_claimed =
             (plic->pending[i] & ~plic->claimed[i]) &
@@ -123,11 +118,11 @@ int sifive_plic_num_irqs_pending(SiFivePLICState *plic, uint32_t addrid)
             uint32_t prio = plic->source_priority[irq];
             int enabled = pending_enabled_not_claimed & (1 << j);
             if (enabled && prio > plic->target_priority[addrid]) {
-                count++;
+                return 1;
             }
         }
     }
-    return count;
+    return 0;
 }
 
 static void sifive_plic_update(SiFivePLICState *plic)
@@ -143,13 +138,13 @@ static void sifive_plic_update(SiFivePLICState *plic)
         if (!env) {
             continue;
         }
-        int level = sifive_plic_num_irqs_pending(plic, addrid) > 0;
+        int level = sifive_plic_irqs_pending(plic, addrid);
         switch (mode) {
         case PLICMode_M:
-            riscv_set_local_interrupt(RISCV_CPU(cpu), MIP_MEIP, level);
+            riscv_cpu_update_mip(RISCV_CPU(cpu), MIP_MEIP, -!!level);
             break;
         case PLICMode_S:
-            riscv_set_local_interrupt(RISCV_CPU(cpu), MIP_SEIP, level);
+            riscv_cpu_update_mip(RISCV_CPU(cpu), MIP_SEIP, -!!level);
             break;
         default:
             break;
@@ -440,7 +435,6 @@ static void sifive_plic_realize(DeviceState *dev, Error **errp)
     memory_region_init_io(&plic->mmio, OBJECT(dev), &sifive_plic_ops, plic,
                           TYPE_SIFIVE_PLIC, plic->aperture_size);
     parse_hart_config(plic);
-    qemu_mutex_init(&plic->lock);
     plic->bitfield_words = (plic->num_sources + 31) >> 5;
     plic->source_priority = g_new0(uint32_t, plic->num_sources);
     plic->target_priority = g_new(uint32_t, plic->num_addrs);
