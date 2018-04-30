@@ -215,6 +215,12 @@ void *load_device_tree_from_sysfs(void)
 
 #endif /* CONFIG_LINUX */
 
+size_t qemu_fdt_totalsize(void *fdt)
+{
+    return fdt_off_dt_struct(fdt) + fdt_size_dt_struct(fdt) +
+           fdt_size_dt_strings(fdt) + sizeof(uint32_t) /* terminator */;
+}
+
 static int findnode_nofail(void *fdt, const char *node_path)
 {
     int offset;
