@@ -26,6 +26,12 @@ void *load_device_tree_from_sysfs(void);
 #endif
 
 /**
+ * qemu_fdt_total_size: returns the size required to store the current
+ * device tree versus the buffer size returned by create_device_tree
+ */
+size_t qemu_fdt_totalsize(void *fdt);
+
+/**
  * qemu_fdt_node_path: return the paths of nodes matching a given
  * name and compat string
  * @fdt: pointer to the dt blob
