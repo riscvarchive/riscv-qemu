@@ -23,6 +23,7 @@
 #include "qemu/error-report.h"
 #include "hw/sysbus.h"
 #include "target/riscv/cpu.h"
+#include "sysemu/sysemu.h"
 #include "hw/riscv/sifive_plic.h"
 
 #define RISCV_DEBUG_PLIC 0
@@ -446,6 +447,18 @@ static void sifive_plic_realize(DeviceState *dev, Error **errp)
     plic->irqs = g_new0(qemu_irq, plic->num_sources + 1);
     for (i = 0; i <= plic->num_sources; i++) {
         plic->irqs[i] = qemu_allocate_irq(sifive_plic_irq_request, plic, i);
+    }
+
+    /* We can't allow the supervisor to control SEIP as this would allow the
+     * supervisor to clear a pending external interrupt which will result in
+     * lost a interrupt in the case a PLIC is attached. The SEIP bit must be
+     * hardware controlled when a PLIC is attached. */
+    for (i = 0; i < smp_cpus; i++) {
+        RISCVCPU *cpu = RISCV_CPU(qemu_get_cpu(i));
+        if (riscv_cpu_claim_interrupts(cpu, MIP_SEIP) < 0) {
+            error_report("sifive_plic_realize: SEIP already claimed");
+            exit(1);
+        }
     }
 }
 
