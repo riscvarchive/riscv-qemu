@@ -46,6 +46,7 @@ typedef struct DisasContext {
     uint32_t opcode;
     uint32_t mstatus_fs;
     uint32_t misa;
+    uint32_t priv_ver;
     uint32_t mem_idx;
     /* Remember the rounding mode encoded in the previous fp instruction,
        which we have already installed into env->fp_status.  Or -1 for
@@ -1489,7 +1490,7 @@ static void gen_system(DisasContext *ctx, uint32_t opc, int rd, int rs1,
 #ifndef CONFIG_USER_ONLY
     /* Extract funct7 value and check whether it matches SFENCE.VMA */
     if ((opc == OPC_RISC_ECALL) && ((csr >> 5) == 9)) {
-        if (env->priv_ver == PRIV_VERSION_1_10_0) {
+        if (ctx->priv_ver == PRIV_VERSION_1_10_0) {
             /* sfence.vma */
             /* TODO: handle ASID specific fences */
             gen_helper_tlb_flush(cpu_env);
@@ -1543,7 +1544,7 @@ static void gen_system(DisasContext *ctx, uint32_t opc, int rd, int rs1,
             gen_helper_wfi(cpu_env);
             break;
         case 0x104: /* SFENCE.VM */
-            if (env->priv_ver <= PRIV_VERSION_1_09_1) {
+            if (ctx->priv_ver <= PRIV_VERSION_1_09_1) {
                 gen_helper_tlb_flush(cpu_env);
             } else {
                 gen_exception_illegal(ctx);
@@ -2023,6 +2024,7 @@ static void riscv_tr_init_disas_context(DisasContextBase *dcbase, CPUState *cpu)
     ctx->mem_idx = ctx->base.tb->flags & TB_FLAGS_MMU_MASK;
     ctx->mstatus_fs = ctx->base.tb->flags & TB_FLAGS_MSTATUS_FS;
     ctx->misa = env->misa;
+    ctx->priv_ver = env->priv_ver;
     ctx->frm = -1;  /* unknown rounding mode */
 }
 
