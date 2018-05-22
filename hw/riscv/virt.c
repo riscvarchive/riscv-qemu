@@ -253,7 +253,9 @@ static void *create_fdt(RISCVVirtState *s, const struct MemmapEntry *memmap,
 
     qemu_fdt_add_subnode(fdt, "/chosen");
     qemu_fdt_setprop_string(fdt, "/chosen", "stdout-path", nodename);
-    qemu_fdt_setprop_string(fdt, "/chosen", "bootargs", cmdline);
+    if (cmdline) {
+        qemu_fdt_setprop_string(fdt, "/chosen", "bootargs", cmdline);
+    }
     g_free(nodename);
 
     return fdt;
@@ -385,6 +387,8 @@ static void riscv_virt_board_init(MachineState *machine)
     serial_mm_init(system_memory, memmap[VIRT_UART0].base,
         0, SIFIVE_PLIC(s->plic)->irqs[UART0_IRQ], 399193,
         serial_hd(0), DEVICE_LITTLE_ENDIAN);
+
+    g_free(plic_hart_config);
 }
 
 static void riscv_virt_board_machine_init(MachineClass *mc)
