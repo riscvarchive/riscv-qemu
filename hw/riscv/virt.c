@@ -39,6 +39,8 @@
 #include "sysemu/arch_init.h"
 #include "sysemu/device_tree.h"
 #include "exec/address-spaces.h"
+#include "hw/pci/pci.h"
+#include "hw/pci-host/gpex.h"
 #include "elf.h"
 
 #include <libfdt.h>
@@ -55,6 +57,7 @@ static const struct MemmapEntry {
     [VIRT_UART0] =    { 0x10000000,      0x100 },
     [VIRT_VIRTIO] =   { 0x10001000,     0x1000 },
     [VIRT_DRAM] =     { 0x80000000,        0x0 },
+    [VIRT_PCIE] =     { 0x2000000000, 0x4000000 },
 };
 
 static uint64_t load_kernel(const char *kernel_filename)
@@ -233,6 +236,32 @@ static void *create_fdt(RISCVVirtState *s, const struct MemmapEntry *memmap,
         g_free(nodename);
     }
 
+    nodename = g_strdup_printf("/pci@%lx",
+        (long) memmap[VIRT_PCIE].base);
+    qemu_fdt_add_subnode(fdt, nodename);
+    qemu_fdt_setprop_cells(fdt, nodename, "#address-cells", 0x3);
+    qemu_fdt_setprop_cells(fdt, nodename, "#interrupt-cells", 0x1);
+    qemu_fdt_setprop_cells(fdt, nodename, "#size-cells", 0x2);
+    qemu_fdt_setprop_string(fdt, nodename, "compatible",
+                            "pci-host-ecam-generic");
+    qemu_fdt_setprop_string(fdt, nodename, "device_type", "pci");
+    qemu_fdt_setprop_cells(fdt, nodename, "reg", 0x20, 0x0, 0x0,
+                           memmap[VIRT_PCIE].size);
+    qemu_fdt_setprop_string(fdt, nodename, "reg-names", "control");
+    qemu_fdt_setprop_cells(fdt, nodename, "ranges", 0x2000000, 0x0,
+                           0x40000000, 0x0, 0x40000000, 0x0, 0x20000000);
+    qemu_fdt_setprop_cells(fdt, nodename, "interrupt-parent", plic_phandle);
+    qemu_fdt_setprop_cells(fdt, nodename, "interrupts", PCIE_IRQ);
+    g_free(nodename);
+
+    nodename = g_strdup_printf("/pci@%lx/interrupt-controller",
+            (long) memmap[VIRT_PCIE].base);
+    qemu_fdt_add_subnode(fdt, nodename);
+    qemu_fdt_setprop_cells(fdt, nodename, "#address-cells", 0x00);
+    qemu_fdt_setprop_cells(fdt, nodename, "#interrupt-cells", 0x1);
+    qemu_fdt_setprop(fdt, nodename, "interrupt-controller", NULL, 0);
+    g_free(nodename);
+
     nodename = g_strdup_printf("/test@%lx",
         (long)memmap[VIRT_TEST].base);
     qemu_fdt_add_subnode(fdt, nodename);
@@ -258,6 +287,31 @@ static void *create_fdt(RISCVVirtState *s, const struct MemmapEntry *memmap,
     g_free(nodename);
 
     return fdt;
+}
+
+
+static inline DeviceState *
+gpex_pcie_init(MemoryRegion *sys_mem, uint32_t bus_nr,
+                 hwaddr cfg_base, uint64_t cfg_size,
+                 hwaddr mmio_base, uint64_t mmio_size,
+                 qemu_irq irq, bool link_up)
+{
+    DeviceState *dev;
+    MemoryRegion *cfg, *mmio;
+
+    dev = qdev_create(NULL, TYPE_GPEX_HOST);
+
+    qdev_init_nofail(dev);
+
+    cfg = sysbus_mmio_get_region(SYS_BUS_DEVICE(dev), 0);
+    memory_region_add_subregion_overlap(sys_mem, cfg_base, cfg, 0);
+
+    mmio = sysbus_mmio_get_region(SYS_BUS_DEVICE(dev), 1);
+    memory_region_add_subregion_overlap(sys_mem, 0, mmio, 0);
+
+    sysbus_connect_irq(SYS_BUS_DEVICE(dev), 0, irq);
+
+    return dev;
 }
 
 static void riscv_virt_board_init(MachineState *machine)
@@ -381,6 +435,10 @@ static void riscv_virt_board_init(MachineState *machine)
             memmap[VIRT_VIRTIO].base + i * memmap[VIRT_VIRTIO].size,
             qdev_get_gpio_in(DEVICE(s->plic), VIRTIO_IRQ + i));
     }
+
+    gpex_pcie_init(system_memory, 0, memmap[VIRT_PCIE].base,
+                           memmap[VIRT_PCIE].size, 0x40000000, 0x20000000,
+                           qdev_get_gpio_in(DEVICE(s->plic), PCIE_IRQ), true);
 
     serial_mm_init(system_memory, memmap[VIRT_UART0].base,
         0, qdev_get_gpio_in(DEVICE(s->plic), UART0_IRQ), 399193,
