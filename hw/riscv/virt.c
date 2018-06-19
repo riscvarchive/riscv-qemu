@@ -437,8 +437,8 @@ static void riscv_virt_board_init(MachineState *machine)
     }
 
     gpex_pcie_init(system_memory, 0, memmap[VIRT_PCIE].base,
-                           memmap[VIRT_PCIE].size, 0x40000000, 0x20000000,
-                           qdev_get_gpio_in(DEVICE(s->plic), PCIE_IRQ), true);
+                   memmap[VIRT_PCIE].size, 0x40000000, 0x20000000,
+                   qdev_get_gpio_in(DEVICE(s->plic), PCIE_IRQ), true);
 
     serial_mm_init(system_memory, memmap[VIRT_UART0].base,
         0, qdev_get_gpio_in(DEVICE(s->plic), UART0_IRQ), 399193,
