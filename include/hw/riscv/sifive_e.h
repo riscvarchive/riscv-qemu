@@ -19,25 +19,13 @@
 #ifndef HW_SIFIVE_E_H
 #define HW_SIFIVE_E_H
 
-#define TYPE_RISCV_E_SOC "riscv.sifive.e.soc"
-#define RISCV_E_SOC(obj) \
-    OBJECT_CHECK(SiFiveESoCState, (obj), TYPE_RISCV_E_SOC)
-
-typedef struct SiFiveESoCState {
+typedef struct SiFiveEState {
     /*< private >*/
     SysBusDevice parent_obj;
 
     /*< public >*/
     RISCVHartArrayState cpus;
     DeviceState *plic;
-} SiFiveESoCState;
-
-typedef struct SiFiveEState {
-    /*< private >*/
-    SysBusDevice parent_obj;
-
-    /*< public >*/
-    SiFiveESoCState soc;
 } SiFiveEState;
 
 enum {
@@ -46,6 +34,7 @@ enum {
     SIFIVE_E_OTP,
     SIFIVE_E_TEST,
     SIFIVE_E_CLINT,
+    SIFIVE_E_CLIC,
     SIFIVE_E_PLIC,
     SIFIVE_E_AON,
     SIFIVE_E_PRCI,
@@ -66,6 +55,14 @@ enum {
 enum {
     SIFIVE_E_UART0_IRQ = 3,
     SIFIVE_E_UART1_IRQ = 4
+};
+
+enum {
+    SIFIVE_E_CLIC_NUM_SOURCES = 128,
+    SIFIVE_E_CLIC_MAX_INT_BITS = 4,
+    SIFIVE_E_CLIC_MAX_MODE_BITS = 0,
+    SIFIVE_E_CLIC_MAX_LEVEL_BITS = 4,
+    SIFIVE_E_CLIC_MAX_VEC_BITS = 1
 };
 
 #define SIFIVE_E_PLIC_HART_CONFIG "M"
