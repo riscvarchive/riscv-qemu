@@ -19,13 +19,7 @@
 #ifndef HW_SIFIVE_U_H
 #define HW_SIFIVE_U_H
 
-#include "hw/net/cadence_gem.h"
-
-#define TYPE_RISCV_U_SOC "riscv.sifive.u.soc"
-#define RISCV_U_SOC(obj) \
-    OBJECT_CHECK(SiFiveUSoCState, (obj), TYPE_RISCV_U_SOC)
-
-typedef struct SiFiveUSoCState {
+typedef struct SiFiveUState {
     /*< private >*/
     SysBusDevice parent_obj;
 
@@ -33,14 +27,6 @@ typedef struct SiFiveUSoCState {
     RISCVHartArrayState cpus;
     DeviceState *plic;
     CadenceGEMState gem;
-} SiFiveUSoCState;
-
-typedef struct SiFiveUState {
-    /*< private >*/
-    SysBusDevice parent_obj;
-
-    /*< public >*/
-    SiFiveUSoCState soc;
     void *fdt;
     int fdt_size;
 } SiFiveUState;
@@ -50,6 +36,7 @@ enum {
     SIFIVE_U_MROM,
     SIFIVE_U_TEST,
     SIFIVE_U_CLINT,
+    SIFIVE_U_CLIC,
     SIFIVE_U_PLIC,
     SIFIVE_U_UART0,
     SIFIVE_U_UART1,
@@ -65,6 +52,14 @@ enum {
 
 enum {
     SIFIVE_U_CLOCK_FREQ = 1000000000
+};
+
+enum {
+    SIFIVE_U_CLIC_NUM_SOURCES = 128,
+    SIFIVE_U_CLIC_MAX_INT_BITS = 8,
+    SIFIVE_U_CLIC_MAX_MODE_BITS = 2,
+    SIFIVE_U_CLIC_MAX_LEVEL_BITS = 4,
+    SIFIVE_U_CLIC_MAX_VEC_BITS = 1
 };
 
 #define SIFIVE_U_PLIC_HART_CONFIG "MS"
