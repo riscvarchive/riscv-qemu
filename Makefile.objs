@@ -229,6 +229,7 @@ trace-events-subdirs += hw/nvram
 trace-events-subdirs += hw/pci
 trace-events-subdirs += hw/pci-host
 trace-events-subdirs += hw/ppc
+trace-events-subdirs += hw/riscv
 trace-events-subdirs += hw/rdma
 trace-events-subdirs += hw/rdma/vmw
 trace-events-subdirs += hw/s390x

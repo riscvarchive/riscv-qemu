@@ -84,6 +84,11 @@ static int pmp(CPURISCVState *env, int csrno)
 {
     return -!riscv_feature(env, RISCV_FEATURE_PMP);
 }
+
+static int clic(CPURISCVState *env, int csrno)
+{
+    return -!riscv_feature(env, RISCV_FEATURE_CLIC);
+}
 #endif
 
 /* User Floating-Point CSRs */
@@ -435,11 +440,21 @@ static int read_mtvec(CPURISCVState *env, int csrno, target_ulong *val)
 
 static int write_mtvec(CPURISCVState *env, int csrno, target_ulong val)
 {
+    int mode1 = val & 0b11, mode2 = val & 0b111111;
+
     /* bits [1:0] encode mode; 0 = direct, 1 = vectored, 2 >= reserved */
-    if ((val & 3) < 2) {
+    if (mode1 < 0b10) {
         env->mtvec = val;
     } else {
-        qemu_log_mask(LOG_UNIMP, "CSR_MTVEC: reserved mode not supported\n");
+        /* bits [5:0] encode extended modes currently used by the CLIC */
+        switch (mode2) {
+        case 0b000010: /* CLIC standard mode */
+        case 0b000011: /* CLIC vectored mode */
+            env->mtvec = val;
+            break;
+        default:
+            qemu_log_mask(LOG_UNIMP, "CSR_MTVEC: mode not supported\n");
+        }
     }
     return 0;
 }
@@ -459,6 +474,18 @@ static int write_mcounteren(CPURISCVState *env, int csrno, target_ulong val)
         return -1;
     }
     env->mcounteren = val;
+    return 0;
+}
+
+static int read_mtvt(CPURISCVState *env, int csrno, target_ulong *val)
+{
+    *val = env->mtvt;
+    return 0;
+}
+
+static int write_mtvt(CPURISCVState *env, int csrno, target_ulong val)
+{
+    env->mtvt = val & ~((1ULL << 6) - 1);
     return 0;
 }
 
@@ -573,6 +600,72 @@ static int rmw_mip(CPURISCVState *env, int csrno, target_ulong *ret_value,
     return 0;
 }
 
+static int rmw_mnxti(CPURISCVState *env, int csrno, target_ulong *ret_value,
+                     target_ulong new_value, target_ulong write_mask)
+{
+    /*
+     * TODO - implement complete mnxti semantics
+     *
+     * the CLIC state is currenetly not accessible from target/riscv 
+     * as cpu implementations can't include anything from include/hw
+     * so the CLIC state needs to be in a CPU accessible structure.
+     *
+     * Pseudocode for csrrsi rd, mnxti, uimm[4:0] in M mode.
+     *
+     * mstatus |= uimm[4:0]; // Performed regardless of interrupt readiness.
+     * if (clic.priv==M && clic.level > mcause.pil
+     *     && (cliccfg.nvbits==0 || clicintcfg[clic.id][8-CLICINTBITS]==0))
+     * {
+     *   // The CLIC interrupt should be serviced before returning to the saved
+     *   // context, unless it's a selectively hardware vectored interupt.
+     *   minstatus.mil = clic.level; // Update hart's interrupt level.
+     *   mcause.exccode = clic.id;   // Update interrupt id.
+     *   rd = TBASE + XLEN/8 * clic.id; // Return pointer to trap handler entry.
+     * } else {
+     *   // No interrupt, or a selectively hardware vectored interrupt,
+     *   // or in non-CLIC mode.
+     *   rd = 0;
+     * }
+     */
+
+    /* tail chain implementation returns 0, causing slow path
+     * delivery of any remaining pending interrupts */
+    env->mstatus |= (new_value & write_mask) & 0b11111;
+    if (ret_value) {
+        *ret_value = 0;
+    }
+
+    return 0;
+}
+
+static int read_mintstatus(CPURISCVState *env, int csrno, target_ulong *val)
+{
+    *val = env->mintstatus;
+
+    return 0;
+}
+
+static int rmw_mscratchcsw(CPURISCVState *env, int csrno,
+                           target_ulong *ret_value,
+                           target_ulong new_value,
+                           target_ulong write_mask)
+{
+    target_ulong rs1 = (env->mscratch & ~write_mask) | (new_value & write_mask);
+    target_ulong mpp = get_field(env->mcause, MSTATUS_MPP);
+
+    if (mpp != PRV_M) {
+        if (ret_value) {
+            *ret_value = env->mscratch;
+        }
+        env->mscratch = rs1;
+    } else if (ret_value) {
+        *ret_value = rs1;
+    }
+
+    return 0;
+}
+
+
 /* Supervisor Trap Setup */
 
 static int read_sstatus(CPURISCVState *env, int csrno, target_ulong *val)
@@ -611,11 +704,21 @@ static int read_stvec(CPURISCVState *env, int csrno, target_ulong *val)
 
 static int write_stvec(CPURISCVState *env, int csrno, target_ulong val)
 {
+    int mode1 = val & 0b11, mode2 = val & 0b111111;
+
     /* bits [1:0] encode mode; 0 = direct, 1 = vectored, 2 >= reserved */
-    if ((val & 3) < 2) {
+    if (mode1 < 0b10) {
         env->stvec = val;
     } else {
-        qemu_log_mask(LOG_UNIMP, "CSR_STVEC: reserved mode not supported\n");
+        /* bits [5:0] encode extended modes currently used by the CLIC */
+        switch (mode2) {
+        case 0b000010: /* CLIC standard mode */
+        case 0b000011: /* CLIC vectored mode */
+            env->stvec = val;
+            break;
+        default:
+            qemu_log_mask(LOG_UNIMP, "CSR_STVEC: mode not supported\n");
+        }
     }
     return 0;
 }
@@ -637,6 +740,19 @@ static int write_scounteren(CPURISCVState *env, int csrno, target_ulong val)
     env->scounteren = val;
     return 0;
 }
+
+static int read_stvt(CPURISCVState *env, int csrno, target_ulong *val)
+{
+    *val = env->stvt;
+    return 0;
+}
+
+static int write_stvt(CPURISCVState *env, int csrno, target_ulong val)
+{
+    env->stvt = val & ~((1ULL << 6) - 1);
+    return 0;
+}
+
 
 /* Supervisor Trap Handling */
 
@@ -694,6 +810,53 @@ static int rmw_sip(CPURISCVState *env, int csrno, target_ulong *ret_value,
     return rmw_mip(env, CSR_MSTATUS, ret_value, new_value,
                    write_mask & env->mideleg);
 }
+
+static int rmw_snxti(CPURISCVState *env, int csrno, target_ulong *ret_value,
+                     target_ulong new_value, target_ulong write_mask)
+{
+    /*
+     * TODO - implement complete mnxti semantics
+     */
+
+    /* tail chain implementation returns 0, causing slow path
+     * delivery of any remaining pending interrupts */
+    env->mstatus |= (new_value & write_mask) & 0b11111;
+    if (ret_value) {
+        *ret_value = 0;
+    }
+
+    return 0;
+}
+
+static int read_sintstatus(CPURISCVState *env, int csrno, target_ulong *val)
+{
+    target_ulong mask = SINTSTATUS_SIL | SINTSTATUS_UIL;
+
+    *val = env->mintstatus & mask;
+
+    return 0;
+}
+
+static int rmw_sscratchcsw(CPURISCVState *env, int csrno,
+                           target_ulong *ret_value,
+                           target_ulong new_value,
+                           target_ulong write_mask)
+{
+    target_ulong rs1 = (env->sscratch & ~write_mask) | (new_value & write_mask);
+    target_ulong mpp = get_field(env->mcause, MSTATUS_MPP);
+
+    if (mpp != PRV_S) {
+        if (ret_value) {
+            *ret_value = env->sscratch;
+        }
+        env->sscratch = rs1;
+    } else if (ret_value) {
+        *ret_value = rs1;
+    }
+
+    return 0;
+}
+
 
 /* Supervisor Protection and Translation */
 
@@ -917,5 +1080,17 @@ static riscv_csr_operations csr_ops[CSR_TABLE_SIZE] = {
     [CSR_HPMCOUNTER3H  ... CSR_HPMCOUNTER31H] =   { ctr,  read_zero          },
     [CSR_MHPMCOUNTER3H ... CSR_MHPMCOUNTER31H] =  { any,  read_zero          },
 #endif
+
+    /* Machine Mode Core Level Interrupt Controller */
+    [CSR_MTVT] =                { clic,  read_mtvt, write_mtvt,              },
+    [CSR_MNXTI] =               { clic,  NULL,     NULL,     rmw_mnxti       },
+    [CSR_MINTSTATUS] =          { clic,  read_mintstatus                     },
+    [CSR_MSCRATCHCSW] =         { clic,  NULL,     NULL,     rmw_mscratchcsw },
+
+    /* Supervisor Mode Core Level Interrupt Controller */
+    [CSR_STVT] =                { clic,  read_stvt, write_stvt,              },
+    [CSR_SNXTI] =               { clic,  NULL,     NULL,     rmw_snxti       },
+    [CSR_SINTSTATUS] =          { clic,  read_sintstatus                     },
+    [CSR_SSCRATCHCSW] =         { clic,  NULL,     NULL,     rmw_sscratchcsw },
 #endif
 };
