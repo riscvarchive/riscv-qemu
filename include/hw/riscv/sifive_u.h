@@ -53,12 +53,14 @@ enum {
     SIFIVE_U_UART0,
     SIFIVE_U_UART1,
     SIFIVE_U_DRAM,
-    SIFIVE_U_GEM
+    SIFIVE_U_GEM,
+    SIFIVE_U_PCIE
 };
 
 enum {
     SIFIVE_U_UART0_IRQ = 3,
     SIFIVE_U_UART1_IRQ = 4,
+    SIFIVE_U_PCIE_IRQ = 0x20,
     SIFIVE_U_GEM_IRQ = 0x35
 };
 
