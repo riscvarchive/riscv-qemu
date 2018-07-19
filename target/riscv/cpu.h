@@ -40,6 +40,7 @@
 #include "qom/cpu.h"
 #include "exec/cpu-defs.h"
 #include "fpu/softfloat.h"
+#include "qemu/timer.h"
 
 #define TYPE_RISCV_CPU "riscv-cpu"
 
@@ -286,8 +287,18 @@ void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
         target_ulong csrno);
 target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno);
 
+enum {
+    RISCV_TIMEBASE_FREQ = 10000000
+};
+
 #ifndef CONFIG_USER_ONLY
 void riscv_set_local_interrupt(RISCVCPU *cpu, target_ulong mask, int value);
+
+static inline uint64_t riscv_read_rtc(void)
+{
+    return muldiv64(qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL),
+        10000000, NANOSECONDS_PER_SECOND);
+}
 #endif
 
 #include "exec/cpu-all.h"
