@@ -165,8 +165,8 @@ void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
     }
     case CSR_MIP: {
         /*
-         * Since the writeable bits in MIP are not set asynchrously by the
-         * CLINT, no additional locking is needed for read-modifiy-write
+         * Since the writeable bits in MIP are not set asynchronously by the
+         * CLINT, no additional locking is needed for read-modify-write
          * CSR operations
          */
         qemu_mutex_lock_iothread();
@@ -175,9 +175,14 @@ void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
                                   (val_to_write & MIP_SSIP) != 0);
         riscv_set_local_interrupt(cpu, MIP_STIP,
                                   (val_to_write & MIP_STIP) != 0);
+        riscv_set_local_interrupt(cpu, MIP_MSIP,
+                                  (val_to_write & MIP_MSIP) != 0);
+        riscv_set_local_interrupt(cpu, MIP_MTIP,
+                                  (val_to_write & MIP_MTIP) != 0);
         /*
-         * csrs, csrc on mip.SEIP is not decomposable into separate read and
-         * write steps, so a different implementation is needed
+         * csrs, csrc on mip.SEIP and mip.MEIP are not decomposable into
+         * separate read and write steps, so a different implementation is
+         * needed
          */
         qemu_mutex_unlock_iothread();
         break;
