@@ -91,7 +91,7 @@ void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
 {
 #ifndef CONFIG_USER_ONLY
     uint64_t delegable_ints = MIP_SSIP | MIP_STIP | MIP_SEIP | (1 << IRQ_X_COP);
-    uint64_t all_ints = delegable_ints | MIP_MSIP | MIP_MTIP;
+    uint64_t all_ints = delegable_ints | MIP_MSIP | MIP_MTIP | MIP_MEIP;
 #endif
 
     switch (csrno) {
@@ -165,8 +165,8 @@ void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
     }
     case CSR_MIP: {
         /*
-         * Since the writeable bits in MIP are not set asynchrously by the
-         * CLINT, no additional locking is needed for read-modifiy-write
+         * Since the writeable bits in MIP are not set asynchronously by the
+         * CLINT, no additional locking is needed for read-modify-write
          * CSR operations
          */
         qemu_mutex_lock_iothread();
@@ -175,9 +175,14 @@ void csr_write_helper(CPURISCVState *env, target_ulong val_to_write,
                                   (val_to_write & MIP_SSIP) != 0);
         riscv_set_local_interrupt(cpu, MIP_STIP,
                                   (val_to_write & MIP_STIP) != 0);
+        riscv_set_local_interrupt(cpu, MIP_MSIP,
+                                  (val_to_write & MIP_MSIP) != 0);
+        riscv_set_local_interrupt(cpu, MIP_MTIP,
+                                  (val_to_write & MIP_MTIP) != 0);
         /*
-         * csrs, csrc on mip.SEIP is not decomposable into separate read and
-         * write steps, so a different implementation is needed
+         * csrs, csrc on mip.SEIP and mip.MEIP are not decomposable into
+         * separate read and write steps, so a different implementation is
+         * needed
          */
         qemu_mutex_unlock_iothread();
         break;
@@ -425,13 +430,18 @@ target_ulong csr_read_helper(CPURISCVState *env, target_ulong csrno)
         validate_mstatus_fs(env, GETPC());
         return (cpu_riscv_get_fflags(env) << FSR_AEXC_SHIFT)
                 | (env->frm << FSR_RD_SHIFT);
-    /* rdtime/rdtimeh is trapped and emulated by bbl in system mode */
-#ifdef CONFIG_USER_ONLY
     case CSR_TIME:
+#ifdef CONFIG_USER_ONLY
         return cpu_get_host_ticks();
+#else
+        return riscv_read_rtc();
+#endif
 #if defined(TARGET_RISCV32)
     case CSR_TIMEH:
+#ifdef CONFIG_USER_ONLY
         return cpu_get_host_ticks() >> 32;
+#else
+        return riscv_read_rtc() >> 32;
 #endif
 #endif
     case CSR_INSTRET:
