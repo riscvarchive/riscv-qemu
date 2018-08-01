@@ -719,7 +719,7 @@ static void sifive_clic_realize(DeviceState *dev, Error **errp)
     for (hartid = 0; hartid < clic->num_harts; hartid++) {
         for (irq = 0; irq < clic->num_sources; irq++) {
             int id = sifive_clic_encode_irq_id(hartid, irq);
-            size_t irq_offset = harts_x_sources + irq;
+            size_t irq_offset = hartid * clic->num_sources + irq;
             clic->irqs[irq_offset] = qemu_allocate_irq(sifive_clic_irq,
                                                        clic, id);
         }
