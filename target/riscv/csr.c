@@ -343,7 +343,7 @@ static int read_misa(CPURISCVState *env, int csrno, target_ulong *val)
 
 static int write_misa(CPURISCVState *env, int csrno, target_ulong val)
 {
-    if (!riscv_feature(env, RISCV_FEATURE_MISA_RW)) {
+    if (!riscv_feature(env, RISCV_FEATURE_MISA)) {
         /* drop write to misa */
         return 0;
     }
