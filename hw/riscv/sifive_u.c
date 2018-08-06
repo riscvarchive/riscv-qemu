@@ -34,6 +34,7 @@
 #include "hw/loader.h"
 #include "hw/sysbus.h"
 #include "hw/char/serial.h"
+#include "hw/net/cadence_gem.h"
 #include "target/riscv/cpu.h"
 #include "hw/riscv/riscv_hart.h"
 #include "hw/riscv/sifive_plic.h"
@@ -121,10 +122,10 @@ static void create_fdt(SiFiveUState *s, const struct MemmapEntry *memmap,
     qemu_fdt_setprop_cell(fdt, "/cpus", "#size-cells", 0x0);
     qemu_fdt_setprop_cell(fdt, "/cpus", "#address-cells", 0x1);
 
-    for (cpu = s->soc.cpus.num_harts - 1; cpu >= 0; cpu--) {
+    for (cpu = s->cpus.num_harts - 1; cpu >= 0; cpu--) {
         nodename = g_strdup_printf("/cpus/cpu@%d", cpu);
         char *intc = g_strdup_printf("/cpus/cpu@%d/interrupt-controller", cpu);
-        char *isa = riscv_isa_string(&s->soc.cpus.harts[cpu]);
+        char *isa = riscv_isa_string(&s->cpus.harts[cpu]);
         qemu_fdt_add_subnode(fdt, nodename);
         qemu_fdt_setprop_cell(fdt, nodename, "clock-frequency",
                               SIFIVE_U_CLOCK_FREQ);
@@ -145,8 +146,8 @@ static void create_fdt(SiFiveUState *s, const struct MemmapEntry *memmap,
         g_free(nodename);
     }
 
-    cells =  g_new0(uint32_t, s->soc.cpus.num_harts * 4);
-    for (cpu = 0; cpu < s->soc.cpus.num_harts; cpu++) {
+    cells =  g_new0(uint32_t, s->cpus.num_harts * 4);
+    for (cpu = 0; cpu < s->cpus.num_harts; cpu++) {
         nodename =
             g_strdup_printf("/cpus/cpu@%d/interrupt-controller", cpu);
         uint32_t intc_phandle = qemu_fdt_get_phandle(fdt, nodename);
@@ -164,12 +165,12 @@ static void create_fdt(SiFiveUState *s, const struct MemmapEntry *memmap,
         0x0, memmap[SIFIVE_U_CLINT].base,
         0x0, memmap[SIFIVE_U_CLINT].size);
     qemu_fdt_setprop(fdt, nodename, "interrupts-extended",
-        cells, s->soc.cpus.num_harts * sizeof(uint32_t) * 4);
+        cells, s->cpus.num_harts * sizeof(uint32_t) * 4);
     g_free(cells);
     g_free(nodename);
 
-    cells =  g_new0(uint32_t, s->soc.cpus.num_harts * 4);
-    for (cpu = 0; cpu < s->soc.cpus.num_harts; cpu++) {
+    cells =  g_new0(uint32_t, s->cpus.num_harts * 4);
+    for (cpu = 0; cpu < s->cpus.num_harts; cpu++) {
         nodename =
             g_strdup_printf("/cpus/cpu@%d/interrupt-controller", cpu);
         uint32_t intc_phandle = qemu_fdt_get_phandle(fdt, nodename);
@@ -186,7 +187,7 @@ static void create_fdt(SiFiveUState *s, const struct MemmapEntry *memmap,
     qemu_fdt_setprop_string(fdt, nodename, "compatible", "riscv,plic0");
     qemu_fdt_setprop(fdt, nodename, "interrupt-controller", NULL, 0);
     qemu_fdt_setprop(fdt, nodename, "interrupts-extended",
-        cells, s->soc.cpus.num_harts * sizeof(uint32_t) * 4);
+        cells, s->cpus.num_harts * sizeof(uint32_t) * 4);
     qemu_fdt_setprop_cells(fdt, nodename, "reg",
         0x0, memmap[SIFIVE_U_PLIC].base,
         0x0, memmap[SIFIVE_U_PLIC].size);
@@ -249,17 +250,23 @@ static void create_fdt(SiFiveUState *s, const struct MemmapEntry *memmap,
 static void riscv_sifive_u_init(MachineState *machine)
 {
     const struct MemmapEntry *memmap = sifive_u_memmap;
-
     SiFiveUState *s = g_new0(SiFiveUState, 1);
     MemoryRegion *system_memory = get_system_memory();
     MemoryRegion *main_mem = g_new(MemoryRegion, 1);
+    MemoryRegion *mask_rom = g_new(MemoryRegion, 1);
+    Error *err = NULL;
+
     int i;
 
-    /* Initialize SoC */
-    object_initialize_child(OBJECT(machine), "soc", &s->soc,
-                            sizeof(s->soc), TYPE_RISCV_U_SOC,
-                            &error_abort, NULL);
-    object_property_set_bool(OBJECT(&s->soc), true, "realized",
+    /* Initialize harts */
+    object_initialize(&s->cpus, sizeof(s->cpus), TYPE_RISCV_HART_ARRAY);
+    object_property_add_child(OBJECT(machine), "cpus", OBJECT(&s->cpus),
+                              &error_abort);
+    object_property_set_str(OBJECT(&s->cpus), SIFIVE_U_CPU, "cpu-type",
+                            &error_abort);
+    object_property_set_int(OBJECT(&s->cpus), smp_cpus, "num-harts",
+                            &error_abort);
+    object_property_set_bool(OBJECT(&s->cpus), true, "realized",
                             &error_abort);
 
     /* register RAM */
@@ -309,36 +316,6 @@ static void riscv_sifive_u_init(MachineState *machine)
     rom_add_blob_fixed_as("mrom.fdt", s->fdt, fdt_totalsize(s->fdt),
                           memmap[SIFIVE_U_MROM].base + sizeof(reset_vec),
                           &address_space_memory);
-}
-
-static void riscv_sifive_u_soc_init(Object *obj)
-{
-    SiFiveUSoCState *s = RISCV_U_SOC(obj);
-
-    object_initialize_child(obj, "cpus", &s->cpus, sizeof(s->cpus),
-                            TYPE_RISCV_HART_ARRAY, &error_abort, NULL);
-    object_property_set_str(OBJECT(&s->cpus), SIFIVE_U_CPU, "cpu-type",
-                            &error_abort);
-    object_property_set_int(OBJECT(&s->cpus), smp_cpus, "num-harts",
-                            &error_abort);
-
-    sysbus_init_child_obj(obj, "gem", &s->gem, sizeof(s->gem),
-                          TYPE_CADENCE_GEM);
-}
-
-static void riscv_sifive_u_soc_realize(DeviceState *dev, Error **errp)
-{
-    SiFiveUSoCState *s = RISCV_U_SOC(dev);
-    const struct MemmapEntry *memmap = sifive_u_memmap;
-    MemoryRegion *system_memory = get_system_memory();
-    MemoryRegion *mask_rom = g_new(MemoryRegion, 1);
-    qemu_irq plic_gpios[SIFIVE_U_PLIC_NUM_SOURCES];
-    int i;
-    Error *err = NULL;
-    NICInfo *nd = &nd_table[0];
-
-    object_property_set_bool(OBJECT(&s->cpus), true, "realized",
-                             &error_abort);
 
     /* boot rom */
     memory_region_init_rom(mask_rom, NULL, "riscv.sifive.u.mrom",
@@ -364,27 +341,25 @@ static void riscv_sifive_u_soc_realize(DeviceState *dev, Error **errp)
         serial_hd(1), qdev_get_gpio_in(DEVICE(s->plic), SIFIVE_U_UART1_IRQ));
     sifive_clint_create(memmap[SIFIVE_U_CLINT].base,
         memmap[SIFIVE_U_CLINT].size, smp_cpus,
-        SIFIVE_SIP_BASE, SIFIVE_TIMECMP_BASE, SIFIVE_TIME_BASE);
+        SIFIVE_SIP_BASE,
+        SIFIVE_TIMECMP_BASE,
+        SIFIVE_TIME_BASE);
+    sifive_test_create(memmap[SIFIVE_U_TEST].base);
 
-    for (i = 0; i < SIFIVE_U_PLIC_NUM_SOURCES; i++) {
-        plic_gpios[i] = qdev_get_gpio_in(DEVICE(s->plic), i);
-    }
-
-    if (nd->used) {
-        qemu_check_nic_model(nd, TYPE_CADENCE_GEM);
-        qdev_set_nic_properties(DEVICE(&s->gem), nd);
+    /* Initialize gem ethernet */
+    object_initialize(&s->gem, sizeof(s->gem), TYPE_CADENCE_GEM);
+    object_property_add_child(OBJECT(machine), "gem", OBJECT(&s->gem),
+                              &error_abort);
+    if (nd_table[0].used) {
+        qemu_check_nic_model(nd_table, TYPE_CADENCE_GEM);
+        qdev_set_nic_properties(DEVICE(&s->gem), nd_table);
     }
     object_property_set_int(OBJECT(&s->gem), GEM_REVISION, "revision",
                             &error_abort);
     object_property_set_bool(OBJECT(&s->gem), true, "realized", &err);
-    if (err) {
-        error_propagate(errp, err);
-        return;
-    }
     sysbus_mmio_map(SYS_BUS_DEVICE(&s->gem), 0, memmap[SIFIVE_U_GEM].base);
     sysbus_connect_irq(SYS_BUS_DEVICE(&s->gem), 0,
-                       plic_gpios[SIFIVE_U_GEM_IRQ]);
-    sifive_test_create(memmap[SIFIVE_U_TEST].base);
+                       qdev_get_gpio_in(DEVICE(s->plic), SIFIVE_U_GEM_IRQ));
 }
 
 static void riscv_sifive_u_machine_init(MachineClass *mc)
@@ -395,27 +370,3 @@ static void riscv_sifive_u_machine_init(MachineClass *mc)
 }
 
 DEFINE_MACHINE("sifive_u", riscv_sifive_u_machine_init)
-
-static void riscv_sifive_u_soc_class_init(ObjectClass *oc, void *data)
-{
-    DeviceClass *dc = DEVICE_CLASS(oc);
-
-    dc->realize = riscv_sifive_u_soc_realize;
-    /* Reason: Uses serial_hds in realize function, thus can't be used twice */
-    dc->user_creatable = false;
-}
-
-static const TypeInfo riscv_sifive_u_soc_type_info = {
-    .name = TYPE_RISCV_U_SOC,
-    .parent = TYPE_DEVICE,
-    .instance_size = sizeof(SiFiveUSoCState),
-    .instance_init = riscv_sifive_u_soc_init,
-    .class_init = riscv_sifive_u_soc_class_init,
-};
-
-static void riscv_sifive_u_soc_register_types(void)
-{
-    type_register_static(&riscv_sifive_u_soc_type_info);
-}
-
-type_init(riscv_sifive_u_soc_register_types)
