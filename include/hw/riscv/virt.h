@@ -42,7 +42,7 @@ enum {
 };
 
 enum {
-    UART0_IRQ = 10,
+    UART0_IRQ = 10, /* up to 25, inclusive */
     VIRTIO_IRQ = 1, /* 1 to 8 */
     VIRTIO_COUNT = 8,
     VIRTIO_NDEV = 10
