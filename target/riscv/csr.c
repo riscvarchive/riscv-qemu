@@ -30,7 +30,7 @@ static riscv_csr_operations csr_ops[];
 /* CSR function table constants */
 
 enum {
-    CSR_TABLE_SIZE = 0xfff
+    CSR_TABLE_SIZE = 0x1000
 };
 
 /* CSR function table public API */
