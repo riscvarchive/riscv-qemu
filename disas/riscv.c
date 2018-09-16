@@ -537,41 +537,41 @@ static const char rv_freg_name_sym[32][5] = {
 
 /* instruction formats */
 
-#define rv_fmt_none                   "O\t"
-#define rv_fmt_rs1                    "O\t1"
-#define rv_fmt_offset                 "O\to"
-#define rv_fmt_pred_succ              "O\tp,s"
-#define rv_fmt_rs1_rs2                "O\t1,2"
-#define rv_fmt_rd_imm                 "O\t0,i"
-#define rv_fmt_rd_offset              "O\t0,o"
-#define rv_fmt_rd_rs1_rs2             "O\t0,1,2"
-#define rv_fmt_frd_rs1                "O\t3,1"
-#define rv_fmt_rd_frs1                "O\t0,4"
-#define rv_fmt_rd_frs1_frs2           "O\t0,4,5"
-#define rv_fmt_frd_frs1_frs2          "O\t3,4,5"
-#define rv_fmt_rm_frd_frs1            "O\tr,3,4"
-#define rv_fmt_rm_frd_rs1             "O\tr,3,1"
-#define rv_fmt_rm_rd_frs1             "O\tr,0,4"
-#define rv_fmt_rm_frd_frs1_frs2       "O\tr,3,4,5"
-#define rv_fmt_rm_frd_frs1_frs2_frs3  "O\tr,3,4,5,6"
-#define rv_fmt_rd_rs1_imm             "O\t0,1,i"
-#define rv_fmt_rd_rs1_offset          "O\t0,1,i"
-#define rv_fmt_rd_offset_rs1          "O\t0,i(1)"
-#define rv_fmt_frd_offset_rs1         "O\t3,i(1)"
-#define rv_fmt_rd_csr_rs1             "O\t0,c,1"
-#define rv_fmt_rd_csr_zimm            "O\t0,c,7"
-#define rv_fmt_rs2_offset_rs1         "O\t2,i(1)"
-#define rv_fmt_frs2_offset_rs1        "O\t5,i(1)"
-#define rv_fmt_rs1_rs2_offset         "O\t1,2,o"
-#define rv_fmt_rs2_rs1_offset         "O\t2,1,o"
-#define rv_fmt_aqrl_rd_rs2_rs1        "OAR\t0,2,(1)"
-#define rv_fmt_aqrl_rd_rs1            "OAR\t0,(1)"
-#define rv_fmt_rd                     "O\t0"
-#define rv_fmt_rd_zimm                "O\t0,7"
-#define rv_fmt_rd_rs1                 "O\t0,1"
-#define rv_fmt_rd_rs2                 "O\t0,2"
-#define rv_fmt_rs1_offset             "O\t1,o"
-#define rv_fmt_rs2_offset             "O\t2,o"
+static const char rv_fmt_none[]                   = "O\t";
+static const char rv_fmt_rs1[]                    = "O\t1";
+static const char rv_fmt_offset[]                 = "O\to";
+static const char rv_fmt_pred_succ[]              = "O\tp,s";
+static const char rv_fmt_rs1_rs2[]                = "O\t1,2";
+static const char rv_fmt_rd_imm[]                 = "O\t0,i";
+static const char rv_fmt_rd_offset[]              = "O\t0,o";
+static const char rv_fmt_rd_rs1_rs2[]             = "O\t0,1,2";
+static const char rv_fmt_frd_rs1[]                = "O\t3,1";
+static const char rv_fmt_rd_frs1[]                = "O\t0,4";
+static const char rv_fmt_rd_frs1_frs2[]           = "O\t0,4,5";
+static const char rv_fmt_frd_frs1_frs2[]          = "O\t3,4,5";
+static const char rv_fmt_rm_frd_frs1[]            = "O\tr,3,4";
+static const char rv_fmt_rm_frd_rs1[]             = "O\tr,3,1";
+static const char rv_fmt_rm_rd_frs1[]             = "O\tr,0,4";
+static const char rv_fmt_rm_frd_frs1_frs2[]       = "O\tr,3,4,5";
+static const char rv_fmt_rm_frd_frs1_frs2_frs3[]  = "O\tr,3,4,5,6";
+static const char rv_fmt_rd_rs1_imm[]             = "O\t0,1,i";
+static const char rv_fmt_rd_rs1_offset[]          = "O\t0,1,i";
+static const char rv_fmt_rd_offset_rs1[]          = "O\t0,i(1)";
+static const char rv_fmt_frd_offset_rs1[]         = "O\t3,i(1)";
+static const char rv_fmt_rd_csr_rs1[]             = "O\t0,c,1";
+static const char rv_fmt_rd_csr_zimm[]            = "O\t0,c,7";
+static const char rv_fmt_rs2_offset_rs1[]         = "O\t2,i(1)";
+static const char rv_fmt_frs2_offset_rs1[]        = "O\t5,i(1)";
+static const char rv_fmt_rs1_rs2_offset[]         = "O\t1,2,o";
+static const char rv_fmt_rs2_rs1_offset[]         = "O\t2,1,o";
+static const char rv_fmt_aqrl_rd_rs2_rs1[]        = "OAR\t0,2,(1)";
+static const char rv_fmt_aqrl_rd_rs1[]            = "OAR\t0,(1)";
+static const char rv_fmt_rd[]                     = "O\t0";
+static const char rv_fmt_rd_zimm[]                = "O\t0,7";
+static const char rv_fmt_rd_rs1[]                 = "O\t0,1";
+static const char rv_fmt_rd_rs2[]                 = "O\t0,2";
+static const char rv_fmt_rs1_offset[]             = "O\t1,o";
+static const char rv_fmt_rs2_offset[]             = "O\t2,o";
 
 /* pseudo-instruction constraints */
 
