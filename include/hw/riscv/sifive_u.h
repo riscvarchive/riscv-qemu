@@ -19,13 +19,7 @@
 #ifndef HW_SIFIVE_U_H
 #define HW_SIFIVE_U_H
 
-#include "hw/net/cadence_gem.h"
-
-#define TYPE_RISCV_U_SOC "riscv.sifive.u.soc"
-#define RISCV_U_SOC(obj) \
-    OBJECT_CHECK(SiFiveUSoCState, (obj), TYPE_RISCV_U_SOC)
-
-typedef struct SiFiveUSoCState {
+typedef struct SiFiveUState {
     /*< private >*/
     SysBusDevice parent_obj;
 
@@ -33,14 +27,6 @@ typedef struct SiFiveUSoCState {
     RISCVHartArrayState cpus;
     DeviceState *plic;
     CadenceGEMState gem;
-} SiFiveUSoCState;
-
-typedef struct SiFiveUState {
-    /*< private >*/
-    SysBusDevice parent_obj;
-
-    /*< public >*/
-    SiFiveUSoCState soc;
     void *fdt;
     int fdt_size;
 } SiFiveUState;
@@ -48,6 +34,7 @@ typedef struct SiFiveUState {
 enum {
     SIFIVE_U_DEBUG,
     SIFIVE_U_MROM,
+    SIFIVE_U_TEST,
     SIFIVE_U_CLINT,
     SIFIVE_U_PLIC,
     SIFIVE_U_UART0,
