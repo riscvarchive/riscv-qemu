@@ -244,6 +244,14 @@ bool pmp_hart_has_privs(CPURISCVState *env, target_ulong addr,
     /* 1.10 draft priv spec states there is an implicit order
          from low to high */
     for (i = 0; i < MAX_RISCV_PMPS; i++) {
+        const uint8_t a_field =
+            pmp_get_a_field(env->pmp_state.pmp[i].cfg_reg);
+        
+        if (PMP_AMATCH_OFF == a_field) {
+            /* skip empty PMP entry */
+            continue;
+        }
+        
         s = pmp_is_in_range(env, i, addr);
         e = pmp_is_in_range(env, i, addr + size - 1);
 
@@ -253,16 +261,10 @@ bool pmp_hart_has_privs(CPURISCVState *env, target_ulong addr,
             ret = 0;
             break;
         }
-
-        /* fully inside */
-        const uint8_t a_field =
-            pmp_get_a_field(env->pmp_state.pmp[i].cfg_reg);
+        
         if ((s + e) == 2) {
-            if (PMP_AMATCH_OFF == a_field) {
-                return 1;
-            }
-
             allowed_privs = PMP_READ | PMP_WRITE | PMP_EXEC;
+
             if ((env->priv != PRV_M) || pmp_is_locked(env, i)) {
                 allowed_privs &= env->pmp_state.pmp[i].cfg_reg;
             }
