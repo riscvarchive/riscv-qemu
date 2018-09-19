@@ -356,10 +356,16 @@ hwaddr riscv_cpu_get_phys_page_debug(CPUState *cs, vaddr addr)
     return phys_addr;
 }
 
-void riscv_cpu_unassigned_access(CPUState *cpu, hwaddr addr, bool is_write,
+void riscv_cpu_unassigned_access(CPUState *cs, hwaddr addr, bool is_write,
                                  bool is_exec, int unused, unsigned size)
 {
-    cpu_abort(cpu, "%s: unimplemented, addr=" TARGET_FMT_plx, __func__, addr);
+    RISCVCPU *cpu = RISCV_CPU(cs);
+    if (is_write) {
+        cs->exception_index = RISCV_EXCP_STORE_AMO_ACCESS_FAULT;
+    } else {
+        cs->exception_index = RISCV_EXCP_LOAD_ACCESS_FAULT;
+    }
+    riscv_raise_exception(&cpu->env, cs->exception_index, GETPC());
 }
 
 void riscv_cpu_do_unaligned_access(CPUState *cs, vaddr addr,
