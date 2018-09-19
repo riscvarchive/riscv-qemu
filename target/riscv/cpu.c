@@ -357,6 +357,7 @@ static void riscv_cpu_class_init(ObjectClass *c, void *data)
 #ifdef CONFIG_USER_ONLY
     cc->handle_mmu_fault = riscv_cpu_handle_mmu_fault;
 #else
+    cc->do_unassigned_access = riscv_cpu_unassigned_access;
     cc->do_unaligned_access = riscv_cpu_do_unaligned_access;
     cc->get_phys_page_debug = riscv_cpu_get_phys_page_debug;
 #endif
