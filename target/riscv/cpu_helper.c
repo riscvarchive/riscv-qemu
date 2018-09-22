@@ -465,7 +465,7 @@ int riscv_cpu_handle_mmu_fault(CPUState *cs, vaddr address, int size,
             "%s address=%" VADDR_PRIx " ret %d physical " TARGET_FMT_plx
              " prot %d\n", __func__, address, ret, pa, prot);
     if (riscv_feature(env, RISCV_FEATURE_PMP) &&
-        !pmp_hart_has_privs(env, pa, TARGET_PAGE_SIZE, 1 << rw)) {
+        !pmp_has_access(env, pa & TARGET_PAGE_MASK, rw)) {
         ret = TRANSLATE_FAIL;
     }
     if (ret == TRANSLATE_SUCCESS) {
