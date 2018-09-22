@@ -414,6 +414,7 @@ int riscv_cpu_handle_mmu_fault(CPUState *cs, vaddr address, int size,
 #if !defined(CONFIG_USER_ONLY)
     hwaddr pa = 0;
     int prot;
+    target_ulong tlb_size = TARGET_PAGE_SIZE;
 #endif
     int ret = TRANSLATE_FAIL;
 
@@ -423,17 +424,20 @@ int riscv_cpu_handle_mmu_fault(CPUState *cs, vaddr address, int size,
 
 #if !defined(CONFIG_USER_ONLY)
     ret = get_physical_address(env, &pa, &prot, address, rw, mmu_idx);
+
     qemu_log_mask(CPU_LOG_MMU,
             "%s address=%" VADDR_PRIx " ret %d physical " TARGET_FMT_plx
              " prot %d\n", __func__, address, ret, pa, prot);
-    if (riscv_feature(env, RISCV_FEATURE_PMP) &&
-        !pmp_hart_has_privs(env, pa, TARGET_PAGE_SIZE, 1 << rw)) {
-        ret = TRANSLATE_FAIL;
+
+    if (ret == TRANSLATE_SUCCESS && riscv_feature(env, RISCV_FEATURE_PMP)) {
+        ret = pmp_has_access(env, pa, size, rw, &tlb_size) ?
+              TRANSLATE_SUCCESS : TRANSLATE_FAIL;
     }
+
     if (ret == TRANSLATE_SUCCESS) {
         tlb_set_page(cs, address & TARGET_PAGE_MASK, pa & TARGET_PAGE_MASK,
-                     prot, mmu_idx, TARGET_PAGE_SIZE);
-    } else if (ret == TRANSLATE_FAIL) {
+                     prot, mmu_idx, tlb_size);
+    } else {
         raise_mmu_exception(env, address, rw);
     }
 #else
