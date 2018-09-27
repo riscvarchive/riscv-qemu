@@ -131,11 +131,13 @@ static void pmp_decode_napot(target_ulong a, target_ulong *sa, target_ulong *ea)
  */
 static inline void pmp_count_active_rules(CPURISCVState *env)
 {
-    size_t i = 0;
-    while (pmp_a_field(env->pmp_state.pmp[i].cfg_reg) != PMP_AMATCH_OFF) {
-        i++;
+    /* find last rule that is not PMP_AMATCH_OFF */
+    env->pmp_state.active_rules = 0;
+    for (size_t i = 0; i < MAX_RISCV_PMPS; i++) {
+        if (pmp_a_field(env->pmp_state.pmp[i].cfg_reg) != PMP_AMATCH_OFF) {
+            env->pmp_state.active_rules = i + 1;
+        }
     }
-    env->pmp_state.active_rules = i;
 }
 
 /*
