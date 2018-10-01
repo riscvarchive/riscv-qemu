@@ -20,7 +20,6 @@
 
 #include "qemu/osdep.h"
 #include "qemu/log.h"
-#include "qemu/error-report.h"
 #include "hw/sysbus.h"
 #include "target/riscv/cpu.h"
 #include "sysemu/sysemu.h"
@@ -36,7 +35,7 @@ static PLICMode char_to_mode(char c)
     case 'H': return PLICMode_H;
     case 'M': return PLICMode_M;
     default:
-        error_report("plic: invalid mode '%c'", c);
+        qemu_log_mask(LOG_GUEST_ERROR, "plic: invalid mode '%c'\n", c);
         exit(1);
     }
 }
@@ -198,7 +197,7 @@ static uint64_t sifive_plic_read(void *opaque, hwaddr addr, unsigned size)
 {
     SiFivePLICState *plic = opaque;
 
-    /* writes must be 4 byte words */
+    /* reads must be 4 byte words */
     if ((addr & 0x3) != 0) {
         goto err;
     }
@@ -262,7 +261,9 @@ static uint64_t sifive_plic_read(void *opaque, hwaddr addr, unsigned size)
     }
 
 err:
-    error_report("plic: invalid register read: %08x", (uint32_t)addr);
+    qemu_log_mask(LOG_GUEST_ERROR,
+        "plic: invalid read: 0x%" HWADDR_PRIx "\n", addr);
+
     return 0;
 }
 
@@ -289,7 +290,8 @@ static void sifive_plic_write(void *opaque, hwaddr addr, uint64_t value,
     } else if (addr >= plic->pending_base && /* 1 bit per source */
                addr < plic->pending_base + (plic->num_sources >> 3))
     {
-        error_report("plic: invalid pending write: %08x", (uint32_t)addr);
+        qemu_log_mask(LOG_GUEST_ERROR,
+            "plic: invalid pending write: 0x%" HWADDR_PRIx "\n", addr);
         return;
     } else if (addr >= plic->enable_base && /* 1 bit per source */
         addr < plic->enable_base + plic->num_addrs * plic->enable_stride)
@@ -339,7 +341,8 @@ static void sifive_plic_write(void *opaque, hwaddr addr, uint64_t value,
     }
 
 err:
-    error_report("plic: invalid register write: %08x", (uint32_t)addr);
+    qemu_log_mask(LOG_GUEST_ERROR,
+        "plic: invalid write: 0x%" HWADDR_PRIx "\n", addr);
 }
 
 static const MemoryRegionOps sifive_plic_ops = {
@@ -390,8 +393,9 @@ static void parse_hart_config(SiFivePLICState *plic)
         } else {
             int m = 1 << char_to_mode(c);
             if (modes == (modes | m)) {
-                error_report("plic: duplicate mode '%c' in config: %s",
-                             c, plic->hart_config);
+                qemu_log_mask(LOG_GUEST_ERROR,
+                    "plic: duplicate mode '%c' in config: %s", c,
+                    plic->hart_config);
                 exit(1);
             }
             modes |= m;
@@ -453,7 +457,8 @@ static void sifive_plic_realize(DeviceState *dev, Error **errp)
     for (i = 0; i < smp_cpus; i++) {
         RISCVCPU *cpu = RISCV_CPU(qemu_get_cpu(i));
         if (riscv_cpu_claim_interrupts(cpu, MIP_SEIP) < 0) {
-            error_report("sifive_plic_realize: SEIP already claimed");
+            qemu_log_mask(LOG_GUEST_ERROR,
+                "sifive_plic_realize: SEIP already claimed\n");
             exit(1);
         }
     }

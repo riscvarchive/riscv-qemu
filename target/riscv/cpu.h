@@ -87,7 +87,8 @@
 enum {
     RISCV_FEATURE_MMU,
     RISCV_FEATURE_PMP,
-    RISCV_FEATURE_MISA
+    RISCV_FEATURE_MISA,
+    RISCV_FEATURE_CLIC
 };
 
 #define USER_VERSION_2_02_0 0x00020200
@@ -100,6 +101,8 @@ enum {
 #define MMU_USER_IDX 3
 
 #define MAX_RISCV_PMPS (16)
+
+#define CPU_INTERRUPT_CLIC CPU_INTERRUPT_TGT_EXT_0
 
 typedef struct CPURISCVState CPURISCVState;
 
@@ -145,6 +148,8 @@ struct CPURISCVState {
      */
     uint32_t mip;
     uint32_t miclaim;
+    uint32_t mintstatus; /* clic-spec */
+    uint32_t exccode;    /* clic-qemu */
 
     target_ulong mie;
     target_ulong mideleg;
@@ -156,10 +161,12 @@ struct CPURISCVState {
     target_ulong medeleg;
 
     target_ulong stvec;
+    target_ulong stvt;   /* clic-spec */
     target_ulong sepc;
     target_ulong scause;
 
     target_ulong mtvec;
+    target_ulong mtvt;   /* clic-spec */
     target_ulong mepc;
     target_ulong mcause;
     target_ulong mtval;  /* since: priv-1.10.0 */
@@ -173,7 +180,10 @@ struct CPURISCVState {
     /* temporary htif regs */
     uint64_t mfromhost;
     uint64_t mtohost;
-    uint64_t timecmp;
+
+    /* timer comparators */
+    uint64_t mtimecmp;
+    uint64_t stimecmp;
 
     /* physical memory protection */
     pmp_table_t pmp_state;
@@ -185,7 +195,9 @@ struct CPURISCVState {
     CPU_COMMON
 
     /* Fields from here on are preserved across CPU reset. */
-    QEMUTimer *timer; /* Internal timer */
+    QEMUTimer *mtimer; /* Internal timer */
+    QEMUTimer *stimer; /* Internal timer */
+    void *clic;
 };
 
 #define RISCV_CPU_CLASS(klass) \
@@ -272,6 +284,7 @@ void riscv_cpu_list(FILE *f, fprintf_function cpu_fprintf);
 #ifndef CONFIG_USER_ONLY
 int riscv_cpu_claim_interrupts(RISCVCPU *cpu, uint32_t interrupts);
 uint32_t riscv_cpu_update_mip(RISCVCPU *cpu, uint32_t mask, uint32_t value);
+void riscv_cpu_clic_interrupt(RISCVCPU *cpu, int exccode);
 #define BOOL_TO_MASK(x) (-!!(x)) /* helper for riscv_cpu_update_mip value */
 #endif
 void riscv_cpu_set_mode(CPURISCVState *env, target_ulong newpriv);
@@ -332,6 +345,8 @@ typedef struct {
 
 void riscv_get_csr_ops(int csrno, riscv_csr_operations *ops);
 void riscv_set_csr_ops(int csrno, riscv_csr_operations *ops);
+
+void riscv_cpu_register_gdb_regs_for_features(CPUState *cs);
 
 #include "exec/cpu-all.h"
 
