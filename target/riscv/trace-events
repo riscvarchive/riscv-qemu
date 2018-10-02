@@ -1,0 +1,8 @@
+# target/riscv/cpu_helper.c
+riscv_trap(uint64_t hartid, bool async, uint64_t cause, uint64_t epc, uint64_t tval, const char *desc) "hart:%"PRId64", async:%d, cause:0x%"PRIx64", epc:0x%"PRIx64", tval:0x%"PRIx64", desc=%s"
+pmpcfg_csr_read(uint64_t hartid, int cfg, uint64_t value) "hart:%"PRId64", cfg:%d, value:0x%"PRIx64
+pmpcfg_csr_write(uint64_t hartid, int cfg, uint64_t value) "hart:%"PRId64", cfg:%d, value:0x%"PRIx64
+pmpaddr_csr_read(uint64_t hartid, int addr, uint64_t value) "hart:%"PRId64", addr:%d, value:0x%"PRIx64
+pmpaddr_csr_write(uint64_t hartid, int addr, uint64_t value) "hart:%"PRId64", addr:%d, value:0x%"PRIx64
+pmp_has_access(uint64_t hartid, uint64_t addr, int size, int access, int result) "hart:%"PRId64", addr:0x%"PRIx64", size:%d, access:%d, result:%d"
+pmp_rule_match(uint64_t hartid, uint64_t addr, int size, int access, uint64_t sa, uint64_t ea, int cfg, int result) "hart:%"PRId64", addr:0x%"PRIx64", size:%d, access:%d, sa:0x%"PRIx64", ea:0x%"PRIx64", cfg:%d, result:%d"
