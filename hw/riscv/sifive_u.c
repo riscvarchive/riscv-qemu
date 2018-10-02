@@ -39,6 +39,7 @@
 #include "hw/riscv/riscv_hart.h"
 #include "hw/riscv/sifive_plic.h"
 #include "hw/riscv/sifive_clint.h"
+#include "hw/riscv/sifive_clic.h"
 #include "hw/riscv/sifive_test.h"
 #include "hw/riscv/sifive_uart.h"
 #include "hw/riscv/sifive_prci.h"
@@ -58,7 +59,8 @@ static const struct MemmapEntry {
     [SIFIVE_U_DEBUG] =    {        0x0,      0x100 },
     [SIFIVE_U_MROM] =     {     0x1000,    0x11000 },
     [SIFIVE_U_TEST] =     {   0x100000,     0x1000 },
-    [SIFIVE_U_CLINT] =    {  0x2000000,    0x10000 },
+    [SIFIVE_U_CLINT] =    {  0x2000000,    0x10000 }, /* sifive_u */
+    [SIFIVE_U_CLIC] =     {  0x2000000,  0x1000000 }, /* sifive_ux */
     [SIFIVE_U_PLIC] =     {  0xc000000,  0x4000000 },
     [SIFIVE_U_UART0] =    { 0x10013000,     0x1000 },
     [SIFIVE_U_UART1] =    { 0x10023000,     0x1000 },
@@ -247,7 +249,7 @@ static void create_fdt(SiFiveUState *s, const struct MemmapEntry *memmap,
     g_free(nodename);
 }
 
-static void riscv_sifive_u_init(MachineState *machine)
+static void riscv_sifive_u_generic_init(MachineState *machine, bool has_clic)
 {
     const struct MemmapEntry *memmap = sifive_u_memmap;
     SiFiveUState *s = g_new0(SiFiveUState, 1);
@@ -339,11 +341,29 @@ static void riscv_sifive_u_init(MachineState *machine)
         serial_hd(0), qdev_get_gpio_in(DEVICE(s->plic), SIFIVE_U_UART0_IRQ));
     sifive_uart_create(system_memory, memmap[SIFIVE_U_UART1].base,
         serial_hd(1), qdev_get_gpio_in(DEVICE(s->plic), SIFIVE_U_UART1_IRQ));
-    sifive_clint_create(memmap[SIFIVE_U_CLINT].base,
-        memmap[SIFIVE_U_CLINT].size, smp_cpus,
-        SIFIVE_SIP_BASE,
-        SIFIVE_TIMECMP_BASE,
-        SIFIVE_TIME_BASE);
+    if (has_clic) {
+        sifive_clic_create(memmap[SIFIVE_U_CLIC].base,
+            memmap[SIFIVE_U_CLIC].size,
+            smp_cpus,
+            SIFIVE_SIP_BASE,
+            SIFIVE_TIMECMP_BASE,
+            SIFIVE_TIME_BASE,
+            SIFIVE_U_CLIC_NUM_SOURCES,
+            SIFIVE_U_CLIC_MAX_INT_BITS,
+            SIFIVE_U_CLIC_MAX_MODE_BITS,
+            SIFIVE_U_CLIC_MAX_LEVEL_BITS,
+            SIFIVE_U_CLIC_MAX_VEC_BITS,
+            SIFIVE_CLIC_CLINT_MMODE_OFFSET,
+            SIFIVE_CLIC_CLINT_SMODE_OFFSET,
+            SIFIVE_CLIC_CLIC_MMODE_OFFSET,
+            SIFIVE_CLIC_CLIC_SMODE_OFFSET);
+    } else {
+        sifive_clint_create(memmap[SIFIVE_U_CLINT].base,
+            memmap[SIFIVE_U_CLINT].size, smp_cpus,
+            SIFIVE_SIP_BASE,
+            SIFIVE_TIMECMP_BASE,
+            SIFIVE_TIME_BASE);
+    }
     sifive_test_create(memmap[SIFIVE_U_TEST].base);
 
     /* Initialize gem ethernet */
@@ -362,6 +382,16 @@ static void riscv_sifive_u_init(MachineState *machine)
                        qdev_get_gpio_in(DEVICE(s->plic), SIFIVE_U_GEM_IRQ));
 }
 
+static void riscv_sifive_u_init(MachineState *machine)
+{
+    riscv_sifive_u_generic_init(machine, false);
+}
+
+static void riscv_sifive_ux_init(MachineState *machine)
+{
+    riscv_sifive_u_generic_init(machine, true);
+}
+
 static void riscv_sifive_u_machine_init(MachineClass *mc)
 {
     mc->desc = "RISC-V Board compatible with SiFive U SDK";
@@ -369,4 +399,12 @@ static void riscv_sifive_u_machine_init(MachineClass *mc)
     mc->max_cpus = 1;
 }
 
+static void riscv_sifive_ux_machine_init(MachineClass *mc)
+{
+    mc->desc = "RISC-V Board compatible with SiFive U SDK (x-clic-spec)";
+    mc->init = riscv_sifive_ux_init;
+    mc->max_cpus = 1;
+}
+
 DEFINE_MACHINE("sifive_u", riscv_sifive_u_machine_init)
+DEFINE_MACHINE("sifive_ux", riscv_sifive_ux_machine_init)
