@@ -44,6 +44,12 @@
 
 #include <libfdt.h>
 
+/* Each UART is given 0x100 bytes of memory map despite not needing nearly
+ * that much.  Despite that, the existing memory map still supports up to
+ * 16 uarts, which is probably plenty.
+ */
+#define MAX_UARTS    16
+
 static const struct MemmapEntry {
     hwaddr base;
     hwaddr size;
@@ -59,7 +65,7 @@ static const struct MemmapEntry {
 };
 
 static void *create_fdt(RISCVVirtState *s, const struct MemmapEntry *memmap,
-    uint64_t mem_size, const char *cmdline)
+    uint64_t mem_size, const char *cmdline, uint32_t *out_plic_handle)
 {
     void *fdt;
     int cpu;
@@ -200,26 +206,50 @@ static void *create_fdt(RISCVVirtState *s, const struct MemmapEntry *memmap,
     qemu_fdt_setprop_cells(fdt, nodename, "reg",
         0x0, memmap[VIRT_TEST].base,
         0x0, memmap[VIRT_TEST].size);
+    g_free(nodename);
 
-    nodename = g_strdup_printf("/uart@%lx",
-        (long)memmap[VIRT_UART0].base);
-    qemu_fdt_add_subnode(fdt, nodename);
-    qemu_fdt_setprop_string(fdt, nodename, "compatible", "ns16550a");
-    qemu_fdt_setprop_cells(fdt, nodename, "reg",
-        0x0, memmap[VIRT_UART0].base,
-        0x0, memmap[VIRT_UART0].size);
-    qemu_fdt_setprop_cell(fdt, nodename, "clock-frequency", 3686400);
-        qemu_fdt_setprop_cells(fdt, nodename, "interrupt-parent", plic_phandle);
-        qemu_fdt_setprop_cells(fdt, nodename, "interrupts", UART0_IRQ);
-
+    /* Install UART0 as /chosen/stdout-path */
+    nodename = g_strdup_printf("/uart@%lx", (long)memmap[VIRT_UART0].base);
     qemu_fdt_add_subnode(fdt, "/chosen");
     qemu_fdt_setprop_string(fdt, "/chosen", "stdout-path", nodename);
+    g_free(nodename);
     if (cmdline) {
         qemu_fdt_setprop_string(fdt, "/chosen", "bootargs", cmdline);
     }
-    g_free(nodename);
+
+    if (out_plic_handle) {
+        *out_plic_handle = plic_phandle;
+    }
 
     return fdt;
+}
+
+static void
+riscv_virt_serial_init(RISCVVirtState *s, const struct MemmapEntry *memmap,
+                       MemoryRegion *system_memory, void *fdt,
+                       uint32_t plic_phandle, int hdix, int uix)
+{
+    hwaddr addr;
+    char *nodename;
+
+    addr = memmap[VIRT_UART0].base + uix * memmap[VIRT_UART0].size;
+
+    /* Wire to memory */
+    serial_mm_init(system_memory, addr, 0,
+        qdev_get_gpio_in(DEVICE(s->plic), UART0_IRQ + uix), 399193,
+        serial_hd(hdix), DEVICE_LITTLE_ENDIAN);
+
+    /* Register with FDT */
+    nodename = g_strdup_printf("/uart@%lx", (long)addr);
+    qemu_fdt_add_subnode(fdt, nodename);
+    qemu_fdt_setprop_string(fdt, nodename, "compatible", "ns16550a");
+    qemu_fdt_setprop_cells(fdt, nodename, "reg",
+        0x0, addr,
+        0x0, memmap[VIRT_UART0].size);
+    qemu_fdt_setprop_cell(fdt, nodename, "clock-frequency", 3686400);
+        qemu_fdt_setprop_cells(fdt, nodename, "interrupt-parent", plic_phandle);
+        qemu_fdt_setprop_cells(fdt, nodename, "interrupts", UART0_IRQ + uix);
+    g_free(nodename);
 }
 
 static void riscv_virt_board_init(MachineState *machine)
@@ -232,8 +262,9 @@ static void riscv_virt_board_init(MachineState *machine)
     MemoryRegion *mask_rom = g_new(MemoryRegion, 1);
     char *plic_hart_config;
     size_t plic_hart_config_len;
-    int i;
+    int i, j;
     void *fdt;
+    uint32_t plic_phandle;
     hwaddr firmware_entry;
 
     /* Initialize SOC */
@@ -253,7 +284,44 @@ static void riscv_virt_board_init(MachineState *machine)
         main_mem);
 
     /* create device tree */
-    fdt = create_fdt(s, memmap, machine->ram_size, machine->kernel_cmdline);
+    fdt = create_fdt(s, memmap, machine->ram_size, machine->kernel_cmdline,
+                     &plic_phandle);
+
+    /* create PLIC hart topology configuration string */
+    plic_hart_config_len = (strlen(VIRT_PLIC_HART_CONFIG) + 1) * smp_cpus;
+    plic_hart_config = g_malloc0(plic_hart_config_len);
+    for (i = 0; i < smp_cpus; i++) {
+        if (i != 0) {
+            strncat(plic_hart_config, ",", plic_hart_config_len);
+        }
+        strncat(plic_hart_config, VIRT_PLIC_HART_CONFIG, plic_hart_config_len);
+        plic_hart_config_len -= (strlen(VIRT_PLIC_HART_CONFIG) + 1);
+    }
+
+    /* create PLIC */
+    s->plic = sifive_plic_create(memmap[VIRT_PLIC].base,
+        plic_hart_config,
+        VIRT_PLIC_NUM_SOURCES,
+        VIRT_PLIC_NUM_PRIORITIES,
+        VIRT_PLIC_PRIORITY_BASE,
+        VIRT_PLIC_PENDING_BASE,
+        VIRT_PLIC_ENABLE_BASE,
+        VIRT_PLIC_ENABLE_STRIDE,
+        VIRT_PLIC_CONTEXT_BASE,
+        VIRT_PLIC_CONTEXT_STRIDE,
+        memmap[VIRT_PLIC].size);
+
+    /* Attach UARTs */
+    for (i = 1, j = 1; (i < serial_max_hds()) && (j < MAX_UARTS); i++) {
+        if (serial_hd(i) == NULL) {
+            continue;
+        }
+        riscv_virt_serial_init(s, memmap, system_memory, fdt, plic_phandle,
+                               i, j);
+        j++;
+    }
+    /* Attach the debug UART last, so BBL finds it first */
+    riscv_virt_serial_init(s, memmap, system_memory, fdt, plic_phandle, 0, 0);
 
     /* boot rom */
     memory_region_init_rom(mask_rom, NULL, "riscv_virt_board.mrom",
@@ -303,29 +371,7 @@ static void riscv_virt_board_init(MachineState *machine)
                           memmap[VIRT_MROM].base + sizeof(reset_vec),
                           &address_space_memory);
 
-    /* create PLIC hart topology configuration string */
-    plic_hart_config_len = (strlen(VIRT_PLIC_HART_CONFIG) + 1) * smp_cpus;
-    plic_hart_config = g_malloc0(plic_hart_config_len);
-    for (i = 0; i < smp_cpus; i++) {
-        if (i != 0) {
-            strncat(plic_hart_config, ",", plic_hart_config_len);
-        }
-        strncat(plic_hart_config, VIRT_PLIC_HART_CONFIG, plic_hart_config_len);
-        plic_hart_config_len -= (strlen(VIRT_PLIC_HART_CONFIG) + 1);
-    }
-
-    /* MMIO */
-    s->plic = sifive_plic_create(memmap[VIRT_PLIC].base,
-        plic_hart_config,
-        VIRT_PLIC_NUM_SOURCES,
-        VIRT_PLIC_NUM_PRIORITIES,
-        VIRT_PLIC_PRIORITY_BASE,
-        VIRT_PLIC_PENDING_BASE,
-        VIRT_PLIC_ENABLE_BASE,
-        VIRT_PLIC_ENABLE_STRIDE,
-        VIRT_PLIC_CONTEXT_BASE,
-        VIRT_PLIC_CONTEXT_STRIDE,
-        memmap[VIRT_PLIC].size);
+    /* Other MMIO: CLINT, TEST */
     sifive_clint_create(memmap[VIRT_CLINT].base,
         memmap[VIRT_CLINT].size, smp_cpus,
         SIFIVE_SIP_BASE, SIFIVE_TIMECMP_BASE, SIFIVE_TIME_BASE);
@@ -336,10 +382,6 @@ static void riscv_virt_board_init(MachineState *machine)
             memmap[VIRT_VIRTIO].base + i * memmap[VIRT_VIRTIO].size,
             qdev_get_gpio_in(DEVICE(s->plic), VIRTIO_IRQ + i));
     }
-
-    serial_mm_init(system_memory, memmap[VIRT_UART0].base,
-        0, qdev_get_gpio_in(DEVICE(s->plic), UART0_IRQ), 399193,
-        serial_hd(0), DEVICE_LITTLE_ENDIAN);
 
     g_free(plic_hart_config);
 }
