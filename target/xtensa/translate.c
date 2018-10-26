@@ -4796,6 +4796,22 @@ static const XtensaOpcodeOps fpu2000_ops[] = {
         .translate = translate_float_s,
         .par = (const uint32_t[]){false},
     }, {
+        .name = "floatfadd.s",
+        .translate = translate_float_add_s,
+        .par = (const uint32_t[]){false},
+    }, {
+        .name = "floatfsub.s",
+        .translate = translate_float_sub_s,
+        .par = (const uint32_t[]){false},
+    }, {
+        .name = "floatfdiv.s",
+        .translate = translate_float_div_s,
+        .par = (const uint32_t[]){false},
+    }, {
+        .name = "floatfmul.s",
+        .translate = translate_float_mul_s,
+        .par = (const uint32_t[]){false},
+    }, {
         .name = "floor.s",
         .translate = translate_ftoi_s,
         .par = (const uint32_t[]){float_round_down, false},
