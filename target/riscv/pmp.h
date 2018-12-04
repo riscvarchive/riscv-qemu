@@ -30,10 +30,10 @@ typedef enum {
 } pmp_priv_t;
 
 typedef enum {
-    PMP_AMATCH_OFF,  /* Null (off)                            */
-    PMP_AMATCH_TOR,  /* Top of Range                          */
-    PMP_AMATCH_NA4,  /* Naturally aligned four-byte region    */
-    PMP_AMATCH_NAPOT /* Naturally aligned power-of-two region */
+    PMP_AMATCH_OFF   = 0, /* Null (off)                            */
+    PMP_AMATCH_TOR   = 1, /* Top of Range                          */
+    PMP_AMATCH_NA4   = 2, /* Naturally aligned four-byte region    */
+    PMP_AMATCH_NAPOT = 3  /* Naturally aligned power-of-two region */
 } pmp_am_t;
 
 typedef struct {
@@ -42,23 +42,16 @@ typedef struct {
 } pmp_entry_t;
 
 typedef struct {
-    target_ulong sa;
-    target_ulong ea;
-} pmp_addr_t;
-
-typedef struct {
     pmp_entry_t pmp[MAX_RISCV_PMPS];
-    pmp_addr_t  addr[MAX_RISCV_PMPS];
-    uint32_t num_rules;
+    size_t active_rules;
+    size_t granularity;
 } pmp_table_t;
 
-void pmpcfg_csr_write(CPURISCVState *env, uint32_t reg_index,
-    target_ulong val);
-target_ulong pmpcfg_csr_read(CPURISCVState *env, uint32_t reg_index);
-void pmpaddr_csr_write(CPURISCVState *env, uint32_t addr_index,
-    target_ulong val);
-target_ulong pmpaddr_csr_read(CPURISCVState *env, uint32_t addr_index);
-bool pmp_hart_has_privs(CPURISCVState *env, target_ulong addr,
-    target_ulong size, pmp_priv_t priv);
+void pmpcfg_csr_write(CPURISCVState *env, size_t cfg, target_ulong val);
+target_ulong pmpcfg_csr_read(CPURISCVState *env, size_t cfg);
+void pmpaddr_csr_write(CPURISCVState *env, size_t addr, target_ulong val);
+target_ulong pmpaddr_csr_read(CPURISCVState *env, size_t addr);
+bool pmp_has_access(CPURISCVState *env, target_ulong addr, int size, int rw,
+                    target_ulong *tlb_entry_size);
 
 #endif
