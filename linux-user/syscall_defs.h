@@ -1873,8 +1873,33 @@ struct target_stat64  {
     abi_ulong __unused5;
 };
 
+#elif defined(TARGET_RISCV)
+
+struct target_stat {
+    uint64_t st_dev;
+    uint64_t st_ino;
+    unsigned int st_mode;
+    unsigned int st_nlink;
+    unsigned int st_uid;
+    unsigned int st_gid;
+    uint64_t st_rdev;
+    uint64_t __pad1;
+    int64_t st_size;
+    int st_blksize;
+    int __pad2;
+    int64_t st_blocks;
+    int target_st_atime;
+    unsigned int target_st_atime_nsec;
+    int target_st_mtime;
+    unsigned int target_st_mtime_nsec;
+    int target_st_ctime;
+    unsigned int target_st_ctime_nsec;
+    unsigned int __unused4;
+    unsigned int __unused5;
+};
+
 #elif defined(TARGET_OPENRISC) || defined(TARGET_TILEGX) || \
-      defined(TARGET_NIOS2) || defined(TARGET_RISCV)
+      defined(TARGET_NIOS2)
 
 /* These are the asm-generic versions of the stat and stat64 structures */
 
@@ -1901,7 +1926,6 @@ struct target_stat {
     unsigned int __unused5;
 };
 
-#if !defined(TARGET_RISCV64)
 #define TARGET_HAS_STRUCT_STAT64
 struct target_stat64 {
     uint64_t st_dev;
@@ -1925,7 +1949,6 @@ struct target_stat64 {
     unsigned int __unused4;
     unsigned int __unused5;
 };
-#endif
 
 #elif defined(TARGET_HPPA)
 
