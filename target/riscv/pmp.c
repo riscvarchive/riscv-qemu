@@ -1,8 +1,9 @@
 /*
  * QEMU RISC-V PMP (Physical Memory Protection)
  *
- * Author: Daire McNamara, daire.mcnamara@emdalo.com
- *         Ivan Griffin, ivan.griffin@emdalo.com
+ * Authors: Daire McNamara <daire.mcnamara@emdalo.com>
+ *          Ivan Griffin <ivan.griffin@emdalo.com>
+ *          Michael Clark <mjc@sifive.com>
  *
  * This provides a RISC-V Physical Memory Protection implementation
  *
@@ -28,96 +29,76 @@
 #include "qapi/error.h"
 #include "cpu.h"
 #include "qemu-common.h"
+#include "trace.h"
 
 #ifndef CONFIG_USER_ONLY
 
-#define RISCV_DEBUG_PMP 0
-#define PMP_DEBUG(fmt, ...)                                                    \
-    do {                                                                       \
-        if (RISCV_DEBUG_PMP) {                                                 \
-            qemu_log_mask(LOG_TRACE, "%s: " fmt "\n", __func__, ##__VA_ARGS__);\
-        }                                                                      \
-    } while (0)
-
-static void pmp_write_cfg(CPURISCVState *env, uint32_t addr_index,
-    uint8_t val);
-static uint8_t pmp_read_cfg(CPURISCVState *env, uint32_t addr_index);
-static void pmp_update_rule(CPURISCVState *env, uint32_t pmp_index);
+/*
+ * Round up to the next highest power of two
+ *
+ * Source: https://graphics.stanford.edu/~seander/bithacks.html
+ */
+static inline uint64_t roundpow2(uint64_t val)
+{
+    val--;
+    val |= val >> 1;
+    val |= val >> 2;
+    val |= val >> 4;
+    val |= val >> 8;
+    val |= val >> 16;
+    val |= val >> 32;
+    val++;
+    return val;
+}
 
 /*
  * Accessor method to extract address matching type 'a field' from cfg reg
  */
 static inline uint8_t pmp_get_a_field(uint8_t cfg)
 {
-    uint8_t a = cfg >> 3;
-    return a & 0x3;
+    return (cfg >> 3) & 0x3;
 }
 
 /*
  * Check whether a PMP is locked or not.
  */
-static inline int pmp_is_locked(CPURISCVState *env, uint32_t pmp_index)
+static inline int pmp_is_locked(CPURISCVState *env, size_t i)
 {
+    uint8_t cfg_reg = env->pmp_state.pmp[i].cfg_reg;
 
-    if (env->pmp_state.pmp[pmp_index].cfg_reg & PMP_LOCK) {
+    if (cfg_reg & PMP_LOCK) {
         return 1;
     }
 
-    /* Top PMP has no 'next' to check */
-    if ((pmp_index + 1u) >= MAX_RISCV_PMPS) {
-        return 0;
-    }
-
-    /* In TOR mode, need to check the lock bit of the next pmp
-     * (if there is a next)
-     */
-    const uint8_t a_field =
-        pmp_get_a_field(env->pmp_state.pmp[pmp_index + 1].cfg_reg);
-    if ((env->pmp_state.pmp[pmp_index + 1u].cfg_reg & PMP_LOCK) &&
-         (PMP_AMATCH_TOR == a_field)) {
-        return 1;
-    }
-
-    return 0;
-}
-
-/*
- * Count the number of active rules.
- */
-static inline uint32_t pmp_get_num_rules(CPURISCVState *env)
-{
-     return env->pmp_state.num_rules;
-}
-
-/*
- * Accessor to get the cfg reg for a specific PMP/HART
- */
-static inline uint8_t pmp_read_cfg(CPURISCVState *env, uint32_t pmp_index)
-{
-    if (pmp_index < MAX_RISCV_PMPS) {
-        return env->pmp_state.pmp[pmp_index].cfg_reg;
-    }
-
-    return 0;
-}
-
-
-/*
- * Accessor to set the cfg reg for a specific PMP/HART
- * Bounds checks and relevant lock bit.
- */
-static void pmp_write_cfg(CPURISCVState *env, uint32_t pmp_index, uint8_t val)
-{
-    if (pmp_index < MAX_RISCV_PMPS) {
-        if (!pmp_is_locked(env, pmp_index)) {
-            env->pmp_state.pmp[pmp_index].cfg_reg = val;
-            pmp_update_rule(env, pmp_index);
-        } else {
-            PMP_DEBUG("ignoring write - locked");
+    /* In TOR mode, need to check the lock bit of the next entry */
+    if (i + 1 < MAX_RISCV_PMPS) {
+        cfg_reg = env->pmp_state.pmp[i + 1].cfg_reg;
+        if (pmp_get_a_field(cfg_reg) == PMP_AMATCH_TOR) {
+            if (cfg_reg & PMP_LOCK) {
+                return 1;
+            }
         }
-    } else {
-        PMP_DEBUG("ignoring write - out of bounds");
     }
+
+    return 0;
+}
+
+/*
+ * Convert QEMU access type to PMP privileges
+ */
+static inline int pmp_access_priv(int access_type)
+{
+    switch (access_type) {
+    case MMU_INST_FETCH:
+        return PMP_EXEC;
+    case MMU_DATA_LOAD:
+        return PMP_READ;
+    case MMU_DATA_STORE:
+        return PMP_WRITE;
+    default:
+        g_assert_not_reached();
+    }
+    return 0;
 }
 
 static void pmp_decode_napot(target_ulong a, target_ulong *sa, target_ulong *ea)
@@ -138,87 +119,26 @@ static void pmp_decode_napot(target_ulong a, target_ulong *sa, target_ulong *ea)
         return;
     } else {
         target_ulong t1 = ctz64(~a);
-        target_ulong base = (a & ~(((target_ulong)1 << t1) - 1)) << 3;
+        target_ulong base = (a & ~(((target_ulong)1 << t1) - 1)) << 2;
         target_ulong range = ((target_ulong)1 << (t1 + 3)) - 1;
         *sa = base;
         *ea = base + range;
     }
 }
 
-
-/* Convert cfg/addr reg values here into simple 'sa' --> start address and 'ea'
- *   end address values.
- *   This function is called relatively infrequently whereas the check that
- *   an address is within a pmp rule is called often, so optimise that one
+/*
+ * Count active rules when config changes
  */
-static void pmp_update_rule(CPURISCVState *env, uint32_t pmp_index)
+static inline void pmp_count_active_rules(CPURISCVState *env)
 {
-    int i;
-
-    env->pmp_state.num_rules = 0;
-
-    uint8_t this_cfg = env->pmp_state.pmp[pmp_index].cfg_reg;
-    target_ulong this_addr = env->pmp_state.pmp[pmp_index].addr_reg;
-    target_ulong prev_addr = 0u;
-    target_ulong sa = 0u;
-    target_ulong ea = 0u;
-
-    if (pmp_index >= 1u) {
-        prev_addr = env->pmp_state.pmp[pmp_index - 1].addr_reg;
-    }
-
-    switch (pmp_get_a_field(this_cfg)) {
-    case PMP_AMATCH_OFF:
-        sa = 0u;
-        ea = -1;
-        break;
-
-    case PMP_AMATCH_TOR:
-        sa = prev_addr << 2; /* shift up from [xx:0] to [xx+2:2] */
-        ea = (this_addr << 2) - 1u;
-        break;
-
-    case PMP_AMATCH_NA4:
-        sa = this_addr << 2; /* shift up from [xx:0] to [xx+2:2] */
-        ea = (this_addr + 4u) - 1u;
-        break;
-
-    case PMP_AMATCH_NAPOT:
-        pmp_decode_napot(this_addr, &sa, &ea);
-        break;
-
-    default:
-        sa = 0u;
-        ea = 0u;
-        break;
-    }
-
-    env->pmp_state.addr[pmp_index].sa = sa;
-    env->pmp_state.addr[pmp_index].ea = ea;
-
-    for (i = 0; i < MAX_RISCV_PMPS; i++) {
-        const uint8_t a_field =
-            pmp_get_a_field(env->pmp_state.pmp[i].cfg_reg);
-        if (PMP_AMATCH_OFF != a_field) {
-            env->pmp_state.num_rules++;
+    /* find last rule that is not PMP_AMATCH_OFF */
+    env->pmp_state.active_rules = 0;
+    for (size_t i = 0; i < MAX_RISCV_PMPS; i++) {
+        if (pmp_get_a_field(env->pmp_state.pmp[i].cfg_reg) != PMP_AMATCH_OFF) {
+            env->pmp_state.active_rules = i + 1;
         }
     }
 }
-
-static int pmp_is_in_range(CPURISCVState *env, int pmp_index, target_ulong addr)
-{
-    int result = 0;
-
-    if ((addr >= env->pmp_state.addr[pmp_index].sa)
-        && (addr <= env->pmp_state.addr[pmp_index].ea)) {
-        result = 1;
-    } else {
-        result = 0;
-    }
-
-    return result;
-}
-
 
 /*
  * Public Interface
@@ -227,154 +147,153 @@ static int pmp_is_in_range(CPURISCVState *env, int pmp_index, target_ulong addr)
 /*
  * Check if the address has required RWX privs to complete desired operation
  */
-bool pmp_hart_has_privs(CPURISCVState *env, target_ulong addr,
-    target_ulong size, pmp_priv_t privs)
+bool pmp_has_access(CPURISCVState *env, target_ulong addr, int size, int rw,
+                    target_ulong *tlb_size)
 {
-    int i = 0;
-    int ret = -1;
-    target_ulong s = 0;
-    target_ulong e = 0;
-    pmp_priv_t allowed_privs = 0;
+    int access = pmp_access_priv(rw);
+    bool result;
 
-    /* Short cut if no rules */
-    if (0 == pmp_get_num_rules(env)) {
-        return true;
-    }
+    /* check physical memory protection rules */
+    for (size_t i = 0; i < env->pmp_state.active_rules; i++)
+    {
+        uint8_t cfg_reg = env->pmp_state.pmp[i].cfg_reg;
+        target_ulong addr_reg = env->pmp_state.pmp[i].addr_reg;
+        target_ulong sa, ea;
 
-    /* 1.10 draft priv spec states there is an implicit order
-         from low to high */
-    for (i = 0; i < MAX_RISCV_PMPS; i++) {
-        s = pmp_is_in_range(env, i, addr);
-        e = pmp_is_in_range(env, i, addr + size);
-
-        /* partially inside */
-        if ((s + e) == 1) {
-            PMP_DEBUG("pmp violation - access is partially inside");
-            ret = 0;
+        switch (pmp_get_a_field(cfg_reg)) {
+        case PMP_AMATCH_TOR:
+            sa = (i >= 1 ? env->pmp_state.pmp[i - 1].addr_reg : 0) << 2;
+            ea = (addr_reg << 2) - 1;
             break;
+
+        case PMP_AMATCH_NA4:
+            /* The current spec wording for PMP granularity requires a
+             * terminal bit for granule size spans; generalize NA4 -> NAG */
+            sa = addr_reg << 2;
+            ea = (addr_reg << 2) + (1 << (env->pmp_state.granularity + 2)) - 1;
+            break;
+
+        case PMP_AMATCH_NAPOT:
+            pmp_decode_napot(addr_reg, &sa, &ea);
+            break;
+
+        case PMP_AMATCH_OFF:
+        default:
+            continue;
         }
 
-        /* fully inside */
-        const uint8_t a_field =
-            pmp_get_a_field(env->pmp_state.pmp[i].cfg_reg);
-        if ((s + e) == 2) {
-            if (PMP_AMATCH_OFF == a_field) {
-                return 1;
+        /* check address and privs, bypass for unlocked rule if PRV_M */
+        result = (env->priv == PRV_M && !pmp_is_locked(env, i)) ||
+                 (addr >= sa && addr + size - 1 <= ea && (cfg_reg & access));
+        trace_pmp_rule_match(env->mhartid, addr, size, access, sa, ea,
+                             cfg_reg, result);
+        if (result) {
+            /* return smaller page size if match has finer granularity */
+            if ((sa & (*tlb_size - 1) || (ea + 1) & (*tlb_size - 1))) {
+                /* breaks iff other covering entries (invalid config). Punt */
+                *tlb_size = roundpow2(ea - sa);
             }
-
-            allowed_privs = PMP_READ | PMP_WRITE | PMP_EXEC;
-            if ((env->priv != PRV_M) || pmp_is_locked(env, i)) {
-                allowed_privs &= env->pmp_state.pmp[i].cfg_reg;
-            }
-
-            if ((privs & allowed_privs) == privs) {
-                ret = 1;
-                break;
-            } else {
-                ret = 0;
-                break;
-            }
-        }
-    }
-
-    /* No rule matched */
-    if (ret == -1) {
-        if (env->priv == PRV_M) {
-            ret = 1; /* Privileged spec v1.10 states if no PMP entry matches an
-                      * M-Mode access, the access succeeds */
-        } else {
-            ret = 0; /* Other modes are not allowed to succeed if they don't
-                      * match a rule, but there are rules.  We've checked for
-                      * no rule earlier in this function. */
+            goto match;
         }
     }
 
-    return ret == 1 ? true : false;
+    /* only allow M mode if no rules are present */
+    result = env->priv == PRV_M;
+
+match:
+    trace_pmp_has_access(env->mhartid, addr, size, access, result);
+
+    return result;
 }
 
 
 /*
- * Handle a write to a pmpcfg CSP
+ * Handle a write to a pmpcfg CSR
  */
-void pmpcfg_csr_write(CPURISCVState *env, uint32_t reg_index,
-    target_ulong val)
+void pmpcfg_csr_write(CPURISCVState *env, size_t cfg, target_ulong val)
 {
-    int i;
-    uint8_t cfg_val;
-
-    PMP_DEBUG("hart " TARGET_FMT_ld ": reg%d, val: 0x" TARGET_FMT_lx,
-        env->mhartid, reg_index, val);
-
-    if ((reg_index & 1) && (sizeof(target_ulong) == 8)) {
-        PMP_DEBUG("ignoring write - incorrect address");
-        return;
+    if (TARGET_LONG_BITS == 64) {
+        if (cfg & 1) {
+            return;
+        }
+        cfg >>= 1;
     }
 
-    for (i = 0; i < sizeof(target_ulong); i++) {
-        cfg_val = (val >> 8 * i)  & 0xff;
-        pmp_write_cfg(env, (reg_index * sizeof(target_ulong)) + i,
-            cfg_val);
+    for (size_t b = 0; b < sizeof(target_ulong); b++) {
+        size_t i = cfg * sizeof(target_ulong) + b;
+        if (!pmp_is_locked(env, i)) {
+            env->pmp_state.pmp[i].cfg_reg = (val >> 8 * b)  & 0xff;
+            pmp_count_active_rules(env);
+        }
     }
+
+    trace_pmpcfg_csr_write(env->mhartid, cfg, val);
 }
 
 
 /*
- * Handle a read from a pmpcfg CSP
+ * Handle a read from a pmpcfg CSR
  */
-target_ulong pmpcfg_csr_read(CPURISCVState *env, uint32_t reg_index)
+target_ulong pmpcfg_csr_read(CPURISCVState *env, size_t cfg)
 {
-    int i;
     target_ulong cfg_val = 0;
-    target_ulong val = 0;
 
-    for (i = 0; i < sizeof(target_ulong); i++) {
-        val = pmp_read_cfg(env, (reg_index * sizeof(target_ulong)) + i);
-        cfg_val |= (val << (i * 8));
+    if (TARGET_LONG_BITS == 64) {
+        if (cfg & 1) {
+            return 0;
+        }
+        cfg >>= 1;
     }
 
-    PMP_DEBUG("hart " TARGET_FMT_ld ": reg%d, val: 0x" TARGET_FMT_lx,
-        env->mhartid, reg_index, cfg_val);
+    for (size_t b = 0; b < sizeof(target_ulong); b++) {
+        size_t i = cfg * sizeof(target_ulong) + b;
+        target_ulong val = env->pmp_state.pmp[i].cfg_reg;
+        cfg_val |= (val << (b * 8));
+    }
+
+    trace_pmpcfg_csr_read(env->mhartid, cfg, cfg_val);
 
     return cfg_val;
 }
 
 
 /*
- * Handle a write to a pmpaddr CSP
+ * Handle a write to a pmpaddr CSR
  */
-void pmpaddr_csr_write(CPURISCVState *env, uint32_t addr_index,
-    target_ulong val)
+void pmpaddr_csr_write(CPURISCVState *env, size_t addr, target_ulong val)
 {
-    PMP_DEBUG("hart " TARGET_FMT_ld ": addr%d, val: 0x" TARGET_FMT_lx,
-        env->mhartid, addr_index, val);
+    if (addr >= MAX_RISCV_PMPS) {
+        return;
+    }
 
-    if (addr_index < MAX_RISCV_PMPS) {
-        if (!pmp_is_locked(env, addr_index)) {
-            env->pmp_state.pmp[addr_index].addr_reg = val;
-            pmp_update_rule(env, addr_index);
-        } else {
-            PMP_DEBUG("ignoring write - locked");
-        }
-    } else {
-        PMP_DEBUG("ignoring write - out of bounds");
+    if (env->pmp_state.granularity) {
+        val &= (((target_ulong)1 << env->pmp_state.granularity) - 1);
+    }
+
+    trace_pmpaddr_csr_write(env->mhartid, addr, val);
+
+    if (!pmp_is_locked(env, addr)) {
+        env->pmp_state.pmp[addr].addr_reg = val;
     }
 }
 
 
 /*
- * Handle a read from a pmpaddr CSP
+ * Handle a read from a pmpaddr CSR
  */
-target_ulong pmpaddr_csr_read(CPURISCVState *env, uint32_t addr_index)
+target_ulong pmpaddr_csr_read(CPURISCVState *env, size_t addr)
 {
-    PMP_DEBUG("hart " TARGET_FMT_ld ": addr%d, val: 0x" TARGET_FMT_lx,
-        env->mhartid, addr_index,
-        env->pmp_state.pmp[addr_index].addr_reg);
-    if (addr_index < MAX_RISCV_PMPS) {
-        return env->pmp_state.pmp[addr_index].addr_reg;
-    } else {
-        PMP_DEBUG("ignoring read - out of bounds");
+    target_ulong val;
+
+    if (addr >= MAX_RISCV_PMPS) {
         return 0;
     }
+
+    val = env->pmp_state.pmp[addr].addr_reg;
+
+    trace_pmpaddr_csr_read(env->mhartid, addr, val);
+
+    return val;
 }
 
 #endif

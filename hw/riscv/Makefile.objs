@@ -1,3 +1,4 @@
+obj-y += boot.o
 obj-y += riscv_htif.o
 obj-y += riscv_hart.o
 obj-y += sifive_e.o

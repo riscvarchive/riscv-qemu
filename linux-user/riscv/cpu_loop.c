@@ -20,6 +20,7 @@
 #include "qemu/osdep.h"
 #include "qemu.h"
 #include "cpu_loop-common.h"
+#include "elf.h"
 
 void cpu_loop(CPURISCVState *env)
 {
@@ -53,7 +54,8 @@ void cpu_loop(CPURISCVState *env)
                 ret = 0;
             } else {
                 ret = do_syscall(env,
-                                 env->gpr[xA7],
+                                 env->gpr[(env->elf_flags & EF_RISCV_RVE)
+                                    ? xT0 : xA7],
                                  env->gpr[xA0],
                                  env->gpr[xA1],
                                  env->gpr[xA2],
@@ -113,6 +115,16 @@ void cpu_loop(CPURISCVState *env)
 
 void target_cpu_copy_regs(CPUArchState *env, struct target_pt_regs *regs)
 {
+    CPUState *cpu = ENV_GET_CPU(env);
+    TaskState *ts = cpu->opaque;
+    struct image_info *info = ts->info;
+
     env->pc = regs->sepc;
     env->gpr[xSP] = regs->sp;
+    env->elf_flags = info->elf_flags;
+
+    if ((env->misa & RVE) && !(env->elf_flags & EF_RISCV_RVE)) {
+        fprintf(stderr, "Incompatible ELF: RVE cpu requires RVE ABI binary\n");
+        exit(EXIT_FAILURE);
+    }
 }

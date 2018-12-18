@@ -19,31 +19,20 @@
 #ifndef HW_SIFIVE_E_H
 #define HW_SIFIVE_E_H
 
-#define TYPE_RISCV_E_SOC "riscv.sifive.e.soc"
-#define RISCV_E_SOC(obj) \
-    OBJECT_CHECK(SiFiveESoCState, (obj), TYPE_RISCV_E_SOC)
-
-typedef struct SiFiveESoCState {
+typedef struct SiFiveEState {
     /*< private >*/
     SysBusDevice parent_obj;
 
     /*< public >*/
     RISCVHartArrayState cpus;
     DeviceState *plic;
-} SiFiveESoCState;
-
-typedef struct SiFiveEState {
-    /*< private >*/
-    SysBusDevice parent_obj;
-
-    /*< public >*/
-    SiFiveESoCState soc;
 } SiFiveEState;
 
 enum {
     SIFIVE_E_DEBUG,
     SIFIVE_E_MROM,
     SIFIVE_E_OTP,
+    SIFIVE_E_TEST,
     SIFIVE_E_CLINT,
     SIFIVE_E_PLIC,
     SIFIVE_E_AON,
