@@ -1,0 +1,6 @@
+# hw/riscv/sifive_clic.c
+sifive_clic_intip(int mode, int hartid, int irq, int val) "mode:%d hart:%d, irq:%d, val:%d"
+sifive_clic_intie(int mode, int hartid, int irq, int val) "mode:%d hart:%d, irq:%d, val:%d"
+sifive_clic_intcfg(int mode, int hartid, int irq, int val) "mode:%d hart:%d, irq:%d, val:%d"
+sifive_clic_cfg(int hartid, int nmbits, int nlbits, int nvbits) "hart:%d, nmbits:%d, nlbits:%d, nvbits:%d"
+sifive_clic_irq(int hartid, int irq, int level) "hartid:%d irq:%d level:%d"

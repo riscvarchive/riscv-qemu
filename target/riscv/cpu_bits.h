@@ -131,30 +131,47 @@
 #define CSR_MIE             0x304
 #define CSR_MTVEC           0x305
 #define CSR_MCOUNTEREN      0x306
+#define CSR_MTVT            0x307 /* clic-spec-draft */
 
 /* Legacy Counter Setup (priv v1.9.1) */
 #define CSR_MUCOUNTEREN     0x320
 #define CSR_MSCOUNTEREN     0x321
+#define CSR_MHCOUNTEREN     0x322
 
 /* Machine Trap Handling */
 #define CSR_MSCRATCH        0x340
 #define CSR_MEPC            0x341
 #define CSR_MCAUSE          0x342
-#define CSR_MBADADDR        0x343
+#define CSR_MTVAL           0x343
 #define CSR_MIP             0x344
+#define CSR_MNXTI           0x345 /* clic-spec-draft */
+#define CSR_MINTSTATUS      0x346 /* clic-spec-draft */
+#define CSR_MSCRATCHCSW     0x348 /* clic-spec-draft */
+
+/* Legacy Machine Trap Handling (priv v1.9.1) */
+#define CSR_MBADADDR        0x343
 
 /* Supervisor Trap Setup */
 #define CSR_SSTATUS         0x100
+#define CSR_SEDELEG         0x102
+#define CSR_SIDELEG         0x103
 #define CSR_SIE             0x104
 #define CSR_STVEC           0x105
 #define CSR_SCOUNTEREN      0x106
+#define CSR_STVT            0x107 /* clic-spec-draft */
 
 /* Supervisor Trap Handling */
 #define CSR_SSCRATCH        0x140
 #define CSR_SEPC            0x141
 #define CSR_SCAUSE          0x142
-#define CSR_SBADADDR        0x143
+#define CSR_STVAL           0x143
 #define CSR_SIP             0x144
+#define CSR_SNXTI           0x145 /* clic-spec-draft */
+#define CSR_SINTSTATUS      0x146 /* clic-spec-draft */
+#define CSR_SSCRATCHCSW     0x148 /* clic-spec-draft */
+
+/* Legacy Supervisor Trap Handling (priv v1.9.1) */
+#define CSR_SBADADDR        0x143
 
 /* Supervisor Protection and Translation */
 #define CSR_SPTBR           0x180
@@ -281,6 +298,28 @@
 #define CSR_MHPMCOUNTER29H  0xb9d
 #define CSR_MHPMCOUNTER30H  0xb9e
 #define CSR_MHPMCOUNTER31H  0xb9f
+
+/* Legacy Hypervisor Trap Setup (priv v1.9.1) */
+#define CSR_HSTATUS         0x200
+#define CSR_HEDELEG         0x202
+#define CSR_HIDELEG         0x203
+#define CSR_HIE             0x204
+#define CSR_HTVEC           0x205
+
+/* Legacy Hypervisor Trap Handling (priv v1.9.1) */
+#define CSR_HSCRATCH        0x240
+#define CSR_HEPC            0x241
+#define CSR_HCAUSE          0x242
+#define CSR_HBADADDR        0x243
+#define CSR_HIP             0x244
+
+/* Legacy Machine Protection and Translation (priv v1.9.1) */
+#define CSR_MBASE           0x380
+#define CSR_MBOUND          0x381
+#define CSR_MIBASE          0x382
+#define CSR_MIBOUND         0x383
+#define CSR_MDBASE          0x384
+#define CSR_MDBOUND         0x385
 
 /* mstatus CSR bits */
 #define MSTATUS_UIE         0x00000001
@@ -430,8 +469,9 @@
 #define RISCV_EXCP_LOAD_PAGE_FAULT         0xd /* since: priv-1.10.0 */
 #define RISCV_EXCP_STORE_PAGE_FAULT        0xf /* since: priv-1.10.0 */
 
+#define RISCV_EXCP_INT_CLIC                0x40000000
 #define RISCV_EXCP_INT_FLAG                0x80000000
-#define RISCV_EXCP_INT_MASK                0x7fffffff
+#define RISCV_EXCP_INT_MASK                0x3fffffff
 
 /* Interrupt causes */
 #define IRQ_U_SOFT                         0
@@ -465,3 +505,26 @@
 #define SIP_SSIP                           MIP_SSIP
 #define SIP_STIP                           MIP_STIP
 #define SIP_SEIP                           MIP_SEIP
+
+/* mintstatus */
+#define MINTSTATUS_MIL                     0x0000f000 /* mil[3:0] */
+#define MINTSTATUS_SIL                     0x000000f0 /* sil[3:0] */
+#define MINTSTATUS_UIL                     0x0000000f /* uil[3:0] */
+
+/* mcause */
+#define MCAUSE_MINHV                       0x40000000 /* minhv */
+#define MCAUSE_MPP                         0x30000000 /* mpp[1:0] */
+#define MCAUSE_MPIL                        0x0f000000 /* mpil[3:0] */
+#define MCAUSE_MPIE                        0x00800000 /* mpie */
+#define MCAUSE_EXCCODE                     0x000003ff /* exccode[9:0] */
+
+/* sintstatus */
+#define SINTSTATUS_SIL                     0x000000f0 /* sil[3:0] */
+#define SINTSTATUS_UIL                     0x0000000f /* uil[3:0] */
+
+/* scause */
+#define SCAUSE_SINHV                       0x40000000 /* sinhv */
+#define SCAUSE_SPP                         0x30000000 /* spp[1:0] */
+#define SCAUSE_SPIL                        0x0f000000 /* spil[3:0] */
+#define SCAUSE_SPIE                        0x00800000 /* spie */
+#define SCAUSE_EXCCODE                     0x000003ff /* exccode[9:0] */

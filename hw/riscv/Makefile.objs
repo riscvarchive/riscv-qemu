@@ -2,6 +2,7 @@ obj-y += boot.o
 obj-y += riscv_htif.o
 obj-y += riscv_hart.o
 obj-y += sifive_e.o
+obj-y += sifive_clic.o
 obj-y += sifive_clint.o
 obj-y += sifive_prci.o
 obj-y += sifive_plic.o

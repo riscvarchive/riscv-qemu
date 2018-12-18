@@ -87,6 +87,12 @@ target_ulong helper_sret(CPURISCVState *env, target_ulong cpu_pc_deb)
         riscv_raise_exception(env, RISCV_EXCP_ILLEGAL_INST, GETPC());
     }
 
+    /* if CLIC mode, copy mcause.mpil into minstatus.mil */
+    if ((env->stvec & 0b111110) == 0b000010) {
+        env->mintstatus = set_field(env->mintstatus, SINTSTATUS_SIL,
+                                    get_field(env->mcause, SCAUSE_SPIL));
+    }
+
     target_ulong mstatus = env->mstatus;
     target_ulong prev_priv = get_field(mstatus, MSTATUS_SPP);
     mstatus = set_field(mstatus,
@@ -110,6 +116,12 @@ target_ulong helper_mret(CPURISCVState *env, target_ulong cpu_pc_deb)
     target_ulong retpc = env->mepc;
     if (!riscv_has_ext(env, RVC) && (retpc & 0x3)) {
         riscv_raise_exception(env, RISCV_EXCP_INST_ADDR_MIS, GETPC());
+    }
+
+    /* if CLIC mode, copy mcause.mpil into minstatus.mil */
+    if ((env->mtvec & 0b111110) == 0b000010) {
+        env->mintstatus = set_field(env->mintstatus, MINTSTATUS_MIL,
+                                    get_field(env->mcause, MCAUSE_MPIL));
     }
 
     target_ulong mstatus = env->mstatus;

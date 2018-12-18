@@ -261,7 +261,7 @@ static bool riscv_cpu_has_work(CPUState *cs)
      * Definition of the WFI instruction requires it to ignore the privilege
      * mode and delegation registers, but respect individual enables
      */
-    return (atomic_read(&env->mip) & env->mie) != 0;
+    return (atomic_read(&env->mip) & env->mie) != 0 || (env->exccode != -1);
 #else
     return true;
 #endif
@@ -285,6 +285,7 @@ static void riscv_cpu_reset(CPUState *cs)
     env->mstatus &= ~(MSTATUS_MIE | MSTATUS_MPRV);
     env->mcause = 0;
     env->pc = env->resetvec;
+    env->exccode = -1; /* current CLIC interrupt */
 #endif
     cs->exception_index = EXCP_NONE;
     set_default_nan_mode(1, &env->fp_status);
@@ -310,6 +311,8 @@ static void riscv_cpu_realize(DeviceState *dev, Error **errp)
         error_propagate(errp, local_err);
         return;
     }
+
+    riscv_cpu_register_gdb_regs_for_features(cs);
 
     qemu_init_vcpu(cs);
     cpu_reset(cs);
@@ -351,7 +354,12 @@ static void riscv_cpu_class_init(ObjectClass *c, void *data)
     cc->synchronize_from_tb = riscv_cpu_synchronize_from_tb;
     cc->gdb_read_register = riscv_cpu_gdb_read_register;
     cc->gdb_write_register = riscv_cpu_gdb_write_register;
-    cc->gdb_num_core_regs = 65;
+    cc->gdb_num_core_regs = 33;
+#if defined(TARGET_RISCV32)
+    cc->gdb_core_xml_file = "riscv-32bit-cpu.xml";
+#elif defined(TARGET_RISCV64)
+    cc->gdb_core_xml_file = "riscv-64bit-cpu.xml";
+#endif
     cc->gdb_stop_before_watchpoint = true;
     cc->disas_set_info = riscv_cpu_disas_set_info;
 #ifdef CONFIG_USER_ONLY
