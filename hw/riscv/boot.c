@@ -34,6 +34,13 @@
         fprintf(stderr, "boot: %s: "fs, __func__, ##__VA_ARGS__); \
     }
 
+/*
+ * Limit the maximum RAM size to 2 GiB to stay within the 32-bit address space
+ * and ensure compatibility with both RV32I and RV64I. This assumes that RAM
+ * starts at an offset of 2 GiB.
+ */
+#define RISCV_BIN_LIMIT (2UL << 30)
+
 static uint64_t kernel_offset;
 
 static uint64_t kernel_translate(void *opaque, uint64_t addr)
@@ -46,15 +53,24 @@ static uint64_t kernel_translate(void *opaque, uint64_t addr)
     }
 }
 
-hwaddr riscv_load_firmware(const char *filename)
+hwaddr riscv_load_firmware(const char *filename, hwaddr ram_start)
 {
     uint64_t firmware_entry, firmware_start, firmware_end;
+    int64_t size;
 
     if (load_elf(filename, NULL, NULL,
                  &firmware_entry, &firmware_start, &firmware_end,
                  0, EM_RISCV, 1, 0) < 0) {
-        error_report("riscv_boot: could not load firmware '%s'", filename);
-        exit(1);
+        firmware_entry = ram_start;
+        firmware_start = ram_start;
+
+        size = load_image_targphys(filename, firmware_start, RISCV_BIN_LIMIT);
+        if (size < 0) {
+            error_report("riscv_boot: could not load firmware '%s'", filename);
+            exit(1);
+        }
+
+        firmware_end = firmware_start + size;
     }
 
     /* align kernel load address to the megapage after the firmware */
@@ -71,15 +87,29 @@ hwaddr riscv_load_firmware(const char *filename)
     return firmware_entry;
 }
 
-hwaddr riscv_load_kernel(const char *filename, void *fdt)
+hwaddr riscv_load_kernel(const char *filename, void *fdt, hwaddr ram_start)
 {
     uint64_t kernel_entry, kernel_start, kernel_end;
+    int64_t size;
 
     if (load_elf(filename, kernel_translate, NULL,
                  &kernel_entry, &kernel_start, &kernel_end,
                  0, EM_RISCV, 1, 0) < 0) {
-        error_report("riscv_boot: could not load kernel '%s'", filename);
-        exit(1);
+        if (kernel_offset) {
+            kernel_entry = kernel_offset;
+            kernel_start = kernel_offset;
+        } else {
+            kernel_entry = ram_start;
+            kernel_start = ram_start;
+        }
+
+        size = load_image_targphys(filename, kernel_start, RISCV_BIN_LIMIT);
+        if (size < 0) {
+            error_report("riscv_boot: could not load kernel '%s'", filename);
+            exit(1);
+        }
+
+        kernel_end = kernel_start + size;
     }
 
     boot_debug("entry=0x" TARGET_FMT_plx " start=0x" TARGET_FMT_plx " "
@@ -143,23 +173,25 @@ void riscv_load_initrd(const char *filename, uint64_t mem_size,
     }
 }
 
-hwaddr riscv_load_firmware_kernel_initrd(MachineState *machine, void *fdt)
+hwaddr riscv_load_firmware_kernel_initrd(MachineState *machine, void *fdt,
+                                         hwaddr ram_start)
 {
     hwaddr firmware_entry = 0;
 
     /* load firmware e.g. -bios bbl */
     if (machine->firmware) {
-        firmware_entry = riscv_load_firmware(machine->firmware);
+        firmware_entry = riscv_load_firmware(machine->firmware, ram_start);
     }
 
     /* load combined bbl+kernel or separate kernel */
     if (machine->kernel_filename) {
         if (machine->firmware) {
             /* load separate bios and kernel e.g. -bios bbl -kernel vmlinux */
-            riscv_load_kernel(machine->kernel_filename, fdt);
+            riscv_load_kernel(machine->kernel_filename, fdt, ram_start);
         } else {
             /* load traditional combined bbl+kernel e.g. -kernel bbl_vmlimux */
-            firmware_entry = riscv_load_kernel(machine->kernel_filename, NULL);
+            firmware_entry = riscv_load_kernel(machine->kernel_filename, NULL,
+                                               ram_start);
         }
         if (machine->initrd_filename) {
             /* load separate initrd */

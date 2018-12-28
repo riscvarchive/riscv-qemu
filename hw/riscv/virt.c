@@ -267,7 +267,8 @@ static void riscv_virt_board_init(MachineState *machine)
      * separate firmware and kernel: -bios bbl -kernel vmlinux
      * firmware, kernel and ramdisk: -bios bbl -kernel vmlinux -initrd initramfs
      */
-    firmware_entry = riscv_load_firmware_kernel_initrd(machine, fdt);
+    firmware_entry = riscv_load_firmware_kernel_initrd(machine, fdt,
+                                                       memmap[VIRT_DRAM].base);
 
     /* reset vector */
     uint32_t reset_vec[8] = {

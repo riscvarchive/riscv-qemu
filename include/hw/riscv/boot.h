@@ -21,10 +21,11 @@
 #ifndef HW_RISCV_BOOT_H
 #define HW_RISCV_BOOT_H
 
-hwaddr riscv_load_firmware(const char *filename);
-hwaddr riscv_load_kernel(const char *filename, void *fdt);
+hwaddr riscv_load_firmware(const char *filename, hwaddr ram_start);
+hwaddr riscv_load_kernel(const char *filename, void *fdt, hwaddr ram_start);
 void riscv_load_initrd(const char *filename, uint64_t mem_size,
                        hwaddr firmware_entry, void *fdt);
-hwaddr riscv_load_firmware_kernel_initrd(MachineState *machine, void *fdt);
+hwaddr riscv_load_firmware_kernel_initrd(MachineState *machine, void *fdt,
+                                         hwaddr ram_start);
 
 #endif
