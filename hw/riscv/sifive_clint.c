@@ -48,8 +48,9 @@ static void sifive_clint_write_timecmp(RISCVCPU *cpu, uint64_t value)
     uint64_t rtc = cpu_riscv_read_rtc();
     uint64_t cmp = env->mtimecmp = value;
     uint64_t diff = cmp - rtc;
-    uint64_t next_ns = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) +
-        muldiv64(diff, NANOSECONDS_PER_SECOND, SIFIVE_CLINT_TIMEBASE_FREQ);
+    uint64_t lapse_ns;
+    uint64_t clock_ns;
+    int64_t  next_ns;
 
     if (cmp <= rtc) {
         /* if we're setting a timecmp value in the "past",
@@ -58,6 +59,24 @@ static void sifive_clint_write_timecmp(RISCVCPU *cpu, uint64_t value)
     } else {
         /* otherwise, set up the future timer interrupt */
         riscv_cpu_update_mip(cpu, MIP_MTIP, BOOL_TO_MASK(0));
+
+        /* How many nanoseconds until the next trigger */
+        lapse_ns = muldiv64(diff,
+                            NANOSECONDS_PER_SECOND,
+                            SIFIVE_CLINT_TIMEBASE_FREQ);
+
+        /* Current time in nanoseconds */
+        clock_ns = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
+
+        if ((G_MAXINT64 - clock_ns) <= lapse_ns) {
+            /* clock + lapse would overflow on 64bit. The highest 64bit value is
+             * used as the next trigger time.
+             */
+            next_ns = G_MAXINT64;
+        } else {
+            next_ns = clock_ns + lapse_ns;
+        }
+
         timer_mod(env->mtimer, next_ns);
     }
 }
