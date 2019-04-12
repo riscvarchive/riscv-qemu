@@ -1,9 +1,0 @@
-config DS1225Y
-    bool
-
-config AT24C
-    bool
-    depends on I2C
-
-config MAC_NVRAM
-    bool

@@ -1,5 +1,0 @@
-config OR1K_SIM
-    bool
-    select SERIAL
-    select OPENCORES_ETH
-    select OMPIC
